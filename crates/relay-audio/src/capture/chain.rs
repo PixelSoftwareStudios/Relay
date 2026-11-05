@@ -69,19 +69,21 @@ impl CaptureChain {
 			}
 			stats.device_samples += outcome.count;
 			let assembler = &mut self.assembler;
-			self.resampler.push(&self.scratch[..outcome.count], |block| {
-				assembler.push(block, |frame, timing| {
-					stats.frames_emitted += 1;
-					on_frame(frame, timing);
-				});
-			})?;
+			self.resampler
+				.push(&self.scratch[..outcome.count], |block| {
+					assembler.push(block, |frame, timing| {
+						stats.frames_emitted += 1;
+						on_frame(frame, timing);
+					});
+				})?;
 		}
 		Ok(stats)
 	}
 
 	fn restart(&mut self, device_index: u64) {
 		self.resampler.reset();
-		let base = u128::from(device_index) * u128::from(INTERNAL_RATE) / u128::from(self.device_rate);
+		let base =
+			u128::from(device_index) * u128::from(INTERNAL_RATE) / u128::from(self.device_rate);
 		self.assembler.restart(base as u64);
 	}
 }

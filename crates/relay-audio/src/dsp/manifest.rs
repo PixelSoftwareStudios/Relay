@@ -98,7 +98,10 @@ pub enum ManifestError {
 }
 
 fn is_sha256(value: &str) -> bool {
-	value.len() == 64 && value.bytes().all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
+	value.len() == 64
+		&& value
+			.bytes()
+			.all(|b| matches!(b, b'0'..=b'9' | b'a'..=b'f'))
 }
 
 fn non_empty(value: &Option<String>) -> bool {
@@ -126,10 +129,8 @@ impl ModelManifest {
 		if self.runtime.threads < 1 {
 			return bad("runtime.threads must be at least 1");
 		}
-		if let Some(hash) = &self.model.sha256 {
-			if !is_sha256(hash) {
-				return bad("model.sha256 must be 64 lowercase hex characters");
-			}
+		if self.model.sha256.as_deref().is_some_and(|h| !is_sha256(h)) {
+			return bad("model.sha256 must be 64 lowercase hex characters");
 		}
 		if self.audio.sample_rate_hz.is_some_and(|r| r < 8000) {
 			return bad("audio.sample_rate_hz must be at least 8000");
@@ -137,7 +138,11 @@ impl ModelManifest {
 		if self.audio.hop_samples == Some(0) || self.audio.analysis_window_samples == Some(0) {
 			return bad("audio hop and window must be at least 1");
 		}
-		if self.audio.measured_total_delay_ms.is_some_and(|d| !(d >= 0.0)) {
+		if self
+			.audio
+			.measured_total_delay_ms
+			.is_some_and(|d| d.is_nan() || d < 0.0)
+		{
 			return bad("audio.measured_total_delay_ms must be non-negative");
 		}
 		if self.status == Status::Qualified {
@@ -170,7 +175,8 @@ impl ModelManifest {
 		if !self.distribution.approved {
 			return missing("distribution.approved = true");
 		}
-		if !non_empty(&self.distribution.code_license) || !non_empty(&self.distribution.model_license)
+		if !non_empty(&self.distribution.code_license)
+			|| !non_empty(&self.distribution.model_license)
 		{
 			return missing("code and model licenses");
 		}

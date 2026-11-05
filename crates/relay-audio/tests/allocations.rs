@@ -1,0 +1,247 @@
+//! Proves the steady-state callback and processing paths never touch the heap.
+//!
+//! A global allocator counts allocations made on the current thread while a
+//! guard is armed. Setup (including warm-up) is allowed to allocate; the
+//! measured regions are not.
+
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
+
+use relay_audio::capture::{CaptureChain, CaptureSetup, capture_pair};
+use relay_audio::codec::{CallDecoder, CallEncoder, EncoderConfig, MAX_PACKET_BYTES};
+use relay_audio::convert::{ChannelSelect, StreamResampler};
+use relay_audio::device::{
+	DeviceSelection, Direction, FakeBackend, FakeDeviceSpec, SampleFormatKind, Signal,
+};
+use relay_audio::mixer::Mixer;
+use relay_audio::pipeline::{LoopbackConfig, LoopbackPipeline};
+use relay_audio::playback::playback_pair;
+
+struct Counting;
+
+thread_local! {
+	static ARMED: Cell<bool> = const { Cell::new(false) };
+	static COUNT: Cell<u64> = const { Cell::new(0) };
+}
+
+fn note() {
+	ARMED.with(|armed| {
+		if armed.get() {
+			COUNT.with(|c| c.set(c.get() + 1));
+		}
+	});
+}
+
+// SAFETY: every method forwards to the system allocator unchanged; the
+// bookkeeping only touches const-initialised, destructor-free thread locals.
+unsafe impl GlobalAlloc for Counting {
+	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+		note();
+		// SAFETY: same contract as the caller's.
+		unsafe { System.alloc(layout) }
+	}
+
+	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
+		note();
+		// SAFETY: same contract as the caller's.
+		unsafe { System.alloc_zeroed(layout) }
+	}
+
+	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+		// SAFETY: ptr/layout come from this allocator's `alloc`.
+		unsafe { System.dealloc(ptr, layout) }
+	}
+
+	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+		note();
+		// SAFETY: ptr/layout come from this allocator's `alloc`.
+		unsafe { System.realloc(ptr, layout, new_size) }
+	}
+}
+
+#[global_allocator]
+static ALLOC: Counting = Counting;
+
+/// Allocations made on this thread while `f` runs.
+fn allocations_in(f: impl FnOnce()) -> u64 {
+	COUNT.with(|c| c.set(0));
+	ARMED.with(|a| a.set(true));
+	f();
+	ARMED.with(|a| a.set(false));
+	COUNT.with(Cell::get)
+}
+
+#[test]
+fn counter_actually_counts() {
+	let n = allocations_in(|| {
+		let v = std::hint::black_box(vec![1_u8; 64]);
+		drop(v);
+	});
+	assert!(n >= 1, "the counting allocator must observe allocations");
+}
+
+#[test]
+fn capture_callback_is_allocation_free() {
+	let (mut cb, mut reader, shared) = capture_pair(CaptureSetup {
+		channels: 2,
+		select: ChannelSelect::Average,
+		ring_samples: 4096,
+	});
+	let f32_data = vec![0.1_f32; 2 * 480];
+	let i16_data = vec![1000_i16; 2 * 480];
+	let mut sink = vec![0.0_f32; 1024];
+	let n = allocations_in(|| {
+		for i in 0..200 {
+			cb.process(&f32_data);
+			cb.process(&i16_data);
+			if i == 50 {
+				shared.set_muted(true);
+			}
+			if i == 60 {
+				shared.set_muted(false);
+			}
+			// Includes overrun and gap-event paths: the ring is small.
+			if i % 3 == 0 {
+				reader.read(&mut sink);
+			}
+		}
+	});
+	assert_eq!(n, 0);
+}
+
+#[test]
+fn playback_callback_is_allocation_free() {
+	let (mut cb, mut writer, shared) = playback_pair(2, 4096);
+	let mut f32_out = vec![0.0_f32; 2 * 480];
+	let mut i16_out = vec![0_i16; 2 * 480];
+	let data = vec![0.2_f32; 300];
+	let n = allocations_in(|| {
+		for i in 0..200 {
+			writer.write(&data);
+			cb.process(&mut f32_out); // underruns and normal paths
+			cb.process(&mut i16_out);
+			if i == 100 {
+				shared.request_flush();
+			}
+		}
+	});
+	assert_eq!(n, 0);
+	assert!(shared.underrun_frames() > 0);
+}
+
+#[test]
+fn resampler_codec_and_mixer_are_allocation_free() {
+	let mut resampler = StreamResampler::new(44_100, 48_000, 441).unwrap();
+	let mut enc = CallEncoder::new(EncoderConfig::default()).unwrap();
+	let mut dec = CallDecoder::new().unwrap();
+	let mut mixer = Mixer::new(480);
+	let slot = mixer.open_slot().unwrap();
+	let input: Vec<f32> = (0..441).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
+	let frame: Vec<f32> = (0..480).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
+	let mut packet = [0u8; MAX_PACKET_BYTES];
+	let mut decoded = [0.0_f32; 480];
+	let mut mixed = [0.0_f32; 480];
+	let mut produced = 0;
+	// Warm-up: first calls may initialise lazily inside the libraries.
+	for _ in 0..20 {
+		resampler.push(&input, |b| produced += b.len()).unwrap();
+		let len = enc.encode(&frame, &mut packet).unwrap();
+		dec.decode(&packet[..len], &mut decoded).unwrap();
+	}
+	let n = allocations_in(|| {
+		for _ in 0..100 {
+			resampler
+				.push(&input[..300], |b| produced += b.len())
+				.unwrap();
+			resampler
+				.push(&input[300..], |b| produced += b.len())
+				.unwrap();
+			resampler.set_drift_ppm(50.0).unwrap();
+			let len = enc.encode(&frame, &mut packet).unwrap();
+			dec.decode(&packet[..len], &mut decoded).unwrap();
+			dec.conceal(&mut decoded).unwrap();
+			mixer.begin();
+			mixer.add(slot, &decoded).unwrap();
+			mixer.finish(&mut mixed).unwrap();
+		}
+	});
+	assert!(produced > 0);
+	assert_eq!(n, 0);
+}
+
+#[test]
+fn full_loopback_step_is_allocation_free() {
+	let mut backend = FakeBackend::new(vec![
+		FakeDeviceSpec {
+			is_default: true,
+			sample_rate: 44_100,
+			channels: 2,
+			format: SampleFormatKind::I16,
+			..FakeDeviceSpec::new("mic", Direction::Input)
+		},
+		FakeDeviceSpec {
+			is_default: true,
+			sample_rate: 44_100,
+			channels: 2,
+			..FakeDeviceSpec::new("out", Direction::Output)
+		},
+	]);
+	let mut config = LoopbackConfig::new(
+		DeviceSelection::FollowDefault,
+		DeviceSelection::FollowDefault,
+	);
+	config.loss = Some(Box::new(|seq| seq % 7 == 3));
+	let mut pipe = LoopbackPipeline::open(&mut backend, config).unwrap();
+	let mut mic = backend.take_capture_driver().unwrap();
+	let mut out = backend.take_playback_driver().unwrap();
+	mic.set_signal(Signal::Sine {
+		freq_hz: 400.0,
+		amplitude: 0.4,
+	});
+	for _ in 0..30 {
+		mic.run(441);
+		pipe.step().unwrap();
+		out.render(441);
+	}
+	let n = allocations_in(|| {
+		for _ in 0..300 {
+			mic.run(441);
+			pipe.step().unwrap();
+			out.render(441);
+		}
+	});
+	assert_eq!(n, 0, "steady-state device-to-device path must not allocate");
+	assert!(pipe.stats().frames_encoded > 250);
+}
+
+#[test]
+fn capture_chain_poll_is_allocation_free() {
+	let mut backend = FakeBackend::new(vec![FakeDeviceSpec {
+		is_default: true,
+		sample_rate: 16_000,
+		..FakeDeviceSpec::new("mic", Direction::Input)
+	}]);
+	let e = relay_audio::device::AudioBackend::enumerate(&mut backend).unwrap();
+	let stream = relay_audio::device::AudioBackend::open_capture(
+		&mut backend,
+		e.devices[0].handle,
+		&Default::default(),
+	)
+	.unwrap();
+	let mut driver = backend.take_capture_driver().unwrap();
+	driver.set_signal(Signal::Ramp);
+	let mut chain = CaptureChain::new(stream.reader, 16_000).unwrap();
+	let mut frames = 0;
+	for _ in 0..10 {
+		driver.run(160);
+		chain.poll(|_, _| frames += 1).unwrap();
+	}
+	let n = allocations_in(|| {
+		for _ in 0..200 {
+			driver.run(160);
+			chain.poll(|_, _| frames += 1).unwrap();
+		}
+	});
+	assert_eq!(n, 0);
+	assert!(frames > 100);
+}

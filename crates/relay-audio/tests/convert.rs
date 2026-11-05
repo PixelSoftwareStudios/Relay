@@ -52,7 +52,12 @@ fn tone(rate: u32, n: usize) -> Vec<f32> {
 
 #[test]
 fn resampling_keeps_counts_and_signal_level() {
-	for (from, to) in [(44_100_u32, 48_000_u32), (48_000, 16_000), (16_000, 48_000), (96_000, 48_000)] {
+	for (from, to) in [
+		(44_100_u32, 48_000_u32),
+		(48_000, 16_000),
+		(16_000, 48_000),
+		(96_000, 48_000),
+	] {
 		let mut r = StreamResampler::new(from, to, (from / 100) as usize).unwrap();
 		let input = tone(from, from as usize); // one second
 		let mut got = Vec::new();
@@ -70,7 +75,10 @@ fn resampling_keeps_counts_and_signal_level() {
 		);
 		let tail = &got[got.len() / 2..];
 		let rms = (tail.iter().map(|v| v * v).sum::<f32>() / tail.len() as f32).sqrt();
-		assert!((rms - 0.5 / 2.0_f32.sqrt()).abs() < 0.03, "{from}->{to} rms {rms}");
+		assert!(
+			(rms - 0.5 / 2.0_f32.sqrt()).abs() < 0.03,
+			"{from}->{to} rms {rms}"
+		);
 	}
 }
 

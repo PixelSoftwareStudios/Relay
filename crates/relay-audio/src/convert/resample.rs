@@ -39,7 +39,9 @@ impl StreamResampler {
 	/// Allocates; call during setup only.
 	pub fn new(in_rate: u32, out_rate: u32, chunk_in: usize) -> Result<Self> {
 		if in_rate == 0 || out_rate == 0 || chunk_in == 0 {
-			return Err(AudioError::InvalidArgument("rates and chunk must be nonzero"));
+			return Err(AudioError::InvalidArgument(
+				"rates and chunk must be nonzero",
+			));
 		}
 		let core = if in_rate == out_rate {
 			None

@@ -102,7 +102,9 @@ impl Enumeration {
 	}
 
 	pub fn of_direction(&self, direction: Direction) -> impl Iterator<Item = &DeviceDescriptor> {
-		self.devices.iter().filter(move |d| d.key.direction == direction)
+		self.devices
+			.iter()
+			.filter(move |d| d.key.direction == direction)
 	}
 
 	pub fn resolve(&self, direction: Direction, selection: &DeviceSelection) -> Resolution {

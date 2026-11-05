@@ -97,7 +97,9 @@ impl LoopbackPipeline {
 			})
 			.map_err(|e| AudioError::Backend(e.to_string()))?;
 		let mut mixer = Mixer::new(FRAME_SAMPLES);
-		let slot = mixer.open_slot().ok_or(AudioError::InvalidArgument("no mixer slot"))?;
+		let slot = mixer
+			.open_slot()
+			.ok_or(AudioError::InvalidArgument("no mixer slot"))?;
 		let sink = playback_sink(playback.writer, playback.config.sample_rate)?;
 		capture.handle.play()?;
 		playback.handle.play()?;
@@ -195,7 +197,7 @@ impl LoopbackPipeline {
 			return Err(e);
 		}
 		self.steps += 1;
-		if self.steps % 50 == 0 {
+		if self.steps.is_multiple_of(50) {
 			self.sink.update_drift()?;
 		}
 		Ok(self.stats)

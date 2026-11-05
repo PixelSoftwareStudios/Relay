@@ -6,9 +6,9 @@ use super::{
 	StreamHealth, StreamRequest, StreamState, ring_samples_for,
 };
 use crate::capture::{CaptureCallback, CaptureSetup, capture_pair};
+use crate::convert::Sample;
 use crate::error::{AudioError, Result};
 use crate::playback::{PlaybackCallback, playback_pair};
-use crate::convert::Sample;
 
 /// A scripted device.
 #[derive(Debug, Clone)]
@@ -42,11 +42,17 @@ impl FakeDeviceSpec {
 #[derive(Debug, Clone, Copy)]
 pub enum Signal {
 	Silence,
-	Sine { freq_hz: f32, amplitude: f32 },
+	Sine {
+		freq_hz: f32,
+		amplitude: f32,
+	},
 	/// Slowly increasing values: `((index % 1000) + 1) / 2000`. Useful to
 	/// verify exact sample accounting.
 	Ramp,
-	Impulse { at: u64, amplitude: f32 },
+	Impulse {
+		at: u64,
+		amplitude: f32,
+	},
 }
 
 impl Signal {
@@ -288,10 +294,16 @@ impl AudioBackend for FakeBackend {
 		})
 	}
 
-	fn open_capture(&mut self, device: DeviceHandle, request: &StreamRequest) -> Result<CaptureStream> {
+	fn open_capture(
+		&mut self,
+		device: DeviceHandle,
+		request: &StreamRequest,
+	) -> Result<CaptureStream> {
 		let spec = self.spec(device, Direction::Input)?;
 		if !request.select.is_valid_for(spec.channels) {
-			return Err(AudioError::UnsupportedFormat("channel selection out of range".into()));
+			return Err(AudioError::UnsupportedFormat(
+				"channel selection out of range".into(),
+			));
 		}
 		let config = Self::actual(spec);
 		let (callback, reader, shared) = capture_pair(CaptureSetup {

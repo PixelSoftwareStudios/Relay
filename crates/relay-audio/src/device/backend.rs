@@ -4,7 +4,7 @@ use super::{DeviceHandle, Enumeration, SampleFormatKind, StreamHealth};
 use crate::capture::{CaptureReader, CaptureShared};
 use crate::convert::ChannelSelect;
 use crate::error::Result;
-use crate::playback::{PlaybackWriter, PlaybackShared};
+use crate::playback::{PlaybackShared, PlaybackWriter};
 use std::sync::Arc;
 
 /// Requested stream shape. The backend reports what it actually opened.
@@ -64,7 +64,11 @@ pub struct PlaybackStream {
 pub trait AudioBackend {
 	/// Scan devices; handles from earlier scans become invalid.
 	fn enumerate(&mut self) -> Result<Enumeration>;
-	fn open_capture(&mut self, device: DeviceHandle, request: &StreamRequest) -> Result<CaptureStream>;
+	fn open_capture(
+		&mut self,
+		device: DeviceHandle,
+		request: &StreamRequest,
+	) -> Result<CaptureStream>;
 	fn open_playback(
 		&mut self,
 		device: DeviceHandle,

@@ -34,7 +34,10 @@ fn master_gain_and_cap() {
 	m.set_master_gain(1.0).unwrap();
 	mix_once(&mut m, &[(a, vec![0.1; 8])]);
 	let out = mix_once(&mut m, &[(a, vec![0.1; 8])]);
-	assert!((out[0] - 0.1 * MAX_GAIN).abs() < 1e-6, "gain must cap at MAX_GAIN");
+	assert!(
+		(out[0] - 0.1 * MAX_GAIN).abs() < 1e-6,
+		"gain must cap at MAX_GAIN"
+	);
 	assert!(m.set_call_gain(a, f32::NAN).is_err());
 }
 
@@ -56,7 +59,10 @@ fn corrupt_input_does_not_poison_the_mix() {
 	let (a, b) = (m.open_slot().unwrap(), m.open_slot().unwrap());
 	let out = mix_once(
 		&mut m,
-		&[(a, vec![f32::NAN, f32::INFINITY, 0.0, 0.0]), (b, vec![0.25; 4])],
+		&[
+			(a, vec![f32::NAN, f32::INFINITY, 0.0, 0.0]),
+			(b, vec![0.25; 4]),
+		],
 	);
 	assert!(out.iter().all(|v| v.is_finite() && (v - 0.25).abs() < 1e-6));
 	assert_eq!(m.rejected_samples(), 2);
@@ -65,7 +71,9 @@ fn corrupt_input_does_not_poison_the_mix() {
 #[test]
 fn slots_are_bounded_and_scratch_is_cleared() {
 	let mut m = Mixer::new(4);
-	let slots: Vec<_> = (0..relay_audio::MAX_CALLS).map(|_| m.open_slot().unwrap()).collect();
+	let slots: Vec<_> = (0..relay_audio::MAX_CALLS)
+		.map(|_| m.open_slot().unwrap())
+		.collect();
 	assert!(m.open_slot().is_none());
 	m.close_slot(slots[0]);
 	assert!(m.open_slot().is_some());

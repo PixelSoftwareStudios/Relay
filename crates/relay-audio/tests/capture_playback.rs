@@ -11,7 +11,9 @@ fn setup(ring: usize) -> CaptureSetup {
 	}
 }
 
-fn read_all(reader: &mut relay_audio::capture::CaptureReader) -> Vec<(u64, Vec<f32>, Option<Discontinuity>)> {
+fn read_all(
+	reader: &mut relay_audio::capture::CaptureReader,
+) -> Vec<(u64, Vec<f32>, Option<Discontinuity>)> {
 	let mut out = Vec::new();
 	let mut buf = [0.0; 64];
 	loop {

@@ -38,7 +38,10 @@ impl CallDecoder {
 	/// The packet's sample count is validated before decoding.
 	pub fn decode(&mut self, packet: &[u8], out: &mut [f32]) -> Result<DecodeKind> {
 		Self::check_out(out)?;
-		let samples = self.decoder.get_nb_samples(packet).map_err(|e| self.fail(e.into()))?;
+		let samples = self
+			.decoder
+			.get_nb_samples(packet)
+			.map_err(|e| self.fail(e.into()))?;
 		if samples != FRAME_SAMPLES {
 			return Err(self.fail(AudioError::BadFrameSize {
 				expected: FRAME_SAMPLES,

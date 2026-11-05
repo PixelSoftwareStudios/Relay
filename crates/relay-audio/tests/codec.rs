@@ -17,7 +17,10 @@ fn round_trips_a_tone() {
 	for n in 0..50 {
 		let len = enc.encode(&tone(n * 480), &mut packet).unwrap();
 		assert!(len > 0 && len < MAX_PACKET_BYTES);
-		assert_eq!(dec.decode(&packet[..len], &mut out).unwrap(), DecodeKind::Normal);
+		assert_eq!(
+			dec.decode(&packet[..len], &mut out).unwrap(),
+			DecodeKind::Normal
+		);
 		if n > 10 {
 			energy += out.iter().map(|v| v * v).sum::<f32>();
 		}
@@ -43,7 +46,8 @@ fn rejects_wrong_sizes() {
 #[test]
 fn rejects_twenty_ms_packets() {
 	// A 20 ms packet is valid Opus but not valid for the 10 ms profile.
-	let mut raw = opus::Encoder::new(48_000, opus::Channels::Mono, opus::Application::Voip).unwrap();
+	let mut raw =
+		opus::Encoder::new(48_000, opus::Channels::Mono, opus::Application::Voip).unwrap();
 	let mut packet = [0u8; 400];
 	let len = raw.encode_float(&[0.1; 960], &mut packet).unwrap();
 	let mut dec = CallDecoder::new().unwrap();
@@ -75,8 +79,14 @@ fn concealment_and_fec_hooks_produce_frames() {
 	// Packet 10 is lost: conceal it.
 	assert_eq!(dec.conceal(&mut out).unwrap(), DecodeKind::Concealed);
 	// Packet 11 arrives; a different loss would be repaired from its FEC data.
-	assert_eq!(dec.recover_previous(&packets[11], &mut out).unwrap(), DecodeKind::FecRecovered);
-	assert_eq!(dec.decode(&packets[11], &mut out).unwrap(), DecodeKind::Normal);
+	assert_eq!(
+		dec.recover_previous(&packets[11], &mut out).unwrap(),
+		DecodeKind::FecRecovered
+	);
+	assert_eq!(
+		dec.decode(&packets[11], &mut out).unwrap(),
+		DecodeKind::Normal
+	);
 }
 
 #[test]

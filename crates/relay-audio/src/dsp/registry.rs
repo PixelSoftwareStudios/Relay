@@ -55,5 +55,7 @@ pub fn create_suppressor(
 	manifest
 		.validate()
 		.map_err(|e| unavailable(&e.to_string()))?;
-	Err(unavailable("runtime integration is not implemented; no vetted model artifact"))
+	Err(unavailable(
+		"runtime integration is not implemented; no vetted model artifact",
+	))
 }

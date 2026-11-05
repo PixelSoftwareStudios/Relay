@@ -104,7 +104,9 @@ impl CaptureCallback {
 			done += written;
 			if written < n {
 				let lost = (frames - done) as u64;
-				self.shared.overrun_frames.fetch_add(lost, Ordering::Relaxed);
+				self.shared
+					.overrun_frames
+					.fetch_add(lost, Ordering::Relaxed);
 				self.skip(lost, Discontinuity::Overrun);
 				return;
 			}

@@ -103,8 +103,14 @@ impl CpalBackend {
 		request: &StreamRequest,
 	) -> Result<(StreamConfig, SampleFormatKind, u32)> {
 		let ranges: Vec<_> = match direction {
-			Direction::Input => device.supported_input_configs().map_err(backend_err)?.collect(),
-			Direction::Output => device.supported_output_configs().map_err(backend_err)?.collect(),
+			Direction::Input => device
+				.supported_input_configs()
+				.map_err(backend_err)?
+				.collect(),
+			Direction::Output => device
+				.supported_output_configs()
+				.map_err(backend_err)?
+				.collect(),
 		};
 		let needed = match request.select {
 			crate::convert::ChannelSelect::Channel(i) => i + 1,
@@ -139,7 +145,9 @@ impl CpalBackend {
 		let config = StreamConfig {
 			channels: supported.channels(),
 			sample_rate: supported.sample_rate(),
-			buffer_size: request.buffer_frames.map_or(BufferSize::Default, BufferSize::Fixed),
+			buffer_size: request
+				.buffer_frames
+				.map_or(BufferSize::Default, BufferSize::Fixed),
 		};
 		Ok((config, kind, max_callback))
 	}
@@ -241,11 +249,17 @@ impl AudioBackend for CpalBackend {
 		})
 	}
 
-	fn open_capture(&mut self, device: DeviceHandle, request: &StreamRequest) -> Result<CaptureStream> {
+	fn open_capture(
+		&mut self,
+		device: DeviceHandle,
+		request: &StreamRequest,
+	) -> Result<CaptureStream> {
 		let device = self.device(device, Direction::Input)?;
 		let (config, kind, max_callback) = Self::choose(device, Direction::Input, request)?;
 		if !request.select.is_valid_for(config.channels) {
-			return Err(AudioError::UnsupportedFormat("channel selection out of range".into()));
+			return Err(AudioError::UnsupportedFormat(
+				"channel selection out of range".into(),
+			));
 		}
 		let (callback, reader, shared) = capture_pair(CaptureSetup {
 			channels: config.channels,
