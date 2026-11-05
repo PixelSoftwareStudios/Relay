@@ -2,9 +2,13 @@
 
 pub mod corpus;
 pub mod metrics;
+pub mod real;
 pub mod runner;
+pub mod stoi;
+pub mod summary;
 pub mod synth;
 pub mod wav;
+pub mod worker;
 
 use thiserror::Error;
 

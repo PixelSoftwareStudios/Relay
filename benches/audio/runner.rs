@@ -11,6 +11,8 @@ use serde::Serialize;
 
 use super::corpus::Pair;
 use super::metrics::{align, correlation_delay, si_sdr_db};
+use super::stoi::stoi;
+use super::summary::{ConditionSummary, DelaySummary, by_condition, delays};
 use super::wav::read_mono_48k;
 use super::{BenchError, Result};
 
@@ -40,8 +42,10 @@ pub struct FileResult {
 	pub si_sdr_noisy_db: Option<f64>,
 	pub si_sdr_output_db: Option<f64>,
 	pub si_sdr_improvement_db: Option<f64>,
-	/// STOI is not computed: no vetted Rust implementation is available.
-	pub stoi: Option<f64>,
+	pub stoi_noisy: Option<f64>,
+	pub stoi_output: Option<f64>,
+	pub estoi_noisy: Option<f64>,
+	pub estoi_output: Option<f64>,
 	pub samples_consumed: u64,
 	pub samples_produced: u64,
 }
@@ -54,6 +58,12 @@ pub struct BackendResult {
 	pub prepare_ns: u64,
 	pub delay_impulse_samples: Option<usize>,
 	pub callback_allocations: Option<u64>,
+	/// Per-frame timing over every frame of every file.
+	pub overall_timing: Option<FrameTiming>,
+	/// Total CPU seconds per audio second over the whole corpus.
+	pub cpu_core_equivalent: f64,
+	pub delay_xcorr: Option<DelaySummary>,
+	pub by_condition: Vec<ConditionSummary>,
 	pub files: Vec<FileResult>,
 }
 
@@ -70,12 +80,12 @@ pub struct Report {
 }
 
 /// A candidate plus whether it needs a (silent) render reference each frame.
-struct Candidate {
-	ns: Box<dyn NoiseSuppressor>,
-	feed_render: bool,
+pub(crate) struct Candidate {
+	pub ns: Box<dyn NoiseSuppressor>,
+	pub feed_render: bool,
 }
 
-fn make_candidate(name: &str) -> Result<Candidate> {
+pub(crate) fn make_candidate(name: &str) -> Result<Candidate> {
 	let plain = |ns: Box<dyn NoiseSuppressor>| Candidate {
 		ns,
 		feed_render: false,
@@ -125,7 +135,11 @@ fn timing(mut ns: Vec<u64>) -> Option<FrameTiming> {
 	})
 }
 
-fn run_file(candidate: &mut Candidate, pair: &Pair) -> Result<FileResult> {
+fn run_file(
+	candidate: &mut Candidate,
+	pair: &Pair,
+	all_times: &mut Vec<u64>,
+) -> Result<FileResult> {
 	let noisy = read_mono_48k(&pair.noisy)?;
 	let clean = read_mono_48k(&pair.clean)?;
 	let frames = noisy.len() / FRAME_SAMPLES;
@@ -163,6 +177,9 @@ fn run_file(candidate: &mut Candidate, pair: &Pair) -> Result<FileResult> {
 	let si_out = si_sdr_db(ref_out, out);
 	let (ref_in, inp) = align(&clean, &noisy, 0, SKIP_SAMPLES);
 	let si_in = si_sdr_db(ref_in, inp);
+	let score_out = stoi(ref_out, out, 48_000);
+	let score_in = stoi(ref_in, inp, 48_000);
+	all_times.extend_from_slice(&times);
 	Ok(FileResult {
 		name: pair.name.clone(),
 		duration_s,
@@ -173,7 +190,10 @@ fn run_file(candidate: &mut Candidate, pair: &Pair) -> Result<FileResult> {
 		si_sdr_noisy_db: si_in,
 		si_sdr_output_db: si_out,
 		si_sdr_improvement_db: si_out.zip(si_in).map(|(o, i)| o - i),
-		stoi: None,
+		stoi_noisy: score_in.map(|s| s.stoi),
+		stoi_output: score_out.map(|s| s.stoi),
+		estoi_noisy: score_in.map(|s| s.estoi),
+		estoi_output: score_out.map(|s| s.estoi),
 		samples_consumed: consumed,
 		samples_produced: produced,
 	})
@@ -193,11 +213,12 @@ pub fn run_backend(name: &str, pairs: &[Pair]) -> Result<BackendResult> {
 	let descriptor = probe.ns.descriptor().clone();
 
 	let mut files = Vec::new();
+	let mut all_times = Vec::new();
 	for pair in pairs {
 		// Fresh state per file so results do not depend on corpus order.
 		let mut candidate = make_candidate(name)?;
 		candidate.ns.prepare(&limits).map_err(dsp)?;
-		files.push(run_file(&mut candidate, pair)?);
+		files.push(run_file(&mut candidate, pair, &mut all_times)?);
 	}
 	Ok(BackendResult {
 		backend: descriptor.backend_id.clone(),
@@ -210,6 +231,15 @@ pub fn run_backend(name: &str, pairs: &[Pair]) -> Result<BackendResult> {
 		prepare_ns,
 		delay_impulse_samples: delay_impulse,
 		callback_allocations: None,
+		overall_timing: timing(all_times),
+		cpu_core_equivalent: files.iter().map(|f| f.cpu_ns as f64 * 1e-9).sum::<f64>()
+			/ files
+				.iter()
+				.map(|f| f.duration_s)
+				.sum::<f64>()
+				.max(f64::EPSILON),
+		delay_xcorr: delays(&files),
+		by_condition: by_condition(&files),
 		files,
 	})
 }
@@ -232,9 +262,10 @@ pub fn run(names: &[String], pairs: &[Pair]) -> Result<Report> {
 		corpus_files: pairs.len(),
 		backends,
 		notes: vec![
-			"STOI is not computed: no vetted Rust implementation exists; field stays null.",
+			"STOI/eSTOI are this repo's implementation of the published algorithms; not validated against a reference implementation.",
 			"callback_allocations stays null here; allocation behaviour is asserted in relay-audio tests.",
 			"The AEC profile is fed silent render frames: only its processing cost is exercised.",
+			"Files with no estimable quantity (e.g. identical signals for SI-SDR) are left out of means.",
 			"Quality metrics skip the first 0.5 s and align output by cross-correlation delay.",
 		],
 	})

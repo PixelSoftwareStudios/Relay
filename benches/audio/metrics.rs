@@ -25,30 +25,37 @@ pub fn si_sdr_db(reference: &[f32], estimate: &[f32]) -> Option<f64> {
 	(residual > 0.0 && target > 0.0).then(|| 10.0 * (target / residual).log10())
 }
 
-/// Lag in samples by which `output` trails `input`, found by brute-force
-/// cross-correlation over `-max_lag..=max_lag` on a central segment.
+/// Lag in samples by which `output` trails `input`, found by
+/// cross-correlation over `-max_lag..=max_lag` on a central (up to 8 s)
+/// segment: a 4x-decimated coarse search, then a full-rate refinement.
 pub fn correlation_delay(input: &[f32], output: &[f32], max_lag: usize) -> Option<i64> {
+	const DECIM: usize = 4;
 	let n = input.len().min(output.len());
-	let seg = 16_000.min(n.saturating_sub(2 * max_lag));
-	if seg < 1000 {
+	let seg = 384_000.min(n.saturating_sub(2 * max_lag + DECIM));
+	if seg < 4_000 {
 		return None;
 	}
 	let start = (n - seg) / 2;
-	let mut best = (f64::MIN, 0_i64);
-	for lag in -(max_lag as i64)..=(max_lag as i64) {
-		let sum: f64 = input[start..start + seg]
-			.iter()
-			.enumerate()
-			.filter_map(|(k, &x)| {
-				let j = (start + k) as i64 + lag;
-				(j >= 0 && (j as usize) < n).then(|| f64::from(x) * f64::from(output[j as usize]))
+	let score = |lag: i64, step: usize| -> f64 {
+		(start..start + seg)
+			.step_by(step)
+			.filter_map(|i| {
+				let j = i as i64 + lag;
+				(j >= 0 && (j as usize) < n)
+					.then(|| f64::from(input[i]) * f64::from(output[j as usize]))
 			})
-			.sum();
-		if sum > best.0 {
-			best = (sum, lag);
-		}
-	}
-	(best.0 > 0.0).then_some(best.1)
+			.sum()
+	};
+	let max = max_lag as i64;
+	let coarse = (-max..=max)
+		.step_by(DECIM)
+		.map(|lag| (lag, score(lag, DECIM)))
+		.max_by(|a, b| a.1.total_cmp(&b.1))?;
+	let fine = (coarse.0 - DECIM as i64..=coarse.0 + DECIM as i64)
+		.filter(|l| l.abs() <= max)
+		.map(|lag| (lag, score(lag, 1)))
+		.max_by(|a, b| a.1.total_cmp(&b.1))?;
+	(fine.1 > 0.0).then_some(fine.0)
 }
 
 /// Shift `output` back by `delay` so it lines up with `reference`, and

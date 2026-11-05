@@ -1,4 +1,4 @@
-//! `audio-corpus generate <dir>` / `audio-corpus run <dir> [--backends a,b] [--out file.json]`
+//! `audio-corpus generate <dir>` / `audio-corpus worker <backend> <seconds>\n  audio-corpus run <dir> [--backends a,b] [--out file.json]`
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -8,7 +8,7 @@ use relay_benches::audio::runner::{default_backends, run};
 
 fn usage() -> ExitCode {
 	eprintln!(
-		"usage:\n  audio-corpus generate <dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json]"
+		"usage:\n  audio-corpus generate <dir>\n  audio-corpus build-real <corpus-root> <out-dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json]"
 	);
 	ExitCode::from(2)
 }
@@ -19,6 +19,18 @@ fn main() -> ExitCode {
 		Some("generate") if args.len() == 2 => generate_synthetic(&PathBuf::from(&args[1]), 8.0)
 			.map(|p| {
 				eprintln!("wrote {} pairs", p.len());
+			}),
+		Some("build-real") if args.len() == 3 => {
+			relay_benches::audio::real::build(&PathBuf::from(&args[1]), &PathBuf::from(&args[2]))
+				.map(|hash| println!("manifest sha256 {hash}"))
+		}
+		Some("worker") if args.len() == 3 => args[2]
+			.parse::<f64>()
+			.map_err(|e| relay_benches::audio::BenchError::Corpus(e.to_string()))
+			.and_then(|seconds| {
+				let report = relay_benches::audio::worker::run(&args[1], seconds)?;
+				println!("{}", serde_json::to_string_pretty(&report)?);
+				Ok(())
 			}),
 		Some("run") if args.len() >= 2 => run_command(&args[1..]),
 		_ => return usage(),

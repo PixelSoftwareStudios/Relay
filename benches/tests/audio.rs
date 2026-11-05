@@ -64,7 +64,6 @@ fn corpus_round_trips_and_runner_records_off_baseline() {
 	for file in &backend.files {
 		assert_eq!(file.delay_xcorr_samples, Some(0));
 		assert_eq!(file.samples_consumed, file.samples_produced);
-		assert!(file.stoi.is_none());
 		assert!(file.si_sdr_improvement_db.unwrap().abs() < 1e-6);
 		assert!(file.timing.as_ref().unwrap().p50_ns <= file.timing.as_ref().unwrap().max_ns);
 	}

@@ -128,6 +128,8 @@ webrtc-util = { version = "0.17.1", default-features = false, features = ["marsh
 tempfile = "3.27.0"
 hound = "3.5.1"
 cpu-time = "1.0.0"
+claxon = "0.4.3"
+sha2 = "0.10"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

@@ -12,8 +12,11 @@ fn wav_err(e: hound::Error) -> BenchError {
 	BenchError::Wav(e.to_string())
 }
 
-/// Read the first channel as `f32`, resampled to 48 kHz when needed.
-pub fn read_mono_48k(path: &Path) -> Result<Vec<f32>> {
+/// Read the first channel as `f32` at the file's own rate.
+pub fn read_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
+	if path.extension().and_then(|e| e.to_str()) == Some("flac") {
+		return read_flac_mono(path);
+	}
 	let mut reader = WavReader::open(path).map_err(wav_err)?;
 	let spec = reader.spec();
 	let channels = usize::from(spec.channels.max(1));
@@ -32,18 +35,53 @@ pub fn read_mono_48k(path: &Path) -> Result<Vec<f32>> {
 		}
 		other => return Err(BenchError::Wav(format!("unsupported format {other:?}"))),
 	};
-	let mono: Vec<f32> = samples.iter().step_by(channels).copied().collect();
-	if spec.sample_rate == INTERNAL_RATE {
-		return Ok(mono);
+	Ok((
+		samples.iter().step_by(channels).copied().collect(),
+		spec.sample_rate,
+	))
+}
+
+fn read_flac_mono(path: &Path) -> Result<(Vec<f32>, u32)> {
+	let mut reader = claxon::FlacReader::open(path).map_err(|e| BenchError::Wav(e.to_string()))?;
+	let info = reader.streaminfo();
+	let channels = info.channels.max(1) as usize;
+	let scale = 1.0 / (1_i64 << (info.bits_per_sample - 1)) as f32;
+	let mut mono = Vec::with_capacity(info.samples.unwrap_or(0) as usize);
+	for (i, sample) in reader.samples().enumerate() {
+		let value = sample.map_err(|e| BenchError::Wav(e.to_string()))?;
+		if i % channels == 0 {
+			mono.push(value as f32 * scale);
+		}
 	}
-	let chunk = (spec.sample_rate / 100).max(1) as usize;
-	let mut resampler = StreamResampler::new_fixed(spec.sample_rate, INTERNAL_RATE, chunk)
+	Ok((mono, info.sample_rate))
+}
+
+/// Convert to the 48 kHz internal rate with the band-limited resampler.
+pub fn resample_to_48k(samples: &[f32], rate: u32) -> Result<Vec<f32>> {
+	if rate == INTERNAL_RATE {
+		return Ok(samples.to_vec());
+	}
+	let chunk = (rate / 100).max(1) as usize;
+	let mut resampler = StreamResampler::new_fixed(rate, INTERNAL_RATE, chunk)
 		.map_err(|e| BenchError::Wav(e.to_string()))?;
-	let mut out = Vec::with_capacity(mono.len() * 48_000 / spec.sample_rate as usize + 480);
+	let mut out = Vec::with_capacity(samples.len() * 48_000 / rate as usize + 480);
 	resampler
-		.push(&mono, |b| out.extend_from_slice(b))
+		.push(samples, |b| out.extend_from_slice(b))
 		.map_err(|e| BenchError::Wav(e.to_string()))?;
 	Ok(out)
+}
+
+/// Read WAV or FLAC, first channel, resampled to 48 kHz.
+pub fn read_mono_48k(path: &Path) -> Result<Vec<f32>> {
+	let (samples, rate) = read_mono(path)?;
+	resample_to_48k(&samples, rate)
+}
+
+/// Streaminfo duration in seconds for a FLAC file, without decoding.
+pub fn flac_duration_s(path: &Path) -> Result<f64> {
+	let reader = claxon::FlacReader::open(path).map_err(|e| BenchError::Wav(e.to_string()))?;
+	let info = reader.streaminfo();
+	Ok(info.samples.unwrap_or(0) as f64 / f64::from(info.sample_rate))
 }
 
 /// Write 16-bit mono PCM at 48 kHz, saturating.
