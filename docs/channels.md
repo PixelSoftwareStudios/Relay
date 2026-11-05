@@ -97,7 +97,10 @@ Revocation and expiry story, honestly:
   being accepted by peers that also never saw it until expiry. To cut a member off with certainty,
   create a new channel (new owner key, new id) and re-invite. There is no "rekey in place".
 - Delegations (admins) are not revocable before their expiry (max 30 days); keep admin counts low.
-- Admission needs an admitter (owner or admin) online and reachable. If none is, nobody new joins;
+- Admission needs an admitter (owner or admin) online and reachable. In v1 the crypto and
+  verification for admin delegations exist (`Authority::delegate`, chain checks), but the wire
+  flow that enrols an admin (moving a delegation and the stored password credential to another
+  device) is **not implemented**; today only the owner device admits. If none is, nobody new joins;
   existing members still prove membership offline of the owner.
 
 ### D3. mDNS must not leak private channels
@@ -131,6 +134,9 @@ Per admitter, sans-IO (`AttemptLimiter`, injected monotonic clock):
   bypassable because a LAN attacker can mint unlimited Noise identities; the channel cap is the
   real defence and is a deliberate DoS trade-off (an attacker can lock out legitimate joiners);
 - per peer across channels: 30 failures per hour;
+- every attempt is **charged when the exchange starts** and refunded when it completes, because a
+  guesser who sees a bad confirmation just stops and would otherwise never be counted. Open
+  channels (public credential) are not charged;
 - uniform failure: unknown channel, unknown/expired/spent token and wrong secret all run the same
   PAKE with a dummy credential and end in one `JoinDenied` after confirmation, so there is no
   existence or validity oracle. A locked-out peer gets the same message, immediately.
@@ -196,10 +202,36 @@ non-member that learned the channel name, an attacker with a copy of the local s
 
 - `relay-core::channel`: `ChannelId`, `ChannelName`, `Policy`, `Memberships`, `Evidence`,
   `PeerScope`, `InboundPolicy`, `RingDecision`, `visible`. No I/O, no clock reads, no crypto.
-- `relay-net::channel`: `binding` (session binding), `tag` (blinded tags + advert TXT), `pake`
-  (SPAKE2 + confirmation), `cert` (delegations, certificates, revocations), `invite`,
-  `limiter`, `store` (`ChannelStore` trait, in-memory impl), `join` (joiner/admitter state
-  machines), `proof` (member proof/renewal), `wire` (messages, bounded decode).
+- `relay-net::channel`: `binding` (session binding), `ids` (derivations), `tag` (blinded tags +
+  advert TXT), `pake` (SPAKE2 + confirmation, Argon2id stretching), `cert` (delegations,
+  certificates, revocations), `invite`, `limiter`, `store` (`ChannelStore` trait with an atomic
+  `update`, in-memory impl, `ChannelRecord`), `create` (`new_channel`), `join` (`JoinClient`,
+  `AdmissionService`/`AdmitSession`, renewal), `proof` (`make_proof`/`check_proof`), `wire`
+  (`channel.proto` messages, bounded decode).
+
+Driver sketch for the engine's peer adapter (all calls are synchronous and cheap except the
+joiner's one-time Argon2 and the store):
+
+1. After the control link is up, `SessionBinding::for_session(&session, local_public)`.
+2. On each discovery update, `ChannelAdvert::recognise` gives `Evidence::Candidate` per channel;
+   dial and send `make_proof` (not before trust evaluation of the peer has run).
+3. Incoming `ChannelMessage`: `Proof` -> `check_proof` over `store.list()`; on `proven`, note
+   `Evidence::Proven`, persist `new_revocations`, answer with `make_proof(.., is_reply = true)`
+   once. `JoinStart` -> `AdmissionService::begin`; `JoinConfirm` -> `AdmitSession::on_confirm`;
+   `Renew` -> `AdmissionService::renew`.
+4. Joiner: `Credential::{open, from_password, from_invite_secret}` (combine when both), then
+   `JoinClient::{start, on_reply, on_grant}`; persist the returned `ChannelRecord`.
+
+## Known gaps and open review items
+
+- The independent security review gate is **open**; `spake2` is unaudited; Ed25519 and Argon2
+  come from maintained crates but the composition has not been reviewed.
+- Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
+- Owner key loss means the channel cannot admit or revoke any more (create a new one).
+- The session binding uses the link epoch and both static keys; exposing the Noise handshake
+  hash from `SecureSession` would be a stronger anchor.
+- No rate limit on tag recognition work beyond the 256-entry discovery table.
+- Hidden mode requires discovery changes (see the integration section) that are not made.
 
 ## Proposed API and wire changes (drafted, NOT wired)
 
@@ -256,9 +288,11 @@ message ChannelInfo { bytes channel_id = 1; string name = 2; ChannelPolicy polic
 // CHANNEL_LIMIT, CHANNEL_NAME_INVALID.
 ```
 
-The share string for a hidden password channel is the join code: `RLYC1` + base32 of
-`channel_id || owner_pub`. Invites use `RLYI1` + base32 of
-`channel_id || token_id || secret || issuer_hint || crc32`.
+The share string for a hidden password or open channel is the join code: `RLYC1` + base32 of
+`channel_id` (the id pins the owner key, so nothing else is needed). Invites use `RLYI1` +
+base32 of `channel_id || token_id || secret || issuer_hint || checksum` (implemented in
+`channel::invite`). `channel::invite` has the parser; the join-code codec is left to the
+integrator because it is presentation only.
 
 Passwords and invite secrets travel only in the request body on the local socket, are zeroized
 after use, and appear in no event, snapshot, log or `Operation` result.

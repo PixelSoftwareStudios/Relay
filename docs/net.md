@@ -14,6 +14,7 @@ security review still open**; the composition is a proposal, not an audited prot
 | `session` | `SecureSession`: `snow::StatelessTransportState`, explicit 64-bit nonces, per-lane counters, 24 h / 2^32 lifetime. `switch` validates `EpochSwitch`. |
 | `record` | 32-byte public header, inner header copy, kind registry (`0x01/02/03` media lane, `0x80` control lane). |
 | `control` | TCP framing (u32 length, <= 16 KiB record), envelope validation, Hello-first rule, duplicate-id handling. |
+| `channel` | Named channels (see `docs/channels.md`): blinded mDNS tags, SPAKE2 join inside the Noise link, signed membership certificates, invites, attempt limiter, `ChannelStore` trait. Not wired into discovery or the engine yet; independent review open. |
 | `media` | UDP datagrams (<= 1200 B), replay window (1024), epoch overlap (<= 2 epochs, <= 2 s), path challenge/response, `MediaEndpoint`. |
 
 ## Invariants enforced here
