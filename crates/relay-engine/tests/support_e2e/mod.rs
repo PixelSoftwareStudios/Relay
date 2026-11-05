@@ -291,7 +291,7 @@ impl Node {
 			match event {
 				MediaEvent::System(event) => self.feed(Input::System(event)),
 				MediaEvent::Peer(event) => self.feed(Input::Peer(event)),
-				MediaEvent::OutputLost => continue,
+				MediaEvent::OutputLost | MediaEvent::WorkerFailed(_) => continue,
 			};
 		}
 		while let Ok(output) = self.peer_out.try_recv() {

@@ -15,6 +15,10 @@ pub enum MediaEvent {
 	/// The playback device went away. Remote audio is paused until the user
 	/// chooses an output; nothing is redirected automatically.
 	OutputLost,
+	/// A media thread panicked or stopped responding. Gates are already
+	/// closed and the affected call (if known) is out of the media path; the
+	/// owner should tell the user and end calls that cannot recover.
+	WorkerFailed(super::WorkerFailure),
 }
 
 /// Non-blocking receiver of media events.

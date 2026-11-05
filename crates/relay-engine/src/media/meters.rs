@@ -67,6 +67,8 @@ pub struct Meters {
 	pub capture_overruns: AtomicU64,
 	/// Playback callback frames filled with silence.
 	pub render_underruns: AtomicU64,
+	/// Capture blocks excised because the noise suppressor returned an error.
+	pub suppressor_errors: AtomicU64,
 	/// The microphone test wants capture mixed into the local output.
 	pub monitor: AtomicBool,
 }

@@ -5,7 +5,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread::JoinHandle;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use relay_audio::FRAME_SAMPLES;
 use relay_audio::codec::EncoderConfig;
@@ -31,6 +31,9 @@ use super::net::{EndpointSink, PeerSocket};
 use super::render_worker::{self, RenderCmd};
 use super::send::{CallSender, StreamIdentity};
 use super::state::{CallMedia, CallReport, PeerMedia, Phase, State};
+use super::supervise::{
+	HANG_AFTER, Heartbeat, Supervision, Watched, WorkerFailure, WorkerId, watchdog,
+};
 use crate::peers::{MediaSignal, PeerHandle};
 
 const COMMAND_DEPTH: usize = 64;
@@ -59,6 +62,9 @@ pub struct MediaConfig {
 	pub gates: Option<crate::service::GateReader>,
 	/// How long a microphone test runs before it stops by itself.
 	pub mic_test_max: std::time::Duration,
+	/// Ask the OS to promote the capture and render workers (QoS, MMCSS,
+	/// real-time scheduling). Failure is logged and never fatal.
+	pub promote_workers: bool,
 }
 
 impl MediaConfig {
@@ -75,6 +81,7 @@ impl MediaConfig {
 			policy: AddressPolicy::lan_only(),
 			gates: None,
 			mic_test_max: super::live::MIC_TEST_MAX,
+			promote_workers: true,
 		}
 	}
 }
@@ -127,7 +134,10 @@ impl Drop for Inner {
 		let workers = std::mem::take(&mut *self.workers.lock().unwrap_or_else(|p| p.into_inner()));
 		for worker in workers {
 			worker.thread().unpark();
-			let _ = worker.join();
+			let name = worker.thread().name().unwrap_or("media worker").to_owned();
+			if worker.join().is_err() {
+				tracing::error!(%name, "media worker ended with a panic outside supervision");
+			}
 		}
 	}
 }
@@ -161,25 +171,56 @@ impl MediaSystem {
 		let (monitor_tx, monitor_rx) = monitor_pair();
 		let (capture, capture_rx) = Inbox::new(COMMAND_DEPTH);
 		let (render, render_rx) = Inbox::new(COMMAND_DEPTH);
-		let workers = vec![
-			capture_worker::spawn(
-				capture_rx,
-				suppressor,
-				Arc::clone(&events),
-				Arc::clone(&capture_load),
-				Arc::clone(&meters),
-				monitor_tx,
-				Arc::clone(&stop),
-			)?,
-			render_worker::spawn(
-				render_rx,
-				Arc::clone(&events),
-				Arc::clone(&render_load),
-				Arc::clone(&meters),
-				monitor_rx,
-				Arc::clone(&stop),
-			)?,
-		];
+		let report: Arc<dyn Fn(WorkerFailure) + Send + Sync> = {
+			let events = Arc::clone(&events);
+			Arc::new(move |failure| events(MediaEvent::WorkerFailed(failure)))
+		};
+		let supervision = |id| Supervision {
+			id,
+			heartbeat: Arc::new(Heartbeat::default()),
+			failed: Arc::new(AtomicBool::new(false)),
+			stop: Arc::clone(&stop),
+			report: Arc::clone(&report),
+			promote: config.promote_workers,
+		};
+		let (capture_sup, render_sup) = (
+			supervision(WorkerId::Capture),
+			supervision(WorkerId::Render),
+		);
+		let watched = [&capture_sup, &render_sup]
+			.map(|s| Watched {
+				id: s.id,
+				heartbeat: Arc::clone(&s.heartbeat),
+				failed: Arc::clone(&s.failed),
+			})
+			.into();
+		let capture_thread = capture_worker::spawn(
+			capture_rx,
+			suppressor,
+			Arc::clone(&events),
+			Arc::clone(&capture_load),
+			Arc::clone(&meters),
+			monitor_tx,
+			capture_sup,
+		)?;
+		capture.set_waker(capture_thread.thread().clone());
+		let render_thread = render_worker::spawn(
+			render_rx,
+			Arc::clone(&events),
+			Arc::clone(&render_load),
+			Arc::clone(&meters),
+			monitor_rx,
+			render_sup,
+		)?;
+		render.set_waker(render_thread.thread().clone());
+		let workers = vec![capture_thread, render_thread];
+		runtime.spawn(watchdog(
+			watched,
+			Arc::clone(&stop),
+			report,
+			Duration::from_secs(1),
+			HANG_AFTER,
+		));
 		let devices = DeviceThread::spawn(
 			backend,
 			DeviceSetup {
@@ -241,11 +282,19 @@ impl MediaSystem {
 	/// Asks the device thread to open the microphone under `generation`.
 	pub fn open_capture(&self, generation: AudioGeneration) {
 		self.inner.domain_capture.store(true, Ordering::Release);
-		let _ = self
+		if self
 			.inner
 			.devices
 			.commands
-			.send(DeviceCmd::OpenCapture(generation));
+			.send(DeviceCmd::OpenCapture(generation))
+			.is_err()
+		{
+			// The device thread is gone: tell the domain instead of leaving
+			// the open to time out.
+			self.emit(MediaEvent::System(SystemEvent::CaptureFailed {
+				generation,
+			}));
+		}
 	}
 
 	/// Asks the device thread to close the microphone.
@@ -383,7 +432,7 @@ impl MediaSystem {
 			},
 			gate,
 			self.inner.config.encoder,
-			Box::new(EndpointSink::new(endpoint, self.inner.runtime.clone())),
+			Box::new(EndpointSink::new(endpoint)),
 		)
 		.map_err(|e| e.to_string())?;
 		{
@@ -434,6 +483,7 @@ impl MediaSystem {
 			self.inner.config.policy,
 			source,
 			self.inner.origin,
+			Arc::clone(&self.inner.events),
 		)
 		.await
 		.map_err(|e| e.to_string())?;

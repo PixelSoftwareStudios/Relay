@@ -7,20 +7,23 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use relay_net::AddressPolicy;
-use relay_net::media::MediaEndpoint;
+use relay_net::media::{MAX_PAYLOAD_BYTES, MediaEndpoint};
 use relay_net::session::SecureSession;
 use rtrb::{Consumer, Producer, RingBuffer};
-use tokio::runtime::Handle;
 use tokio::task::AbortHandle;
 
 use super::MediaError;
+use super::events::{EventSink, MediaEvent};
 use super::packet::Ingress;
 use super::recv::SourceId;
 use super::send::PacketSink;
+use super::supervise::{FailureKind, WorkerFailure, WorkerId};
 
-/// Packets buffered between the network task and the render worker.
-const INGRESS_DEPTH: usize = 256;
-/// Receive errors in a row after which the task gives up.
+/// Packets buffered between the network task and the render worker. Deep
+/// enough for a long scheduling hiccup, shallow enough that after a stall the
+/// queue never holds seconds of stale audio.
+const INGRESS_DEPTH: usize = 32;
+/// Receive errors in a row after which the task concludes the socket is dead.
 const RECV_ERRORS_MAX: u32 = 100;
 
 /// Counters of one peer's receive task.
@@ -30,6 +33,8 @@ pub struct NetStats {
 	pub forwarded: AtomicU64,
 	/// Packets dropped because the queue to the render worker was full.
 	pub overflow: AtomicU64,
+	/// Receive errors that were not ICMP-unreachable echoes.
+	pub errors: AtomicU64,
 }
 
 /// A bound endpoint and its receive task.
@@ -58,6 +63,7 @@ impl PeerSocket {
 		policy: AddressPolicy,
 		source: SourceId,
 		origin: Instant,
+		events: EventSink,
 	) -> Result<(Self, Consumer<Ingress>), MediaError> {
 		let endpoint = Arc::new(MediaEndpoint::bind(local, session, policy).await?);
 		let (producer, consumer) = RingBuffer::new(INGRESS_DEPTH);
@@ -67,6 +73,7 @@ impl PeerSocket {
 			producer,
 			origin,
 			Arc::clone(&stats),
+			events,
 		));
 		Ok((
 			Self {
@@ -85,17 +92,19 @@ async fn receive_loop(
 	mut queue: Producer<Ingress>,
 	origin: Instant,
 	stats: Arc<NetStats>,
+	events: EventSink,
 ) {
 	let mut errors = 0;
+	let mut payload = [0u8; MAX_PAYLOAD_BYTES];
 	loop {
-		match endpoint.recv().await {
-			Ok(packet) => {
+		match endpoint.recv_into(&mut payload).await {
+			Ok(meta) => {
 				errors = 0;
 				// relay-net already authenticated and replay-checked the
 				// datagram; the call id and generation are its sealed binding.
 				let arrival = u64::try_from(origin.elapsed().as_micros()).unwrap_or(u64::MAX);
 				let Some(ingress) =
-					Ingress::new(packet.call_id, packet.generation, arrival, &packet.payload)
+					Ingress::new(meta.call_id, meta.generation, arrival, &payload[..meta.len])
 				else {
 					continue;
 				};
@@ -107,9 +116,19 @@ async fn receive_loop(
 				counter.fetch_add(1, Ordering::Relaxed);
 			}
 			Err(error) => {
+				// Connection-reset echoes never reach here (relay-net counts and
+				// skips them); this is a failing socket.
 				errors += 1;
+				stats.errors.fetch_add(1, Ordering::Relaxed);
 				tracing::debug!(%error, "media receive error");
 				if errors >= RECV_ERRORS_MAX {
+					tracing::error!(%error, "media socket is dead; receive task stopped");
+					events(MediaEvent::WorkerFailed(WorkerFailure {
+						worker: WorkerId::Network,
+						kind: FailureKind::Socket,
+						permanent: true,
+						call: None,
+					}));
 					return;
 				}
 				tokio::time::sleep(Duration::from_millis(10)).await;
@@ -120,26 +139,31 @@ async fn receive_loop(
 
 /// Seals and sends packets on a UDP endpoint from a worker thread.
 ///
-/// The send is a single non-blocking `send_to` driven to completion on the
-/// control runtime; the worker never waits on anything else. The sealed
-/// datagram buffer is allocated inside relay-net per packet; that allocation
-/// is a known gap of this sink.
+/// The send is non-blocking: if the socket buffer is full the packet is
+/// dropped and counted, never waited for. Real-time audio drops rather than
+/// parks the capture thread behind a congested link (RT-04). Sealing uses a
+/// stack buffer; nothing is allocated per packet.
 pub struct EndpointSink {
 	endpoint: Arc<MediaEndpoint>,
-	runtime: Handle,
 }
 
 impl EndpointSink {
 	/// Wraps an endpoint.
-	pub fn new(endpoint: Arc<MediaEndpoint>, runtime: Handle) -> Self {
-		Self { endpoint, runtime }
+	pub fn new(endpoint: Arc<MediaEndpoint>) -> Self {
+		Self { endpoint }
 	}
 }
 
 impl PacketSink for EndpointSink {
 	fn send(&mut self, call: [u8; 16], generation: u32, rtp: &[u8]) -> Result<(), MediaError> {
-		Ok(self
-			.runtime
-			.block_on(self.endpoint.send_audio(&call, generation, rtp))?)
+		match self.endpoint.try_send_audio(&call, generation, rtp) {
+			Ok(()) => Ok(()),
+			Err(relay_net::media::MediaError::Io(error))
+				if error.kind() == std::io::ErrorKind::WouldBlock =>
+			{
+				Err(MediaError::WouldBlock)
+			}
+			Err(error) => Err(error.into()),
+		}
 	}
 }

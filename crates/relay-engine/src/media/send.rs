@@ -28,6 +28,10 @@ pub struct SendStats {
 	pub gate_closed: AtomicU64,
 	/// Frames dropped because their capture or route generation was stale.
 	pub stale: AtomicU64,
+	/// Frames dropped because their audio may predate the gate opening.
+	pub unarmed: AtomicU64,
+	/// Packets dropped because the socket buffer was full.
+	pub send_dropped: AtomicU64,
 	/// Encode or send failures.
 	pub failed: AtomicU64,
 }
@@ -41,6 +45,10 @@ pub enum Emit {
 	Closed,
 	/// The frame's generations no longer match the latest gate update.
 	Stale,
+	/// The frame holds audio read before the gate had been open for a full poll.
+	Unarmed,
+	/// The socket buffer was full; the packet was dropped.
+	Dropped,
 	/// Encoding or sending failed.
 	Failed,
 }
@@ -69,6 +77,10 @@ pub struct CallSender {
 	in_spurt: bool,
 	opus: [u8; MAX_PACKET_BYTES],
 	rtp: [u8; RTP_MAX],
+	/// The gate was open at the previous poll.
+	prev_open: bool,
+	/// Capture-timeline index below which audio may predate the gate opening.
+	taint_until: u64,
 }
 
 impl CallSender {
@@ -89,6 +101,8 @@ impl CallSender {
 			in_spurt: false,
 			opus: [0; MAX_PACKET_BYTES],
 			rtp: [0; RTP_MAX],
+			prev_open: false,
+			taint_until: 0,
 		})
 	}
 
@@ -103,11 +117,42 @@ impl CallSender {
 	}
 
 	/// The stamp for frames read from the capture path right now.
-	pub fn stamp(&self, capture: relay_core::AudioGeneration) -> FrameStamp {
+	///
+	/// Call once at the start of every poll. `stalled` is true when the worker
+	/// was late, so the poll may drain a backlog whose age is unknown. A frame
+	/// is armed only when the gate is open now *and* was open at the previous
+	/// poll: audio captured between the two polls may precede the gate opening.
+	pub fn stamp(&mut self, capture: relay_core::AudioGeneration, stalled: bool) -> FrameStamp {
+		let gate = self.gate.load();
+		let clean = gate.open && self.prev_open && !stalled;
+		self.prev_open = gate.open;
 		FrameStamp {
 			capture,
-			route: self.gate.route(),
+			route: gate.route,
+			clean,
 		}
+	}
+
+	/// Ends a poll. `read_end` is the capture-timeline index just past the audio
+	/// the poll drained and `delay` the conversion and suppression group delay:
+	/// when the poll was not clean, every frame still carrying that audio is
+	/// refused, even if it comes out of a later poll.
+	pub fn end_poll(&mut self, stamp: FrameStamp, read_end: u64, delay: u64) {
+		if !stamp.clean {
+			self.taint_until = self.taint_until.max(read_end.saturating_add(delay));
+		}
+	}
+
+	/// Forgets the timeline and the previous gate observation (new stream).
+	pub fn rearm(&mut self) {
+		self.prev_open = false;
+		self.taint_until = 0;
+		self.in_spurt = false;
+	}
+
+	/// Forgets the timeline only: the capture index space was restarted.
+	pub fn reset_timeline(&mut self) {
+		self.taint_until = 0;
 	}
 
 	/// Encodes and sends one 10 ms frame, or drops it.
@@ -119,6 +164,11 @@ impl CallSender {
 	pub fn emit(&mut self, frame: &[f32], stamp: FrameStamp, first_sample: u64) -> Emit {
 		if let Some(refusal) = self.refuse(stamp) {
 			return refusal;
+		}
+		if !stamp.clean || first_sample < self.taint_until {
+			self.stats.unarmed.fetch_add(1, Ordering::Relaxed);
+			self.in_spurt = false;
+			return Emit::Unarmed;
 		}
 		let marker = !self.in_spurt;
 		if marker {
@@ -148,8 +198,16 @@ impl CallSender {
 			self.identity.generation,
 			&self.rtp[..total],
 		);
-		if sent.is_err() {
-			return self.fail();
+		match sent {
+			Ok(()) => {}
+			Err(MediaError::WouldBlock) => {
+				// Consume the sequence number: the receiver sees a loss, not a
+				// timeline that silently shifted.
+				self.sequence = self.sequence.wrapping_add(1);
+				self.stats.send_dropped.fetch_add(1, Ordering::Relaxed);
+				return Emit::Dropped;
+			}
+			Err(_) => return self.fail(),
 		}
 		self.sequence = self.sequence.wrapping_add(1);
 		self.in_spurt = true;

@@ -20,6 +20,7 @@ fn stamp() -> FrameStamp {
 	FrameStamp {
 		capture: AudioGeneration::new(1),
 		route: RouteGeneration::new(1),
+		clean: true,
 	}
 }
 

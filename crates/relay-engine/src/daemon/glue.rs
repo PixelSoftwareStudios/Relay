@@ -26,6 +26,28 @@ fn problem(code: &str, message: String, recovery: &str) -> Problem {
 	}
 }
 
+/// What the user is told when a media thread panicked, hung or gave up.
+fn worker_failed_message(failure: &crate::media::WorkerFailure) -> String {
+	use crate::media::{FailureKind, WorkerId};
+	let part = match failure.worker {
+		WorkerId::Capture => "microphone processing",
+		WorkerId::Render => "audio playback",
+		WorkerId::Devices => "audio device handling",
+		WorkerId::Network => "the media connection",
+	};
+	let what = match failure.kind {
+		FailureKind::Panic => "failed",
+		FailureKind::Hang => "stopped responding",
+		FailureKind::Socket => "lost its socket",
+	};
+	let tail = if failure.permanent {
+		"It will not restart; restart the daemon."
+	} else {
+		"It was reset; affected calls may have lost audio."
+	};
+	format!("The daemon's {part} {what}. {tail}")
+}
+
 fn flagged(peer: relay_core::PeerId, name: String, trust: PeerTrust) -> PeerInfo {
 	PeerInfo {
 		display_name: name,
@@ -51,6 +73,14 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 						"OUTPUT_DEVICE_LOST",
 						"The playback device went away; remote audio is paused.".to_owned(),
 						"select_output_device",
+					);
+					handle.attention(None, warning).await
+				}
+				MediaEvent::WorkerFailed(failure) => {
+					let warning = problem(
+						"MEDIA_WORKER_FAILED",
+						worker_failed_message(&failure),
+						"restart_daemon",
 					);
 					handle.attention(None, warning).await
 				}

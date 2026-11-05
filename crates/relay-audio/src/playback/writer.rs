@@ -36,6 +36,11 @@ impl PlaybackWriter {
 	pub fn occupancy(&self) -> usize {
 		self.producer.capacity() - self.producer.vacant()
 	}
+
+	/// Total FIFO capacity in samples.
+	pub fn capacity(&self) -> usize {
+		self.producer.capacity()
+	}
 }
 
 /// 48 kHz writer with bounded drift correction from ring occupancy.

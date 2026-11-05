@@ -39,6 +39,10 @@ pub struct FrameStamp {
 	pub capture: AudioGeneration,
 	/// Route generation current when the frame left the capture reader.
 	pub route: RouteGeneration,
+	/// The gate was open when this poll began, was already open at the previous
+	/// poll, and the worker was not stalled: only then can the audio read by
+	/// this poll have been captured after the gate opened.
+	pub clean: bool,
 }
 
 impl GateCell {
@@ -113,7 +117,7 @@ impl GateCell {
 	/// and both generations still match the latest update.
 	pub fn permits(&self, stamp: FrameStamp) -> bool {
 		let gate = self.load();
-		gate.open && gate.route == stamp.route && gate.capture == stamp.capture
+		gate.open && stamp.clean && gate.route == stamp.route && gate.capture == stamp.capture
 	}
 }
 

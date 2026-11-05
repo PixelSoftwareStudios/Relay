@@ -16,6 +16,7 @@ mod render_worker;
 mod send;
 mod sink;
 mod state;
+mod supervise;
 mod system;
 mod system_calls;
 
@@ -29,7 +30,7 @@ pub use gate::{FrameStamp, GateBoard, GateCell};
 pub use inbox::Inbox;
 pub use live::MIC_TEST_MAX;
 pub use load::{AdmissionLimits, LoadMeter, LoadSnapshot, Refusal};
-pub use meters::{Level, Meters, level_dbfs};
+pub use meters::{Level, Meters, MonitorFrame, MonitorRx, MonitorTx, level_dbfs, monitor_pair};
 pub use net::{EndpointSink, NetStats, PeerSocket};
 pub use packet::{Ingress, PAYLOAD_MAX, PacketBuf, RTP_MAX};
 pub use recv::{CallReceiver, RecvStats, RemoteStream, Rendered, SourceId};
@@ -47,7 +48,13 @@ pub enum MediaError {
 	Rtp(#[from] relay_protocol::RtpError),
 	#[error("packet sink closed")]
 	SinkClosed,
+	#[error("socket buffer full; packet dropped")]
+	WouldBlock,
 }
 pub use sink::RenderSink;
 pub use state::{CallReport, Phase};
+pub use supervise::{
+	FailureKind, HANG_AFTER, Heartbeat, Supervised, Supervision, Watched, WorkerFailure, WorkerId,
+	run as supervise, watchdog,
+};
 pub use system::{MediaConfig, MediaSystem, PrepareError};

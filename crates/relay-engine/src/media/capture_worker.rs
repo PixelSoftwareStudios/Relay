@@ -6,14 +6,16 @@
 //! every packet; a closed or stale gate drops the frame at that call only.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::Ordering;
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
+use relay_audio::priority::WorkerKind;
+
 use relay_audio::capture::{CaptureChain, CaptureShared};
 use relay_audio::device::{Direction, Recovery, StreamHealth, recovery_for};
-use relay_audio::dsp::{Discontinuity, NoiseSuppressor};
-use relay_audio::{FRAME_SAMPLES, MAX_CALLS};
+use relay_audio::dsp::{Discontinuity, DspLimits, NoiseSuppressor, OffSuppressor};
+use relay_audio::{BlockTiming, FRAME_SAMPLES, MAX_CALLS};
 use relay_core::{AudioGeneration, CallId, SystemEvent};
 use relay_protocol::assembly::FrameAssembler;
 use rtrb::Consumer;
@@ -23,8 +25,15 @@ use super::gate::FrameStamp;
 use super::load::LoadMeter;
 use super::meters::{Meters, MonitorTx, level_dbfs};
 use super::send::CallSender;
+use super::supervise::{self, Supervised, Supervision};
 
-const IDLE_WAIT: Duration = Duration::from_millis(2);
+/// Poll period while a microphone is attached.
+const POLL_WAIT: Duration = Duration::from_millis(2);
+/// Sleep with nothing attached; commands wake the worker sooner.
+const IDLE_WAIT: Duration = Duration::from_millis(500);
+/// A poll later than this after the previous one may be draining a backlog of
+/// unknown age; its audio is not sent.
+const STALL: Duration = Duration::from_millis(20);
 
 /// An opened microphone stream handed to the worker.
 pub struct CaptureInput {
@@ -69,6 +78,7 @@ struct Worker {
 	gain: f32,
 	meters: Arc<Meters>,
 	monitor: MonitorTx,
+	last_poll: Option<Instant>,
 }
 
 /// Tracks the capture sample index of the frame being encoded.
@@ -78,7 +88,7 @@ struct Timeline {
 	next_sample: u64,
 }
 
-/// Starts the capture worker thread.
+/// Starts the capture worker thread under `supervision`.
 pub fn spawn(
 	commands: Consumer<CaptureCmd>,
 	suppressor: Box<dyn NoiseSuppressor>,
@@ -86,9 +96,9 @@ pub fn spawn(
 	load: Arc<LoadMeter>,
 	meters: Arc<Meters>,
 	monitor: MonitorTx,
-	stop: Arc<AtomicBool>,
+	supervision: Supervision,
 ) -> std::io::Result<JoinHandle<()>> {
-	let mut worker = Worker {
+	let worker = Worker {
 		commands,
 		events,
 		load,
@@ -103,24 +113,68 @@ pub fn spawn(
 		gain: 1.0,
 		meters,
 		monitor,
+		last_poll: None,
 	};
 	thread::Builder::new()
 		.name("relay-capture".to_owned())
-		.spawn(move || {
-			while !stop.load(Ordering::Acquire) {
-				worker.step();
-				thread::park_timeout(IDLE_WAIT);
-			}
-		})
+		.spawn(move || supervise::run(worker, &supervision, WorkerKind::Capture))
+}
+
+impl Supervised for Worker {
+	fn step(&mut self) {
+		self.run_step();
+	}
+
+	fn wait(&self) -> Duration {
+		if self.input.is_some() {
+			POLL_WAIT
+		} else {
+			IDLE_WAIT
+		}
+	}
+
+	/// Drops the stream and the suspect suppressor, and tells the domain the
+	/// microphone is gone: it closes every gate and the device. Senders are
+	/// disarmed, so nothing is sent until a fresh stream has been polled.
+	fn recover(&mut self) -> Option<CallId> {
+		let generation = self.input.take().map(|i| i.generation);
+		self.meters.microphone.clear();
+		self.assembler.clear();
+		self.timeline = Timeline::default();
+		self.last_poll = None;
+		self.senders.iter_mut().for_each(CallSender::rearm);
+		let mut fallback: Box<dyn NoiseSuppressor> = Box::new(OffSuppressor::default());
+		let limits = DspLimits {
+			max_block_samples: FRAME_SAMPLES,
+			max_scratch_bytes: 0,
+		};
+		if fallback.prepare(&limits).is_ok() {
+			self.suppressor = fallback;
+		}
+		if let Some(generation) = generation {
+			(self.events)(MediaEvent::System(SystemEvent::CaptureLost { generation }));
+		}
+		None
+	}
+
+	fn disable(&mut self) {
+		self.input = None;
+		self.senders.clear();
+		while self.commands.pop().is_ok() {}
+	}
 }
 
 impl Worker {
-	fn step(&mut self) {
+	fn run_step(&mut self) {
 		self.drain_commands();
 		if self.lost() {
 			return;
 		}
 		let started = Instant::now();
+		let stalled = self
+			.last_poll
+			.is_some_and(|t| started.duration_since(t) > STALL);
+		self.last_poll = Some(started);
 		let Self {
 			input,
 			senders,
@@ -137,40 +191,76 @@ impl Worker {
 		} = self;
 		let Some(input) = input.as_mut() else {
 			meters.microphone.clear();
+			self.last_poll = None;
+			self.load.reset();
 			return;
 		};
 		// Stamp once per poll, before any frame of the batch is processed:
-		// a route change that lands mid-batch makes the rest of it stale.
+		// a route change that lands mid-batch makes the rest of it stale, and
+		// a gate that was not open for the whole poll interval makes the
+		// batch's audio unsendable (it may predate the gate opening).
 		stamps.clear();
-		stamps.extend(senders.iter().map(|s| s.stamp(input.generation)));
+		stamps.extend(
+			senders
+				.iter_mut()
+				.map(|s| s.stamp(input.generation, stalled)),
+		);
 		let polled = input.chain.poll(|raw, timing| {
 			if timeline.generation != Some(timing.generation) {
 				timeline.generation = Some(timing.generation);
 				timeline.next_sample = timing.first_sample;
 				assembler.clear();
 				suppressor.reset(Discontinuity::Reset);
+				senders.iter_mut().for_each(CallSender::reset_timeline);
 			}
-			let Ok(progress) = suppressor.process_into(raw, denoised, timing) else {
-				return;
-			};
-			let produced = progress.produced.min(denoised.len());
-			apply_gain(&mut denoised[..produced], *gain);
-			meters.microphone.set(level_dbfs(&denoised[..produced]));
-			if assembler.push(&denoised[..produced]).is_err() {
-				assembler.clear();
-				return;
-			}
-			while assembler.pop_frame(frame) {
-				if meters.monitor.load(Ordering::Relaxed) {
-					// A full queue means the speaker side is behind: drop, never wait.
-					let _ = monitor.push(*frame);
+			let mut offset = 0;
+			while offset < raw.len() {
+				let at = BlockTiming {
+					first_sample: timing.first_sample + offset as u64,
+					..timing
+				};
+				let Ok(progress) = suppressor.process_into(&raw[offset..], denoised, at) else {
+					// Count the excision and keep the timeline exact, so the
+					// receiver sees a gap rather than silently shifted audio.
+					meters.suppressor_errors.fetch_add(1, Ordering::Relaxed);
+					assembler.clear();
+					timeline.next_sample = timing.first_sample + raw.len() as u64;
+					return;
+				};
+				let produced = progress.produced.min(denoised.len());
+				apply_gain(&mut denoised[..produced], *gain);
+				if produced > 0 {
+					meters.microphone.set(level_dbfs(&denoised[..produced]));
 				}
-				for (sender, stamp) in senders.iter_mut().zip(stamps.iter()) {
-					sender.emit(frame, *stamp, timeline.next_sample);
+				if assembler.push(&denoised[..produced]).is_err() {
+					assembler.clear();
+					return;
 				}
-				timeline.next_sample += FRAME_SAMPLES as u64;
+				while assembler.pop_frame(frame) {
+					if meters.monitor.load(Ordering::Relaxed) {
+						// A full queue means the speaker side is behind: drop, never wait.
+						let _ = monitor.push(*frame);
+					}
+					for (sender, stamp) in senders.iter_mut().zip(stamps.iter()) {
+						sender.emit(frame, *stamp, timeline.next_sample);
+					}
+					timeline.next_sample += FRAME_SAMPLES as u64;
+				}
+				if progress.consumed == 0 {
+					break;
+				}
+				offset += progress.consumed;
 			}
 		});
+		let delay = input.chain.delay_samples()
+			+ suppressor
+				.descriptor()
+				.declared_delay_samples
+				.unwrap_or_default();
+		let read_end = input.chain.read_end();
+		for (sender, stamp) in senders.iter_mut().zip(stamps.iter()) {
+			sender.end_poll(*stamp, read_end, delay as u64);
+		}
 		meters
 			.capture_overruns
 			.store(input.shared.overrun_frames(), Ordering::Relaxed);
@@ -179,6 +269,9 @@ impl Worker {
 		{
 			let ns = started.elapsed().as_nanos() / stats.frames_emitted as u128;
 			self.load.record(u64::try_from(ns).unwrap_or(u64::MAX));
+		}
+		if self.senders.is_empty() {
+			self.load.reset();
 		}
 	}
 
@@ -202,13 +295,19 @@ impl Worker {
 			match command {
 				CaptureCmd::AddSender(sender) => {
 					if self.senders.len() < MAX_CALLS {
-						self.senders.push(*sender);
+						let mut sender = *sender;
+						sender.rearm();
+						self.senders.push(sender);
+					} else {
+						tracing::warn!("capture worker is full; sender refused");
 					}
 				}
 				CaptureCmd::RemoveSender(call) => self.senders.retain(|s| s.call() != call),
 				CaptureCmd::Attach(input) => {
 					self.timeline = Timeline::default();
 					self.assembler.clear();
+					self.last_poll = None;
+					self.senders.iter_mut().for_each(CallSender::rearm);
 					self.input = Some(input);
 				}
 				CaptureCmd::Detach(generation) => {

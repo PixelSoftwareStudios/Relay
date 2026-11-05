@@ -21,6 +21,12 @@ impl LoadMeter {
 		self.0.store(new, Ordering::Relaxed);
 	}
 
+	/// Forgets the average: the worker has nothing to serve, so a transient from
+	/// the last call must not weigh on the next admission.
+	pub fn reset(&self) {
+		self.0.store(0, Ordering::Relaxed);
+	}
+
 	/// The current average, zero until something was recorded.
 	pub fn ns_per_frame(&self) -> u64 {
 		self.0.load(Ordering::Relaxed)

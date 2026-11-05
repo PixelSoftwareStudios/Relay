@@ -45,6 +45,14 @@ impl CaptureChain {
 		self.resampler.delay_samples()
 	}
 
+	/// Internal-domain index just past the last device sample drained so far. Every sample
+	/// read before this call maps to an index below it.
+	pub fn read_end(&self) -> u64 {
+		let end = u128::from(self.reader.next_index()) * u128::from(INTERNAL_RATE)
+			/ u128::from(self.device_rate.max(1));
+		u64::try_from(end).unwrap_or(u64::MAX)
+	}
+
 	pub fn reader(&self) -> &CaptureReader {
 		&self.reader
 	}

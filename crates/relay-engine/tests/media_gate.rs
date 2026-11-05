@@ -14,6 +14,7 @@ fn stamp(capture: u64, route: u64) -> FrameStamp {
 	FrameStamp {
 		capture: AudioGeneration::new(capture),
 		route: RouteGeneration::new(route),
+		clean: true,
 	}
 }
 
@@ -42,11 +43,13 @@ fn a_route_bump_invalidates_frames_stamped_under_the_old_route() {
 	let wire = Wire::default();
 	let (mut sender, gate) = sender(CALL, 7, &wire);
 	gate.publish(open_gate(CALL, 1, 1), revision(1));
-	let old = sender.stamp(AudioGeneration::new(1));
+	let _ = sender.stamp(AudioGeneration::new(1), false);
+	let old = sender.stamp(AudioGeneration::new(1), false);
 	// Consent withdrawn and re-granted under a new route generation.
 	gate.publish(open_gate(CALL, 2, 1), revision(3));
 	assert_eq!(sender.emit(&tone(440.0, 0), old, 0), Emit::Stale);
-	let fresh = sender.stamp(AudioGeneration::new(1));
+	let _ = sender.stamp(AudioGeneration::new(1), false);
+	let fresh = sender.stamp(AudioGeneration::new(1), false);
 	assert_eq!(sender.emit(&tone(440.0, 1), fresh, 480), Emit::Sent);
 }
 

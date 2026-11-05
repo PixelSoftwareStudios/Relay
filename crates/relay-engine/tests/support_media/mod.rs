@@ -16,6 +16,11 @@ impl Wire {
 		std::mem::take(&mut self.0.lock().unwrap())
 	}
 
+	/// Every packet so far, without draining.
+	pub fn snapshot(&self) -> Vec<Ingress> {
+		self.0.lock().unwrap().clone()
+	}
+
 	pub fn len(&self) -> usize {
 		self.0.lock().unwrap().len()
 	}

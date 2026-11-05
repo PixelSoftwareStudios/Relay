@@ -234,7 +234,8 @@ impl Thread {
 			stream.writer,
 			stream.config.sample_rate,
 			self.setup.playout_target_ms,
-		)?;
+		)?
+		.track_callbacks(Arc::clone(&stream.shared));
 		stream.handle.play()?;
 		let output = Box::new(RenderOutput {
 			sink,
