@@ -27,17 +27,7 @@ fn tx(mode: Mode, consent: bool, effective: bool, reason: &str) -> Call {
 }
 
 #[test]
-fn level_fraction_maps_and_clamps() {
-	assert_eq!(level_fraction(Some(0.0)), 1.0);
-	assert!((level_fraction(Some(-30.0)) - 0.5).abs() < 1e-6);
-	assert_eq!(level_fraction(Some(-90.0)), 0.0);
-	assert_eq!(level_fraction(Some(6.0)), 1.0);
-}
-
-#[test]
 fn unknown_readings_render_empty_and_say_so() {
-	assert_eq!(level_fraction(None), 0.0);
-	assert_eq!(level_fraction(Some(f32::NAN)), 0.0);
 	assert_eq!(format_dbfs(None), "no signal data");
 	assert_eq!(format_dbfs(Some(-20.0)), "-20 dBFS");
 }

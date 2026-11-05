@@ -2,16 +2,7 @@
 
 use crate::model::{Call, Link, Phase};
 
-const FLOOR_DBFS: f32 = -60.0;
 pub const MAX_AVATAR_BYTES: usize = 256 * 1024;
-
-/// Map a dBFS reading to a 0..1 bar fill; unknown readings render empty.
-pub fn level_fraction(dbfs: Option<f32>) -> f32 {
-	match dbfs {
-		Some(v) if v.is_finite() => ((v - FLOOR_DBFS) / -FLOOR_DBFS).clamp(0.0, 1.0),
-		_ => 0.0,
-	}
-}
 
 pub fn format_dbfs(dbfs: Option<f32>) -> String {
 	match dbfs {

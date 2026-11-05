@@ -2,7 +2,7 @@
 
 use eframe::egui::{self, Color32, Response, RichText, Ui};
 
-use crate::format::{Tone, format_dbfs, hue_from_id, initials, level_fraction};
+use crate::format::{Tone, format_dbfs, hue_from_id, initials};
 
 pub fn tone_color(tone: Tone, ui: &Ui) -> Color32 {
 	match tone {
@@ -29,7 +29,7 @@ pub fn avatar(ui: &mut Ui, name: &str, id: &str, size: f32) {
 
 /// Level bar. Not animated: it only changes when new data arrives.
 pub fn meter(ui: &mut Ui, dbfs: Option<f32>, label: &str) -> Response {
-	let bar = egui::ProgressBar::new(level_fraction(dbfs))
+	let bar = egui::ProgressBar::new(relay_client::meter::fill(dbfs))
 		.desired_width(120.0)
 		.animate(false);
 	ui.add(bar)
