@@ -1,6 +1,7 @@
 //! Key and identifier derivations shared by tags, references and certificates.
 
 use relay_core::channel::ChannelId;
+use subtle::ConstantTimeEq;
 
 const ID_DOMAIN: &str = "relay-net 2026 channel id v1";
 const TAG_KEY_DOMAIN: &str = "relay-net 2026 channel tag key v1";
@@ -35,9 +36,9 @@ pub(crate) fn reference(
 	out
 }
 
-/// Constant-time equality for equal-length byte strings.
+/// Constant-time equality; a length mismatch is unequal (lengths are public).
 pub(crate) fn ct_eq(a: &[u8], b: &[u8]) -> bool {
-	a.len() == b.len() && a.iter().zip(b).fold(0u8, |acc, (x, y)| acc | (x ^ y)) == 0
+	a.ct_eq(b).into()
 }
 
 pub(crate) fn random<const N: usize>() -> [u8; N] {

@@ -16,6 +16,7 @@ relay-core.workspace = true
 relay-messages.workspace = true
 snow.workspace = true
 spake2.workspace = true
+subtle.workspace = true
 thiserror.workspace = true
 unicode-normalization.workspace = true
 unicode-security.workspace = true

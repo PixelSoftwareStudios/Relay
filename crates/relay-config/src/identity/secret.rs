@@ -1,5 +1,6 @@
 //! Generic 32-byte secret and identity keypair containers (no dependency on the net crate).
 
+use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 use crate::error::{ConfigError, Result};
@@ -27,11 +28,7 @@ impl std::fmt::Debug for Secret32 {
 impl PartialEq for Secret32 {
 	/// Constant-time comparison.
 	fn eq(&self, other: &Self) -> bool {
-		self.0
-			.iter()
-			.zip(other.0.iter())
-			.fold(0u8, |a, (x, y)| a | (x ^ y))
-			== 0
+		self.0.ct_eq(&*other.0).into()
 	}
 }
 
