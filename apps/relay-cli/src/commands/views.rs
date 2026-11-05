@@ -17,6 +17,8 @@ fn short(id: &str) -> String {
 pub struct PeerView {
 	pub id: String,
 	pub name: String,
+	/// Short key digest (`A1B2-C3D4-E5F6-0718-293A`): tells devices apart, never verifies.
+	pub fingerprint_short: String,
 	pub trust: &'static str,
 	pub reachable: bool,
 	pub addresses: Vec<String>,
@@ -27,6 +29,7 @@ impl From<&Peer> for PeerView {
 		Self {
 			id: names::hex_id(&p.peer_id),
 			name: p.display_name.clone(),
+			fingerprint_short: p.fingerprint_short.clone(),
 			trust: names::trust_state(p.trust),
 			reachable: p.reachable,
 			addresses: p.local_addresses.clone(),
@@ -51,11 +54,15 @@ impl PeerList {
 		if self.0.is_empty() {
 			return "no peers found".into();
 		}
-		let mut t = table::with_header(layout, &["ID", "NAME", "TRUST", "ONLINE", "ADDRESSES"]);
+		let mut t = table::with_header(
+			layout,
+			&["ID", "NAME", "FINGERPRINT", "TRUST", "ONLINE", "ADDRESSES"],
+		);
 		for p in &self.0 {
 			t.add_row([
 				short(&p.id),
 				p.name.clone(),
+				p.fingerprint_short.clone(),
 				p.trust.to_owned(),
 				if p.reachable { "yes" } else { "no" }.to_owned(),
 				p.addresses.join(", "),

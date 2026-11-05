@@ -168,9 +168,26 @@ async fn trust_verify_needs_a_fingerprint_and_forget_clears() {
 	assert!(
 		c.log[0].contains("Verified") && c.log[0].contains("oob=true") && c.log[0].contains(&fp)
 	);
-	assert!(c.log[1].contains("Unknown") && c.log[1].contains("oob=false"));
+	assert_eq!(c.log[1], "forget  alice");
 	let list = run_with(&mut c, &["trust", "list"], false).await.unwrap();
 	assert!(list.contains("Alice"));
+}
+
+#[tokio::test]
+async fn trust_list_shows_the_short_fingerprint_and_forget_sends_the_query() {
+	let mut c = FakeControl::new();
+	c.snapshot.peers[0].fingerprint_short = "A1B2-C3D4-E5F6-0718-293A".into();
+	let list = run_with(&mut c, &["trust", "list"], false).await.unwrap();
+	assert!(list.contains("A1B2-C3D4-E5F6-0718-293A"), "{list}");
+	let json = run_with(&mut c, &["trust", "list"], true).await.unwrap();
+	assert!(json.contains("\"fingerprint_short\":\"A1B2-C3D4-E5F6-0718-293A\""));
+	run_with(&mut c, &["trust", "forget", "a1b2-c3d4"], false)
+		.await
+		.unwrap();
+	assert_eq!(c.log, ["forget  a1b2-c3d4"]);
+	let blank = run_with(&mut c, &["trust", "forget", "  "], false).await;
+	assert_eq!(blank.unwrap_err().exit_code(), exit::USAGE);
+	assert_eq!(c.log.len(), 1);
 }
 
 #[tokio::test]

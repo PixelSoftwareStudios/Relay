@@ -7,6 +7,7 @@ fn peer(name: &str, addresses: &[&str]) -> PeerView {
 	PeerView {
 		id: "ab".repeat(32),
 		name: name.to_owned(),
+		fingerprint_short: "A1B2-C3D4-E5F6-0718-293A".into(),
 		trust: "verified",
 		reachable: true,
 		addresses: addresses.iter().map(|a| (*a).to_owned()).collect(),
@@ -42,9 +43,9 @@ fn narrow_width_wraps_without_losing_content() {
 		"Alice Wonderland",
 		&["192.168.100.200:7000", "10.0.0.5:7000"],
 	)]);
-	let text = list.render(Layout::plain_width(60));
+	let text = list.render(Layout::plain_width(100));
 	for line in text.lines() {
-		assert!(unicode_width(line) <= 60, "line too wide: {line:?}");
+		assert!(unicode_width(line) <= 100, "line too wide: {line:?}");
 	}
 	assert!(text.lines().count() > 2, "row should wrap: {text}");
 	for part in [

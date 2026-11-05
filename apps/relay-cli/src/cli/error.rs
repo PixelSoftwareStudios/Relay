@@ -108,6 +108,11 @@ impl CliError {
 				_ => exit::REJECTED,
 			},
 			Self::Api(_) => exit::FAILURE,
+			Self::Rejected { code, .. }
+				if matches!(code.as_str(), "NOT_FOUND" | "PEER_AMBIGUOUS") =>
+			{
+				exit::TARGET
+			}
 			Self::Rejected { .. } | Self::Unsupported(_) => exit::REJECTED,
 			Self::Target(_) => exit::TARGET,
 			Self::Usage(_) => exit::USAGE,

@@ -6,18 +6,24 @@ use super::resolve::resolve_peer;
 use super::views::PeerList;
 use super::{Out, report};
 use crate::cli::{CliError, TrustCommand};
-use crate::client::{Control, TrustDecision};
+use crate::client::{Control, Manage, TrustDecision};
 
-pub async fn run<C: Control>(
+/// Longest `forget` query the engine accepts.
+const MAX_QUERY_BYTES: usize = 256;
+
+pub async fn run<C: Control + Manage>(
 	client: &mut C,
 	cmd: TrustCommand,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	let snapshot = client.snapshot().await?;
 	let decision = match cmd {
-		TrustCommand::List => return out.emit(&PeerList::from_snapshot(&snapshot)),
+		TrustCommand::List => {
+			let snapshot = client.snapshot().await?;
+			return out.emit(&PeerList::from_snapshot(&snapshot));
+		}
 		TrustCommand::Verify { peer, fingerprint } => {
 			let hash = parse_fingerprint(&fingerprint)?;
+			let snapshot = client.snapshot().await?;
 			TrustDecision {
 				peer_id: resolve_peer(&snapshot, &peer)?.peer_id.clone(),
 				public_key_sha256: hash,
@@ -25,12 +31,18 @@ pub async fn run<C: Control>(
 				out_of_band_verified: true,
 			}
 		}
-		TrustCommand::Forget { peer } => TrustDecision {
-			peer_id: resolve_peer(&snapshot, &peer)?.peer_id.clone(),
-			public_key_sha256: Vec::new(),
-			requested: TrustState::Unknown,
-			out_of_band_verified: false,
-		},
+		TrustCommand::Forget { peer } => {
+			let query = peer.trim();
+			if query.is_empty() || query.len() > MAX_QUERY_BYTES {
+				return Err(CliError::Usage(
+					"give a fingerprint prefix (at least 8 hex digits) or a peer name".into(),
+				));
+			}
+			// The engine matches a fingerprint prefix or an exact name; an ambiguous query is
+			// answered with the candidates and their short fingerprints, never a guess.
+			let op = client.forget_peer(&[], query).await?;
+			return report(&op, out);
+		}
 	};
 	let op = client.decide_trust(decision).await?;
 	report(&op, out)
