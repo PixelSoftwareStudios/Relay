@@ -1,32 +1,21 @@
-use std::fs;
-use std::sync::Arc;
+mod support;
 
-use relay_config::fsx::WriterLock;
 use relay_config::prefs::{
-	CURRENT_VERSION, DeviceChoice, DeviceSelection, PreferenceStore, Preferences,
+	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, export_toml, flat, import_toml,
 };
-use relay_config::{ConfigError, Notice, Paths};
+use relay_config::{ConfigError, Paths};
+use support::{chosen_mic, storage};
 
-fn open(dir: &tempfile::TempDir) -> (PreferenceStore, Paths) {
-	let paths = Paths::under(dir.path());
-	let lock = Arc::new(WriterLock::acquire(&paths.writer_lock_file()).unwrap());
-	(
-		PreferenceStore::open(paths.preferences_file(), lock).unwrap(),
-		paths,
-	)
-}
-
-fn chosen_mic() -> Preferences {
-	let mut p = Preferences::default();
-	p.audio.preferred_input_id = "usb-mic".into();
-	p.privacy.new_calls_receive_only = false;
-	p
+fn store(dir: &tempfile::TempDir) -> (PreferenceStore, relay_config::Storage) {
+	let s = storage(dir.path());
+	(PreferenceStore::open(&s.database).unwrap(), s)
 }
 
 #[test]
 fn first_run_gives_safe_defaults_without_notices() {
 	let dir = tempfile::tempdir().unwrap();
-	let (store, _) = open(&dir);
+	let (store, s) = store(&dir);
+	assert!(s.notices.is_empty());
 	let loaded = store.load().unwrap();
 	assert!(loaded.notices.is_empty());
 	assert_eq!(
@@ -39,122 +28,43 @@ fn first_run_gives_safe_defaults_without_notices() {
 }
 
 #[test]
-fn save_then_load_round_trips() {
+fn save_then_load_round_trips_across_reopen() {
 	let dir = tempfile::tempdir().unwrap();
-	let (store, _) = open(&dir);
-	let prefs = chosen_mic();
-	store.save(&prefs).unwrap();
-	assert_eq!(store.load().unwrap().preferences, prefs);
-}
-
-#[test]
-fn corrupt_main_recovers_backup_without_enabling_mic() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	store.save(&chosen_mic()).unwrap();
-	store.save(&chosen_mic()).unwrap(); // creates .bak
-	fs::write(paths.preferences_file(), b"\xff\x00 not toml [[[").unwrap();
-	let loaded = store.load().unwrap();
-	assert_eq!(loaded.notices, vec![Notice::PreferencesRecoveredFromBackup]);
-	assert!(loaded.preferences.audio.preferred_input_id.is_empty());
-	assert!(loaded.preferences.privacy.new_calls_receive_only);
-}
-
-#[test]
-fn crash_between_backup_and_rename_recovers_via_backup() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	store.save(&chosen_mic()).unwrap();
-	store.save(&chosen_mic()).unwrap();
-	fs::remove_file(paths.preferences_file()).unwrap(); // main vanished mid-replace
-	let loaded = store.load().unwrap();
-	assert_eq!(loaded.notices, vec![Notice::PreferencesRecoveredFromBackup]);
-	assert!(loaded.preferences.audio.preferred_input_id.is_empty());
-}
-
-#[test]
-fn leftover_tmp_file_is_ignored() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	store.save(&chosen_mic()).unwrap();
-	let mut tmp = paths.preferences_file().into_os_string();
-	tmp.push(".tmp");
-	fs::write(tmp, b"half written").unwrap();
-	assert_eq!(store.load().unwrap().preferences, chosen_mic());
-}
-
-#[test]
-fn corrupt_main_and_backup_resets_with_notice_and_preserves_file() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	fs::create_dir_all(paths.config_dir()).unwrap();
-	fs::write(paths.preferences_file(), b"garbage = = =").unwrap();
-	let loaded = store.load().unwrap();
-	match loaded.notices.as_slice() {
-		[Notice::PreferencesReset { preserved: Some(p) }] => assert!(p.exists()),
-		other => panic!("unexpected notices {other:?}"),
+	let mut prefs = chosen_mic();
+	prefs.audio.microphone_gain = 0.1;
+	prefs.profile.display_name = "Zoë \"quoted\"".into();
+	{
+		let (store, _) = store(&dir);
+		store.save(&prefs).unwrap();
 	}
-	assert_eq!(loaded.preferences, Preferences::default());
-}
-
-#[test]
-fn legacy_v0_is_migrated_and_mic_stays_explicit() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	fs::create_dir_all(paths.config_dir()).unwrap();
-	fs::write(
-		paths.preferences_file(),
-		"[audio]\ninput_device = \"legacy-mic\"\n",
-	)
-	.unwrap();
-	let loaded = store.load().unwrap();
-	assert_eq!(
-		loaded.notices,
-		vec![Notice::PreferencesMigrated {
-			from: 0,
-			to: CURRENT_VERSION
-		}]
-	);
-	let audio = loaded.preferences.audio;
-	assert_eq!(audio.preferred_input_id, "legacy-mic");
-	assert_eq!(audio.input_selection, DeviceSelection::Explicit);
-}
-
-#[test]
-fn newer_version_is_refused_not_downgraded() {
-	let dir = tempfile::tempdir().unwrap();
-	let (store, paths) = open(&dir);
-	fs::create_dir_all(paths.config_dir()).unwrap();
-	fs::write(paths.preferences_file(), "config_version = 99\n").unwrap();
-	assert!(matches!(
-		store.load(),
-		Err(ConfigError::UnsupportedVersion { found: 99, .. })
-	));
+	let (store, _) = store(&dir);
+	assert_eq!(store.load().unwrap().preferences, prefs);
 }
 
 #[test]
 fn invalid_values_are_rejected_on_save() {
 	let dir = tempfile::tempdir().unwrap();
-	let (store, _) = open(&dir);
+	let (store, _) = store(&dir);
 	let mut p = Preferences::default();
 	p.audio.microphone_gain = f32::NAN;
 	assert!(store.save(&p).is_err());
 	p.audio.microphone_gain = 1.0;
 	p.profile.display_name = "  ".into();
 	assert!(store.save(&p).is_err());
+	assert_eq!(store.load().unwrap().preferences, Preferences::default());
 }
 
 #[test]
 fn second_writer_is_refused_until_first_drops() {
 	let dir = tempfile::tempdir().unwrap();
 	let paths = Paths::under(dir.path());
-	let first = WriterLock::acquire(&paths.writer_lock_file()).unwrap();
+	let first = relay_config::Storage::open(&paths).unwrap();
 	assert!(matches!(
-		WriterLock::acquire(&paths.writer_lock_file()),
+		relay_config::Storage::open(&paths),
 		Err(ConfigError::Locked(_))
 	));
 	drop(first);
-	WriterLock::acquire(&paths.writer_lock_file()).unwrap();
+	relay_config::Storage::open(&paths).unwrap();
 }
 
 #[test]
@@ -176,4 +86,66 @@ fn missing_explicit_mic_never_falls_back() {
 		Preferences::default().audio.resolve_output(&[]),
 		DeviceChoice::SystemDefault
 	);
+}
+
+#[test]
+fn get_and_set_are_typed_and_validated() {
+	let dir = tempfile::tempdir().unwrap();
+	let (store, _) = store(&dir);
+	assert_eq!(store.get("audio.microphone_gain").unwrap(), "1.0");
+	store.set("audio.microphone_gain", "2.5").unwrap();
+	store.set("audio.noise_backend", "rnnoise").unwrap();
+	store.set("audio.preferred_input_id", "123").unwrap();
+	store
+		.set("privacy.new_calls_receive_only", "false")
+		.unwrap();
+	let prefs = store.load().unwrap().preferences;
+	assert_eq!(prefs.audio.microphone_gain, 2.5);
+	assert_eq!(prefs.audio.preferred_input_id, "123");
+	assert!(!prefs.privacy.new_calls_receive_only);
+	assert_eq!(store.get("audio.preferred_input_id").unwrap(), "123");
+
+	assert!(store.set("audio.microphone_gain", "99").is_err());
+	assert!(store.set("audio.microphone_gain", "loud").is_err());
+	assert!(
+		store
+			.set("privacy.new_calls_receive_only", "maybe")
+			.is_err()
+	);
+	assert!(store.set("audio.nope", "1").is_err());
+	assert!(store.set("config_version", "9").is_err());
+	assert!(store.get("nope").is_err());
+	assert_eq!(store.load().unwrap().preferences, prefs);
+	assert!(flat::keys().contains(&"audio.noise_backend".to_owned()));
+	assert!(!flat::keys().contains(&"config_version".to_owned()));
+}
+
+#[test]
+fn toml_export_import_round_trips_without_secrets() {
+	let dir = tempfile::tempdir().unwrap();
+	let (store, _) = store(&dir);
+	let mut prefs = chosen_mic();
+	prefs.profile.display_name = "Hallway".into();
+	store.save(&prefs).unwrap();
+	let text = store.export_toml().unwrap();
+	assert!(text.contains("display_name = \"Hallway\""));
+	assert!(!text.to_lowercase().contains("secret"));
+	assert_eq!(import_toml(&text).unwrap(), prefs);
+
+	let other = tempfile::tempdir().unwrap();
+	let (target, _) = self::store(&other);
+	assert_eq!(target.import_toml(&text).unwrap(), prefs);
+	assert_eq!(target.load().unwrap().preferences, prefs);
+	assert_eq!(export_toml(&prefs).unwrap(), text);
+}
+
+#[test]
+fn import_rejects_typos_bad_values_and_newer_versions() {
+	assert!(import_toml("[audio]\nmicrophone_gane = 1.0\n").is_err());
+	assert!(import_toml("[audio]\nmicrophone_gain = 40.0\n").is_err());
+	assert!(import_toml("this is = = not toml").is_err());
+	assert!(matches!(
+		import_toml("config_version = 99\n"),
+		Err(ConfigError::UnsupportedVersion { found: 99, .. })
+	));
 }

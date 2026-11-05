@@ -95,6 +95,9 @@ ratatui = "0.30.2"
 crossterm = "0.29.0"
 global-hotkey = "0.9.0"
 ashpd = { version = "0.13.13", default-features = false, features = ["tokio", "global_shortcuts"] }
+# Storage (settings, trust and avatar cache in one per-user SQLite database)
+rusqlite = { version = "0.41.1", features = ["bundled"] }
+
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] }
 
 # Desktop GUI (apps/relay-desktop only; not in default-members)

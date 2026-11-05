@@ -175,12 +175,12 @@ fn cache_detects_tampering() {
 	let cache = AvatarCache::open(dir.path().join("av")).unwrap();
 	let a = process_avatar(&flat(50, 50)).unwrap();
 	cache.put(&a).unwrap();
-	std::fs::write(
-		dir.path().join("av").join(format!("{}.png", a.hash_hex())),
-		b"evil",
-	)
-	.unwrap();
+	let db = rusqlite::Connection::open(dir.path().join("av").join("avatars.db")).unwrap();
+	db.execute("UPDATE avatars SET data = x'6576696c'", [])
+		.unwrap();
+	drop(db);
 	assert_eq!(cache.get(&a.hash).unwrap(), None);
+	assert_eq!(cache.size().unwrap(), 0);
 }
 
 #[test]
@@ -203,4 +203,38 @@ fn cache_evicts_oldest_within_bound() {
 	assert!(cache.size().unwrap() <= bound);
 	assert_eq!(cache.get(&a.hash).unwrap(), None);
 	assert!(cache.get(&c.hash).unwrap().is_some());
+}
+
+#[test]
+fn local_avatar_hash_persists_and_is_never_evicted() {
+	let dir = tempfile::tempdir().unwrap();
+	let mk = |shade: u8| {
+		let img = RgbaImage::from_fn(64, 64, |x, y| {
+			Rgba([shade, (x * 4) as u8, (y * 4) as u8, 255])
+		});
+		process_avatar(&encode(DynamicImage::ImageRgba8(img), ImageFormat::Png)).unwrap()
+	};
+	let (local, b, c) = (mk(1), mk(2), mk(3));
+	let bound = (local.png.len() + b.png.len() + c.png.len()) as u64 - 1;
+	{
+		let cache = AvatarCache::with_limit(dir.path(), bound).unwrap();
+		assert_eq!(cache.local().unwrap(), None);
+		cache.put(&local).unwrap();
+		cache.set_local(&local.hash).unwrap();
+		cache.put(&b).unwrap();
+		cache.put(&c).unwrap();
+		assert!(cache.size().unwrap() <= bound);
+		assert_eq!(cache.get(&b.hash).unwrap(), None);
+	}
+	let cache = AvatarCache::with_limit(dir.path(), bound).unwrap();
+	assert_eq!(cache.local().unwrap(), Some(local.hash));
+	assert!(cache.get(&local.hash).unwrap().is_some());
+}
+
+#[test]
+fn oversized_entries_are_skipped_not_stored() {
+	let dir = tempfile::tempdir().unwrap();
+	let cache = AvatarCache::with_limit(dir.path(), 10).unwrap();
+	cache.put(&process_avatar(&flat(50, 50)).unwrap()).unwrap();
+	assert_eq!(cache.size().unwrap(), 0);
 }

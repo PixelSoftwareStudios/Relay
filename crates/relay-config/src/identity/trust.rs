@@ -1,15 +1,11 @@
 //! Persistent trust store: which peer keys are TOFU-pinned or user-verified.
 
-use std::path::PathBuf;
-use std::sync::Arc;
-
+use rusqlite::{Connection, params};
 use serde::{Deserialize, Serialize};
 
+use crate::db::Database;
 use crate::error::{ConfigError, Result};
-use crate::fsx::{WriterLock, backup_path, corrupt_path, read_if_exists, write_atomic};
-use crate::notice::Notice;
 
-const TRUST_VERSION: u32 = 1;
 const MAX_ENTRIES: usize = 4096;
 const MAX_NAME_CHARS: usize = 64;
 
@@ -40,69 +36,90 @@ pub enum TrustDecision {
 	Known(TrustLevel),
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(default)]
-struct TrustFile {
-	version: u32,
-	entries: Vec<TrustEntry>,
-}
-
 fn key_hex(key: &[u8; 32]) -> String {
 	hex::encode(key)
 }
 
-/// Trust data bound to its file. Holds the shared writer lock.
-#[derive(Debug)]
-pub struct TrustStore {
-	path: PathBuf,
-	entries: Vec<TrustEntry>,
-	_lock: Arc<WriterLock>,
+impl TrustLevel {
+	fn as_sql(self) -> &'static str {
+		match self {
+			Self::Tofu => "tofu",
+			Self::Verified => "verified",
+		}
+	}
+
+	fn from_sql(text: &str) -> Option<Self> {
+		match text {
+			"tofu" => Some(Self::Tofu),
+			"verified" => Some(Self::Verified),
+			_ => None,
+		}
+	}
 }
 
-fn parse(bytes: &[u8]) -> Option<TrustFile> {
-	let file: TrustFile = toml::from_str(std::str::from_utf8(bytes).ok()?).ok()?;
-	(file.version >= 1 && file.version <= TRUST_VERSION).then_some(file)
+/// Inserts or replaces one entry; also used by the one-time TOML import.
+pub(crate) fn insert_entry(conn: &Connection, entry: &TrustEntry) -> Result<()> {
+	conn.execute(
+		"INSERT OR REPLACE INTO trust (public_key, display_name, level, first_seen)
+		 VALUES (?1, ?2, ?3, ?4)",
+		params![
+			entry.public_key,
+			entry.display_name,
+			entry.level.as_sql(),
+			entry.first_seen as i64
+		],
+	)?;
+	Ok(())
+}
+
+fn read_entries(conn: &Connection) -> Result<Vec<TrustEntry>> {
+	let mut stmt = conn.prepare(
+		"SELECT public_key, display_name, level, first_seen FROM trust ORDER BY first_seen, public_key",
+	)?;
+	let rows = stmt.query_map([], |r| {
+		Ok((
+			r.get::<_, String>(0)?,
+			r.get::<_, String>(1)?,
+			r.get::<_, String>(2)?,
+			r.get::<_, i64>(3)?,
+		))
+	})?;
+	let mut entries = Vec::new();
+	for row in rows {
+		let (public_key, display_name, level, first_seen) = row?;
+		let level = TrustLevel::from_sql(&level)
+			.ok_or_else(|| ConfigError::InvalidPreference("unknown trust level".to_owned()))?;
+		entries.push(TrustEntry {
+			public_key,
+			display_name,
+			level,
+			first_seen: first_seen.max(0) as u64,
+		});
+	}
+	Ok(entries)
+}
+
+pub(crate) fn count(conn: &Connection) -> Result<i64> {
+	Ok(conn.query_row("SELECT COUNT(*) FROM trust", [], |r| r.get(0))?)
+}
+
+/// Trust data backed by the `trust` table, with an in-memory copy for lookups.
+/// Every change is committed (synchronous=FULL) before it becomes visible, and
+/// the recovery backup is refreshed so a pinned key is not lost to later damage.
+#[derive(Debug)]
+pub struct TrustStore {
+	db: Database,
+	entries: Vec<TrustEntry>,
 }
 
 impl TrustStore {
-	/// Opens the store. Damage is reported as notices, never hidden, and the
-	/// damaged file is preserved next to the original.
-	pub fn open(path: impl Into<PathBuf>, lock: Arc<WriterLock>) -> Result<(Self, Vec<Notice>)> {
-		let path = path.into();
-		let mut notices = Vec::new();
-		let mut entries = Vec::new();
-		let mut damaged = false;
-		match read_if_exists(&path)? {
-			Some(bytes) => match parse(&bytes) {
-				Some(file) => entries = file.entries,
-				None => damaged = true,
-			},
-			None => {
-				// Missing main file with a backup means a crash mid-replace.
-				damaged = read_if_exists(&backup_path(&path))?.is_some();
-			}
-		}
-		if damaged {
-			let preserved = corrupt_path(&path);
-			let kept = std::fs::copy(&path, &preserved)
-				.is_ok()
-				.then_some(preserved);
-			match read_if_exists(&backup_path(&path))?.and_then(|b| parse(&b)) {
-				Some(file) => {
-					entries = file.entries;
-					notices.push(Notice::TrustRecoveredFromBackup);
-				}
-				None => notices.push(Notice::TrustStoreLost { preserved: kept }),
-			}
-		}
-		Ok((
-			Self {
-				path,
-				entries,
-				_lock: lock,
-			},
-			notices,
-		))
+	/// Loads the trust table. Recovery notices come from [`Database::open`].
+	pub fn open(db: &Database) -> Result<Self> {
+		let entries = db.with(|c| read_entries(c))?;
+		Ok(Self {
+			db: db.clone(),
+			entries,
+		})
 	}
 
 	pub fn entries(&self) -> &[TrustEntry] {
@@ -132,47 +149,46 @@ impl TrustStore {
 			.filter(|c| !c.is_control())
 			.take(MAX_NAME_CHARS)
 			.collect();
-		self.entries.push(TrustEntry {
+		let entry = TrustEntry {
 			public_key: key_hex(key),
 			display_name: name,
 			level: TrustLevel::Tofu,
 			first_seen: now,
-		});
-		self.persist()
+		};
+		self.db.with(|c| insert_entry(c, &entry))?;
+		self.entries.push(entry);
+		self.db.refresh_backup(true);
+		Ok(())
 	}
 
 	/// Marks an already pinned key as verified. Returns false if unknown.
 	pub fn mark_verified(&mut self, key: &[u8; 32]) -> Result<bool> {
 		let hex = key_hex(key);
-		let Some(entry) = self.entries.iter_mut().find(|e| e.public_key == hex) else {
+		let Some(index) = self.entries.iter().position(|e| e.public_key == hex) else {
 			return Ok(false);
 		};
-		entry.level = TrustLevel::Verified;
-		self.persist()?;
+		self.db.with(|c| {
+			c.execute(
+				"UPDATE trust SET level = 'verified' WHERE public_key = ?1",
+				[&hex],
+			)?;
+			Ok(())
+		})?;
+		self.entries[index].level = TrustLevel::Verified;
+		self.db.refresh_backup(true);
 		Ok(true)
 	}
 
 	/// Removes a peer. Returns whether an entry existed.
 	pub fn remove(&mut self, key: &[u8; 32]) -> Result<bool> {
 		let hex = key_hex(key);
-		let before = self.entries.len();
-		self.entries.retain(|e| e.public_key != hex);
-		let removed = self.entries.len() != before;
+		let removed = self
+			.db
+			.with(|c| Ok(c.execute("DELETE FROM trust WHERE public_key = ?1", [&hex])? > 0))?;
 		if removed {
-			self.persist()?;
+			self.entries.retain(|e| e.public_key != hex);
+			self.db.refresh_backup(true);
 		}
 		Ok(removed)
-	}
-
-	fn persist(&self) -> Result<()> {
-		let file = TrustFile {
-			version: TRUST_VERSION,
-			entries: self.entries.clone(),
-		};
-		let text = toml::to_string_pretty(&file).map_err(|e| ConfigError::Serialize {
-			what: "trust store",
-			message: e.to_string(),
-		})?;
-		write_atomic(&self.path, text.as_bytes(), true)
 	}
 }

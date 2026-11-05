@@ -1,12 +1,11 @@
-//! Single-writer preference store with backup recovery.
+//! Preference store over the SQLite `prefs` table.
 
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use super::migrate::migrate;
+use super::flat;
 use super::model::Preferences;
+use super::portable;
+use super::sql;
+use crate::db::Database;
 use crate::error::{ConfigError, Result};
-use crate::fsx::{WriterLock, backup_path, corrupt_path, read_if_exists, write_atomic};
 use crate::notice::Notice;
 
 /// Loaded preferences plus anything the user must be told about.
@@ -16,109 +15,63 @@ pub struct Loaded {
 	pub notices: Vec<Notice>,
 }
 
-/// Parses, migrates and validates preference bytes.
-fn parse(path: &Path, bytes: &[u8]) -> Result<(Preferences, Option<u32>)> {
-	let parse_err = |m: String| ConfigError::Parse {
-		path: path.to_path_buf(),
-		message: m,
-	};
-	let text = std::str::from_utf8(bytes).map_err(|e| parse_err(e.to_string()))?;
-	let mut table: toml::Table = text
-		.parse()
-		.map_err(|e: toml::de::Error| parse_err(e.to_string()))?;
-	let from = migrate(&mut table)?;
-	let prefs: Preferences = table
-		.try_into()
-		.map_err(|e: toml::de::Error| parse_err(e.to_string()))?;
-	prefs.validate()?;
-	let migrated = (from != prefs.config_version).then_some(from);
-	Ok((prefs, migrated))
-}
-
-/// Owns the preferences file; holding the store holds the writer lock.
-#[derive(Debug)]
+/// Reads and writes preferences. Holding the database holds the writer lock.
+#[derive(Debug, Clone)]
 pub struct PreferenceStore {
-	path: PathBuf,
-	_lock: Arc<WriterLock>,
+	db: Database,
 }
 
 impl PreferenceStore {
-	/// Binds to `path`, sharing the process-wide writer lock.
-	pub fn open(path: impl Into<PathBuf>, lock: Arc<WriterLock>) -> Result<Self> {
-		Ok(Self {
-			path: path.into(),
-			_lock: lock,
-		})
+	pub fn open(db: &Database) -> Result<Self> {
+		Ok(Self { db: db.clone() })
 	}
 
-	/// Loads preferences, recovering from damage with explicit notices.
-	///
-	/// Recovered or reset preferences never carry a microphone selection and always
-	/// start calls receive-only, so a crash cannot silently open a microphone.
+	/// Loads preferences. Recovery from a damaged database is reported by
+	/// [`Database::open`]; rows that fail validation (for example after manual
+	/// tampering) yield safe defaults, no microphone, and a notice.
 	pub fn load(&self) -> Result<Loaded> {
-		let mut notices = Vec::new();
-		let main = read_if_exists(&self.path)?;
-		let Some(bytes) = main else {
-			// A missing main file next to a backup means a crash mid-replace.
-			return self.load_backup_or_default(None, notices);
-		};
-		match parse(&self.path, &bytes) {
-			Ok((prefs, migrated_from)) => {
-				if let Some(from) = migrated_from {
-					notices.push(Notice::PreferencesMigrated {
-						from,
-						to: prefs.config_version,
-					});
-				}
-				Ok(Loaded {
-					preferences: prefs,
-					notices,
-				})
-			}
-			Err(e @ ConfigError::UnsupportedVersion { .. }) => Err(e),
-			Err(_) => {
-				let preserved = corrupt_path(&self.path);
-				let kept = std::fs::copy(&self.path, &preserved)
-					.is_ok()
-					.then_some(preserved);
-				self.load_backup_or_default(kept, notices)
-			}
+		match self.db.with(|c| sql::load(c)) {
+			Ok(found) => Ok(Loaded {
+				preferences: found.unwrap_or_default(),
+				notices: Vec::new(),
+			}),
+			Err(e @ (ConfigError::UnsupportedVersion { .. } | ConfigError::Database(_))) => Err(e),
+			Err(_) => Ok(Loaded {
+				preferences: Preferences::default(),
+				notices: vec![Notice::PreferencesReset { preserved: None }],
+			}),
 		}
 	}
 
-	fn load_backup_or_default(
-		&self,
-		preserved: Option<PathBuf>,
-		mut notices: Vec<Notice>,
-	) -> Result<Loaded> {
-		let bak = backup_path(&self.path);
-		let backup = read_if_exists(&bak)?;
-		if let Some(bytes) = &backup
-			&& let Ok((mut prefs, _)) = parse(&bak, bytes)
-		{
-			prefs.clear_microphone();
-			notices.push(Notice::PreferencesRecoveredFromBackup);
-			return Ok(Loaded {
-				preferences: prefs,
-				notices,
-			});
-		}
-		if preserved.is_some() || backup.is_some() {
-			notices.push(Notice::PreferencesReset { preserved });
-		}
-		Ok(Loaded {
-			preferences: Preferences::default(),
-			notices,
-		})
-	}
-
-	/// Validates and atomically saves `prefs`.
+	/// Validates and saves `prefs` in one transaction.
 	pub fn save(&self, prefs: &Preferences) -> Result<()> {
 		prefs.validate()?;
-		let text = toml::to_string_pretty(prefs).map_err(|e| ConfigError::Serialize {
-			what: "preferences",
-			message: e.to_string(),
-		})?;
-		write_atomic(&self.path, text.as_bytes(), false)
+		self.db.with(|c| sql::save(c, prefs))?;
+		self.db.refresh_backup(false);
+		Ok(())
+	}
+
+	/// One setting as text (see [`flat::get`]).
+	pub fn get(&self, key: &str) -> Result<String> {
+		flat::get(&self.load()?.preferences, key)
+	}
+
+	/// Sets one setting from user text, validates and saves; returns the result.
+	pub fn set(&self, key: &str, raw: &str) -> Result<Preferences> {
+		let next = flat::set(&self.load()?.preferences, key, raw)?;
+		self.save(&next)?;
+		Ok(next)
+	}
+
+	/// Current settings as human-editable TOML (no secrets).
+	pub fn export_toml(&self) -> Result<String> {
+		portable::export_toml(&self.load()?.preferences)
+	}
+
+	/// Replaces all settings from exported TOML after validating it.
+	pub fn import_toml(&self, text: &str) -> Result<Preferences> {
+		let prefs = portable::import_toml(text)?;
+		self.save(&prefs)?;
+		Ok(prefs)
 	}
 }

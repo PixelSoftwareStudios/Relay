@@ -9,3 +9,4 @@ pub use store::{
 	IdentityStore, InsecureFileStore, KeyringStore, MemoryStore, load_or_create, open_store,
 };
 pub use trust::{TrustDecision, TrustEntry, TrustLevel, TrustStore};
+pub(crate) use trust::{count as trust_count, insert_entry as insert_trust_entry};

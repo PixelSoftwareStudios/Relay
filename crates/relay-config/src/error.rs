@@ -18,6 +18,8 @@ pub enum ConfigError {
 	NoPlatformDir,
 	#[error("another process holds the single-writer lock at {0}")]
 	Locked(PathBuf),
+	#[error("database error: {0}")]
+	Database(#[from] rusqlite::Error),
 	#[error("invalid TOML in {path}: {message}")]
 	Parse { path: PathBuf, message: String },
 	#[error("could not serialize {what}: {message}")]

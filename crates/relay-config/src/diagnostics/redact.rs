@@ -86,3 +86,13 @@ pub fn fingerprint(value: &str) -> String {
 	}
 	format!("id:{}", &blake3::hash(value.as_bytes()).to_hex()[..8])
 }
+
+/// How the database location is shown in diagnostics: hidden unless `reveal` is
+/// set, because the path contains the OS user name.
+pub fn database_location(path: &std::path::Path, reveal: bool) -> String {
+	if reveal {
+		path.display().to_string()
+	} else {
+		"<redacted: per-user database>".to_owned()
+	}
+}

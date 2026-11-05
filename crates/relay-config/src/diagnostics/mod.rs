@@ -6,4 +6,4 @@ mod redact;
 
 pub use bundle::{BUNDLE_MAX_BYTES, BundleInput, build_bundle};
 pub use capture::RawCaptureConsent;
-pub use redact::{fingerprint, redact_line};
+pub use redact::{database_location, fingerprint, redact_line};

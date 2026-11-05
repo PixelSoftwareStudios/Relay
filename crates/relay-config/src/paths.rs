@@ -1,4 +1,7 @@
 //! Platform directory resolution and the per-file layout under it.
+//!
+//! `ProjectDirs` resolves inside the current OS user's profile, so every OS user of a
+//! shared PC gets a separate database.
 
 use std::path::{Path, PathBuf};
 
@@ -47,11 +50,18 @@ impl Paths {
 		&self.data_dir
 	}
 
-	pub fn preferences_file(&self) -> PathBuf {
+	/// The per-user SQLite database holding preferences, trust and the avatar cache.
+	pub fn database_file(&self) -> PathBuf {
+		self.data_dir.join("relay.db")
+	}
+
+	/// Pre-SQLite preferences file; only read once to import it.
+	pub fn legacy_preferences_file(&self) -> PathBuf {
 		self.config_dir.join("config.toml")
 	}
 
-	pub fn trust_file(&self) -> PathBuf {
+	/// Pre-SQLite trust file; only read once to import it.
+	pub fn legacy_trust_file(&self) -> PathBuf {
 		self.data_dir.join("trust.toml")
 	}
 
@@ -61,9 +71,5 @@ impl Paths {
 
 	pub fn writer_lock_file(&self) -> PathBuf {
 		self.config_dir.join("writer.lock")
-	}
-
-	pub fn avatar_cache_dir(&self) -> PathBuf {
-		self.data_dir.join("avatars")
 	}
 }

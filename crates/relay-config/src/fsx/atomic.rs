@@ -10,7 +10,8 @@ use std::path::{Path, PathBuf};
 
 use crate::error::{ConfigError, Result};
 
-fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+/// `path` with `suffix` appended to its file name.
+pub fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
 	let mut name = path.as_os_str().to_owned();
 	name.push(suffix);
 	PathBuf::from(name)
@@ -75,7 +76,7 @@ fn open_tmp(tmp: &Path, private: bool) -> std::io::Result<File> {
 }
 
 /// Best-effort directory fsync so the rename itself is durable.
-fn sync_dir(dir: &Path) {
+pub fn sync_dir(dir: &Path) {
 	#[cfg(unix)]
 	if let Ok(handle) = File::open(dir) {
 		let _ = handle.sync_all();
