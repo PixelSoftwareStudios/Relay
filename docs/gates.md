@@ -96,9 +96,9 @@ A hardware or review gate is never marked met by a test that uses fakes.
 
 | Gate | Status | Evidence / what is needed |
 |---|---|---|
-| Choose one default from recorded quality, latency and resource evidence, or ship bypass | blocked | Bypass is the shipped default. The only comparison used a synthetic corpus, which the log itself says is not speech. Needs a real speech corpus run (`docs/evidence.md` "Not run"). |
-| No call-time model download or re-initialisation on audio callbacks | simulated | No downloader exists, and relay-audio `allocations::dsp_chain_is_allocation_free` covers the shipped chain. Candidates other than `off` are not callback-safe as measured (sonora allocates per frame). |
-| Approved model hash, license and runtime manifest checked in | blocked | No candidate is qualified, so no manifest exists. |
+| Choose one default from recorded quality, latency and resource evidence, or ship bypass | blocked | Bypass is still the shipped default. A real-speech comparison now exists for nnnoiseless, sonora and the neural candidates GTCRN, DTLN and FastEnhancer t/s/b/m/l (`docs/evidence.md`, 2026-11-05 neural section): DTLN, GTCRN and FastEnhancer-s/m/l raise STOI/eSTOI at low SNR, which nnnoiseless and sonora do not. Still missing: a quiet-machine timing run, a listening result (`audio-corpus listen`, `docs/audio.md`), and a licence review of the weights. |
+| No call-time model download or re-initialisation on audio callbacks | simulated | No downloader exists, and relay-audio `allocations::dsp_chain_is_allocation_free` covers the shipped chain. Candidates other than `off` are not callback-safe as measured: sonora allocates 1-40 times per frame, the tract-based neural candidates 284-2330 times per frame (`benches/tests/neural_allocs.rs`). |
+| Approved model hash, license and runtime manifest checked in | blocked | Candidate manifests with source revision, SHA-256 and runtime are checked in for the neural candidates (`benches/models/manifests/`), and the benches verify the hash on load, but all are `candidate`, `approved: false`, with weight licences and measured delay for the manifest unreviewed. No qualified manifest exists. |
 
 ### WP-08 CLI, TUI, hotkeys
 

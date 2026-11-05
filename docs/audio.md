@@ -140,6 +140,8 @@ control actor, after every message and tick:
 
 ## Evaluation candidates
 
+Neural candidates GTCRN, DTLN and FastEnhancer run through `tract-onnx` behind the `neural` feature of `relay-benches` (weights in the gitignored `benches/models`, hash-checked against committed manifests); nothing in `relay-audio` changed for them.
+
 `eval-sonora` (pure-Rust WebRTC port: NS, NS+AGC2, NS+AEC3) and
 `eval-nnnoiseless` (pure-Rust RNNoise port) are not default features and are
 not reachable from `create_suppressor`. Measured behaviour, including that
@@ -148,6 +150,23 @@ runner live in the `relay-benches` crate (`benches/`): a deterministic builder
 for a LibriSpeech + DEMAND corpus (local, gitignored under `benches/corpus`),
 SI-SDR, STOI and eSTOI (in-repo, unvalidated against a reference), delay by
 cross-correlation, per-frame timing, CPU time, and a paced worker-thread test.
+
+## Listening test
+
+`audio-corpus listen` is a blind rating test for your own headphones. It needs the built corpus (`benches/corpus/built`, see `docs/evidence.md`) and whichever candidates you build in (`--features sonora,nnnoiseless,neural`).
+
+```
+cargo run --release -p relay-benches --features sonora,nnnoiseless,neural --bin audio-corpus -- \
+  listen prepare benches/corpus/built --utterances 4 --conditions snr00,snr10,clean --seed 42
+```
+
+This renders every chosen utterance through `off` and each backend into `benches/listening-out/session-<seed>/` (gitignored). Clips are named `trialNN_X.wav`; within a trial the letters are shuffled with the recorded seed, so a name never reveals a backend. Each processed clip is delay-aligned to the original and loudness-matched to it (gain capped at 12 dB), so level and lag do not give a clip away; both corrections are recorded in the key. Open the clips in any player, then edit `answers.csv`: one `rating` (1 bad to 5 excellent) per clip, and an `x` in `preferred` on the one clip you liked best in each trial (optional; at most one per trial). Blank means unrated.
+
+```
+... --bin audio-corpus -- listen score benches/listening-out/session-42
+```
+
+`score` reads `key/key.json` (do not open it before you are done), rejects malformed sheets, prints the mean rating, rated count and picks per backend and condition, and writes `summary.csv`. It reports partial sheets as partial. The test is a rating-and-pick protocol rather than a strict ABX identification test, and a handful of trials gives only a rough ordering.
 
 ## Known limits
 

@@ -339,6 +339,99 @@ Same run with the main thread at user-interactive QoS (`--qos on`):
 - sonora's NS+AGC and NS+AEC (silent render) numbers equal NS-only because these metrics are gain-invariant and there is no echo in the corpus; the AEC profile mostly adds about 384 samples of delay (715 vs 331) and 3.7x the CPU.
 - Per-frame delay is stable per backend now (sonora NS 304-508, median 331; the spread is a property of the frequency-dependent delay and of speech content, not measured further).
 
+## 2026-11-05: neural candidates (GTCRN, DTLN, FastEnhancer) on the real corpus
+
+Same corpus (24 utterances x 6 conditions, manifest SHA-256 20e1693195ede93dccdbab41992d79197dd20d5d3c263f5990b8d37e78399c1c), machine (Apple M1 Pro, macOS 14.7.2, rustc 1.99.1, release), harness and metrics as above. One change to the harness: the cross-correlation delay search widened from 960 to 4800 samples, because the neural candidates delay by more than 20 ms. The existing candidates' quality rows were reproduced unchanged by the new run (sonora and nnnoiseless identical to the tables above), so the rows below are comparable with them.
+
+### Facts: what was run
+
+Runtime: `tract-onnx` 0.23.10 (pure Rust, one thread, no onnxruntime in the build), behind the OFF-by-default `neural` feature of `relay-benches`; adapters are in `benches/audio/neural/`. Weights were downloaded from the projects' GitHub repositories and releases into the gitignored `benches/models/<family>/`; each is hashed on load against a committed manifest (`benches/models/manifests/*.json`, `ModelManifest` schema v1, status `candidate`, `approved: false`).
+
+| Candidate | Source (revision) | File SHA-256 | Rate / FFT / hop | Licence evidence |
+|---|---|---|---|---|
+| gtcrn | Xiaobin-Rong/gtcrn 502ebfab `stream/onnx_models/gtcrn_simple.onnx` | b4718df6228e7bdf1a8a435cf98f838636eb2fd331acabf86ba87c5192ebcb87 | 16 kHz / 512 sqrt-Hann / 256 | repository MIT; weights (DNS3-trained) carry no separate statement |
+| dtln | breizhn/DTLN 1de1f15a `pretrained_model/model_{1,2}.onnx` | manifest hash is of model_1 then model_2 bytes: d0014f8ae26d245046967e83685cd89d583b818347507bd6145d69c395181ca8 | 16 kHz / 512 learned+FFT / 128 | repository MIT; weights (500 h DNS-Challenge) carry no separate statement |
+| fastenhancer-t/s/b/m/l | aask1357/fastenhancer release `onnx-48khz-v1`, `*_spec.onnx` (repo commit 85d98a68 read at download) | in `manifests/fastenhancer-*.json` | 48 kHz / 1024 Hann / 512, 512, 512, 320, 200 | repository MIT; training data (README Table 3) includes DEMAND, VCTK and AI Hub corpora, terms unreviewed |
+
+The MIT texts of the GTCRN, DTLN and FastEnhancer repositories were read (copyright lines Rong Xiaobin 2024, Nils L. Westhausen 2020, AHN Sung Hwan 2025). None of the projects states a licence for the weights themselves, so `model_license` in each manifest says so instead of claiming MIT for the weights.
+
+Did not run: the FastEnhancer waveform-to-waveform exports (`fastenhancer_<size>.onnx`). tract fails to build them: `Translating node "node_SplitToSequence_389" Unimplemented(SplitToSequence)`. The spec-to-spec exports load and run, with the STFT/iSTFT done in Rust (`benches/audio/neural/spec.rs`). GTCRN (`gtcrn.onnx` and `gtcrn_simple.onnx`) and both DTLN stages load as published. Nothing was converted or re-exported.
+
+Adapter correctness against a reference (ignored tests in `benches/tests/neural.rs`, local weights needed):
+
+| Check | Result |
+|---|---|
+| GTCRN vs the reference output `enh_stream.wav` shipped in the repository (same noisy clip) | 46.5 dB agreement |
+| DTLN vs ONNX Runtime 1.31.1 running the repository's own streaming loop, same clip | 104.9 dB |
+| FastEnhancer t / s / m / l vs ONNX Runtime 1.31.1 spec model with numpy STFT/iSTFT | 45.1 / 37.3 / 26.0 / 33.3 dB |
+
+FastEnhancer-b was not cross-checked. The residual for FastEnhancer was not isolated (plausible: reflect versus zero padding at the start, and float differences accumulating in the recurrent state; unverified).
+
+Rates and framing: 16 kHz models run through the repo's sinc `StreamResampler` (48 -> 16 -> 48 kHz). The corpus itself is 16 kHz-sourced (LibriSpeech and DEMAND 16 kHz scenes), so nothing above 8 kHz exists to be lost. 10 ms frames are bridged to each model hop by FIFOs; the output FIFO is primed with `hop - gcd(hop, frame)` zeros, the least that keeps the stream gapless.
+
+Delay (measured by cross-correlation on every corpus file; the impulse method returned a value only where noted, and an impulse is unrepresentative input for these networks):
+
+| Backend | xcorr delay, samples (min / median / max) | ms | impulse |
+|---|---|---|---|
+| gtcrn | 1794 / 1794 / 1794 | 37.4 | no estimate |
+| dtln | 1794 / 1794 / 1794 | 37.4 | no estimate |
+| fastenhancer-t, -s, -b | 992 / 992 / 992 | 20.7 | 992 (t, s) |
+| fastenhancer-m | 864 / 864 / 864 | 18.0 | 864 |
+| fastenhancer-l | 984 / 984 / 984 | 20.5 | 984 |
+
+For comparison (earlier runs): sonora NS about 331 samples, nnnoiseless 480. By construction part of each figure is the model's own latency (n_fft - hop) and part is adapter buffering for the 10 ms frame mismatch; for the 512-hop FastEnhancers that is 512 + 480 = 992. The two 1794s coincide because both reduce to 480 samples at 16 kHz of model-plus-FIFO delay plus the two resamplers.
+
+Timing, per 10 ms frame, one thread. Run 2 (this section's first rerun set) was taken with machine load average 13 -> 9 from other agents' builds; run 1 (all 12 backends) with load 7-46. Neither is a quiet machine, so p99 and max are inflated by contention; p50 and CPU are the more stable figures. Numbers are from run 2 except where marked (run 1).
+
+| Backend | p50 us | p99 us | max us | frames > 1 ms | CPU (cores) | allocations / frame |
+|---|---|---|---|---|---|---|
+| off | 0.0 | 0.2 | 35 | 0 of 109416 | 0.00001 | 0 |
+| sonora-ns | 18.2 | 50.8 | 8357 | 22 | 0.00188 | 1 |
+| nnnoiseless | 42.2 | 119.8 | 30620 | 23 | 0.00438 | 0 |
+| gtcrn | 375.9 | 1010 | 73059 | 1123 | 0.0282 | 1342 |
+| dtln | 118.3 | 449 | 54875 | 345 | 0.0147 | 284 |
+| fastenhancer-t | 185.2 | 700 | 253411 | 497 | 0.0190 | 454 |
+| fastenhancer-s | 698.9 | 2079 | 95550 | 14794 | 0.0697 | 618 |
+| fastenhancer-b (run 1) | 432.4 | 768 | 98557 | 697 | 0.0420 | 583 |
+| fastenhancer-m | 2597 | 5268 | 192366 | 109416 | 0.222 | 1196 |
+| fastenhancer-l (run 1) | 6347 | 18929 | 311651 | 109416 | 0.672 | 2330 |
+
+Allocations are from a counting global allocator over 1000 steady-state frames (`benches/tests/neural_allocs.rs`); the existing sonora and nnnoiseless counts (1, 8, about 40, 0) were reproduced. Per-frame time of a hop-512 model is the cost of a step charged to the frames in which one occurs.
+
+Quality, filtered SDR in dB (output, change from unprocessed) and STOI / eSTOI change, means of 24 files per condition; unprocessed inputs: SDR -5.2, 0.1, 4.6, 9.6, 19.5 at the five SNRs (clean exact), STOI 0.780, 0.879, 0.914, 0.949, 0.991, eSTOI 0.569, 0.714, 0.792, 0.866, 0.971.
+
+| Backend | metric | -5 dB | 0 dB | 5 dB | 10 dB | 20 dB | clean |
+|---|---|---|---|---|---|---|---|
+| sonora-ns | fSDR out | 6.1 | 12.3 | 14.0 | 14.9 | 19.7 | 21.5 |
+| | STOI / eSTOI chg | -0.010 / +0.005 | -0.016 / -0.000 | -0.022 / -0.013 | -0.023 / -0.019 | -0.022 / -0.036 | -0.020 / -0.041 |
+| nnnoiseless | fSDR out | 6.4 | 11.3 | 13.8 | 15.8 | 21.6 | 24.7 |
+| | STOI / eSTOI chg | +0.008 / +0.016 | +0.000 / +0.024 | -0.004 / +0.016 | -0.004 / +0.010 | -0.009 / -0.013 | -0.008 / -0.018 |
+| gtcrn | fSDR out | 3.4 | 8.8 | 12.0 | 16.2 | 22.8 | 32.7 |
+| | STOI / eSTOI chg | +0.061 / +0.104 | +0.034 / +0.087 | +0.024 / +0.063 | +0.010 / +0.035 | -0.003 / -0.004 | -0.006 / -0.016 |
+| dtln | fSDR out | 10.8 | 16.4 | 18.7 | 19.5 | 24.3 | 56.0 |
+| | STOI / eSTOI chg | +0.054 / +0.090 | +0.036 / +0.089 | +0.026 / +0.067 | +0.015 / +0.044 | -0.001 / +0.000 | -0.003 / -0.008 |
+| fastenhancer-t | fSDR out | 7.1 | 13.3 | 14.8 | 16.0 | 20.1 | 39.6 |
+| | STOI / eSTOI chg | -0.026 / +0.017 | -0.030 / +0.028 | -0.044 / -0.000 | -0.056 / -0.020 | -0.050 / -0.041 | -0.042 / -0.038 |
+| fastenhancer-s | fSDR out | 9.2 | 16.0 | 17.8 | 19.8 | 25.9 | 50.5 |
+| | STOI / eSTOI chg | +0.020 / +0.090 | +0.015 / +0.092 | -0.002 / +0.057 | -0.006 / +0.034 | -0.005 / -0.003 | -0.004 / -0.009 |
+| fastenhancer-b | fSDR out | 9.0 | 15.3 | 17.3 | 18.4 | 24.7 | 50.7 |
+| | STOI / eSTOI chg | +0.004 / +0.061 | +0.001 / +0.067 | -0.008 / +0.039 | -0.024 / +0.008 | -0.017 / -0.020 | -0.007 / -0.014 |
+| fastenhancer-m | fSDR out | 9.9 | 17.4 | 19.9 | 21.3 | 28.2 | 56.3 |
+| | STOI / eSTOI chg | +0.025 / +0.107 | +0.037 / +0.124 | +0.029 / +0.089 | +0.017 / +0.058 | -0.003 / +0.002 | -0.004 / -0.009 |
+| fastenhancer-l | fSDR out | 11.1 | 18.1 | 20.1 | 21.6 | 27.9 | 51.7 |
+| | STOI / eSTOI chg | +0.048 / +0.140 | +0.058 / +0.142 | +0.038 / +0.099 | +0.020 / +0.063 | +0.000 / +0.004 | -0.002 / -0.007 |
+
+Clean-speech damage is the "clean" column: the output filtered SDR against the exact input (higher is less damage) and the STOI/eSTOI change.
+
+### Interpretation (not measured facts)
+
+- On these proxies all three families beat nnnoiseless and sonora on intelligibility at low SNR: DTLN, GTCRN and FastEnhancer-s/m/l raise STOI by +0.02 to +0.06 and eSTOI by +0.06 to +0.14 at -5 to 5 dB, where the earlier candidates gave about zero. All stay within -0.02 STOI of the input at 20 dB and clean. FastEnhancer-t is the exception: it lowers STOI at every SNR including clean (-0.04), so the smallest FastEnhancer is not usable here.
+- DTLN looks the best balance among the 16 kHz models on this corpus: the least clean-speech damage (56 dB filtered SDR, STOI -0.003), the largest SDR gain at 5 and 10 dB among the models under 0.03 cores, 0.015 cores, 37 ms delay. GTCRN damages clean speech more (32.7 dB) and costs about twice the CPU of DTLN in this implementation.
+- FastEnhancer-l has the best low-SNR numbers but needs 0.67 of a core and 6.3 ms median per 10 ms frame, and -m needs 0.22 core with every frame over 1 ms; neither fits a worker that shares a thread with a codec. -s (0.07 core, 20.7 ms) is the plausible FastEnhancer. Only these are native 48 kHz.
+- Caveats that bias against reading these as a final ranking: FastEnhancer's training noise includes DEMAND, the noise source of this corpus, so its scores may be optimistic (the other two models' training noise was not checked); only 24 utterances and 3 noise scenes, read speech; no listening, PESQ or DNSMOS; STOI/eSTOI are proxies and the nnnoiseless/sonora numbers show they do not capture how a suppressor sounds; fSDR allows a 448-tap filter, which slightly flatters every row.
+- Real-time: p50 and CPU leave room, but p99 for gtcrn (1.0 ms) and every neural row shows slow frames, run-to-run unstable under load. Every neural step allocates hundreds to thousands of times (tract and the tensors fed to it), so none is callback-safe; each belongs on a worker thread with a jitter margin. Delay of 20-37 ms is added on top of the codec and network path.
+- No candidate is qualified: weight licences and training-data terms are unreviewed, timing was not taken on a quiet machine, and nothing was heard by a person. The blind listening tool in `docs/audio.md` exists to close the last gap.
+
 ## 2026-11-05: coverage-guided fuzzing of untrusted parsers
 
 Toolchain: `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)` (rustup minimal profile), `cargo-fuzz 0.13.2`, libFuzzer with ASAN, macOS aarch64. Command per target, run from `fuzz/`, with the corpus in a scratch directory outside the repository (seeded from `fuzz/corpus/<target>/` where one exists):
