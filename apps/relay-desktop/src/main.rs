@@ -8,10 +8,11 @@ use relay_ui::controller::{Controller, SessionSlot};
 use relay_ui::emitter::{self, Cadence};
 use relay_ui::hub::Hub;
 use relay_ui::imaging::decode_for_texture;
+use relay_ui::messaging::link::MsgLink;
 use relay_ui::relay_link::{RelayLink, resolve_endpoint};
 use relay_ui::shell::Shell;
 use relay_ui::ui::RelayApp;
-use relay_ui::{mock, supervisor};
+use relay_ui::{messaging, mock, supervisor};
 
 /// Embedded from the repo-root assets folder.
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-256.png");
@@ -69,7 +70,17 @@ fn main() -> eframe::Result {
 			runtime.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			if mock_mode {
 				runtime.spawn(mock::run(hub.clone(), slot));
+				runtime.spawn(messaging::mock::run(
+					shared.messages.clone(),
+					actions.shell.clone(),
+				));
 			} else {
+				let msg_engine = Arc::new(MsgLink::new(resolve_endpoint));
+				runtime.spawn(messaging::supervisor::supervise(
+					msg_engine,
+					shared.messages.clone(),
+					actions.shell.clone(),
+				));
 				let engine = Arc::new(RelayLink::new(resolve_endpoint));
 				runtime.spawn(supervisor::supervise(
 					engine,

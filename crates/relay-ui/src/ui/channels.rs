@@ -235,5 +235,7 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 		if advert != settings.advert {
 			actions.run(|c| async move { c.set_privacy(None, Some(advert)).await });
 		}
+		ui.separator();
+		super::messages::privacy_toggle(ui, actions);
 	});
 }

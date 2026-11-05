@@ -46,17 +46,25 @@ pub enum Page {
 	Calls,
 	People,
 	Channels,
+	Messages,
 	Settings,
 }
 
 impl Page {
-	pub const ALL: [Page; 4] = [Page::Calls, Page::People, Page::Channels, Page::Settings];
+	pub const ALL: [Page; 5] = [
+		Page::Calls,
+		Page::People,
+		Page::Channels,
+		Page::Messages,
+		Page::Settings,
+	];
 
 	pub fn label(self) -> &'static str {
 		match self {
 			Self::Calls => "Calls",
 			Self::People => "People",
 			Self::Channels => "Channels",
+			Self::Messages => "Messages",
 			Self::Settings => "Settings",
 		}
 	}

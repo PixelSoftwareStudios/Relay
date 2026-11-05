@@ -48,6 +48,9 @@ pub struct Local {
 
 	pub picked: Option<PickedImage>,
 
+	/// A call card asked to show that call's messages (hex call id).
+	pub open_messages: Option<String>,
+
 	pub new_channel: NewChannel,
 	pub join_target: String,
 	pub join_password: String,

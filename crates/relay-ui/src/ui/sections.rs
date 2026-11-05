@@ -143,6 +143,13 @@ fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) 
 			let id = cid.clone();
 			actions.run(|c| async move { c.end_call(&id).await });
 		}
+		if ui
+			.button("Messages")
+			.on_hover_text("Text, images and files for this call")
+			.clicked()
+		{
+			local.open_messages = Some(cid.clone());
+		}
 		let (mute, deaf) = (call.user_muted, call.user_deafened);
 		if ui
 			.selectable_label(mute, if mute { "Unmute (call)" } else { "Mute (call)" })

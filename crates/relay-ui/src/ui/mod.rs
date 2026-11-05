@@ -5,6 +5,7 @@
 mod channels;
 mod connection;
 mod local;
+pub mod messages;
 mod nav;
 mod profile;
 mod ring;
@@ -19,6 +20,7 @@ use crate::theme;
 use crate::viewmodel::{call_cards, peer_rows};
 
 use local::{Local, PickedImage};
+use messages::MessagesUi;
 use textures::{Textures, upload};
 
 /// Header logo, embedded from the repo-root assets folder.
@@ -32,6 +34,9 @@ pub struct RelayApp {
 	/// The layout the installed style was built for; `None` before the first frame.
 	class: Option<LayoutClass>,
 	page: Page,
+	messages: MessagesUi,
+	/// The Messages side panel of the regular layout is showing.
+	messages_open: bool,
 }
 
 impl RelayApp {
@@ -47,12 +52,33 @@ impl RelayApp {
 			local: Local::default(),
 			class: None,
 			page: Page::default(),
+			messages: MessagesUi::new(),
+			messages_open: false,
 		}
 	}
 
 	/// The layout the last `begin_frame` chose, `None` before the first frame.
 	pub fn layout_class(&self) -> Option<LayoutClass> {
 		self.class
+	}
+
+	/// Show the Messages panel (the compact page or the side panel), for the
+	/// session of `call_id` (hex) when given.
+	pub fn show_messages(&mut self, call_id: Option<String>) {
+		if let Some(call) = call_id {
+			self.messages.focus_call(call);
+		}
+		if self.class.is_some_and(LayoutClass::is_compact) {
+			self.page = Page::Messages;
+		} else {
+			self.messages_open = true;
+		}
+	}
+
+	/// Start the "send clipboard to a call" flow of the Messages panel: it
+	/// reads the clipboard, then asks which call and for confirmation.
+	pub fn begin_clipboard_send(&mut self) {
+		self.messages.begin_clipboard();
 	}
 
 	/// The page shown in the compact layout.
@@ -104,22 +130,64 @@ impl RelayApp {
 		let class = self.class.unwrap_or(LayoutClass::Regular);
 		if class.is_compact() {
 			nav::bottom_bar(ui, &mut self.page);
+		} else if self.messages_open {
+			egui::Panel::right("relay-messages")
+				.resizable(true)
+				.default_size(380.0)
+				.size_range(300.0..=640.0)
+				.show(ui, |ui| {
+					ui.set_width(ui.available_width());
+					if self.messages.show(ui, &self.actions, true) {
+						self.messages_open = false;
+					}
+				});
 		}
 		egui::CentralPanel::default().show(ui, |ui| {
-			egui::ScrollArea::vertical().show(ui, |ui| {
-				self.header(ui);
-				self.pages(ui, class);
-			});
+			if class.is_compact() && self.page == Page::Messages {
+				self.messages.show(ui, &self.actions, false);
+				return;
+			}
+			// Beside the side panel the narrow column's bar would flip on and
+			// off forever (a repaint per frame); wheel and touch still scroll.
+			let bar = if self.messages_open {
+				egui::scroll_area::ScrollBarVisibility::AlwaysHidden
+			} else {
+				egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded
+			};
+			egui::ScrollArea::vertical()
+				.scroll_bar_visibility(bar)
+				.show(ui, |ui| {
+					self.header(ui, class);
+					self.pages(ui, class);
+				});
 		});
+		if let Some(call) = self.local.open_messages.take() {
+			self.messages.focus_call(call);
+			if class.is_compact() {
+				self.page = Page::Messages;
+			} else {
+				self.messages_open = true;
+			}
+		}
 	}
 
-	fn header(&self, ui: &mut egui::Ui) {
+	fn header(&mut self, ui: &mut egui::Ui, class: LayoutClass) {
 		let state = self.actions.shared.state();
 		ui.horizontal(|ui| {
 			ui.image((self.logo.id(), egui::vec2(32.0, 32.0)));
 			ui.heading("Relay");
 			if let Some(info) = &state.engine {
 				ui.label(egui::RichText::new(format!("engine {}", info.version)).weak());
+			}
+			if !class.is_compact() {
+				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+					if ui
+						.selectable_label(self.messages_open, "Messages")
+						.clicked()
+					{
+						self.messages_open = !self.messages_open;
+					}
+				});
 			}
 		});
 	}
