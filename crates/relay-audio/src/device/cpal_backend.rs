@@ -160,16 +160,54 @@ impl CpalBackend {
 	}
 }
 
+/// Promotes cpal's callback thread from its first callback (cpal's `realtime` feature is off).
+struct CallbackPromotion {
+	done: std::cell::Cell<bool>,
+	frames: u32,
+	rate: u32,
+	health: StreamHealth,
+}
+
+impl CallbackPromotion {
+	fn new(config: &StreamConfig, health: StreamHealth) -> Self {
+		let frames = match config.buffer_size {
+			BufferSize::Fixed(frames) => frames,
+			BufferSize::Default => crate::FRAME_SAMPLES as u32,
+		};
+		Self {
+			done: std::cell::Cell::new(false),
+			frames,
+			rate: config.sample_rate,
+			health,
+		}
+	}
+
+	/// One branch per callback; the promotion itself runs only the first time.
+	#[inline]
+	fn once(&self) {
+		if !self.done.replace(true) {
+			let outcome = crate::priority::promote_callback_thread(self.frames, self.rate);
+			if matches!(outcome, crate::priority::Promotion::Denied(_)) {
+				self.health.report_realtime_denied();
+			}
+		}
+	}
+}
+
 fn build_input<T: SizedSample + Sample>(
 	device: &cpal::Device,
 	config: StreamConfig,
 	mut callback: CaptureCallback,
 	health: StreamHealth,
 ) -> Result<cpal::Stream> {
+	let promote = CallbackPromotion::new(&config, health.clone());
 	device
 		.build_input_stream::<T, _, _>(
 			config,
-			move |data, _| callback.process(data),
+			move |data, _| {
+				promote.once();
+				callback.process(data);
+			},
 			health_callback(health),
 			None,
 		)
@@ -182,10 +220,14 @@ fn build_output<T: SizedSample + Sample>(
 	mut callback: PlaybackCallback,
 	health: StreamHealth,
 ) -> Result<cpal::Stream> {
+	let promote = CallbackPromotion::new(&config, health.clone());
 	device
 		.build_output_stream::<T, _, _>(
 			config,
-			move |data, _| callback.process(data),
+			move |data, _| {
+				promote.once();
+				callback.process(data);
+			},
 			health_callback(health),
 			None,
 		)

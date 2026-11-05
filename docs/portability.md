@@ -58,7 +58,7 @@ commit `d1f2535`, which is a weaker statement about current code.
 | relay-protocol | ok | ok | |
 | relay-net | ok | ok | ring needs nasm on msvc |
 | relay-config | ok | ok | bundled SQLite compiled with zig cc; keyring v1 backends below |
-| relay-audio | ok (stubbed pkg-config) | ok | libopus built with cmake+zig cc; ALSA only on Linux |
+| relay-audio | ok (stubbed pkg-config) | ok | libopus built with cmake+zig cc; ALSA only on Linux. `priority` (own RT promotion; no `audio_thread_priority`): type-checked and clippy-clean for both targets, also `--features rtkit` on Linux; **not run**. Only the macOS path is executed (tests incl. `thread_policy_get` read-back) |
 | relay-api | ok | ok | UDS code is `cfg(unix)`; Windows has loopback TCP only; all its tests are `cfg(unix)` |
 | relay-platform | ok, also `--features wayland` | ok, `wayland` is a no-op; windows-gnu also ok | |
 | relay-client | ok | ok | detached spawn uses `creation_flags` on Windows (compiled, not run) |

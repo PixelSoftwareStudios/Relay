@@ -36,10 +36,22 @@ indices stay exact; playback underflow outputs silence and never replays.
 resampler, codec, mixer, capture chain and a full fake-device loopback step and
 asserts zero steady-state allocations.
 
-Worker threads are promoted by `priority::promote_current_thread` (macOS QoS user-interactive;
-Windows and Linux via `audio_thread_priority`, without D-Bus/rtkit). cpal's `realtime`
-feature is enabled; a refused promotion arrives as `ErrorKind::RealtimeDenied`, is recorded in
-`StreamHealth::realtime_denied` and never pauses the stream. The playback callback publishes its
+Worker threads are promoted by `priority::promote_current_thread`, implemented in-tree from OS
+documentation (behaviour informed by reviewing the `audio_thread_priority` crate's approach; no code
+taken, no MPL obligations). cpal's `realtime` feature is off because it depends on that MPL-2.0
+crate; the thread cpal creates for device callbacks is promoted by `priority::promote_callback_thread`
+from its first callback (one branch per callback afterwards; a few syscalls once, plus a reason
+string if refused; never D-Bus, never waits). Tiers: macOS `THREAD_TIME_CONSTRAINT_POLICY` (period =
+buffer, computation = period/4, constraint = period/2, clamped to 0.5-50 ms) then QoS
+user-interactive; Windows MMCSS "Pro Audio" then `THREAD_PRIORITY_TIME_CRITICAL`; Linux/Android
+`SCHED_RR` at `min(RLIMIT_RTPRIO, 10)`, then RealtimeKit (cargo feature `rtkit`, off by default,
+worker threads only), then nice -11. Dropping the guard restores the thread. A refusal is recorded
+in `StreamHealth::realtime_denied` (callback thread) or logged (workers) and never pauses the stream.
+Policy and timing math are safe code behind the `OsPriority` trait and unit-tested with a fake OS.
+Safe versus unsafe: `rustix` (safe) does the `RLIMIT_RTPRIO` check, thread id and nice values;
+`unsafe` is confined to `priority/{macos,windows,linux}.rs`: the mach `thread_policy_set` and
+QoS calls, the MMCSS and `SetThreadPriority` calls, and one `pthread_setschedparam` (rustix does not
+expose `sched_setscheduler`). Each block carries a SAFETY comment. The playback callback publishes its
 largest buffer (`PlaybackShared::max_callback_frames`) with a relaxed `fetch_max`.
 
 ## Timeline and mute

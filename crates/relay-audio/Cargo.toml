@@ -18,13 +18,23 @@ sonora = { workspace = true, optional = true }
 nnnoiseless = { workspace = true, optional = true }
 tracing.workspace = true
 
-[target.'cfg(target_os = "macos")'.dependencies]
+[target.'cfg(any(target_os = "macos", target_os = "linux", target_os = "android"))'.dependencies]
 libc.workspace = true
 
-[target.'cfg(any(target_os = "linux", target_os = "windows", target_os = "android"))'.dependencies]
-audio_thread_priority.workspace = true
+[target.'cfg(target_os = "macos")'.dependencies]
+mach2.workspace = true
+
+[target.'cfg(any(target_os = "linux", target_os = "android"))'.dependencies]
+rustix.workspace = true
+zbus = { workspace = true, optional = true }
+
+[target.'cfg(target_os = "windows")'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Foundation", "Win32_System_Threading"] }
 
 [features]
+# RealtimeKit over the system D-Bus when SCHED_RR is refused (Linux). Off by default: it adds
+# zbus (already in the tree through ashpd) to headless builds.
+rtkit = ["dep:zbus"]
 # Optional neural backends; stubbed behind clear errors until a qualified artifact exists.
 rnnoise = []
 dtln = []

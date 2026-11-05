@@ -643,3 +643,13 @@ simulation and fake-device evidence; nothing was measured on real hardware.
   the daemon starts a tone yet.
 - **I-01 to I-07**: unchanged by design (I-03 and I-05 remain as described; I-02 now matters less
   because RT-02 no longer relies on the gate alone being the only barrier).
+- **RT-03 Resolution (amended)**: `audio_thread_priority` (MPL-2.0) is gone from the dependency graph,
+  including cpal's `realtime` feature, which is now off. `relay_audio::priority` implements the
+  promotion from OS documentation (behaviour informed by reviewing that crate's approach): macOS
+  time-constraint policy then QoS; Windows MMCSS "Pro Audio" then `THREAD_PRIORITY_TIME_CRITICAL`;
+  Linux `SCHED_RR` bounded by `RLIMIT_RTPRIO`, optional RealtimeKit (`rtkit` feature), then nice. The
+  cpal callback thread is promoted from its first callback (`promote_callback_thread`); a refusal
+  sets `StreamHealth::realtime_denied` (RT-15 stays honest). Verified on macOS only (policy tests with
+  a fake OS; `thread_policy_get` read-back and demotion on drop). Windows and Linux paths are only
+  type-checked and clippy-clean; effect unmeasured on every OS, and the first-callback promotion has
+  not been run against a real WASAPI or ALSA device.
