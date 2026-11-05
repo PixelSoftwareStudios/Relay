@@ -24,19 +24,20 @@ impl<W: AsyncWrite + Unpin> ControlSender<W> {
 		}
 	}
 
-	/// Validates, seals and writes one envelope. A failure may have consumed a nonce and is
-	/// terminal for this half.
+	/// Validates, seals and writes one envelope. A validation failure leaves the half usable; any
+	/// later failure may have consumed a nonce and is terminal for this half.
 	pub async fn send(&mut self, envelope: &Envelope) -> Result<(), ControlError> {
 		if self.failed {
 			return Err(ControlError::Closed);
 		}
+		// Nothing is sealed yet, so a refused envelope neither poisons the half nor burns a nonce.
+		validate_envelope(envelope)?;
 		let result = self.send_inner(envelope).await;
 		self.failed = result.is_err();
 		result
 	}
 
 	async fn send_inner(&mut self, envelope: &Envelope) -> Result<(), ControlError> {
-		validate_envelope(envelope)?;
 		let record = self
 			.session
 			.seal(RecordKind::Envelope, &envelope.encode_to_vec())?;

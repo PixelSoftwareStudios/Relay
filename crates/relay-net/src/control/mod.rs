@@ -6,6 +6,8 @@
 
 mod receiver;
 mod sender;
+pub mod session_msg;
+mod session_rate;
 mod validate;
 
 use std::sync::Arc;
@@ -15,6 +17,7 @@ use tokio::io::{AsyncRead, AsyncWrite, ReadHalf, WriteHalf, split};
 
 pub use receiver::ControlReceiver;
 pub use sender::ControlSender;
+pub use session_rate::SessionRateLimit;
 pub use validate::{ValidationError, new_envelope, new_hello, new_message_id, validate_envelope};
 
 use crate::session::{OpenError, SealError, SecureSession};
@@ -39,6 +42,8 @@ pub enum ControlError {
 	HelloRequired,
 	#[error("duplicate message id with a different body")]
 	ConflictingDuplicate,
+	#[error("session messages exceed the per-link rate limit")]
+	RateLimited,
 	#[error("failed to protect outgoing record: {0}")]
 	Seal(#[from] SealError),
 	#[error("channel closed after an earlier error")]

@@ -4,6 +4,7 @@ use std::sync::Arc;
 use prost::Message;
 use tokio::io::{AsyncRead, AsyncReadExt};
 
+use super::session_rate::{LinkClock, SessionRateLimit};
 use super::validate::check_hello;
 use super::{ControlError, validate_envelope};
 use crate::limits::CONTROL_RECORD_MAX_BYTES;
@@ -21,6 +22,8 @@ pub struct ControlReceiver<R> {
 	seen: HashMap<Vec<u8>, blake3::Hash>,
 	seen_order: VecDeque<Vec<u8>>,
 	failed: bool,
+	clock: LinkClock,
+	session_limit: SessionRateLimit,
 }
 
 impl<R: AsyncRead + Unpin> ControlReceiver<R> {
@@ -33,7 +36,14 @@ impl<R: AsyncRead + Unpin> ControlReceiver<R> {
 			seen: HashMap::new(),
 			seen_order: VecDeque::new(),
 			failed: false,
+			clock: LinkClock::start(),
+			session_limit: SessionRateLimit::new(0),
 		}
+	}
+
+	/// Replaces the flood guard applied to `SessionMessage` envelopes.
+	pub fn set_session_limit(&mut self, limit: SessionRateLimit) {
+		self.session_limit = limit;
 	}
 
 	/// Receives the next accepted envelope. The first must be a `Hello` whose key digest
@@ -88,6 +98,11 @@ impl<R: AsyncRead + Unpin> ControlReceiver<R> {
 		if let Some(Body::Hello(hello)) = &envelope.body {
 			check_hello(hello, &self.session.remote_fingerprint())
 				.map_err(|_| ControlError::HelloRequired)?;
+		}
+		if matches!(envelope.body, Some(Body::SessionMessage(_)))
+			&& !self.session_limit.allow(self.clock.now_ms())
+		{
+			return Err(ControlError::RateLimited);
 		}
 		let duplicate = self.note_message_id(&envelope)?;
 

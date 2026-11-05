@@ -211,11 +211,8 @@ async fn structurally_invalid_envelopes_are_refused_on_both_ends() {
 	let mut bad = invite(1);
 	bad.message_id = vec![1; 3];
 	assert!(matches!(tx.send(&bad).await, Err(ControlError::Invalid(_))));
-	// A failed send poisons the half rather than continuing in unknown state.
-	assert!(matches!(
-		tx.send(&invite(1)).await,
-		Err(ControlError::Closed)
-	));
+	// A refused envelope was never sealed, so it neither burns a nonce nor poisons the half.
+	tx.send(&invite(1)).await.unwrap();
 
 	let (init, mut raw, mut rx, fp) = raw_receiver().await;
 	raw.write_all(&frame(&sealed(&init, &hello_from(&fp))))

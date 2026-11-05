@@ -27,6 +27,7 @@ message Envelope {
     MediaFeedback media_feedback = 18;
     StreamState stream_state = 19;
     ChannelMessage channel = 20; // named-channel proof and join; never reaches call state
+    SessionMessage session_message = 21; // call-scoped chat, offers, transfer control; see docs/session-messages.md
   }
 }
 message Hello {
@@ -96,3 +97,69 @@ message StreamState {
   uint32 next_media_timestamp = 4;
   // Advisory state only. Never grants local mic authority or blocks media playout.
 }
+
+// Session messaging (docs/session-messages.md). Carried on the control lane, bounded by
+// control::session_msg::validate and never interpreted by call state. Unknown fields are
+// ignored by the decoder; unknown oneof members and unknown enum values are refused.
+message SessionMessage {
+  oneof body {
+    ChatMessage message = 1;
+    ChatAck ack = 2;
+    FileOffer offer = 3;
+    OfferResponse offer_response = 4;
+    PreviewRequest preview_request = 5;
+    PreviewReply preview_reply = 6;
+    TransferControl transfer = 7;
+    PermissionUpdate permissions = 8;
+  }
+}
+message ChatMessage {            // seq is the sender's per-session counter, starts at 1
+  uint64 seq = 1;
+  uint64 sent_at_unix_ms = 2;    // untrusted claim, display only
+  oneof content {
+    string text = 3;             // 1..=4096 bytes
+    ChatImage image = 4;
+  }
+}
+// Original compressed bytes; the receiver validates the image header. A control record is at
+// most 16 KiB, so inline images are limited to 15 KiB; larger images travel as file offers.
+message ChatImage { bytes data = 1; }
+message ChatAck {
+  enum Status { DELIVERED = 0; DISABLED = 1; TOO_LARGE = 2; INVALID = 3; RATE_LIMITED = 4;
+                HISTORY_FULL = 5; UNSUPPORTED = 6; ENDED = 7; }
+  uint64 seq = 1;
+  Status status = 2;
+}
+message FileOffer {
+  uint64 seq = 1;                // offers are numbered like messages
+  uint64 sent_at_unix_ms = 2;
+  bytes offer_id = 3;            // exactly 16
+  string name = 4;               // 1..=255 bytes; the receiver re-sanitizes
+  uint64 size = 5;               // <= 4 GiB
+  string media_type = 6;         // advisory, <= 127 bytes; the receiver derives its own
+  bytes blake3 = 7;              // exactly 32
+}
+message OfferResponse { bytes offer_id = 1; bool accepted = 2; string reason = 3; } // reason <= 64 bytes
+message PreviewRequest { bytes offer_id = 1; }
+message PreviewReply { bytes offer_id = 1; bool approved = 2; string text = 3; }   // text <= 15 KiB
+// Transfer control. File bytes, credit, completion and the verification result travel on the
+// per-transfer data link (docs/net.md), not here: TCP backpressure replaces the draft's
+// credit_up_to and done operations on this link.
+message TransferControl {
+  bytes offer_id = 1;            // exactly 16
+  oneof op {
+    DataLinkGrant data_link = 2; // listener tells the dialer how to open the data link
+    TransferResult result = 3;   // receiver: verification outcome (also sent on the data link)
+    CancelReason cancel = 4;     // either side; closes the data link
+  }
+}
+// One-time authorisation for exactly one data link. The address is the control link's remote
+// address (never carried here, so a peer cannot redirect the dial); only the port travels.
+message DataLinkGrant {
+  bytes token = 1;               // exactly 32 random bytes, single use
+  uint32 port = 2;               // 1..=65535
+  uint32 ttl_ms = 3;             // advisory validity, 1..=120000
+}
+enum TransferResult { RESULT_OK = 0; RESULT_HASH_MISMATCH = 1; RESULT_SIZE_MISMATCH = 2; RESULT_FAILED = 3; }
+enum CancelReason { CANCEL_USER = 0; CANCEL_DISABLED = 1; CANCEL_ERROR = 2; }
+message PermissionUpdate { bool allow_messages = 1; bool allow_files = 2; }  // host to guest

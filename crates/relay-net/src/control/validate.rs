@@ -19,6 +19,12 @@ const REASON_CODE_MAX_BYTES: usize = 64;
 #[error("{0}")]
 pub struct ValidationError(&'static str);
 
+impl ValidationError {
+	pub(super) const fn new(reason: &'static str) -> Self {
+		Self(reason)
+	}
+}
+
 fn fail(reason: &'static str) -> ValidationError {
 	ValidationError(reason)
 }
@@ -127,6 +133,7 @@ fn validate_body(body: &Body) -> Result<(), ValidationError> {
 		Body::Channel(m) => {
 			crate::channel::wire::validate(m).map_err(|_| fail("malformed channel message"))
 		}
+		Body::SessionMessage(m) => super::session_msg::validate(m),
 	}
 }
 
