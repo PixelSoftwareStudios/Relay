@@ -60,6 +60,22 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
   `DiscoveredPeer.txt` (bounded raw TXT, never interpreted by discovery).
 - `Envelope.channel = 20` carries `ChannelMessage` (see `docs/channels.md`); the engine ignores
   bodies it does not handle, so channel messages cannot reach call state.
+- Resource limits before trust: `HandshakeGate::try_enter(source_ip)` allows 2 pending handshakes
+  per source (IPv4 address or IPv6 /64) of 8, evicts the oldest slot of the busiest source when
+  full (`respond_gated` abandons an evicted handshake), the 24-byte preface must arrive within
+  1 s, `AcceptBackoff` paces accept errors (20 ms doubling to 2 s), and `UntrustedLinks` keeps at
+  most 16 authenticated-but-untrusted links (2 per source), evicting the oldest.
+- Names: `sanitize_display_name` NFKC-normalises and removes every invisible, format, tag,
+  private-use and excess combining character; `name_skeleton` (UTS 39 skeleton, lowercase, no
+  spaces) is what `TrustStore::find_by_name` implementations must compare, so lookalikes of a
+  trusted contact raise `KeyChanged`.
+- Remote static keys with bit 255 set or a low-order point are rejected after the handshake
+  (`identity::check_remote_key`).
+- `DiscoveryTable` caps entries per source address (8), evicts the oldest of the busiest source
+  when full instead of refusing newcomers, and `expire(ttl)` ages entries out.
+- `candidate_from_proto` also refuses cloud metadata addresses (`169.254.169.254`,
+  `fd00:ec2::254`). Manual `ip:port` parsing is strict (digits only, scope only on link-local,
+  mapped literals normalised) and `check_manual_socket` is the check dial commands must use.
 - Typical flow: `handshake::initiate/respond` on a TCP stream, `control_channel(stream, Arc<session>)`,
   send `new_hello(...)` first, evaluate trust, then signaling. Media: `MediaEndpoint::bind`, run `recv()`
   in one task, `bind_stream` after Accept/MediaReady, `validate_path` for each validated candidate.

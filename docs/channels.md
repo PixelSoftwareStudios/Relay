@@ -108,11 +108,16 @@ Revocation and expiry story, honestly:
 
 Per channel the advertisement carries only a **blinded tag**:
 
-`tag = keyed_blake3(tag_key, "tag" || epoch_le || instance_id)[..8]`, with
+`tag = keyed_blake3(tag_key, "tag" || epoch_le || instance_id || fingerprint)[..8]`, with
 `tag_key = derive_key(domain, channel_id)` and `epoch = unix_secs / 3600`.
 
-- Members recompute the tag for each of their channels, for epochs `e-1..=e+1`, and for the
-  advertiser's instance id, and compare in constant time. Outsiders lack `channel_id`, so they
+- Members recompute the tag for each of their channels, for epochs `e-1..=e+1`, the advertiser's
+  instance id and each **already known device fingerprint** (the trust store), and compare in
+  constant time. The match names the fingerprint the advertiser must present, and the dial pins
+  it (`initiate(.., Some(&fp))`). A copied advertisement therefore only ever leads to a dial that
+  fails before our static key is revealed (review F-02); a member we have not pinned is not
+  recognised, so first contact between two members goes through the normal trust flow (or the
+  other side dials). Dials triggered by tags must additionally be rate limited by the caller. Outsiders lack `channel_id`, so they
   cannot recognise, link, or enumerate; the tag differs per device and per epoch, so two devices'
   tags in the same channel are not even equal.
 - Tags are padded with random decoys to 4 or 8 slots so the number of channels is hidden coarsely.
@@ -125,6 +130,21 @@ Per channel the advertisement carries only a **blinded tag**:
   authenticated link after proof. Listed channels advertise their name in clear (`chl=`), by choice.
 - Honest limit: the device is still visible on the LAN (its IP, port, mDNS responses). Hidden mode
   hides *who* and *which groups*, not that something answers. No anonymity claim.
+
+### D6. Membership proof reveals nothing to a non-member (review F-01)
+
+The proof is two steps. Step 1: each side sends only `ChannelRef`, a keyed hash of the session
+binding and the sender's role under the channel key (16 bytes). It proves knowledge of the
+channel id and reveals nothing to a peer without it. Step 2: a side sends its certificate and
+revocations (`ChannelProof`) only to a peer whose reference for that channel it has verified
+(`check_ref`). A pinned peer that is not in the channel never produces a matching reference, so
+it never receives the channel id (which starts the certificate encoding), the owner key, a
+certificate or a revocation: the whole link-up traffic towards it is opaque references.
+`tests/channel_leak.rs` asserts this on the encoded messages of a full run. A peer that merely
+learned the id can still obtain our certificate, which is not secret and useless without our
+static key. Reflected references fail (the sender's role is part of the hash), as do references
+from another link (the binding). Rejected alternative: stripping the channel id from the wire
+certificate. It would hide one field but still send owner-signed material to non-members.
 
 ### D4. Attempt limiting and lockout
 
@@ -147,8 +167,9 @@ Per admitter, sans-IO (`AttemptLimiter`, injected monotonic clock):
 ### D5. Membership and visibility rules (sans-IO, `relay-core::channel`)
 
 - Hidden channel members are visible only to peers that prove membership of a shared channel.
-- Listed channels expose their name and an anonymous "this device is in it" hint; joining still
-  follows the policy.
+- Listed channels expose their name **and their id** (`chl`). Because tags are keyed by the id,
+  anyone on the LAN can compute and track every device's tag for a listed channel: a listed
+  channel is public by choice, not an anonymous hint. Joining still follows the policy.
 - Inbound policy `SharedChannelOnly` (opt-in) lets the engine drop invites from peers that share
   no proven channel. `Anyone` is the default and today's behaviour. Neither ever accepts.
 - Leaving a channel deletes its secrets and certificate from the store and stops advertising its
@@ -169,7 +190,7 @@ Per admitter, sans-IO (`AttemptLimiter`, injected monotonic clock):
 | Certificate lifetime | default 14 d, max 30 d; renewal grace 7 d |
 | Revocations kept per channel | 128; `ChannelProof` carries at most 16 |
 | Concurrent join exchanges per link / per admitter | 1 / 4 |
-| Channel wire message | 2 KiB |
+| Channel wire message (encoded, enforced by `wire::validate`) | 8 KiB |
 
 ## Threat model
 
@@ -214,17 +235,34 @@ Driver sketch for the engine's peer adapter (all calls are synchronous and cheap
 joiner's one-time Argon2 and the store):
 
 1. After the control link is up, `SessionBinding::for_session(&session)`.
-2. On each discovery update, `ChannelAdvert::recognise` gives `Evidence::Candidate` per channel;
-   dial and send `make_proof` (not before trust evaluation of the peer has run).
-3. Incoming `ChannelMessage`: `Proof` -> `check_proof` over `store.list()`; on `proven`, note
-   `Evidence::Proven`, persist `new_revocations`, answer with `make_proof(.., is_reply = true)`
-   once. `JoinStart` -> `AdmissionService::begin`; `JoinConfirm` -> `AdmitSession::on_confirm`;
+2. On each discovery update, `ChannelAdvert::recognise(local, instance, known_fingerprints,
+   epoch)` gives `Evidence::Candidate` per channel and the fingerprint to pin; dial with
+   `Some(fingerprint)` only (never `None`), rate limited. On a trusted link send one
+   `make_ref` per channel with a certificate.
+3. Incoming `ChannelMessage`: `MemberRef` -> `check_ref`; on a match send `make_proof` for that
+   channel once per link (and our own `make_ref` if not yet sent). `Proof` -> `check_proof` over
+   `store.list()`; on `proven`, note `Evidence::Proven` (keep `expires_at` and demote at expiry),
+   persist `new_revocations`. `JoinStart` -> `AdmissionService::begin`; `JoinConfirm` -> `AdmitSession::on_confirm`;
    `Renew` -> `AdmissionService::renew`.
 4. Joiner: `Credential::{open, from_password, from_invite_secret}` (combine when both), then
    `JoinClient::{start, on_reply, on_grant}`; persist the returned `ChannelRecord`.
 
+## Time
+
+Certificate, invite, delegation and revocation expiry and tag epochs use the wall clock,
+sampled per decision (`channel::clock::{UnixClock, SystemClock, ClampedClock, ManualClock}`).
+A process-start sample plus a monotonic offset is wrong after a suspend and after a late time
+sync (review F-07). Expiry is strict, `ClampedClock` never reports less than it already did so a
+rolled-back clock cannot resurrect an expired certificate, and tag epochs tolerate one hour
+either way. The monotonic clock remains the right source for lockout pacing only.
+
 ## Known gaps and open review items
 
+- An AI security review is in `docs/reviews/security-net-channels.md`; it does not close the
+  independent human review gate. The epoch of a link is chosen by the dialler alone (F-23), so
+  nothing here treats it as freshness; freshness comes from the Noise ephemerals and the PAKE.
+- Only trusted (pinned) links can reach admission, which bounds who can burn the channel-wide
+  attempt budget; the budget is still a deliberate denial-of-service trade-off (F-12).
 - The independent security review gate is **open**; `spake2` is unaudited; Ed25519 and Argon2
   come from maintained crates but the composition has not been reviewed.
 - Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
