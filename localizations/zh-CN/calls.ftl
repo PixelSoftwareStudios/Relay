@@ -1,4 +1,57 @@
 # Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
+# Terms: 通话 call, 挂断 hang up, 静音 mute, 拒听 deafen, 按键通话 push-to-talk, 对等端 peer, 频道 channel,
+# 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
+
+phase-preparing = 准备中
+phase-ringing = 响铃中
+phase-incoming = 来电
+phase-connecting = 连接中
+phase-connected = 已连接
+phase-interrupted = 已中断
+phase-ending = 正在结束
+phase-ended = 已结束
+phase-failed = 失败
+phase-declined = 已拒绝
+phase-cancelled = 已取消
+transmit-listening = 仅收听
+transmit-listening-detail = 不会发送你的麦克风声音。
+transmit-no-consent = 未允许使用麦克风
+transmit-no-consent-detail = 尚未授权在此通话中发送声音。
+transmit-releasing = 正在松开
+transmit-releasing-detail = 按键已松开，麦克风会短暂保持开启，以免句尾被截断。
+transmit-how-open = 开放麦克风
+transmit-how-key = 按住按键通话键
+transmitting = 正在发送
+transmit-live-detail = 麦克风已开启（{ $how }）。
+transmit-open-armed = 开放麦克风已就绪，未在发送
+transmit-open-armed-detail = 引擎当前没有发送音频。
+transmit-ptt-armed = 按键通话已就绪
+transmit-ptt-armed-detail = 正在等待引擎端输入源的按键操作。
+engine-reason = 引擎原因：{ $reason }。
+trust-unknown = 未知
+trust-tofu = 见过，未验证
+trust-verified = 已验证
+trust-key-changed = 密钥已更改：请勿信任
+trust-blocked = 已屏蔽
+call-speaking = 正在说话
+mode-listen = 仅收听
+mode-ptt = 按键通话
+mode-open = 开放麦克风
+calls-heading = 通话
+calls-none = 没有进行中的通话。
+meter-incoming = 来自 { $name } 的音量
+call-accept = 接听
+call-decline = 拒绝
+call-accept-note = 接听不会开启你的麦克风。
+trust-line = { $trust }。
+trust-line-key = { $trust }。设备密钥 { $fingerprint }（用于区分设备，不用于验证）。
+call-end = 挂断
+call-messages-hover = 此通话的文字、图片和文件
+call-unmute = 取消静音（通话）
+call-undeafen = 取消拒听（通话）
+call-their-volume = 对方音量 { $value }
+call-your-mic = 此通话中你的麦克风
+call-consent = 我允许向 { $name } 发送我的麦克风声音
+call-mute = 静音（通话）
+call-deafen = 拒听（通话）

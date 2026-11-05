@@ -1,4 +1,101 @@
-# Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Settings: this app, hotkey, profile, daemon, language.
-# Not translated yet. Add only ids that exist in localizations/en/settings.ftl,
-# with the same $variables; anything missing falls back to English.
+# Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Settings.
+# Terms: 通话 call, 挂断 hang up, 静音 mute, 拒听 deafen, 按键通话 push-to-talk, 对等端 peer, 频道 channel,
+# 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
+
+link-starting = 正在启动 Relay 守护进程
+link-connecting = 正在连接 Relay 守护进程
+link-connected = 已连接
+link-reconnecting = 与守护进程的连接已断开，正在重连
+link-offline = 守护进程未运行
+avatar-size-refusal = 头像大小必须在 1 字节到 1 MiB 之间（PNG、JPEG、WebP、GIF、BMP 或 TIFF）
+hotkey-note = 此应用不注册全局热键，目前也没有屏幕上的通话按钮。只有引擎端输入源（例如命令行）按住按键时，按键通话才会发送声音。
+close-tray = 关闭窗口会将其隐藏到托盘，通话不会中断。
+close-no-tray = 此平台没有托盘图标，因此关闭窗口会退出此应用。
+quit-note = 退出此应用会挂断由它发起或接听的通话，Relay 守护进程会继续运行。此应用无法停止守护进程。
+calls-active =
+    { $count ->
+       *[other] 有 { $count } 个通话正在进行。
+    }
+quit-prompt = 退出此应用？
+quit-prompt-calls =
+    { $count ->
+       *[other] 退出此应用？你的 { $count } 个通话将被挂断。
+    }
+daemon-stopped-again = 它在启动后随即再次停止。
+daemon-keeps-stopping = Relay 守护进程不断停止，因此不会再自动重启。{ $why }
+avatar-bad-format = 头像被拒绝：图片格式不受支持或无法识别（请使用 PNG、JPEG、WebP、GIF、BMP 或 TIFF）
+avatar-zero-size = 头像被拒绝：头像的宽度或高度为零
+avatar-too-large = 头像被拒绝：头像尺寸 { $width }x{ $height } 超过 { $limit } 像素的限制
+avatar-undecodable = 头像被拒绝：头像无法解码：{ $error }
+daemon-started = Relay 守护进程已启动。
+daemon-already-running = Relay 守护进程已在运行。
+daemon-not-found = 找不到 Relay 守护进程（{ $binary }）。请将其安装在此应用旁边或 PATH 中，或用 { $env } 指定其位置。
+daemon-start-failed = Relay 守护进程未能启动：{ $reason }。
+daemon-start-failed-log = Relay 守护进程未能启动：{ $reason }。最后一行日志：{ $last }
+daemon-stop-failed = Relay 守护进程未能停止：{ $error }
+daemon-stopped = Relay 守护进程已停止。
+notify-off = 关闭：当窗口隐藏或在后台时有来电，只会在托盘提示中显示，并听到守护进程的铃声。
+notify-on = 当窗口隐藏或不在前台时有来电，显示来电者的名称（绝不显示消息内容）。
+notify-refused = 系统拒绝了最近一次通知（{ $reason }）。来电仍会通过守护进程响铃，并显示在此窗口和托盘提示中。
+login-unsupported = 此处不可用：{ $reason }
+login-off = 关闭。开启后，此应用会注册到系统，并在登录时打开窗口。守护进程要等到应用需要时才会启动。
+login-on = 开启：登录时系统会启动此应用（并打开其窗口）。在此关闭可移除该登录项。
+login-failed = 无法读取或更改登录项：{ $reason }
+banner-mock = 模拟数据：此视图未连接到 Relay 守护进程。
+link-offline-auto = 正在自动启动。
+daemon-starting-button = 正在启动守护进程...
+daemon-start-button = 启动守护进程
+app-heading = 此应用
+app-hide = 隐藏窗口
+app-quit = 退出此应用（守护进程继续运行）
+app-hang-up-quit = 挂断并退出
+autostart-label = 自动启动守护进程
+autostart-hover = 守护进程未运行时，Relay 应用会启动它。只有在应用打开期间，它才会在本地网络中广播。
+daemon-heading = Relay 守护进程
+daemon-not-connected = 守护进程未连接。
+daemon-paused = 自动启动已暂停，直到你点击“启动守护进程”。
+daemon-keeps-running = 关闭此应用后，守护进程会继续运行。退出守护进程会结束所有通话并释放麦克风。
+daemon-quit-ask = 退出守护进程...
+daemon-quit-confirm = 现在退出守护进程吗？进行中的通话将会结束。
+daemon-quit = 退出守护进程
+profile-heading = 你的资料
+profile-name-hint = 显示名称
+profile-save-name = 保存名称
+profile-image-note = PNG、JPEG、WebP、GIF、BMP 或 TIFF，最大 1 MiB，最大 2048 x 2048。引擎会缩放图片，并与你信任的对等端共享。移除后会通知他们不再显示。
+profile-choose-image = 选择图片…
+profile-upload = 上传
+profile-discard = 放弃
+profile-remove = 移除头像
+hotkey-heading = 按键通话热键
+hotkey-intro = 当通话处于按键通话模式时，在任何位置按住此键即可讲话。
+hotkey-field = 热键
+hotkey-hint = Ctrl+Alt+Space（留空则关闭）
+hotkey-delay = 松开延迟
+hotkey-delay-hover = 松开按键后，麦克风继续保持开启的时长。
+hotkey-nothing = 没有需要更改的内容。
+notify-label = 来电时通知
+login-label = 登录时启动此应用
+login-error = 登录时启动：{ $reason }
+dialog-profile-image = 选择头像图片
+dialog-image-filter = 图片
+dialog-export = 导出聊天记录
+login-no-mechanism = 此系统没有受支持的登录项机制
+login-no-exe = 找不到此程序：{ $error }
+login-bad-path = 程序路径不是有效文本
+login-set-unavailable = 不可用：{ $reason }
+options-save-failed = 无法保存该选择：{ $error }
+language-label = 语言
+language-experimental = 此语言为实验性支持：文本渲染器无法连写天城文字母，因此部分单词与印刷体不同。
+link-offline-manual = 请启动守护进程，此窗口会自动重新连接。
+hotkey-applied = { $label }：已生效
+hotkey-check-accelerator = 热键最多只能有 64 个可打印字符
+hotkey-check-delay = 松开延迟必须在 0 到 2000 ms 之间
+hotkey-label-accelerator = 按键通话热键
+hotkey-label-delay = 松开延迟
+hotkey-missing-key = 守护进程没有提供 { $key }
+hotkey-bad-value = 守护进程提供的 { $key } 无效：{ $value }
+hotkey-rejected = { $label }：被拒绝
+hotkey-rejected-reason = { $label }：被拒绝（{ $reason }）
+hotkey-saved = { $label }：已保存，重启后生效
+hotkey-saved-reason = { $label }：已保存，重启后生效（{ $reason }）
