@@ -43,7 +43,7 @@ async fn duplicate_operation_returns_the_stored_outcome_without_reexecuting() {
 	assert_eq!(first, again);
 	assert_eq!(
 		rig.fakes.peers.profiles().len(),
-		1,
+		before + 1,
 		"the retry must not re-run"
 	);
 
