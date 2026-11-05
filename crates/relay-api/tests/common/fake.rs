@@ -309,6 +309,18 @@ impl Engine for FakeEngine {
 	async fn decide_peer_trust(&self, _: Request<DecidePeerTrustRequest>) -> Resp<Operation> {
 		unsupported()
 	}
+	async fn clear_avatar(&self, _: Request<MutationContext>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn forget_peer(&self, _: Request<ForgetPeerRequest>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
+		unsupported()
+	}
+	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
+		unsupported()
+	}
 
 	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {
 		Ok(Response::new(self.channels.create(r.get_ref())))

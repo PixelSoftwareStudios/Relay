@@ -28,7 +28,11 @@ service Engine {
   rpc PreviewTone(MutationContext) returns (Operation); // plays the ring on this device's own output for 2 s
   rpc SetProfile(SetProfileRequest) returns (Operation);
   rpc UploadAvatar(UploadAvatarRequest) returns (Operation);
+  // Removes the local avatar and tells trusted peers (a Profile with an empty avatar hash).
+  rpc ClearAvatar(MutationContext) returns (Operation);
   rpc DecidePeerTrust(DecidePeerTrustRequest) returns (Operation);
+  // Removes a stored trust decision, found by peer id, fingerprint prefix or exact name.
+  rpc ForgetPeer(ForgetPeerRequest) returns (Operation);
   rpc CreateChannel(CreateChannelRequest) returns (Operation);
   rpc JoinChannel(JoinChannelRequest) returns (Operation);
   rpc LeaveChannel(LeaveChannelRequest) returns (Operation);
@@ -38,6 +42,11 @@ service Engine {
   rpc SetPrivacy(SetPrivacyRequest) returns (Operation);
   rpc GetAvatar(GetAvatarRequest) returns (AvatarImage);
   rpc GetConnectionInfo(ClientContext) returns (ConnectionInfo);
+  // Every preference as flat `section.key` text (for export). Needs `observe`.
+  rpc GetSettings(ClientContext) returns (SettingsDump);
+  // Changes any non-sensitive preference while the daemon runs; answers per key. Needs
+  // `call-control`; a security-sensitive key makes the whole call PERMISSION_DENIED.
+  rpc SetSettings(SetSettingsRequest) returns (SetSettingsResponse);
   // Graceful stop of the whole engine: ends calls, releases the microphone, removes the
   // endpoint. Needs the explicit `admin` capability (never granted by default). Idempotent.
   rpc Shutdown(MutationContext) returns (Operation);
@@ -162,6 +171,7 @@ message Peer {
   bool reachable = 5;
   bytes avatar_sha256 = 6;
   repeated bytes shared_channel_ids = 7; // only channels with proven shared membership
+  string fingerprint_short = 8; // e.g. A1B2-C3D4-E5F6-0718-293A: a hint to tell devices apart, never a verification string
 }
 message Device {
   string device_id = 1; // opaque adapter-qualified ID; never an enumeration index
@@ -322,6 +332,24 @@ message DecidePeerTrustRequest {
   TrustState requested_trust = 4;
   bool out_of_band_verified = 5;
 }
+message ForgetPeerRequest {
+  MutationContext context = 1;
+  bytes peer_id = 2; // 32 bytes; when empty `query` is used
+  string query = 3; // hex fingerprint prefix (>= 8 digits, separators ignored) or an exact display name
+}
+message SettingsDump { map<string, string> values = 1; }
+message SetSettingsRequest {
+  MutationContext context = 1;
+  map<string, string> values = 2; // flat key -> text, parsed like `relay config set`
+}
+enum SettingOutcome {
+  SETTING_OUTCOME_UNSPECIFIED = 0;
+  SETTING_OUTCOME_APPLIED_LIVE = 1;
+  SETTING_OUTCOME_SAVED_NEEDS_RESTART = 2;
+  SETTING_OUTCOME_REJECTED = 3;
+}
+message SettingResult { string key = 1; SettingOutcome outcome = 2; string reason = 3; }
+message SetSettingsResponse { Operation operation = 1; repeated SettingResult results = 2; }
 enum InputAction {
   INPUT_ACTION_UNSPECIFIED = 0;
   INPUT_ACTION_PRESS = 1;

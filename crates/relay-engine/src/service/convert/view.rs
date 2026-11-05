@@ -138,6 +138,8 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		reachable: info.reachable || linked,
 		avatar_sha256: info.avatar.map(|h| h.to_vec()).unwrap_or_default(),
 		shared_channel_ids: Vec::new(),
+		fingerprint_short: relay_net::identity::Fingerprint::from_bytes(*info.id.as_bytes())
+			.short(),
 	}
 }
 

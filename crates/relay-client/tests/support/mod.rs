@@ -276,6 +276,23 @@ impl Engine for FakeEngine {
 			format!("trust {} oob={}", r.requested_trust, r.out_of_band_verified),
 		)
 	}
+	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(Some(&r), "clear_avatar".into())
+	}
+	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("forget_peer id={} query={}", r.peer_id.len(), r.query),
+		)
+	}
+	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
+		unsupported()
+	}
+	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
+		unsupported()
+	}
 	// Session messaging is not part of this test engine.
 	async fn list_sessions(&self, _: Request<ClientContext>) -> Resp<ListSessionsResponse> {
 		unsupported()

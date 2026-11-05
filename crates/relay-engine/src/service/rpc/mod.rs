@@ -20,19 +20,19 @@ use relay_api::pb::{
 	AcquireControllerRequest, ApprovePreviewRequest, AvatarImage, CallMutation,
 	ClearSessionRequest, ClientContext, ClientSession, ConnectionInfo, ControllerLease,
 	CreateChannelRequest, CreateInviteRequest, CreateInviteResponse, DecidePeerTrustRequest, Empty,
-	EngineInfo, ExportSessionRequest, ExportSessionResponse, GetAvatarRequest, GetOperationRequest,
-	GetTranscriptRequest, InputControlAck, InputControlMessage, JoinChannelRequest,
-	LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse, ListSessionsResponse,
-	MutationContext, OfferFileRequest, OfferRequest, Operation, OperationState, PinMessageRequest,
-	RegisterClientRequest, ReleaseControllerRequest, RespondOfferRequest,
-	RetrySessionMessageRequest, RevokeChannelMemberRequest, SearchSessionRequest,
-	SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
+	EngineInfo, ExportSessionRequest, ExportSessionResponse, ForgetPeerRequest, GetAvatarRequest,
+	GetOperationRequest, GetTranscriptRequest, InputControlAck, InputControlMessage,
+	JoinChannelRequest, LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse,
+	ListSessionsResponse, MutationContext, OfferFileRequest, OfferRequest, Operation,
+	OperationState, PinMessageRequest, RegisterClientRequest, ReleaseControllerRequest,
+	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
+	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
 	SetGlobalControlsRequest, SetMessagingSettingsRequest, SetNoiseSuppressionRequest,
-	SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest, SetTransmitRouteRequest,
-	Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
-	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
-	engine_server::Engine,
+	SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest, SetSettingsRequest,
+	SetSettingsResponse, SetTransmitRouteRequest, SettingsDump, Snapshot, StartCallRequest,
+	StartMicTestRequest, StateEnvelope, TelemetryRequest, TelemetrySnapshot, Transcript,
+	UploadAvatarRequest, WatchSessionRequest, WatchStateRequest, engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -390,6 +390,34 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		ops::trust(self, &mutation, &body).await
+	}
+
+	async fn clear_avatar(
+		&self,
+		_: Request<MutationContext>,
+	) -> Result<Response<Operation>, Status> {
+		Err(Status::unimplemented("ClearAvatar"))
+	}
+
+	async fn forget_peer(
+		&self,
+		_: Request<ForgetPeerRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(Status::unimplemented("ForgetPeer"))
+	}
+
+	async fn get_settings(
+		&self,
+		_: Request<ClientContext>,
+	) -> Result<Response<SettingsDump>, Status> {
+		Err(Status::unimplemented("GetSettings"))
+	}
+
+	async fn set_settings(
+		&self,
+		_: Request<SetSettingsRequest>,
+	) -> Result<Response<SetSettingsResponse>, Status> {
+		Err(Status::unimplemented("SetSettings"))
 	}
 
 	async fn create_channel(
