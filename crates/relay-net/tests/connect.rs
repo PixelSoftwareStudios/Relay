@@ -86,7 +86,7 @@ fn non_lan_hosts_names_and_extras_are_refused() {
 		(format!("relay://127.0.0.1:7000#{h}"), "Loopback"),
 		(
 			format!("relay://100.101.102.103:7000#{h}"),
-			"OverlayNetwork",
+			"OverlayManualDisabled",
 		),
 		(format!("relay://192.168.1.20:0#{h}"), "ZeroPort"),
 		(format!("relay://[fe80::1]:7000#{h}"), "MissingScope"),
