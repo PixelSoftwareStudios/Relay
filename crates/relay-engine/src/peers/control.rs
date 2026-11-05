@@ -4,10 +4,11 @@ use relay_core::{PeerId, PeerMessage};
 use relay_net::identity::TrustState;
 use tokio::runtime::Handle;
 
-use super::{LocalProfile, PeerHandle, PeerSnapshot};
+use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ports::{
 	LocalProfile as PortProfile, PeerControl, PeerInfo, PeerTrust, PortError, TrustRequest,
 };
+use relay_net::connect::ConnectionString;
 
 /// Adapts a [`PeerHandle`] to the service's [`PeerControl`] port.
 pub struct PeerAdapter {
@@ -59,6 +60,17 @@ impl PeerControl for PeerAdapter {
 	/// in the background and reports `Unavailable`; retry once the handshake
 	/// has finished.
 	fn resolve_address(&self, address: &str) -> Result<PeerId, PortError> {
+		if address.trim_start().starts_with("relay://") {
+			// A connection string names the peer's key, so no lookup is needed:
+			// remember where to find it and let the link dial with that key pinned.
+			let target = ConnectionString::parse(address, &self.policy)
+				.map_err(|e| PortError::Invalid(e.to_string()))?;
+			let peer = peer_id(&target.expected);
+			self.handle
+				.add_address(peer, target.addr)
+				.map_err(unavailable)?;
+			return Ok(peer);
+		}
 		let addr = self
 			.policy
 			.parse_manual(address)

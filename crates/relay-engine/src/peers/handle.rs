@@ -54,8 +54,11 @@ pub struct PeerConfig {
 	pub listen: SocketAddr,
 	/// Advertised display name.
 	pub display_name: String,
-	/// Which addresses may be dialled or accepted.
+	/// Which addresses may be discovered, offered by a peer, dialled or accepted.
 	pub policy: AddressPolicy,
+	/// Whether addresses the user types or pastes may be in overlay space
+	/// (100.64.0.0/10). Discovery and peer-offered candidates never are.
+	pub allow_overlay_manual: bool,
 	/// Link timers.
 	pub timing: LinkTiming,
 	/// Reconnect backoff.
@@ -70,12 +73,18 @@ pub struct PeerConfig {
 }
 
 impl PeerConfig {
+	/// The policy for user-typed addresses and the links that follow from them.
+	pub fn manual_policy(&self) -> AddressPolicy {
+		self.policy.with_overlay_manual(self.allow_overlay_manual)
+	}
+
 	/// LAN-only defaults on an ephemeral port, discovery on.
 	pub fn new(display_name: &str) -> Self {
 		Self {
 			listen: SocketAddr::from(([0, 0, 0, 0], 0)),
 			display_name: display_name.to_owned(),
 			policy: AddressPolicy::lan_only(),
+			allow_overlay_manual: false,
 			timing: LinkTiming::default(),
 			backoff: BackoffConfig::default(),
 			discovery: Some(DiscoverySetup::default()),

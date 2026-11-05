@@ -94,7 +94,7 @@ impl Actor {
 				expected,
 				reply,
 			} => {
-				if let Err(error) = self.config.policy.check_socket(addr) {
+				if let Err(error) = self.config.manual_policy().check_socket(addr) {
 					let _ = reply.send(Err(error.into()));
 					return;
 				}
@@ -114,7 +114,7 @@ impl Actor {
 				let _ = reply.send(info);
 			}
 			Command::AddAddress(peer, addr) => {
-				if self.config.policy.check_socket(addr).is_ok() {
+				if self.config.manual_policy().check_socket(addr).is_ok() {
 					self.remember_address(peer, addr);
 					self.try_dial(peer);
 				}
@@ -142,6 +142,10 @@ impl Actor {
 
 	fn on_discovered(&mut self, mut found: relay_net::discovery::DiscoveredPeer) {
 		found.display_name = relay_net::discovery::sanitize_display_name(&found.display_name);
+		// Whatever feeds the table, only plain-policy addresses are ever dialled.
+		found
+			.addresses
+			.retain(|addr| self.config.policy.check_socket(*addr).is_ok());
 		let matches: Vec<Fingerprint> = self
 			.wanted
 			.keys()

@@ -49,7 +49,7 @@ pub async fn spawn(
 	let accept = tokio::spawn(accept_loop(
 		listener,
 		Arc::clone(&params),
-		config.policy,
+		config.manual_policy(),
 		Arc::clone(&ids),
 		link_tx.clone(),
 	));
