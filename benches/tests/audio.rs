@@ -69,3 +69,31 @@ fn corpus_round_trips_and_runner_records_off_baseline() {
 	}
 	assert!(run(&["nope".to_owned()], &found).is_err());
 }
+
+#[test]
+fn filtered_sdr_tolerates_frequency_dependent_delay() {
+	use relay_benches::audio::metrics::filtered_sdr_db;
+	let x = speech_like(4.0, 48_000, 1);
+	// A multi-tap response: main path plus an earlier and a later echo.
+	let y: Vec<f32> = (0..x.len())
+		.map(|i| {
+			let at = |d: i64| {
+				let j = i as i64 - d;
+				x.get(usize::try_from(j).unwrap_or(usize::MAX))
+					.copied()
+					.unwrap_or(0.0)
+			};
+			0.6 * at(0) + 0.3 * at(40) - 0.2 * at(-25)
+		})
+		.collect();
+	let plain = si_sdr_db(&x, &y).unwrap();
+	let filtered = filtered_sdr_db(&x, &y).unwrap();
+	assert!(
+		plain < 12.0,
+		"plain SI-SDR is hurt by the extra taps: {plain}"
+	);
+	assert!(filtered > 60.0, "a linear filter explains it: {filtered}");
+	// Independent noise is not explained by any filter.
+	let n = noise(NoiseKind::White, 4.0, 48_000, 3);
+	assert!(filtered_sdr_db(&x, &n).unwrap() < 5.0);
+}

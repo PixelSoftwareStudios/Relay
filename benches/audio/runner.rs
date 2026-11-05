@@ -10,7 +10,7 @@ use relay_audio::format::{BlockTiming, FRAME_SAMPLES};
 use serde::Serialize;
 
 use super::corpus::Pair;
-use super::metrics::{align, correlation_delay, si_sdr_db};
+use super::metrics::{align, correlation_delay, filtered_sdr_db, si_sdr_db};
 use super::stoi::stoi;
 use super::summary::{ConditionSummary, DelaySummary, by_condition, delays};
 use super::wav::read_mono_48k;
@@ -27,6 +27,8 @@ pub struct FrameTiming {
 	pub p50_ns: u64,
 	pub p99_ns: u64,
 	pub max_ns: u64,
+	/// Frames slower than 1 ms (scheduling noise, not compute).
+	pub over_1ms: usize,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -42,6 +44,10 @@ pub struct FileResult {
 	pub si_sdr_noisy_db: Option<f64>,
 	pub si_sdr_output_db: Option<f64>,
 	pub si_sdr_improvement_db: Option<f64>,
+	/// SDR allowing a linear distortion filter (valid for processors with
+	/// frequency-dependent delay, unlike plain SI-SDR).
+	pub fsdr_noisy_db: Option<f64>,
+	pub fsdr_output_db: Option<f64>,
 	pub stoi_noisy: Option<f64>,
 	pub stoi_output: Option<f64>,
 	pub estoi_noisy: Option<f64>,
@@ -132,6 +138,7 @@ fn timing(mut ns: Vec<u64>) -> Option<FrameTiming> {
 		p50_ns: percentile(&ns, 0.5),
 		p99_ns: percentile(&ns, 0.99),
 		max_ns: ns[ns.len() - 1],
+		over_1ms: ns.iter().filter(|&&t| t > 1_000_000).count(),
 	})
 }
 
@@ -177,6 +184,8 @@ fn run_file(
 	let si_out = si_sdr_db(ref_out, out);
 	let (ref_in, inp) = align(&clean, &noisy, 0, SKIP_SAMPLES);
 	let si_in = si_sdr_db(ref_in, inp);
+	let fsdr_out = filtered_sdr_db(ref_out, out);
+	let fsdr_in = filtered_sdr_db(ref_in, inp);
 	let score_out = stoi(ref_out, out, 48_000);
 	let score_in = stoi(ref_in, inp, 48_000);
 	all_times.extend_from_slice(&times);
@@ -190,6 +199,8 @@ fn run_file(
 		si_sdr_noisy_db: si_in,
 		si_sdr_output_db: si_out,
 		si_sdr_improvement_db: si_out.zip(si_in).map(|(o, i)| o - i),
+		fsdr_noisy_db: fsdr_in,
+		fsdr_output_db: fsdr_out,
 		stoi_noisy: score_in.map(|s| s.stoi),
 		stoi_output: score_out.map(|s| s.stoi),
 		estoi_noisy: score_in.map(|s| s.estoi),
@@ -267,6 +278,7 @@ pub fn run(names: &[String], pairs: &[Pair]) -> Result<Report> {
 			"The AEC profile is fed silent render frames: only its processing cost is exercised.",
 			"Files with no estimable quantity (e.g. identical signals for SI-SDR) are left out of means.",
 			"Quality metrics skip the first 0.5 s and align output by cross-correlation delay.",
+			"si_sdr_* assume one constant delay; fsdr_* allow a 448-tap linear filter and are the valid SDR for processors with frequency-dependent delay.",
 		],
 	})
 }

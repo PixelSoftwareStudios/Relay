@@ -97,6 +97,8 @@ upstream.
 
 ## 2026-11-05: real-speech comparison (LibriSpeech + DEMAND)
 
+> **Partly superseded by the follow-up section below.** The plain SI-SDR figures for sonora in this section are invalid (sonora applies a frequency-dependent delay, which a single-lag SI-SDR cannot absorb); the sonora interpretation bullet about an unexplained anomaly is resolved there. STOI/eSTOI, CPU and per-frame timing figures stand, apart from the per-frame maxima explained below.
+
 ### Setup (facts)
 
 - Platform: Apple M1 Pro (10 cores), macOS 14.7.2, aarch64; rustc 1.99.1; release profile (thin LTO, codegen-units 1).
@@ -216,3 +218,123 @@ Timing is per 480-sample frame over all 144 files (about 109416 frames); CPU is 
 ### Limits
 
 DEMAND noise here is 16 kHz-sampled scenes (no content above 8 kHz); only channel 1 of each scene; dev-clean read speech is not conversational; one machine; no PESQ or DNSMOS; STOI/eSTOI unvalidated against a reference implementation.
+
+## 2026-11-05 (follow-up): sonora SI-SDR anomaly, STOI validation, timing outliers, rerun
+
+Same platform as above (Apple M1 Pro, macOS 14.7.2, rustc 1.99.1, release). Corpus and manifest unchanged (manifest SHA-256 20e1693195ede93dccdbab41992d79197dd20d5d3c263f5990b8d37e78399c1c).
+
+### A. Why sonora's SI-SDR was about -0.7 dB (facts)
+
+Ad-hoc scratch program (not in the repo) feeding clean utterance u05 (1988-24833-0009) through sonora with different configs, aligning by the best integer lag and reporting correlation (corr), energy ratio and plain SI-SDR at that lag:
+
+| Config | best lag | corr | out/in energy | SI-SDR at lag |
+|---|---|---|---|---|
+| nothing enabled | 0 | 1.0000 | 1.000 | exact copy (bypass) |
+| high-pass only | 42 | 0.863 | 0.927 | 4.7 dB |
+| NS Low / Moderate / High / VeryHigh (32 kHz internal, the default) | 328 | 0.757 | 0.92-0.94 | 1.3 dB (all four levels) |
+| NS Low, 48 kHz internal | 331 | 0.793 | 0.868 | 2.3 dB |
+| nnnoiseless | 480 | 0.996 | 0.999 | 21.0 dB |
+
+Per-band cross-spectrum between input and output at the best lag (NS Low, default config): energy per band is preserved within about 1 dB below 6 kHz, but the cross-spectrum **phase is not zero**: +159 deg below 190 Hz, +72 deg at 190-375 Hz, +17 deg at 375-750 Hz, -14 deg at 0.75-1.5 kHz, -70 deg at 1.5-3 kHz, about 170 deg at 3-6 kHz. With the high-pass alone the phase is +103, +48, +11, -10, -48, -133 deg in the same bands. For nnnoiseless the phase is 12.5 deg below 190 Hz and 0-7 deg elsewhere (a pure delay). Changing the lag by one sample changes sonora's SI-SDR by about 0.1 dB, so it is not a sample-alignment error.
+
+Verified cause: sonora's processing (with the NS, and with the high-pass alone) has a frequency-dependent group delay; there is no single lag that aligns the whole spectrum, so plain SI-SDR, which assumes one constant delay, collapses even though energy and (per STOI) intelligibility are preserved. It is not a sign flip, a gain/level change, a frame-size or channel mismatch (a bypass config round-trips exactly), or an NS level that gates everything (all four levels give the same result). nnnoiseless is a pure delay, so its SI-SDR was valid and its constant 480-sample lag is not hiding the same issue. The harness was at fault for using a constant-delay metric on a non-constant-delay processor.
+
+Harness fix:  (BSS-eval style) lets a 448-tap linear filter (224 taps each side of the aligned position, central 2.5 s) map the clean reference to the output before measuring distortion. It is unit-tested (a known 3-tap response scores above 60 dB where plain SI-SDR stays below 12 dB; unrelated noise scores below 5 dB). It is reported as  next to the plain . Caveat: allowing a filter makes the metric slightly optimistic for every backend including the unprocessed input (e.g. 9.6 dB for a 10 dB mix); improvements are comparable between backends, absolute values are not comparable to plain SI-SDR. In the  column the unprocessed input has no distortion and is capped at 120 dB, so only the output value is meaningful there.
+
+### B. STOI / eSTOI validation against pystoi (facts)
+
+Reference: pystoi 0.4.1 with numpy 2.5.4, scipy 1.18.1, soundfile 0.14.0, Python 3.14.0, in a virtualenv in the session scratchpad. Ten built corpus pairs (clean vs noisy mix, spread over utterances, SNRs and noise scenes), both implementations at 48 kHz input:
+
+| Pair | pystoi STOI / eSTOI | ours | abs diff |
+|---|---|---|---|
+| u00 snr10 kitchen | 0.9858 / 0.9307 | 0.9859 / 0.9289 | 0.0001 / 0.0018 |
+| u02 snr-5 traffic | 0.7486 / 0.4755 | 0.7483 / 0.4708 | 0.0003 / 0.0047 |
+| u05 snr0 kitchen | 0.9535 / 0.8489 | 0.9537 / 0.8519 | 0.0002 / 0.0030 |
+| u07 snr10 living | 0.9643 / 0.8743 | 0.9649 / 0.8770 | 0.0005 / 0.0026 |
+| u09 snr-5 kitchen | 0.8240 / 0.6924 | 0.8256 / 0.6973 | 0.0017 / 0.0049 |
+| u12 snr0 living | 0.8486 / 0.7020 | 0.8510 / 0.7074 | 0.0024 / 0.0053 |
+| u14 snr10 traffic | 0.8693 / 0.6931 | 0.8660 / 0.6909 | 0.0033 / 0.0022 |
+| u16 snr-5 living | 0.7910 / 0.5703 | 0.7893 / 0.5669 | 0.0017 / 0.0033 |
+| u19 snr0 traffic | 0.8111 / 0.5421 | 0.8128 / 0.5416 | 0.0017 / 0.0004 |
+| u21 snr10 kitchen | 0.9979 / 0.9903 | 0.9981 / 0.9910 | 0.0002 / 0.0007 |
+
+Maximum absolute difference: **0.0033 (STOI) and 0.0053 (eSTOI)**, below the 0.01 target, so no change was made. Interpretation: the residual is plausibly from the different 48 -> 10 kHz resampler; it was not isolated. Only unprocessed mixes were compared, not processed or delayed outputs.
+
+### C. Per-frame timing outliers (facts, then interpretation)
+
+Facts:
+- Single process, one file, three consecutive passes with a warm candidate (`audio-corpus outliers <backend> <wav> plain|qos`, 651 frames per pass): no frame above 1 ms for off, sonora NS, sonora NS+AEC or nnnoiseless, with or without user-interactive QoS. The largest frame in each run was frame 0 of pass 0 (first touch): off 11 us, sonora NS 132 us, sonora NS+AEC 93 us, nnnoiseless 201 us (one run each, other runs lower).
+- Full corpus (109,416 frames per backend), plain: frames above 1 ms: off 0, sonora NS 7, NS+AGC 2, NS+AEC 7, nnnoiseless 9; maxima 4 / 13783 / 3379 / 3646 / 11140 us. With the main thread at user-interactive QoS: 0, 27, 1, 83, 154 frames; maxima 12 / 30726 / 2127 / 29035 / 53663 us. p50 is unchanged (17.7-18.1, 19.3, 62.5-63.3, 41.6-41.7 us).
+- Paced worker (30 s, 3000 frames), one run each: plain, off 2 frames above 5 ms and 0 above 10 ms; sonora NS 7 and 2; nnnoiseless 2 and 1. With user-interactive QoS: off 5 and 2; sonora NS 11 and 1; nnnoiseless 13 and 4. (An earlier run of the plain worker had off at 20 above 5 ms and 4 above 10 ms; run-to-run variation is large.)
+
+Interpretation: the slow frames are rare (at most 0.008% of frames in the plain run), land at random positions, are not tied to the first frame or to warm-up, occur in the allocation-free nnnoiseless as much as in allocating sonora, and are absent from `off` only because its timed region is about 50 ns long; this is consistent with the operating system preempting the thread now and then (more often the longer the timed call), not with a compute or allocator cost. Requesting user-interactive QoS did not reduce them in this experiment (it looked worse, from single runs). A pinned or time-constraint real-time thread was not tried (macOS has no simple core pinning); until that is tested, assume a normal-priority worker can miss a 10 ms deadline a few times per several thousand frames and size the playout buffer for it.
+
+### D. Rerun of the real-corpus comparison (facts)
+
+Command: `target/release/audio-corpus run benches/corpus/built --out run_plain.json` (and with `--qos on`), built with `--features sonora,nnnoiseless`. Per-frame timing over all 144 files:
+
+| Backend | p50 | p99 | max | frames > 1 ms | CPU (cores) | xcorr delay (min / median / max) |
+|---|---|---|---|---|---|---|
+| off | 0.0 us | 0.1 us | 4 us | 0 of 109416 | 0.00001 | 0 / 0 / 0 |
+| sonora-ns | 17.7 us | 25.6 us | 13783 us | 7 of 109416 | 0.00180 | 304 / 331 / 508 |
+| sonora-ns-agc | 19.3 us | 23.9 us | 3379 us | 2 of 109416 | 0.00194 | 304 / 331 / 508 |
+| sonora-ns-aec | 62.5 us | 83.8 us | 3646 us | 7 of 109416 | 0.00664 | 688 / 715 / 892 |
+| rnnoise-nnnoiseless | 41.6 us | 54.5 us | 11140 us | 9 of 109416 | 0.00419 | 479 / 480 / 480 |
+
+Same run with the main thread at user-interactive QoS (`--qos on`):
+
+| Backend | p50 | p99 | max | frames > 1 ms | CPU (cores) | xcorr delay (min / median / max) |
+|---|---|---|---|---|---|---|
+| off | 0.0 us | 0.1 us | 12 us | 0 of 109416 | 0.00001 | 0 / 0 / 0 |
+| sonora-ns | 18.1 us | 35.2 us | 30726 us | 27 of 109416 | 0.00184 | 304 / 331 / 508 |
+| sonora-ns-agc | 19.3 us | 31.5 us | 2127 us | 1 of 109416 | 0.00195 | 304 / 331 / 508 |
+| sonora-ns-aec | 63.3 us | 133.3 us | 29035 us | 83 of 109416 | 0.00682 | 688 / 715 / 892 |
+| rnnoise-nnnoiseless | 41.7 us | 110.9 us | 53663 us | 154 of 109416 | 0.00429 | 479 / 480 / 480 |
+
+**Filtered SDR (dB), 448-tap linear filter allowed**, unprocessed input / output / change (means of 24 files):
+
+| Backend | snrm05 | snr00 | snr05 | snr10 | snr20 | clean |
+|---|---|---|---|---|---|---|
+| off | -5.2 / -5.2 / +0.0 | 0.1 / 0.1 / +0.0 | 4.6 / 4.6 / +0.0 | 9.6 / 9.6 / +0.0 | 19.5 / 19.5 / +0.0 | 120.0 / 120.0 / -0.0 |
+| sonora-ns | -5.2 / 6.1 / +11.3 | 0.1 / 12.3 / +12.3 | 4.6 / 14.0 / +9.4 | 9.6 / 14.9 / +5.3 | 19.5 / 19.7 / +0.2 | 120.0 / 21.5 / -98.5 |
+| sonora-ns-agc | -5.2 / 6.1 / +11.3 | 0.1 / 12.3 / +12.3 | 4.6 / 14.0 / +9.4 | 9.6 / 14.9 / +5.3 | 19.5 / 19.7 / +0.2 | 120.0 / 21.5 / -98.5 |
+| sonora-ns-aec | -5.2 / 6.0 / +11.2 | 0.1 / 12.4 / +12.3 | 4.6 / 14.1 / +9.5 | 9.6 / 15.0 / +5.4 | 19.5 / 19.8 / +0.3 | 120.0 / 21.7 / -98.3 |
+| rnnoise-nnnoiseless | -5.2 / 6.4 / +11.5 | 0.1 / 11.3 / +11.3 | 4.6 / 13.8 / +9.1 | 9.6 / 15.8 / +6.2 | 19.5 / 21.6 / +2.1 | 120.0 / 24.7 / -95.3 |
+
+**Plain SI-SDR (dB), single constant delay**, unprocessed input / output / change (means of 24 files):
+
+| Backend | snrm05 | snr00 | snr05 | snr10 | snr20 | clean |
+|---|---|---|---|---|---|---|
+| off | -4.7 / -4.7 / +0.0 | 0.2 / 0.3 / +0.0 | 5.3 / 5.3 / +0.0 | 10.3 / 10.3 / +0.0 | 20.2 / 20.2 / +0.0 | n/a / n/a / n/a |
+| sonora-ns | -4.7 / -4.2 / +0.4 | 0.2 / -1.1 / -1.3 | 5.3 / -0.8 / -6.0 | 10.3 / -0.8 / -11.1 | 20.2 / -0.7 / -20.9 | n/a / -0.8 / n/a |
+| sonora-ns-agc | -4.7 / -4.2 / +0.5 | 0.2 / -1.1 / -1.3 | 5.3 / -0.8 / -6.0 | 10.3 / -0.8 / -11.1 | 20.2 / -0.7 / -20.9 | n/a / -0.8 / n/a |
+| sonora-ns-aec | -4.7 / -4.2 / +0.4 | 0.2 / -1.1 / -1.3 | 5.3 / -0.8 / -6.0 | 10.3 / -0.8 / -11.1 | 20.2 / -0.7 / -20.9 | n/a / -0.8 / n/a |
+| rnnoise-nnnoiseless | -4.7 / 5.2 / +9.9 | 0.2 / 9.6 / +9.4 | 5.3 / 12.2 / +6.9 | 10.3 / 13.9 / +3.5 | 20.2 / 16.8 / -3.5 | n/a / 17.4 / n/a |
+
+**STOI**, unprocessed input / output / change (means of 24 files):
+
+| Backend | snrm05 | snr00 | snr05 | snr10 | snr20 | clean |
+|---|---|---|---|---|---|---|
+| off | 0.780 / 0.780 / +0.000 | 0.879 / 0.879 / +0.000 | 0.914 / 0.914 / +0.000 | 0.949 / 0.949 / +0.000 | 0.991 / 0.991 / +0.000 | 1.000 / 1.000 / +0.000 |
+| sonora-ns | 0.780 / 0.770 / -0.010 | 0.879 / 0.863 / -0.016 | 0.914 / 0.892 / -0.022 | 0.949 / 0.926 / -0.023 | 0.991 / 0.968 / -0.022 | 1.000 / 0.980 / -0.020 |
+| sonora-ns-agc | 0.780 / 0.770 / -0.010 | 0.879 / 0.863 / -0.016 | 0.914 / 0.892 / -0.022 | 0.949 / 0.926 / -0.023 | 0.991 / 0.968 / -0.022 | 1.000 / 0.980 / -0.020 |
+| sonora-ns-aec | 0.780 / 0.770 / -0.010 | 0.879 / 0.863 / -0.016 | 0.914 / 0.892 / -0.022 | 0.949 / 0.926 / -0.023 | 0.991 / 0.969 / -0.022 | 1.000 / 0.980 / -0.020 |
+| rnnoise-nnnoiseless | 0.780 / 0.789 / +0.008 | 0.879 / 0.879 / +0.000 | 0.914 / 0.910 / -0.004 | 0.949 / 0.945 / -0.004 | 0.991 / 0.982 / -0.009 | 1.000 / 0.992 / -0.008 |
+
+**eSTOI**, unprocessed input / output / change (means of 24 files):
+
+| Backend | snrm05 | snr00 | snr05 | snr10 | snr20 | clean |
+|---|---|---|---|---|---|---|
+| off | 0.569 / 0.569 / +0.000 | 0.714 / 0.714 / +0.000 | 0.792 / 0.792 / +0.000 | 0.866 / 0.866 / +0.000 | 0.971 / 0.971 / +0.000 | 1.000 / 1.000 / +0.000 |
+| sonora-ns | 0.569 / 0.573 / +0.005 | 0.714 / 0.714 / -0.000 | 0.792 / 0.780 / -0.013 | 0.866 / 0.847 / -0.019 | 0.971 / 0.935 / -0.036 | 1.000 / 0.959 / -0.041 |
+| sonora-ns-agc | 0.569 / 0.573 / +0.005 | 0.714 / 0.714 / -0.000 | 0.792 / 0.780 / -0.013 | 0.866 / 0.847 / -0.019 | 0.971 / 0.935 / -0.036 | 1.000 / 0.959 / -0.041 |
+| sonora-ns-aec | 0.569 / 0.572 / +0.004 | 0.714 / 0.714 / -0.000 | 0.792 / 0.779 / -0.013 | 0.866 / 0.847 / -0.019 | 0.971 / 0.935 / -0.036 | 1.000 / 0.959 / -0.041 |
+| rnnoise-nnnoiseless | 0.569 / 0.585 / +0.016 | 0.714 / 0.738 / +0.024 | 0.792 / 0.809 / +0.016 | 0.866 / 0.876 / +0.010 | 0.971 / 0.958 / -0.013 | 1.000 / 0.982 / -0.018 |
+
+### E. Interpretation of the rerun (not measured facts)
+
+- With a metric that tolerates sonora's frequency-dependent delay, **sonora NS gives a noise-reduction gain of about +11.3, +12.3, +9.4, +5.3 and +0.2 dB filtered SDR at -5, 0, 5, 10 and 20 dB SNR**, roughly the same as nnnoiseless (+11.5, +11.3, +9.1, +6.2, +2.1). The earlier statement that sonora showed no usable gain came from the invalid SI-SDR and should be disregarded.
+- On clean speech both degrade the signal (output filtered SDR 21.5 dB for sonora, 24.7 dB for nnnoiseless, versus an exact input), and the STOI of clean speech falls by 0.020 (sonora) and 0.008 (nnnoiseless).
+- STOI: sonora lowers it by 0.010 to 0.023 at every SNR; nnnoiseless is within +0.008 to -0.009. eSTOI: sonora +0.005 to -0.036 (worse at high SNR), nnnoiseless +0.024 to -0.013 (better at low SNR). So neither improves intelligibility by these measures, while both reduce noise energy. These are objective proxies on read speech with stationary-ish noise; they do not establish listening quality.
+- sonora's NS+AGC and NS+AEC (silent render) numbers equal NS-only because these metrics are gain-invariant and there is no echo in the corpus; the AEC profile mostly adds about 384 samples of delay (715 vs 331) and 3.7x the CPU.
+- Per-frame delay is stable per backend now (sonora NS 304-508, median 331; the spread is a property of the frequency-dependent delay and of speech content, not measured further).

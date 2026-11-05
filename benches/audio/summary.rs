@@ -12,6 +12,9 @@ pub struct ConditionSummary {
 	pub si_sdr_noisy_db: Option<f64>,
 	pub si_sdr_output_db: Option<f64>,
 	pub si_sdr_improvement_db: Option<f64>,
+	pub fsdr_noisy_db: Option<f64>,
+	pub fsdr_output_db: Option<f64>,
+	pub fsdr_improvement_db: Option<f64>,
 	pub stoi_noisy: Option<f64>,
 	pub stoi_output: Option<f64>,
 	pub stoi_improvement: Option<f64>,
@@ -57,6 +60,11 @@ pub fn by_condition(files: &[FileResult]) -> Vec<ConditionSummary> {
 				si_sdr_noisy_db: m(|r| r.si_sdr_noisy_db),
 				si_sdr_output_db: m(|r| r.si_sdr_output_db),
 				si_sdr_improvement_db: m(|r| r.si_sdr_improvement_db),
+				fsdr_noisy_db: m(|r| r.fsdr_noisy_db),
+				fsdr_output_db: m(|r| r.fsdr_output_db),
+				fsdr_improvement_db: m(|r| {
+					r.fsdr_output_db.zip(r.fsdr_noisy_db).map(|(o, i)| o - i)
+				}),
 				stoi_noisy: m(|r| r.stoi_noisy),
 				stoi_output: m(|r| r.stoi_output),
 				stoi_improvement: m(|r| r.stoi_output.zip(r.stoi_noisy).map(|(o, i)| o - i)),

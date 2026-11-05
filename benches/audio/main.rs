@@ -1,4 +1,4 @@
-//! `audio-corpus generate <dir>` / `audio-corpus worker <backend> <seconds>\n  audio-corpus run <dir> [--backends a,b] [--out file.json]`
+//! `audio-corpus generate <dir>` / `audio-corpus worker <backend> <seconds> [qos]\n  audio-corpus outliers <backend> <wav> <plain|qos>\n  audio-corpus stoi <clean.wav> <degraded.wav>\n  audio-corpus run <dir> [--backends a,b] [--out file.json] [--qos on]`
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -8,7 +8,7 @@ use relay_benches::audio::runner::{default_backends, run};
 
 fn usage() -> ExitCode {
 	eprintln!(
-		"usage:\n  audio-corpus generate <dir>\n  audio-corpus build-real <corpus-root> <out-dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json]"
+		"usage:\n  audio-corpus generate <dir>\n  audio-corpus build-real <corpus-root> <out-dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json] [--qos on]"
 	);
 	ExitCode::from(2)
 }
@@ -24,14 +24,34 @@ fn main() -> ExitCode {
 			relay_benches::audio::real::build(&PathBuf::from(&args[1]), &PathBuf::from(&args[2]))
 				.map(|hash| println!("manifest sha256 {hash}"))
 		}
-		Some("worker") if args.len() == 3 => args[2]
+		Some("outliers") if args.len() == 4 => relay_benches::audio::worker::outliers(
+			&args[1],
+			&PathBuf::from(&args[2]),
+			args[3] == "qos",
+		),
+		Some("worker") if args.len() == 3 || args.len() == 4 => args[2]
 			.parse::<f64>()
 			.map_err(|e| relay_benches::audio::BenchError::Corpus(e.to_string()))
 			.and_then(|seconds| {
-				let report = relay_benches::audio::worker::run(&args[1], seconds)?;
+				let report = relay_benches::audio::worker::run(
+					&args[1],
+					seconds,
+					args.get(3).is_some_and(|a| a == "qos"),
+				)?;
 				println!("{}", serde_json::to_string_pretty(&report)?);
 				Ok(())
 			}),
+		Some("stoi") if args.len() == 3 => {
+			let rate = 48_000;
+			(|| {
+				let clean = relay_benches::audio::wav::read_mono_48k(&PathBuf::from(&args[1]))?;
+				let degraded = relay_benches::audio::wav::read_mono_48k(&PathBuf::from(&args[2]))?;
+				if let Some(s) = relay_benches::audio::stoi::stoi(&clean, &degraded, rate) {
+					println!("{{\"stoi\": {:.6}, \"estoi\": {:.6}}}", s.stoi, s.estoi);
+				}
+				Ok(())
+			})()
+		}
 		Some("run") if args.len() >= 2 => run_command(&args[1..]),
 		_ => return usage(),
 	};
@@ -53,6 +73,9 @@ fn run_command(args: &[String]) -> relay_benches::audio::Result<()> {
 		match (flag.as_str(), rest.next()) {
 			("--backends", Some(v)) => backends = v.split(',').map(str::to_owned).collect(),
 			("--out", Some(v)) => out = Some(PathBuf::from(v)),
+			("--qos", Some(v)) if v == "on" => {
+				relay_benches::audio::worker::request_interactive_qos();
+			}
 			_ => {
 				return Err(relay_benches::audio::BenchError::Corpus(format!(
 					"unexpected argument {flag}"
