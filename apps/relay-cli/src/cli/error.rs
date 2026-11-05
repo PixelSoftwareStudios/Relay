@@ -33,7 +33,9 @@ pub enum TargetError {
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
 	/// Connecting or registering failed.
-	#[error("cannot reach the engine at {endpoint}: {source}; if the daemon is not running, try `relay daemon start`")]
+	#[error(
+		"cannot reach the engine at {endpoint}: {source}; if the daemon is not running, try `relay daemon start`"
+	)]
 	Unreachable {
 		/// Human readable endpoint.
 		endpoint: String,

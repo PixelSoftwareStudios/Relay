@@ -87,7 +87,12 @@ struct Line {
 
 impl std::fmt::Display for Line {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "call {} {}", &self.call_id[..self.call_id.len().min(8)], self.state)
+		write!(
+			f,
+			"call {} {}",
+			&self.call_id[..self.call_id.len().min(8)],
+			self.state
+		)
 	}
 }
 

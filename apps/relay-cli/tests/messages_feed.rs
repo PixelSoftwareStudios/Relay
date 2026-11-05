@@ -65,7 +65,10 @@ async fn the_feed_loads_sessions_transcripts_and_events() {
 	})
 	.await;
 	// The scripted stream ends after its events, which the pane reports honestly.
-	settle(&mut model, &mut rx, |m| matches!(m.messages.link, Link::Lost(_))).await;
+	settle(&mut model, &mut rx, |m| {
+		matches!(m.messages.link, Link::Lost(_))
+	})
+	.await;
 }
 
 #[tokio::test]

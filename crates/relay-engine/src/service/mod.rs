@@ -34,6 +34,6 @@ pub use ports::{
 	StoredSettings, TrustRequest,
 };
 pub use rpc::EngineService;
-pub use settings_keys::{KeyOutcome, KeyResult, is_live, is_messaging, is_sensitive};
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};
+pub use settings_keys::{KeyOutcome, KeyResult, is_live, is_messaging, is_sensitive};
 pub use tones::{RingPrefs, RingUpdate, ToneCommand, ToneDriver, ToneInput};
