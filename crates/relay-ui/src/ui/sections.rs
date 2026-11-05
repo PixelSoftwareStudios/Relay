@@ -1,5 +1,7 @@
 //! Section drawing. Reads view models, emits [`Actions`]; holds no logic.
 
+use std::sync::atomic::Ordering;
+
 use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
@@ -11,7 +13,7 @@ use super::local::Local;
 use super::textures::Textures;
 use super::widgets::{avatar, banner, gain_slider, meter, release_delay_slider, tone_color};
 
-pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
+pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Actions) {
 	if state.mock {
 		banner(
 			ui,
@@ -27,6 +29,9 @@ pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
 			text.push_str(" Start the daemon; this window reconnects by itself.");
 		}
 		banner(ui, &text, state.link == Link::Offline);
+		if state.link == Link::Offline && actions.shell.can_manage_daemon() {
+			start_daemon_button(ui, actions);
+		}
 	}
 	for w in &state.warnings {
 		banner(ui, &w.message, false);
@@ -36,6 +41,18 @@ pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
 	}
 	if let Some(n) = &state.notice {
 		banner(ui, n, false);
+	}
+}
+
+fn start_daemon_button(ui: &mut Ui, actions: &Actions) {
+	let busy = actions.shared.daemon_busy.load(Ordering::Acquire);
+	let label = if busy {
+		"Starting the daemon..."
+	} else {
+		"Start daemon"
+	};
+	if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+		actions.start_daemon();
 	}
 }
 
@@ -356,7 +373,13 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 	});
 }
 
-pub fn app_panel(ui: &mut Ui, actions: &Actions, has_tray: bool) {
+pub fn app_panel(
+	ui: &mut Ui,
+	state: &AppState,
+	actions: &Actions,
+	local: &mut Local,
+	has_tray: bool,
+) {
 	ui.heading("This app");
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
@@ -371,5 +394,39 @@ pub fn app_panel(ui: &mut Ui, actions: &Actions, has_tray: bool) {
 			}
 		});
 		ui.label(RichText::new(HOTKEY_NOTE).weak());
+	});
+	if actions.shell.can_manage_daemon() {
+		daemon_panel(ui, state, actions, local);
+	}
+}
+
+/// The daemon is its own process; stopping it is a separate, confirmed act.
+fn daemon_panel(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
+	ui.heading("Relay daemon");
+	egui::Frame::group(ui.style()).show(ui, |ui| {
+		ui.set_width(ui.available_width());
+		let busy = actions.shared.daemon_busy.load(Ordering::Acquire);
+		if state.link != Link::Connected {
+			ui.label("The daemon is not connected.");
+			start_daemon_button(ui, actions);
+			return;
+		}
+		ui.label("The daemon keeps running when you close this app. Quitting it ends all calls and releases the microphone.");
+		if !local.confirm_quit_daemon {
+			if ui.add_enabled(!busy, egui::Button::new("Quit daemon...")).clicked() {
+				local.confirm_quit_daemon = true;
+			}
+			return;
+		}
+		ui.label(RichText::new("Quit the daemon now? Active calls will end.").strong());
+		ui.horizontal(|ui| {
+			if ui.add_enabled(!busy, egui::Button::new("Quit daemon")).clicked() {
+				local.confirm_quit_daemon = false;
+				actions.quit_daemon();
+			}
+			if ui.button("Cancel").clicked() {
+				local.confirm_quit_daemon = false;
+			}
+		});
 	});
 }

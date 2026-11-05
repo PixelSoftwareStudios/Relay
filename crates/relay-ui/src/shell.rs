@@ -40,6 +40,20 @@ pub trait Shell: FilePicker {
 	fn hide_window(&self);
 	/// Quit this app only; the daemon is a separate process.
 	fn quit(&self);
+	/// Whether this device can start and stop the standalone daemon (desktops
+	/// can; a phone cannot).
+	fn can_manage_daemon(&self) -> bool {
+		false
+	}
+	/// Start the daemon in the background; the text becomes a notice.
+	fn start_daemon(&self) -> BoxFuture<'_, Result<String, String>> {
+		Box::pin(async { Err("This device cannot start the Relay daemon.".to_owned()) })
+	}
+	/// Ask the daemon to stop. Distinct from [`Shell::quit`], which only
+	/// closes this app.
+	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async { Err("This device cannot stop the Relay daemon.".to_owned()) })
+	}
 	/// True when closing the window hides it (a tray exists), so the UI can say so.
 	fn hides_to_tray(&self) -> bool;
 }

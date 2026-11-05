@@ -134,7 +134,7 @@ impl RelayApp {
 		let show = |page: Page| !class.is_compact() || self.page == page;
 
 		if show(Page::Calls) {
-			sections::status(ui, &state, error.as_deref());
+			sections::status(ui, &state, error.as_deref(), actions);
 			sections::calls(ui, &cards, actions, local, textures);
 		}
 		if show(Page::Settings) {
@@ -154,7 +154,7 @@ impl RelayApp {
 		}
 		if show(Page::Settings) {
 			profile::profile(ui, &state, actions, local, textures);
-			sections::app_panel(ui, actions, has_tray);
+			sections::app_panel(ui, &state, actions, local, has_tray);
 		}
 	}
 }

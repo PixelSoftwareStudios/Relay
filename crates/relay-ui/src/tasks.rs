@@ -9,6 +9,43 @@ use crate::inbox::{Invite, Picked};
 use crate::shell::PickedFile;
 
 impl Actions {
+	/// Start the standalone daemon (only when the user clicks). The window
+	/// reconnects by itself once the endpoint is up.
+	pub fn start_daemon(&self) {
+		self.daemon_job(false);
+	}
+
+	/// Ask the daemon to stop: calls end and the microphone is released. This
+	/// is not [`Actions::quit_app`], which leaves the daemon running.
+	pub fn quit_daemon(&self) {
+		self.daemon_job(true);
+	}
+
+	fn daemon_job(&self, stop: bool) {
+		use std::sync::atomic::Ordering;
+		if self.shared.daemon_busy.swap(true, Ordering::AcqRel) {
+			return;
+		}
+		let (shared, shell, hub) = (self.shared.clone(), self.shell.clone(), self.hub.clone());
+		self.runtime.spawn(async move {
+			shared.clear_error();
+			let result = if stop {
+				shell
+					.stop_daemon()
+					.await
+					.map(|()| "The Relay daemon stopped.".to_owned())
+			} else {
+				shell.start_daemon().await
+			};
+			match result {
+				Ok(note) => hub.update(|s| s.notice = Some(note)),
+				Err(message) => shared.set_error(message),
+			}
+			shared.daemon_busy.store(false, Ordering::Release);
+			shell.request_repaint();
+		});
+	}
+
 	/// Fetch and decode an avatar once; the UI caches the texture by hash.
 	pub fn fetch_avatar(&self, hash: String) {
 		let (controller, shared, shell) = (

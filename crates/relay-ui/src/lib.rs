@@ -9,6 +9,7 @@ pub mod avatar;
 pub mod channels;
 pub mod controller;
 pub mod convert;
+pub mod daemon_control;
 pub mod emitter;
 pub mod engine;
 pub mod format;

@@ -4,7 +4,9 @@
 use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 
+use relay_ui::daemon_control;
 use relay_ui::format::{avatar_problem, media_type_for};
+use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 
 pub struct DesktopShell {
@@ -91,5 +93,25 @@ impl Shell for DesktopShell {
 
 	fn hides_to_tray(&self) -> bool {
 		self.tray.load(Ordering::Acquire)
+	}
+
+	fn can_manage_daemon(&self) -> bool {
+		true
+	}
+
+	/// Launches the separate `relayd` binary itself; the `relay` command line
+	/// is never needed.
+	fn start_daemon(&self) -> BoxFuture<'_, Result<String, String>> {
+		Box::pin(async {
+			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;
+			daemon_control::start(&endpoint).await
+		})
+	}
+
+	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async {
+			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;
+			daemon_control::stop(&endpoint).await
+		})
 	}
 }

@@ -27,6 +27,8 @@ pub struct Shared {
 	tray: Mutex<Option<TraySummary>>,
 	error: Mutex<Option<String>>,
 	pub quitting: AtomicBool,
+	/// A start or stop of the daemon is in flight.
+	pub daemon_busy: AtomicBool,
 	pub inbox: Inbox,
 }
 
@@ -38,6 +40,7 @@ impl Default for Shared {
 			tray: Mutex::new(None),
 			error: Mutex::new(None),
 			quitting: AtomicBool::new(false),
+			daemon_busy: AtomicBool::new(false),
 			inbox: Inbox::default(),
 		}
 	}

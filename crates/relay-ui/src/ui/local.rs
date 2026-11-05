@@ -34,6 +34,8 @@ pub struct Local {
 	pub release_delay_edit: Option<u32>,
 	pub revoke_confirm: Option<(String, String)>,
 	pub leave_confirm: Option<String>,
+	/// The "Quit daemon" confirmation is showing.
+	pub confirm_quit_daemon: bool,
 
 	pub connection: Option<Result<ConnectionView, String>>,
 	pub connection_requested: bool,
