@@ -79,6 +79,11 @@ blake3 = "1.8.7"
 zeroize = "1.9.1"
 rand = "0.10.3"
 
+# Named channels: PAKE, membership certificates, password stretching
+spake2 = "0.4.0"
+ed25519-dalek = "2.2.0"
+argon2 = { version = "0.5.3", default-features = false, features = ["alloc"] }
+
 # Config, identity and avatars
 serde = { version = "1.0.229", features = ["derive"] }
 toml = "1.2.0"
