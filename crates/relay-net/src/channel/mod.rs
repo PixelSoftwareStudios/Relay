@@ -29,7 +29,7 @@ pub use invite::{InviteError, InviteRecord, InviteToken};
 pub use join::{AdmissionService, AdmitSession, Begin, JoinClient, JoinError};
 pub use limiter::{AttemptLimiter, Locked};
 pub use pake::{Credential, PakeError};
-pub use proof::{ProofOutcome, check_proof, make_proof};
+pub use proof::{ProofOutcome, check_proof, check_ref, make_proof, make_ref};
 pub use relay_core::channel::{ChannelId, ChannelName, Policy, Role};
 pub use store::{ChannelRecord, ChannelStore, InMemoryChannelStore, StoreError};
 pub use tag::{ChannelAdvert, Tag};

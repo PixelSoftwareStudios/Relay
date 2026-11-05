@@ -52,7 +52,7 @@ proptest! {
 		let record = w.store.get(&w.channel).unwrap().unwrap();
 		let message = ChannelMessage {
 			body: Some(relay_net::proto::channel_message::Body::Proof(ChannelProof {
-				channel_ref, cert, revocations, is_reply: false,
+				channel_ref, cert, revocations,
 			})),
 		};
 		let out = check_proof(std::slice::from_ref(&record), &pair.admitter_binding, &pair.joiner_fp(), &message, NOW);

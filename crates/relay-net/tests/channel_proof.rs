@@ -53,7 +53,7 @@ fn members_prove_membership_to_each_other_in_both_directions() {
 		relay_net::session::LinkEpoch::random(),
 	);
 	let owner = owner_record(&g);
-	let proof = make_proof(&g.alice_record, &link.joiner_binding, false, NOW).unwrap();
+	let proof = make_proof(&g.alice_record, &link.joiner_binding, NOW).unwrap();
 	let seen = check_proof(
 		std::slice::from_ref(&owner),
 		&link.admitter_binding,
@@ -64,7 +64,7 @@ fn members_prove_membership_to_each_other_in_both_directions() {
 	assert_eq!(seen.proven, Some(g.world.channel));
 
 	// The owner answers only after verifying; Alice verifies the reply.
-	let reply = make_proof(&owner, &link.admitter_binding, true, NOW).unwrap();
+	let reply = make_proof(&owner, &link.admitter_binding, NOW).unwrap();
 	let back = check_proof(
 		std::slice::from_ref(&g.alice_record),
 		&link.joiner_binding,
@@ -83,7 +83,7 @@ fn a_copied_proof_is_useless_on_another_session_or_for_another_key() {
 		Identity::from_secret_bytes(*g.owner.secret_bytes()).unwrap(),
 		relay_net::session::LinkEpoch::random(),
 	);
-	let proof = make_proof(&g.alice_record, &link.joiner_binding, false, NOW).unwrap();
+	let proof = make_proof(&g.alice_record, &link.joiner_binding, NOW).unwrap();
 	let owner = owner_record(&g);
 
 	// Mallory replays Alice's recorded message on his own link to the owner.
@@ -105,7 +105,7 @@ fn a_copied_proof_is_useless_on_another_session_or_for_another_key() {
 	// Even with a correct reference for his own session, Alice's certificate names Alice's key.
 	let mut stolen = g.alice_record.clone();
 	stolen.cert = g.alice_record.cert.clone();
-	let forged_ref = make_proof(&stolen, &other.joiner_binding, false, NOW).unwrap();
+	let forged_ref = make_proof(&stolen, &other.joiner_binding, NOW).unwrap();
 	let out = check_proof(
 		std::slice::from_ref(&owner),
 		&other.admitter_binding,
@@ -123,7 +123,7 @@ fn someone_who_knows_the_id_but_has_no_certificate_gets_nothing() {
 	let link = Pair::new();
 	let mut keyless = g.alice_record.clone();
 	keyless.cert = None;
-	assert!(make_proof(&keyless, &link.joiner_binding, false, NOW).is_none());
+	assert!(make_proof(&keyless, &link.joiner_binding, NOW).is_none());
 }
 
 #[test]
@@ -135,8 +135,8 @@ fn expired_certificates_are_not_sent_or_accepted() {
 		relay_net::session::LinkEpoch::random(),
 	);
 	let late = NOW + 31 * 86_400;
-	assert!(make_proof(&g.alice_record, &link.joiner_binding, false, late).is_none());
-	let proof = make_proof(&g.alice_record, &link.joiner_binding, false, NOW).unwrap();
+	assert!(make_proof(&g.alice_record, &link.joiner_binding, late).is_none());
+	let proof = make_proof(&g.alice_record, &link.joiner_binding, NOW).unwrap();
 	let out = check_proof(
 		&[owner_record(&g)],
 		&link.admitter_binding,
@@ -164,7 +164,7 @@ fn revoked_members_are_refused_and_revocations_spread_through_proofs() {
 	owner.add_revocation(revocation);
 
 	// The owner refuses Alice.
-	let proof = make_proof(&g.alice_record, &link.joiner_binding, false, NOW).unwrap();
+	let proof = make_proof(&g.alice_record, &link.joiner_binding, NOW).unwrap();
 	let out = check_proof(
 		std::slice::from_ref(&owner),
 		&link.admitter_binding,
@@ -188,7 +188,7 @@ fn revoked_members_are_refused_and_revocations_spread_through_proofs() {
 		mono(5),
 	)
 	.unwrap();
-	let owner_msg = make_proof(&owner, &bob_pair.admitter_binding, true, NOW).unwrap();
+	let owner_msg = make_proof(&owner, &bob_pair.admitter_binding, NOW).unwrap();
 	let learned = check_proof(
 		std::slice::from_ref(&bob_record),
 		&bob_pair.joiner_binding,

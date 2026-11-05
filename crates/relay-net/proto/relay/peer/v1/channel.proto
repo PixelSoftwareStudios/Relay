@@ -14,15 +14,21 @@ message ChannelMessage {
     ChannelJoinGrant join_grant = 5;
     ChannelJoinDenied join_denied = 6;
     ChannelRenew renew = 7;
+    ChannelRef member_ref = 8;
   }
 }
 
-// Existing member proves membership; the verifier answers with is_reply = true.
+// Step 1 of a membership proof: only a keyed, session-bound reference. It reveals nothing
+// about the channel id to a peer that does not already know the id, and a peer that cannot
+// produce a matching reference of its own is never sent a certificate.
+message ChannelRef {
+  bytes channel_ref = 1;  // exactly 16
+}
+// Step 2, sent only to a peer whose own ChannelRef for the same channel verified.
 message ChannelProof {
-  bytes channel_ref = 1;  // exactly 16, keyed by the channel id and bound to this session
+  bytes channel_ref = 1;  // exactly 16
   bytes cert = 2;         // membership certificate for the sender's static key
   repeated bytes revocations = 3;  // <= 16 signed revocations
-  bool is_reply = 4;
 }
 message ChannelJoinStart {
   bytes channel_ref = 1;  // exactly 16

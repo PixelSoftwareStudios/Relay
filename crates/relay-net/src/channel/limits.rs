@@ -40,7 +40,7 @@ pub const REVOCATIONS_PER_PROOF_MAX: usize = 16;
 /// Concurrent in-flight join exchanges across the admitter.
 pub const JOINS_CONCURRENT_MAX: usize = 4;
 /// One channel message, encoded.
-pub const MESSAGE_MAX_BYTES: usize = 2048;
+pub const MESSAGE_MAX_BYTES: usize = 8192;
 
 /// Password length bounds, in bytes.
 pub const PASSWORD_MIN_BYTES: usize = 8;

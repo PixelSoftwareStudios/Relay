@@ -38,7 +38,11 @@ fn len_is(bytes: &[u8], n: usize) -> bool {
 
 /// Field-length and bound checks for every variant. Semantic checks are in `join`/`proof`.
 pub fn validate(message: &ChannelMessage) -> Result<(), WireError> {
+	if message.encoded_len() > MESSAGE_MAX_BYTES {
+		return Err(WireError::TooLarge);
+	}
 	let ok = match message.body.as_ref().ok_or(WireError::Invalid)? {
+		Body::MemberRef(m) => len_is(&m.channel_ref, 16),
 		Body::Proof(m) => {
 			len_is(&m.channel_ref, 16)
 				&& m.cert.len() <= 512
