@@ -23,7 +23,7 @@ pub enum ConnectionState {
 #[derive(Debug, Clone)]
 pub enum Update {
 	/// A validated state item (snapshot or event).
-	State(WatchItem),
+	State(Box<WatchItem>),
 	/// Meter and statistics sample.
 	Telemetry(TelemetrySnapshot),
 	/// Link state changed.
@@ -90,7 +90,7 @@ where
 			None => return Ok(StreamEnd::Closed),
 			Some(WatchItem::Resync(resync)) => return Ok(StreamEnd::Resync(resync.reason)),
 			Some(item) => {
-				if tx.send(Update::State(item)).await.is_err() {
+				if tx.send(Update::State(Box::new(item))).await.is_err() {
 					// Receiver gone: treat as a resync that the caller never sees.
 					return Err(ApiError::StreamClosed);
 				}
