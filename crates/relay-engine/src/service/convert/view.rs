@@ -2,8 +2,9 @@
 //! `Connecting`/`Active` become the API's `NEGOTIATING`/`CONNECTED`.
 
 use relay_api::pb::{
-	self, Call, CallState as PbState, ControllerLease, Device, DeviceDirection as PbDirection,
-	Peer, Settings, Snapshot, StateEvent, TransmitMode, TransmitRoute, TrustState, state_event,
+	self, AdvertMode, Call, CallState as PbState, ControllerLease, Device,
+	DeviceDirection as PbDirection, InboundPolicy, Peer, Settings, Snapshot, StateEvent,
+	TransmitMode, TransmitRoute, TrustState, state_event,
 };
 use relay_core::{CallState, Event, Gain, GlobalView, RouteMode, Snapshot as CoreSnapshot};
 
@@ -116,6 +117,7 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		trust: trust_to_pb(info.trust) as i32,
 		reachable: info.reachable || linked,
 		avatar_sha256: info.avatar.map(|h| h.to_vec()).unwrap_or_default(),
+		shared_channel_ids: Vec::new(),
 	}
 }
 
@@ -147,6 +149,8 @@ pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
 		playback_gain: gain_to_f32(global.output_gain),
 		display_name: aux.display_name.clone(),
 		avatar_sha256: aux.avatar.map(|h| h.to_vec()).unwrap_or_default(),
+		inbound_policy: InboundPolicy::Unspecified as i32,
+		advert_mode: AdvertMode::Unspecified as i32,
 	}
 }
 
@@ -169,6 +173,7 @@ pub fn snapshot_to_pb(
 		devices: directory.devices(),
 		settings: Some(settings_to_pb(&core.global, &directory.aux)),
 		warnings: directory.warnings(),
+		channels: Vec::new(),
 	}
 }
 

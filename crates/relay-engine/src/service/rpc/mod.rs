@@ -10,14 +10,16 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use relay_api::pb::{
-	AcquireControllerRequest, CallMutation, ClientContext, ClientSession, ControllerLease,
-	DecidePeerTrustRequest, Empty, EngineInfo, GetOperationRequest, InputControlAck,
-	InputControlMessage, MutationContext, Operation, OperationState, RegisterClientRequest,
-	ReleaseControllerRequest, SelectDevicesRequest, SetCallControlsRequest,
-	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetProfileRequest,
-	SetTransmitRouteRequest, Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope,
-	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, WatchStateRequest,
-	engine_server::Engine,
+	AcquireControllerRequest, AvatarImage, CallMutation, ClientContext, ClientSession,
+	ConnectionInfo, ControllerLease, CreateChannelRequest, CreateInviteRequest,
+	CreateInviteResponse, DecidePeerTrustRequest, Empty, EngineInfo, GetAvatarRequest,
+	GetOperationRequest, InputControlAck, InputControlMessage, JoinChannelRequest,
+	LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse, MutationContext, Operation,
+	OperationState, RegisterClientRequest, ReleaseControllerRequest, RevokeChannelMemberRequest,
+	SelectDevicesRequest, SetCallControlsRequest, SetGlobalControlsRequest,
+	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetTransmitRouteRequest,
+	Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
+	TelemetrySnapshot, UploadAvatarRequest, WatchStateRequest, engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -348,6 +350,69 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		ops::trust(self, &mutation, &body).await
+	}
+
+	async fn create_channel(
+		&self,
+		_: Request<CreateChannelRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn join_channel(
+		&self,
+		_: Request<JoinChannelRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn leave_channel(
+		&self,
+		_: Request<LeaveChannelRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn list_channels(
+		&self,
+		_: Request<ListChannelsRequest>,
+	) -> Result<Response<ListChannelsResponse>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn create_invite(
+		&self,
+		_: Request<CreateInviteRequest>,
+	) -> Result<Response<CreateInviteResponse>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn revoke_channel_member(
+		&self,
+		_: Request<RevokeChannelMemberRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(ServiceError::Unimplemented("channels").into())
+	}
+
+	async fn set_privacy(
+		&self,
+		_: Request<SetPrivacyRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(ServiceError::Unimplemented("privacy settings").into())
+	}
+
+	async fn get_avatar(
+		&self,
+		_: Request<GetAvatarRequest>,
+	) -> Result<Response<AvatarImage>, Status> {
+		Err(ServiceError::Unimplemented("avatar download").into())
+	}
+
+	async fn get_connection_info(
+		&self,
+		_: Request<ClientContext>,
+	) -> Result<Response<ConnectionInfo>, Status> {
+		Err(ServiceError::Unimplemented("connection info").into())
 	}
 
 	type InputControlStream = Stream<InputControlAck>;

@@ -28,10 +28,10 @@ pub(super) async fn start_call(
 		.ok_or_else(|| invalid("missing call target"))?
 	{
 		Target::PeerId(bytes) => peer_id(bytes)?,
-		Target::ManualLocalAddress(address) => {
+		Target::ManualLocalAddress(text) | Target::ManualConnectionString(text) => {
 			let peers = service.shared.peers.clone();
-			let address = address.clone();
-			tokio::task::spawn_blocking(move || peers.resolve_address(&address))
+			let text = text.clone();
+			tokio::task::spawn_blocking(move || peers.resolve_address(&text))
 				.await
 				.map_err(|_| ServiceError::Stopped)??
 		}
