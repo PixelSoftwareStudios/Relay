@@ -1,6 +1,7 @@
 # Named channels (private groups on a shared LAN)
 
-Status: design record plus implementation in `relay-core::channel` and `relay-net::channel`.
+Status: design record plus implementation in `relay-core::channel`, `relay-net::channel` and the
+live driver `relay-engine::channels` (see "Engine driver" below).
 **The independent security review gate stays open**: the composition below is a proposal, not an
 audited protocol, and `spake2` itself is unaudited.
 
@@ -229,8 +230,55 @@ joiner's one-time Argon2 and the store):
 - Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
 - Owner key loss means the channel cannot admit or revoke any more (create a new one).
 - No rate limit on tag recognition work beyond the 256-entry discovery table.
-- The engine does not yet advertise in hidden mode, rotate the pseudonymous instance id, or
-  route channel messages.
+- Joining needs a trusted, already linked admitter (owner device). The driver does not dial
+  for a join; pair first, then join. A join waits one second for a link that is coming up.
+- A recognised tag makes the engine dial the advertised address (at most 2 addresses per advert,
+  once per 30 s per advert instance). The resulting link still stops at the trust decision; the
+  channel proof starts only after the user (or an existing pin) has trusted the peer.
+- Listed channel names that are not ASCII are not advertised (mDNS TXT is ASCII only here);
+  the channel is still joinable by id.
+- The driver keeps the decrypted records (owner signing key included) in process memory while
+  running; they are loaded from the store, whose secrets sit in the OS credential store.
+- Concurrent identical requests that race before the first finishes can both run; the operation
+  ledger deduplicates retries, not parallel duplicates.
+- `RelayClient::create_invite` and the desktop client do not yet read
+  `CreateInviteResponse.operation`; a failed invite arrives there with an empty `invite`.
+
+## Engine driver (`crates/relay-engine/src/channels/`)
+
+`ChannelHub` is the one object that implements the four-step driver sketch above inside the
+running engine. The daemon builds it in `assemble`, hands it to the glue task that consumes
+`PeerOutput`, and to the RPC layer (`ServiceBuilder::with_channels`). Without it (fake adapters)
+the channel RPCs stay `UNIMPLEMENTED`.
+
+| Concern | Where | Behaviour |
+|---|---|---|
+| Trust first | `peers/manager.rs` | `PeerOutput::Channel(LinkUp)` is emitted only for a link that passed `evaluate_peer` (trusted, canonical). `Body::Channel` is routed to the driver and never to `decode`, so channel traffic cannot reach call state. |
+| Proof | `channels/proofs.rs` | On `LinkUp` the driver sends `make_proof` for every certificate it holds; on a valid `Proof` it records `Evidence::Proven`, persists new revocations and answers once per channel and link. Gaining a channel announces proofs on all links. |
+| Join (admitter) | `channels/inbound.rs` | `JoinStart`/`JoinConfirm` run through `AdmissionService` (limiter fed with a monotonic clock). One exchange per link; a new start replaces an abandoned one, which is dropped after 15 s so it cannot hold one of the four global slots. |
+| Join (joiner) | `channels/joining.rs` | Argon2 runs on a blocking thread. The joiner tries up to 8 linked devices (invite issuer first). Every failure is `CHANNEL_DENIED`; only the device's own pacing (5 failures, doubling lockout, `AttemptLimiter` keyed by local fingerprint) answers `CHANNEL_LOCKED_OUT`. |
+| Renewal | `channels/proofs.rs` | A member whose certificate has under 3.5 days left asks a peer that proved the channel to renew; the answer is applied with `apply_renewal`. Authority holders refresh their own certificate on the 1 s upkeep tick. |
+| Advertising | `channels/advert.rs` | `ChannelAdvert::build` per joined channel into `AdvertSpec::extra_txt`; hidden mode (from `SetPrivacy`) uses `hidden_instance_id` and rotates it per tag epoch. Rebuilt only when the epoch, mode or channel set changes. A device in no channel publishes no channel TXT at all. |
+| Hints | `channels/advert.rs` | `ChannelAdvert::recognise` yields `Evidence::Candidate`; that only triggers a dial. Nothing treats a candidate as shared. |
+| Ringing | `channels/screen.rs` | `InboundPolicy::decide` runs before an invite reaches the control actor. A dropped invite is answered with a plain `Decline` (indistinguishable from the user's). Only `Proven` counts. |
+| Views | `service/directory.rs` | `Snapshot.channels`, `StateEvent.channel` (new), `Peer.shared_channel_ids` (proven only) and `Removed{kind: "channel"}`. |
+
+API behaviour:
+
+- `CreateChannel`, `JoinChannel`, `LeaveChannel`, `RevokeChannelMember` return an `Operation`;
+  failures are `FAILED` operations with `CHANNEL_DENIED`, `CHANNEL_LOCKED_OUT`, `CHANNEL_LIMIT` or
+  `CHANNEL_NAME_INVALID`. Malformed input (wrong id length, a password that does not match the
+  policy or is outside 8 to 128 bytes, out-of-range invite lifetime) is `INVALID_ARGUMENT`;
+  a failing store is `FAILED_PRECONDITION` with a generic message.
+- `CreateInvite` returns `CreateInviteResponse` whose new `operation` field is `FAILED` with
+  `CHANNEL_DENIED` for a non-owner, an unknown channel and a channel without invites. That is a
+  response, not a gRPC error. Revoke by a non-admitter is `CHANNEL_DENIED` the same way.
+- Operations use a driver-local ledger (256 per client, 4096 total, 10 minutes). The request
+  print is a keyed hash, so a stored print is no password oracle. `GetOperation` falls back to it.
+- Secrets: request bodies are moved into zeroizing buffers, nothing logs them, and the only
+  place an invite leaves the engine is the `CreateInviteResponse` (and its idempotent replay).
+- Membership grants nothing about calls: the driver has no call ids, never touches the media
+  or the gates, and `screen` can only turn a ring into a decline.
 
 ## Proposed API and wire changes (drafted, NOT wired)
 
@@ -284,6 +332,16 @@ Passwords and invite secrets travel only in the request body on the local socket
 after use, and appear in no event, snapshot, log or `Operation` result.
 
 ## Test map
+
+Engine: `cargo test -p relay-engine --test channels_e2e --test channels_calls --test
+channels_secrets`. Real daemons, loopback sockets, SQLite store, in-memory vault, fake audio:
+invite plus password join with uniform denials, single-use invites, non-owner invite, joiner
+lockout, limits, idempotent operations, revocation, `SharedChannelOnly` screening by proof,
+a forged tag that dials but never counts as shared, a recognised tag that re-links a restarted
+member, epoch and hidden-mode re-advertising, certificate renewal, three engines in one channel
+with simultaneous calls and canary tones (no cross-audio, no auto-accept, no consent), and a
+captured-tracing check that no password or invite appears in logs, events, snapshots or
+operation results.
 
 `crates/relay-net/tests/channel_*.rs` plus unit tests in `relay-core::channel`: PAKE success,
 wrong password, lockout, transcript binding (other session, other keys, other channel), invite

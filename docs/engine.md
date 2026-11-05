@@ -140,7 +140,7 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   `privacy.advert_mode` (`visible`, `hidden`); each is optional and an empty request is refused.
   Both are persisted, shown in `Settings` and pushed as a settings event. A hidden mode flips
   `AdvertSpec::hidden`, so discovery advertises neither name nor key hint (re-announced at once).
-  The inbound policy is enforced by the channel module.
+  The inbound policy is enforced by the channel driver (below).
 
 ## Telemetry and the microphone test
 
@@ -161,6 +161,31 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   client goes away (idle detach) and at shutdown, and then releases the microphone unless a call
   is using it. The test opens the microphone under a reserved capture generation that the domain
   never sees; if a call opens capture meanwhile the test shares that stream.
+
+## Channels
+
+`src/channels/` is the live driver for named channels; `docs/channels.md` has the design,
+decisions and the full behaviour table. Shape:
+
+- `ChannelHub` (cheap to clone) owns the `ChannelStore` (`SqliteChannelStore` in the daemon),
+  the `AdmissionService`, per-link state and the operation ledger. The daemon builds it in
+  `assemble` with the peer handle, the control handle, the settings store, a `Clock` and the
+  shared `AdvertSpec` sender; `RunOptions::channel_vault` and `channel_clock` replace the secret
+  vault and the time source (tests).
+- The peer manager reports `PeerOutput::Channel(ChannelEvent)`: link up (after trust), link
+  down, validated channel messages and discovery records. `glue::peer_output` hands those to
+  `ChannelHub::on_event` and nothing else, and passes every `PeerOutput::Core` event through
+  `ChannelHub::screen` first. Channel messages never reach `decode`.
+- `Msg::Channels` (via `ControlHandle::channels_changed`) replaces the channel view in the
+  `Directory`; that yields `Snapshot.channels`, `StateEvent.channel` and
+  `Peer.shared_channel_ids` (proven channels only).
+- `rpc/channels.rs` serves the six RPCs; secret fields are moved out of the request into
+  zeroizing buffers before anything else happens.
+- A 1 s upkeep task (`spawn_maintenance`, `ChannelHub::tick`) follows the privacy mode, rotates
+  the tag epoch, refreshes authority certificates, drops abandoned admissions and asks for
+  renewals.
+- Engines that share a host also share a hostname, and trust is keyed by name: give each a
+  distinct display name (the channel tests do) or the second pairing reports `PEER_KEY_CHANGED`.
 
 ## Not done / owned elsewhere
 
@@ -189,6 +214,8 @@ trust gating, call, consent, audio both ways, withdrawal and hangup.
 telemetry stream and the microphone test (including release on client loss). The mic test during
 a connected call, and speaking indicators, are in `service_e2e`.
 `cargo test -p relay-cli --test real_engine` runs the CLI against the real service layer.
+`channels_e2e`, `channels_calls` and `channels_secrets` cover the channel driver on whole engines
+(see `docs/channels.md`, test map).
 
 ## Media and peers
 
