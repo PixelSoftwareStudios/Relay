@@ -2,8 +2,8 @@
 //! call acceptance are separate decisions made by the caller afterwards.
 
 mod backoff;
-mod framing;
-mod gate;
+pub(crate) mod framing;
+pub(crate) mod gate;
 mod untrusted;
 
 use std::time::Duration;
@@ -20,7 +20,7 @@ use crate::identity::{Fingerprint, Identity, KEY_BYTES, PublicKey, check_remote_
 use crate::limits::{
 	EPOCH_BYTES, HANDSHAKE_MESSAGE_MAX_BYTES, HANDSHAKE_TIMEOUT, PREFACE_BYTES, PREFACE_TIMEOUT,
 };
-use crate::noise::{PROTOCOL_MAJOR, builder, prologue};
+use crate::noise::{PROTOCOL_MAJOR, Purpose, builder, prologue};
 use crate::session::{LinkEpoch, Role, SecureSession};
 
 const PREFACE_MAGIC: &[u8; 4] = b"RLH1";
@@ -45,7 +45,7 @@ pub enum HandshakeError {
 	Overloaded,
 }
 
-fn encode_preface(epoch: &LinkEpoch) -> [u8; PREFACE_BYTES] {
+pub(crate) fn encode_preface(epoch: &LinkEpoch) -> [u8; PREFACE_BYTES] {
 	let mut out = [0u8; PREFACE_BYTES];
 	out[..4].copy_from_slice(PREFACE_MAGIC);
 	out[4..6].copy_from_slice(&PROTOCOL_MAJOR.to_be_bytes());
@@ -54,7 +54,7 @@ fn encode_preface(epoch: &LinkEpoch) -> [u8; PREFACE_BYTES] {
 	out
 }
 
-fn decode_preface(raw: &[u8; PREFACE_BYTES]) -> Result<LinkEpoch, HandshakeError> {
+pub(crate) fn decode_preface(raw: &[u8; PREFACE_BYTES]) -> Result<LinkEpoch, HandshakeError> {
 	if &raw[..4] != PREFACE_MAGIC || raw[6] != 0 || raw[7] != 0 {
 		return Err(HandshakeError::BadPreface);
 	}
@@ -65,12 +65,13 @@ fn decode_preface(raw: &[u8; PREFACE_BYTES]) -> Result<LinkEpoch, HandshakeError
 	LinkEpoch::from_slice(&raw[8..]).ok_or(HandshakeError::BadPreface)
 }
 
-fn noise_state(
+pub(crate) fn noise_state(
+	purpose: Purpose,
 	identity: &Identity,
 	epoch: &LinkEpoch,
 	role: Role,
 ) -> Result<snow::HandshakeState, HandshakeError> {
-	let prologue = prologue(PROTOCOL_MAJOR, epoch);
+	let prologue = prologue(purpose, PROTOCOL_MAJOR, epoch);
 	let builder = builder()
 		.local_private_key(identity.secret_bytes())
 		.and_then(|b| b.prologue(&prologue))
@@ -82,7 +83,7 @@ fn noise_state(
 	.map_err(|_| HandshakeError::Noise)
 }
 
-fn remote_key(
+pub(crate) fn remote_key(
 	state: &snow::HandshakeState,
 	identity: &Identity,
 ) -> Result<PublicKey, HandshakeError> {
@@ -121,7 +122,7 @@ async fn recv_step<S: AsyncRead + Unpin>(
 	Ok(())
 }
 
-fn finish(
+pub(crate) fn finish(
 	state: snow::HandshakeState,
 	identity: &Identity,
 	epoch: LinkEpoch,
@@ -171,7 +172,7 @@ async fn initiate_inner<S: AsyncRead + AsyncWrite + Unpin>(
 
 	let epoch = LinkEpoch::random();
 	stream.write_all(&encode_preface(&epoch)).await?;
-	let mut state = noise_state(identity, &epoch, Role::Initiator)?;
+	let mut state = noise_state(Purpose::Control, identity, &epoch, Role::Initiator)?;
 	send_step(stream, &mut state).await?;
 	recv_step(stream, &mut state).await?;
 	if let Some(expected) = expected
@@ -205,7 +206,7 @@ async fn respond_inner<S: AsyncRead + AsyncWrite + Unpin>(
 		.await
 		.map_err(|_| HandshakeError::Timeout)??;
 	let epoch = decode_preface(&raw)?;
-	let mut state = noise_state(identity, &epoch, Role::Responder)?;
+	let mut state = noise_state(Purpose::Control, identity, &epoch, Role::Responder)?;
 	recv_step(stream, &mut state).await?;
 	send_step(stream, &mut state).await?;
 	recv_step(stream, &mut state).await?;

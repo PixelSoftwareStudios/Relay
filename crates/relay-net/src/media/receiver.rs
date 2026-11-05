@@ -232,7 +232,7 @@ impl MediaReceiver {
 				challenge: decode_probe(opened.body).map_err(|_| RejectReason::Body)?,
 				epoch,
 			},
-			RecordKind::Envelope => return Err(RejectReason::Header),
+			RecordKind::Envelope | RecordKind::Data => return Err(RejectReason::Header),
 		};
 		// Authenticated and structurally accepted: only now commit ordering state.
 		slot.window.commit(header.sequence());

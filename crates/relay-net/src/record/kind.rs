@@ -8,6 +8,8 @@ pub enum RecordKind {
 	PathChallenge = 0x02,
 	PathResponse = 0x03,
 	Envelope = 0x80,
+	/// One frame of a per-transfer data link (control lane, separate session).
+	Data = 0x81,
 }
 
 impl RecordKind {
@@ -17,6 +19,7 @@ impl RecordKind {
 			0x02 => Some(Self::PathChallenge),
 			0x03 => Some(Self::PathResponse),
 			0x80 => Some(Self::Envelope),
+			0x81 => Some(Self::Data),
 			_ => None,
 		}
 	}
@@ -25,7 +28,7 @@ impl RecordKind {
 	pub const fn lane(self) -> Lane {
 		match self {
 			Self::Audio | Self::PathChallenge | Self::PathResponse => Lane::Media,
-			Self::Envelope => Lane::Control,
+			Self::Envelope | Self::Data => Lane::Control,
 		}
 	}
 }

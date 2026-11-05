@@ -16,6 +16,7 @@ pub mod media;
 mod noise;
 pub mod record;
 pub mod session;
+pub mod transfer;
 
 pub mod proto {
 	//! Generated `relay.peer.v1` messages carried inside authenticated control records.

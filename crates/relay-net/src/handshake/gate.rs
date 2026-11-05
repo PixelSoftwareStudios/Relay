@@ -16,10 +16,10 @@ use tokio::sync::Notify;
 use super::HandshakeError;
 use crate::limits::{PENDING_HANDSHAKES_MAX, PENDING_HANDSHAKES_PER_SOURCE};
 
-type SourceKey = (u8, [u8; 8]);
+pub(crate) type SourceKey = (u8, [u8; 8]);
 
 /// Groups addresses that one host can cheaply rotate through.
-fn source_key(ip: IpAddr) -> SourceKey {
+pub(crate) fn source_key(ip: IpAddr) -> SourceKey {
 	let ip = match ip {
 		IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(IpAddr::V6(v6), IpAddr::V4),
 		v4 => v4,
