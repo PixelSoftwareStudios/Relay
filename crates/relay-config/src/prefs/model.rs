@@ -11,6 +11,12 @@ const MAX_DISPLAY_NAME_CHARS: usize = 64;
 const MAX_DEVICE_ID_BYTES: usize = 512;
 const MAX_GAIN: f32 = 4.0;
 
+/// Writes an `f32` as its shortest decimal (`0.7`, not `0.699999988079071`).
+fn short_f32<S: serde::Serializer>(value: &f32, serializer: S) -> Result<S::Ok, S::Error> {
+	let text = value.to_string();
+	serializer.serialize_f64(text.parse().unwrap_or_else(|_| f64::from(*value)))
+}
+
 /// How a device is chosen.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -53,6 +59,15 @@ pub struct Audio {
 	pub noise_backend: NoiseBackend,
 	pub microphone_gain: f32,
 	pub playback_gain: f32,
+	/// Play the ring for an incoming call while a client is attached.
+	pub ringtone_enabled: bool,
+	/// Ring volume, `0.0..=1.0`.
+	#[serde(serialize_with = "short_f32")]
+	pub ringtone_volume: f32,
+	/// Play the ringback while an outgoing call rings.
+	pub ringback_enabled: bool,
+	/// Play the short connect and hang-up blips.
+	pub call_sounds_enabled: bool,
 }
 
 impl Default for Audio {
@@ -66,6 +81,10 @@ impl Default for Audio {
 			noise_backend: NoiseBackend::Off,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
+			ringtone_enabled: true,
+			ringtone_volume: 0.7,
+			ringback_enabled: true,
+			call_sounds_enabled: true,
 		}
 	}
 }
@@ -292,6 +311,10 @@ impl Preferences {
 			if !gain.is_finite() || !(0.0..=MAX_GAIN).contains(&gain) {
 				return bad("gain must be finite and within 0.0..=4.0");
 			}
+		}
+		let volume = self.audio.ringtone_volume;
+		if !volume.is_finite() || !(0.0..=1.0).contains(&volume) {
+			return bad("audio.ringtone_volume must be finite and within 0.0..=1.0");
 		}
 		for id in [
 			&self.audio.preferred_input_id,

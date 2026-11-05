@@ -265,3 +265,29 @@ fn the_desktop_starts_the_daemon_by_default_and_can_be_told_not_to() {
 	assert!(!store.load().unwrap().preferences.clients.autostart_daemon);
 	assert!(store.set("clients.autostart_daemon", "sometimes").is_err());
 }
+
+#[test]
+fn ring_preferences_default_validate_and_round_trip() {
+	let prefs = Preferences::default();
+	assert_eq!(flat::get(&prefs, "audio.ringtone_enabled").unwrap(), "true");
+	assert_eq!(flat::get(&prefs, "audio.ringtone_volume").unwrap(), "0.7");
+	assert_eq!(flat::get(&prefs, "audio.ringback_enabled").unwrap(), "true");
+	assert_eq!(
+		flat::get(&prefs, "audio.call_sounds_enabled").unwrap(),
+		"true"
+	);
+	let changed = flat::set(&prefs, "audio.ringtone_volume", "0.5").unwrap();
+	assert!((changed.audio.ringtone_volume - 0.5).abs() < f32::EPSILON);
+	assert!(flat::set(&prefs, "audio.ringtone_volume", "1.5").is_err());
+	assert!(flat::set(&prefs, "audio.ringtone_volume", "-0.1").is_err());
+	assert!(flat::set(&prefs, "audio.ringtone_volume", "loud").is_err());
+	let off = flat::set(&prefs, "audio.ringtone_enabled", "false").unwrap();
+	assert!(!off.audio.ringtone_enabled);
+	assert!(flat::set(&prefs, "audio.ringback_enabled", "maybe").is_err());
+	let text = export_toml(&off).unwrap();
+	assert!(text.contains("ringtone_enabled = false"));
+	assert_eq!(import_toml(&text).unwrap(), off);
+	assert!(import_toml("[audio]\nringtone_volume = 2.0\n").is_err());
+	let partial = import_toml("[audio]\nringtone_volume = 0.2\n").unwrap();
+	assert!(partial.audio.call_sounds_enabled);
+}

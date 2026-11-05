@@ -122,6 +122,9 @@ CLI-facing helpers (for `relay config get|set|export|import`):
 | `prefs::flat::keys()` | Settable keys, sorted |
 | `PreferenceStore::get(key)` / `set(key, text)` | One setting; string settings are taken literally, other types parse as TOML (`2.5`, `false`, `rnnoise`); validated before saving |
 | `ptt.release_delay_ms` | Push-to-talk release delay: after an ordinary key release the transmit gate stays open this long (0 to 2000 ms, default 200; 0 closes at once) so a sentence end is not clipped. Applies live; every safety close (disconnect, takeover, mute, lock, device loss, call end) ignores it |
+| `audio.ringtone_enabled` / `audio.ringtone_volume` | Play the ring for an incoming call while a client is attached (default true) and its volume (0.0 to 1.0, default 0.7). Apply live; disabling while ringing stops the ring |
+| `audio.ringback_enabled` | Play the ringback while an outgoing call rings (default true). Applies live |
+| `audio.call_sounds_enabled` | Short connect and hang-up blips (default true). Applies live |
 | `hotkeys.push_to_talk` | Global push-to-talk accelerator (default `Ctrl+Alt+Space`; empty disables); read by `relay hotkey` and `relay tui` |
 | `PreferenceStore::read_only(&Paths)` | Read without the lock, recovery or writes (for `doctor`, `config get` next to a running daemon) |
 | `Storage::open(&Paths)` | Lock + open + recover + import; returns `database`, `lock`, `notices` |
