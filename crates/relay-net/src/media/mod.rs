@@ -4,16 +4,21 @@ mod datagram;
 mod endpoint;
 mod path;
 mod receiver;
-mod replay;
 
 pub use datagram::{BodyError, CHALLENGE_BYTES, CallId, MAX_PAYLOAD_BYTES};
 pub use endpoint::{AudioMeta, AudioPacket, MediaEndpoint, MediaError};
 pub use path::{PathValidator, ResponseLimiter};
 pub use receiver::{MediaReceiver, Received, ReceivedRef, RejectReason};
-pub use replay::{ReplayVerdict, ReplayWindow};
+pub use relay_protocol::seq::ReplayVerdict;
 
+use crate::limits::MEDIA_REPLAY_WINDOW;
 use crate::record::RecordKind;
 use crate::session::{SealError, SecureSession};
+
+/// Replay window sized for [`MEDIA_REPLAY_WINDOW`](crate::limits::MEDIA_REPLAY_WINDOW)
+/// sequences. `check` is read-only; `accept` is called only after the record has
+/// authenticated and passed structural validation, so forged counters cannot move it.
+pub type ReplayWindow = relay_protocol::seq::ReplayWindow<{ (MEDIA_REPLAY_WINDOW / 64) as usize }>;
 
 /// Seals one audio datagram. The nonce comes from the session's media-lane counter, never
 /// from anything inside the payload.

@@ -49,17 +49,15 @@ impl Fingerprint {
 
 	/// Parses the output of [`Self::full`]; separators and case are ignored.
 	pub fn parse(text: &str) -> Result<Self, FingerprintParseError> {
-		let mut digits = Vec::with_capacity(64);
-		for c in text.chars().filter(|c| !matches!(c, ' ' | '-' | ':')) {
-			digits.push(c.to_digit(16).ok_or(FingerprintParseError::Character)? as u8);
-		}
-		if digits.len() != 64 {
-			return Err(FingerprintParseError::Length);
+		let digits: String = text
+			.chars()
+			.filter(|c| !matches!(c, ' ' | '-' | ':'))
+			.collect();
+		if !digits.bytes().all(|b| b.is_ascii_hexdigit()) {
+			return Err(FingerprintParseError::Character);
 		}
 		let mut out = [0u8; 32];
-		for (i, byte) in out.iter_mut().enumerate() {
-			*byte = digits[2 * i] << 4 | digits[2 * i + 1];
-		}
+		hex::decode_to_slice(&digits, &mut out).map_err(|_| FingerprintParseError::Length)?;
 		Ok(Self(out))
 	}
 }
@@ -70,9 +68,7 @@ fn group_hex(bytes: &[u8], group: usize, sep: char) -> String {
 		if i > 0 {
 			out.push(sep);
 		}
-		for b in chunk {
-			out.push_str(&format!("{b:02X}"));
-		}
+		out.push_str(&hex::encode_upper(chunk));
 	}
 	out
 }

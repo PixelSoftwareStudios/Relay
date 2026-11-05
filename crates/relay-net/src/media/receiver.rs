@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use thiserror::Error;
 
 use super::datagram::{CHALLENGE_BYTES, CallId, decode_audio, decode_probe};
-use super::replay::{ReplayVerdict, ReplayWindow};
+use super::{ReplayVerdict, ReplayWindow};
 use crate::limits::{EPOCH_OVERLAP_MAX, EPOCH_OVERLAP_MAX_COUNT, UDP_RECORD_MAX_BYTES};
 use crate::record::{Lane, RecordHeader, RecordKind, sealed_len};
 use crate::session::{LinkEpoch, SecureSession};
@@ -235,7 +235,7 @@ impl MediaReceiver {
 			RecordKind::Envelope | RecordKind::Data => return Err(RejectReason::Header),
 		};
 		// Authenticated and structurally accepted: only now commit ordering state.
-		slot.window.commit(header.sequence());
+		slot.window.accept(header.sequence());
 		Ok(received)
 	}
 }

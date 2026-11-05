@@ -11,6 +11,7 @@ use super::ids::{ct_eq, random, tag_key};
 use super::limits::{
 	LISTED_ADVERTISED_MAX, TAG_BYTES, TAG_EPOCH_SECS, TAG_SLOTS_LARGE, TAG_SLOTS_SMALL,
 };
+use crate::fixed_hex;
 use crate::identity::Fingerprint;
 
 const TAG_LABEL: &[u8] = b"tag";
@@ -122,12 +123,15 @@ impl ChannelAdvert {
 	pub fn to_txt(&self) -> Vec<(String, String)> {
 		let mut out = vec![(TXT_EPOCH.to_owned(), self.epoch.to_string())];
 		if !self.tags.is_empty() {
-			out.push((TXT_TAGS.to_owned(), hex(self.tags.iter().flat_map(|t| t.0))));
+			out.push((
+				TXT_TAGS.to_owned(),
+				hex::encode(self.tags.iter().flat_map(|t| t.0).collect::<Vec<u8>>()),
+			));
 		}
 		for (i, listed) in self.listed.iter().enumerate() {
 			let value = format!(
 				"{}:{}",
-				hex(listed.id.as_bytes().iter().copied()),
+				hex::encode(listed.id.as_bytes()),
 				listed.name.as_str()
 			);
 			if value.len() <= TXT_VALUE_MAX {
@@ -159,7 +163,9 @@ impl ChannelAdvert {
 				return None;
 			}
 			for chunk in text.as_bytes().chunks(TAG_BYTES * 2) {
-				parsed_tags.push(Tag(unhex::<TAG_BYTES>(std::str::from_utf8(chunk).ok()?)?));
+				parsed_tags.push(Tag(fixed_hex::decode::<TAG_BYTES>(
+					std::str::from_utf8(chunk).ok()?,
+				)?));
 			}
 		}
 		let listed = listed
@@ -169,7 +175,7 @@ impl ChannelAdvert {
 			.filter_map(|v| {
 				let (id, name) = v.split_once(':')?;
 				Some(ListedChannel {
-					id: ChannelId::from_bytes(unhex::<16>(id)?),
+					id: ChannelId::from_bytes(fixed_hex::decode::<16>(id)?),
 					name: ChannelName::new(name).ok()?,
 				})
 			})
@@ -224,19 +230,4 @@ impl ChannelAdvert {
 pub struct Recognised {
 	pub channel: ChannelId,
 	pub fingerprint: Fingerprint,
-}
-
-fn hex(bytes: impl IntoIterator<Item = u8>) -> String {
-	bytes.into_iter().map(|b| format!("{b:02x}")).collect()
-}
-
-fn unhex<const N: usize>(text: &str) -> Option<[u8; N]> {
-	if text.len() != N * 2 || !text.is_ascii() {
-		return None;
-	}
-	let mut out = [0u8; N];
-	for (i, byte) in out.iter_mut().enumerate() {
-		*byte = u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?;
-	}
-	Some(out)
 }

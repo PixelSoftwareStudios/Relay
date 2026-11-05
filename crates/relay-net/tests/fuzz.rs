@@ -104,7 +104,7 @@ proptest! {
 			// Checking is read-only: asking twice gives the same answer.
 			prop_assert_eq!(window.check(seq), verdict);
 			if verdict == ReplayVerdict::Fresh {
-				window.commit(seq);
+				window.accept(seq);
 				accepted.insert(seq);
 				highest = Some(highest.map_or(seq, |h| h.max(seq)));
 			}

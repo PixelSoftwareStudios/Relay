@@ -9,6 +9,7 @@ pub mod channel;
 pub mod connect;
 pub mod control;
 pub mod discovery;
+mod fixed_hex;
 pub mod handshake;
 pub mod identity;
 pub mod limits;

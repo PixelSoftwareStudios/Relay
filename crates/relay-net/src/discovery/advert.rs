@@ -6,6 +6,7 @@ use mdns_sd::{ResolvedService, ScopedIp};
 use super::DiscoveryError;
 use super::names::sanitize_display_name;
 use crate::address::AddressPolicy;
+use crate::fixed_hex;
 use crate::identity::Fingerprint;
 use crate::noise::PROTOCOL_MAJOR;
 
@@ -38,23 +39,12 @@ impl FingerprintHint {
 	}
 
 	fn to_hex(self) -> String {
-		self.0.iter().map(|b| format!("{b:02x}")).collect()
+		hex::encode(self.0)
 	}
 
 	fn from_hex(text: &str) -> Option<Self> {
-		Some(Self(decode_hex::<HINT_BYTES>(text)?))
+		Some(Self(fixed_hex::decode::<HINT_BYTES>(text)?))
 	}
-}
-
-fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
-	if text.len() != N * 2 || !text.is_ascii() {
-		return None;
-	}
-	let mut out = [0u8; N];
-	for (i, byte) in out.iter_mut().enumerate() {
-		*byte = u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).ok()?;
-	}
-	Some(out)
 }
 
 /// How much identity the record carries.
@@ -88,13 +78,7 @@ pub struct Advertisement {
 
 impl Advertisement {
 	pub(super) fn instance_name(&self) -> String {
-		format!(
-			"relay-{}",
-			self.instance_id[..6]
-				.iter()
-				.map(|b| format!("{b:02x}"))
-				.collect::<String>()
-		)
+		format!("relay-{}", hex::encode(&self.instance_id[..6]))
 	}
 
 	pub fn txt(&self) -> Result<HashMap<String, String>, DiscoveryError> {
@@ -111,13 +95,7 @@ impl Advertisement {
 		}
 		let mut map = HashMap::from([
 			("v".to_owned(), PROTOCOL_MAJOR.to_string()),
-			(
-				"id".to_owned(),
-				self.instance_id
-					.iter()
-					.map(|b| format!("{b:02x}"))
-					.collect(),
-			),
+			("id".to_owned(), hex::encode(self.instance_id)),
 			("caps".to_owned(), self.capabilities.clone()),
 		]);
 		if self.mode == AdvertMode::Open {
@@ -166,11 +144,7 @@ pub struct DiscoveredPeer {
 }
 
 fn truncate(text: &str, max_bytes: usize) -> String {
-	let mut end = text.len().min(max_bytes);
-	while !text.is_char_boundary(end) {
-		end -= 1;
-	}
-	text[..end].to_owned()
+	text[..text.floor_char_boundary(max_bytes)].to_owned()
 }
 
 /// Converts a resolved mDNS record into a candidate. Returns `None` for records that are
@@ -182,7 +156,7 @@ pub fn parse_resolved(service: &ResolvedService, policy: &AddressPolicy) -> Opti
 		return None;
 	}
 	let instance_id =
-		decode_hex::<INSTANCE_ID_BYTES>(service.txt_properties.get_property_val_str("id")?)?;
+		fixed_hex::decode::<INSTANCE_ID_BYTES>(service.txt_properties.get_property_val_str("id")?)?;
 	let display_name = sanitize_display_name(
 		service
 			.txt_properties

@@ -87,12 +87,7 @@ impl ConnectionString {
 
 impl fmt::Display for ConnectionString {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		let hex: String = self
-			.expected
-			.as_bytes()
-			.iter()
-			.map(|b| format!("{b:02x}"))
-			.collect();
+		let hex = hex::encode(self.expected.as_bytes());
 		match self.addr {
 			SocketAddr::V4(a) => write!(f, "{SCHEME}{a}#{hex}"),
 			SocketAddr::V6(a) if a.scope_id() == 0 => {

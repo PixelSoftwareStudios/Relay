@@ -77,9 +77,5 @@ pub fn name_skeleton(name: &str) -> String {
 }
 
 fn truncate(text: &str, max_bytes: usize) -> String {
-	let mut end = text.len().min(max_bytes);
-	while !text.is_char_boundary(end) {
-		end -= 1;
-	}
-	text[..end].to_owned()
+	text[..text.floor_char_boundary(max_bytes)].to_owned()
 }
