@@ -50,7 +50,18 @@ and plug in through the port traits below.
   with no open stream for `idle_client_ttl` (default 5 min) is detached and releases what it
   held.
 - `InputControl`: one stream is one input source. Closing the stream or `RELEASE_ALL`
-  releases every press (final sequence `u64::MAX`, so the source is retired).
+  releases every press (final sequence `u64::MAX`, so the source is retired) with
+  `immediate = true`, so it skips the release delay; an ordinary `RELEASE` is held.
+- Push-to-talk release delay (`ptt.release_delay_ms`, 0 to 2000, default 200): seeded from
+  the stored preference into the core at start (`service/runtime.rs`), changed live with
+  `SetGlobalControls.ptt_release_delay_ms` (domain command, then persisted by the
+  `ServiceOp::Controls` adapter step), shown as `Settings.ptt_release_delay_ms`. The media
+  send path needs no change: the core publishes the gate that stays open for the hold and
+  the closing `GateUpdate` at the deadline (the actor ticks at `next_deadline()`), and every
+  safety close publishes in the same outcome as its cause, so no packet leaves after the
+  gate closes (`tests/media_release_delay.rs`). `Call.transmit.effective_transmitting`
+  stays true during the hold and `Call.transmit.releasing` is true; `blocked_reason` is
+  empty until the hold ends. Telemetry has no separate "releasing" meter.
 
 ## Watching
 

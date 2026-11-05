@@ -29,6 +29,19 @@ table, route/controls), `gate` (pure policy), `command`, `effect`, `event`, `out
 
 ## Invariants worth knowing
 
+- Push-to-talk release delay: an ordinary key-up on an open gate keeps the lease alive
+  in a *hold* until `now + delay` (`SetGlobalControls.ptt_release_delay`, default
+  `Limits::ptt_release_delay` = 200 ms, hard max 2000 ms = `PTT_RELEASE_DELAY_MAX`; 0 =
+  immediate). The hold is the lease's own expiry, so `next_deadline()` and `Tick` close it
+  exactly at the deadline, and `CallView.releasing` says so. A new press by the source
+  replaces the hold; a second key-up never extends it. Only a normal key-up holds: a
+  release with `PttUpdate.immediate` (source retirement, stream closure), a key-up while
+  the gate is already closed, and every fail-closed cause (disconnect, takeover/release of
+  the controller, route change or withdrawal, lock/suspend, capture or device loss, link
+  loss, call end) drop the lease and any hold in the same outcome. Global or per-call mute
+  or deafen cancel holds without touching held keys. A press that stalls out (missed
+  refresh) also cancels the call's pending holds. Invariant (property-tested): `releasing`
+  implies the gate is open.
 - Receive-only is the default. Capture is opened only while a Connecting/Active call has
   transmit consent and the OS session allows it; withdrawal closes it.
 - Gate = conjunction of independent conditions (`gate::evaluate`); every deny wins.

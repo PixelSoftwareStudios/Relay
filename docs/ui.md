@@ -39,3 +39,7 @@ Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Cont
 - No Android shell exists yet; the touch layout is untested on a device or with a real touch screen. `FilePicker` has no Android implementation (content URIs rather than paths are the expected shape: return the bytes).
 - No on-device or screenshot check of the compact layout; only window-less frames run.
 - The mobile resource gate (CPU, RSS, battery) is unmeasured.
+
+## Push-to-talk release delay
+
+The Settings section has a slider for the push-to-talk release delay (0 to 2000 ms, step 10, shown as `N ms`; `release_delay_label` renders 0 as "Off (closes at once)"). Dragging keeps the value in `Local::release_delay_edit` and sends one `Controller::set_ptt_release_delay` on release (a `SetGlobalControls` with only `ptt_release_delay_ms`); values above 2000 are refused locally. `Settings.ptt_release_delay_ms` comes from the engine, and `describe_transmit` shows "Releasing" only while the engine reports both `effective_transmitting` and `releasing`. The mock engine round-trips the value. View-model tests: `tests/format.rs`, `tests/controller.rs`, `tests/mock.rs`.

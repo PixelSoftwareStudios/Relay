@@ -65,7 +65,7 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 - `avatar set` accepts `.png`, `.jpg`, `.jpeg` up to 1 MiB (the engine decodes and validates). `avatar clear` exits 4 with code `unsupported`: the API has no clear operation.
 
 ### Settings (`relay config`)
-`get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `privacy.inbound_policy`, `privacy.advert_mode`); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
+`get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `ptt.release_delay_ms`, `privacy.inbound_policy`, `privacy.advert_mode`); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
 
 ## Output
 
@@ -93,7 +93,9 @@ Checks, in order: endpoint, engine reachability and version, input and output de
 
 Screens: Peers, Calls (cards), Devices, Settings. Header: link state, revision, microphone meter, mute/deafen, noise suppression. Call cards show peer, state, speaking indicator, route, consent, the engine's `effective_transmitting` ("TRANSMITTING" or "mic closed"), `blocked_reason`, receive meter and transport stats.
 
-Keys: `tab`/`1-4` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle route (receive-only, push-to-talk, open mic; transmitting modes ask `y` first), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings, `q` quit.
+Keys: `tab`/`1-4` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle route (receive-only, push-to-talk, open mic; transmitting modes ask `y` first), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings (and the PTT release delay row, in 50 ms steps from 0 to 2000), `q` quit.
+
+The Settings tab lists the microphone and playback gain, mute, deafen and the **PTT release delay** (how long the gate stays open after the key is released, 0 to 2000 ms; `relay config set ptt.release_delay_ms 300` does the same). While the delay runs the call shows the engine's `releasing` state; nothing is assumed locally.
 
 Push-to-talk in the TUI has two paths:
 - **Global hotkey** (`hotkeys.push_to_talk`, default `Ctrl+Alt+Space`): `relay tui` starts the platform backend on the main thread and drives a `PttDriver` over its own `InputControl` stream, exactly like `relay hotkey`. The header's third line says what is true: `active via <backend>` plus `ptt: idle|transmitting|held, engine not transmitting|blocked...|rejected|lease expired|failed` and the controlled call, or `needs Input Monitoring: ...`, `unsupported: <reason>`, `failed: <reason>`, `off (...)`. Nothing is claimed when the backend refused.
