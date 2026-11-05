@@ -1,4 +1,5 @@
 # Relay desktop UI catalog, Spanish (es), section: Desktop notifications.
-# Not translated yet. Add only ids that exist in localizations/en/notifications.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Translation of localizations/en/notifications.ftl; same ids and $variables. See docs/i18n.md.
+
+notification-title = Llamada entrante de Relay
+notification-unknown-caller = Llamante desconocido

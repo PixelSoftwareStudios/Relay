@@ -1,4 +1,46 @@
 # Relay desktop UI catalog, Spanish (es), section: Errors the UI words itself.
-# Not translated yet. Add only ids that exist in localizations/en/errors.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Translation of localizations/en/errors.ftl; same ids and $variables. See docs/i18n.md.
+
+err-not-connected = sin conexión con el daemon de Relay
+err-release-delay = el retardo al soltar debe estar entre 0 y 2000 ms
+err-gain = la ganancia debe ser un número finito entre 0 y 4
+err-bad-call-id = id de llamada con formato incorrecto
+err-unknown-call = llamada desconocida
+err-no-lease = el motor no devolvió ninguna concesión de control
+err-bad-peer-id = id de par con formato incorrecto
+err-unknown-peer = par desconocido
+err-consent-required = se necesita el permiso del micrófono para transmitir
+err-ring-volume = el volumen del tono de llamada debe estar entre 0 y 1
+err-unknown-device = dispositivo de audio desconocido o no disponible
+err-display-name = el nombre visible debe tener de 1 a 64 caracteres imprimibles
+err-avatar-media-type = el avatar necesita un tipo de medio
+conn-scheme = Una cadena de conexión empieza con relay://
+err-invite-malformed = ese token de invitación tiene un formato incorrecto
+err-join-target = introduce un token de invitación o un id de canal de 32 caracteres
+err-bad-channel-id = id de canal con formato incorrecto
+err-unknown-channel = canal desconocido
+err-channel-name = el nombre del canal debe tener de 1 a 32 caracteres imprimibles
+err-channel-needs-password = un canal protegido con contraseña necesita una contraseña
+err-enter-password = introduce la contraseña del canal
+err-invite-admin-only = solo un propietario o administrador puede crear invitaciones
+err-invite-range = la duración o el número de usos de la invitación está fuera de rango
+err-no-invite = el motor no devolvió ninguna invitación
+err-revoke-admin-only = solo un propietario o administrador puede revocar miembros
+err-not-member = ese par no es un miembro comprobado del canal
+err-nothing-to-change = nada que cambiar
+err-bad-avatar-hash = hash de avatar con formato incorrecto
+conn-missing-fingerprint = A la cadena de conexión le falta la parte #fingerprint.
+conn-bad-fingerprint = La huella digital debe tener 64 caracteres hexadecimales.
+conn-bad-address = La dirección debe ser una ip:puerto literal, no un nombre.
+watch-resync = el motor pidió resincronizar: { $reason }
+watch-closed = el daemon cerró la conexión
+err-unsupported = este motor no admite esa solicitud
+err-daemon-unreachable = no se puede acceder al daemon de Relay: { $reason }
+err-engine-timeout = el motor no respondió a tiempo
+err-connection = problema de conexión: { $reason }
+err-unreadable-image = Ese archivo no es una imagen legible.
+err-engine-rejected = el motor rechazó la solicitud
+err-no-paths = Este dispositivo no puede elegir archivos ni carpetas para el daemon de Relay.
+err-cannot-start-daemon = Este dispositivo no puede iniciar el daemon de Relay.
+err-cannot-stop-daemon = Este dispositivo no puede detener el daemon de Relay.
+err-read-file = No se puede leer el archivo: { $error }
