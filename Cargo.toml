@@ -12,6 +12,7 @@ members = [
 	"crates/relay-client",
 	"crates/relay-ui",
 	"apps/relay-cli",
+	"apps/relay-daemon",
 	"apps/relay-desktop",
 	"benches",
 ]
@@ -27,6 +28,7 @@ default-members = [
 	"crates/relay-platform",
 	"crates/relay-client",
 	"apps/relay-cli",
+	"apps/relay-daemon",
 	"benches",
 ]
 

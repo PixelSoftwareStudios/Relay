@@ -1,0 +1,23 @@
+[package]
+name = "relay-daemon"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "relayd: the Relay engine as a standalone per-user background process"
+
+[[bin]]
+name = "relayd"
+path = "src/main.rs"
+
+[dependencies]
+relay-config.workspace = true
+relay-engine.workspace = true
+clap.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+anyhow.workspace = true
+
+[lints]
+workspace = true
