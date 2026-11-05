@@ -156,7 +156,7 @@ fn export(paths: &Paths, file: Option<&Path>, out: &mut Out<'_>) -> Result<(), C
 }
 
 async fn engine_running(global: &GlobalArgs) -> Result<Option<client::RealClient>, CliError> {
-	match client::connect(global).await {
+	match client::connect_existing(global).await {
 		Ok(client) => Ok(Some(client)),
 		Err(CliError::Unreachable { .. }) => Ok(None),
 		Err(other) => Err(other),

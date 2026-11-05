@@ -14,12 +14,21 @@ pub async fn start<C: Control + Manage>(
 	peer: &str,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
+	let op = start_op(client, peer).await?;
+	report(&op, out)
+}
+
+/// Start a call and return its operation, for callers that stay with the call.
+pub async fn start_op<C: Control + Manage>(
+	client: &mut C,
+	peer: &str,
+) -> Result<relay_api::pb::Operation, CliError> {
 	if peer
 		.trim_start()
 		.to_ascii_lowercase()
 		.starts_with("relay://")
 	{
-		return start_string(client, peer, out).await;
+		return start_string(client, peer).await;
 	}
 	let target = match parse_address(peer) {
 		Some(address) => CallTarget::Address(address),
@@ -28,8 +37,7 @@ pub async fn start<C: Control + Manage>(
 			CallTarget::Peer(resolve_peer(&snapshot, peer)?.peer_id.clone())
 		}
 	};
-	let op = client.start_call(target).await?;
-	report(&op, out)
+	Ok(client.start_call(target).await?)
 }
 
 pub async fn lifecycle<C: Control>(
@@ -40,6 +48,9 @@ pub async fn lifecycle<C: Control>(
 ) -> Result<(), CliError> {
 	let snapshot = client.snapshot().await?;
 	let call = resolve_call(&snapshot, target.call.as_deref())?;
+	if matches!(action, CallAction::End) {
+		out.note("ending the call (taking over its ownership if another client holds it)")?;
+	}
 	let op = client.call_action(action, &call.call_id).await?;
 	report(&op, out)
 }
@@ -51,11 +62,9 @@ pub async fn lifecycle<C: Control>(
 async fn start_string<C: Manage>(
 	client: &mut C,
 	text: &str,
-	out: &mut Out<'_>,
-) -> Result<(), CliError> {
+) -> Result<relay_api::pb::Operation, CliError> {
 	let policy = AddressPolicy::lan_only().with_overlay_manual(true);
 	let parsed = ConnectionString::parse(text, &policy)
 		.map_err(|e| CliError::Usage(format!("not a usable connection string: {e}")))?;
-	let op = client.start_call_string(&parsed.to_string()).await?;
-	report(&op, out)
+	Ok(client.start_call_string(&parsed.to_string()).await?)
 }

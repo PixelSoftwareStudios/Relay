@@ -102,10 +102,52 @@ pub trait Control {
 	async fn ptt(&mut self, request: PttRequest) -> Result<(), ApiError>;
 }
 
-/// Connect to the endpoint selected by the global flags and register.
+/// Connect to the endpoint selected by the global flags and register,
+/// starting the daemon first when none runs (unless `--no-autostart`).
+///
+/// The one line on stderr says what is happening, including that the device
+/// becomes visible on the LAN only once a client attaches, and that the daemon
+/// opens no microphone. It never touches standard output, so `--json` output
+/// stays clean.
 pub async fn connect(global: &GlobalArgs) -> Result<RealClient, CliError> {
 	let endpoint = endpoint::resolve(global)?;
+	autostart(&endpoint, global).await?;
 	connect_to(&endpoint, global).await
+}
+
+/// Connect without ever starting the daemon: for paths that must work, or
+/// report, without it.
+pub async fn connect_existing(global: &GlobalArgs) -> Result<RealClient, CliError> {
+	let endpoint = endpoint::resolve(global)?;
+	connect_to(&endpoint, global).await
+}
+
+/// `RELAY_NO_AUTOSTART` set to anything but empty, `0` or `false`.
+fn autostart_disabled_by_env() -> bool {
+	std::env::var("RELAY_NO_AUTOSTART").is_ok_and(|v| {
+		let v = v.trim().to_ascii_lowercase();
+		!(v.is_empty() || v == "0" || v == "false")
+	})
+}
+
+async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliError> {
+	use relay_client::daemon::{self, EnsureError, StartOptions};
+	if global.no_autostart || autostart_disabled_by_env() || daemon::reachable(endpoint).await {
+		return Ok(());
+	}
+	eprintln!(
+		"relay: starting relayd... (it opens no microphone and shows this device on the LAN only while a client such as this one is attached)"
+	);
+	let mut options = StartOptions::autostart();
+	options.binary.clone_from(&global.daemon_bin);
+	options.log_file.clone_from(&global.daemon_log);
+	match daemon::ensure_running(endpoint, &options).await {
+		Ok(_) => Ok(()),
+		Err(EnsureError::StoppedByRequest) => Err(CliError::NotRunning {
+			endpoint: endpoint::describe(endpoint),
+		}),
+		Err(error) => Err(CliError::DaemonStart(error.to_string())),
+	}
 }
 
 /// Connect to an explicit endpoint and register.

@@ -6,6 +6,7 @@ mod call;
 mod channel;
 pub mod clipboard;
 pub mod config;
+mod hold;
 mod controls;
 mod daemon;
 mod doctor;
@@ -25,6 +26,7 @@ use std::io::Write;
 use relay_api::pb::{Operation, OperationState};
 
 pub use hotkey::{set as hotkey_set, status_view as hotkey_status_view};
+pub use hold::Hold;
 pub use output::Out;
 
 use crate::cli::{Cli, CliError, Command, GlobalArgs};
@@ -34,12 +36,37 @@ use views::Outcome;
 
 /// Run a parsed command line without a global hotkey, writing output to `w`.
 pub async fn run(cli: Cli, w: &mut dyn Write) -> Result<(), CliError> {
-	run_with(cli, HotkeyFeed::off("not started"), w).await
+	dispatch(cli, HotkeyFeed::off("not started"), w, Hold::Off).await
+}
+
+/// Like [`run`], but `call` and `accept` stay in the foreground until the call
+/// ends or a message arrives on `hangup` (what Ctrl-C or `q` do in a terminal).
+pub async fn run_holding(
+	cli: Cli,
+	w: &mut dyn Write,
+	hangup: &mut tokio::sync::mpsc::Receiver<()>,
+) -> Result<(), CliError> {
+	dispatch(
+		cli,
+		HotkeyFeed::off("not started"),
+		w,
+		Hold::Channel(hangup),
+	)
+	.await
 }
 
 /// Run a parsed command line. `hotkeys` is what `main` got from starting the
 /// platform backend on the main thread; only `hotkey` and `tui` use it.
 pub async fn run_with(cli: Cli, hotkeys: HotkeyFeed, w: &mut dyn Write) -> Result<(), CliError> {
+	dispatch(cli, hotkeys, w, Hold::Signals(None)).await
+}
+
+async fn dispatch(
+	cli: Cli,
+	hotkeys: HotkeyFeed,
+	w: &mut dyn Write,
+	mut hold: Hold<'_>,
+) -> Result<(), CliError> {
 	let mut out = Out::new(cli.global.json, w);
 	match cli.command {
 		Command::Daemon(args) => daemon::run(&cli.global, &args, &mut out).await,
@@ -47,6 +74,14 @@ pub async fn run_with(cli: Cli, hotkeys: HotkeyFeed, w: &mut dyn Write) -> Resul
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
 		Command::Config(cmd) => config::run(&cli.global, cmd, &mut out).await,
+		Command::Call { peer } => {
+			let mut client = client::connect(&cli.global).await?;
+			hold::start(&mut client, &peer, &mut out, &mut hold).await
+		}
+		Command::Accept(target) => {
+			let mut client = client::connect(&cli.global).await?;
+			hold::accept(&mut client, target, &mut out, &mut hold).await
+		}
 		command => {
 			let mut client = client::connect(&cli.global).await?;
 			execute(&mut client, command, &mut out).await

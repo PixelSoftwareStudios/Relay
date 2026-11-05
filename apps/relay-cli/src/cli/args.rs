@@ -31,6 +31,16 @@ pub struct GlobalArgs {
 	/// Take call control from another client when it holds it.
 	#[arg(long, global = true)]
 	pub takeover: bool,
+	/// Do not start the daemon when none is running (default: commands that
+	/// need it start `relayd` and say so). Also `RELAY_NO_AUTOSTART=1`.
+	#[arg(long, global = true)]
+	pub no_autostart: bool,
+	/// The `relayd` to start instead of the one next to `relay` or on PATH.
+	#[arg(long, global = true, hide = true, value_name = "PATH")]
+	pub daemon_bin: Option<PathBuf>,
+	/// Where a daemon started by this command writes its log.
+	#[arg(long, global = true, hide = true, value_name = "PATH")]
+	pub daemon_log: Option<PathBuf>,
 	/// How long to wait for the engine to finish an operation.
 	#[arg(long, global = true, default_value_t = 5000, value_name = "MS")]
 	pub timeout_ms: u64,

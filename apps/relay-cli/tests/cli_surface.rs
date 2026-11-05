@@ -114,7 +114,7 @@ fn binary_exits_2_on_bad_usage_and_3_without_an_engine() {
 	let dir = tempfile::tempdir().unwrap();
 	let socket = dir.path().join("absent.sock");
 	let out = relay()
-		.args(["--json", "--socket"])
+		.args(["--json", "--no-autostart", "--socket"])
 		.arg(&socket)
 		.arg("status")
 		.output()
@@ -123,6 +123,17 @@ fn binary_exits_2_on_bad_usage_and_3_without_an_engine() {
 	assert!(out.stdout.is_empty(), "errors go to stderr");
 	let body: serde_json::Value = serde_json::from_slice(&out.stderr).unwrap();
 	assert_eq!(body["error"]["code"], "engine_unreachable");
+
+	// The environment switch does the same as the flag.
+	let out = relay()
+		.env("RELAY_NO_AUTOSTART", "1")
+		.args(["--json", "--socket"])
+		.arg(&socket)
+		.arg("status")
+		.output()
+		.unwrap();
+	assert_eq!(out.status.code(), Some(i32::from(exit::UNREACHABLE)));
+	assert!(!socket.exists(), "nothing was started");
 }
 
 #[test]

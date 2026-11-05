@@ -84,12 +84,11 @@ async fn a_call_by_name_is_listed_and_can_be_ended() {
 		serde_json::from_str(&engine.run(&["--json", "status"]).await.unwrap()).unwrap();
 	assert_eq!(status["calls"].as_array().unwrap().len(), 1);
 
-	// Every `relay` run is a new client, and the one that started the call still
-	// holds its lease: ending it from another run is an explicit takeover.
-	assert!(engine.run(&["end", &call_prefix(&status)]).await.is_err());
+	// Every `relay` run is a new client. Ending the call from another run
+	// takes its ownership on purpose, and says so.
 	let call = call_prefix(&status);
-	let out = engine.run(&["--takeover", "end", &call]).await.unwrap();
-	assert!(out.contains("applied"), "{out}");
+	let out = engine.run(&["end", &call]).await.unwrap();
+	assert!(out.contains("applied") && out.contains("taking over"), "{out}");
 	engine.daemon.shutdown().await.unwrap();
 }
 

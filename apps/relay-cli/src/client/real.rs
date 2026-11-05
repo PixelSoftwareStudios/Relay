@@ -139,7 +139,10 @@ impl Control for RealClient {
 		action: CallAction,
 		call_id: &[u8],
 	) -> Result<Operation, ApiError> {
-		let generation = self.controller_generation(call_id).await?;
+		// Ending takes ownership when another client holds the call: the
+		// person asking for it to end means it.
+		let takeover = self.takeover || matches!(action, CallAction::End);
+		let generation = acquire_generation(&mut self.client, call_id, takeover).await?;
 		self.run_command(Command::CallAction {
 			action,
 			call_id: call_id.to_vec(),

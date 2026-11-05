@@ -2,29 +2,12 @@
 #![cfg(unix)]
 
 use std::path::PathBuf;
-use std::sync::OnceLock;
 
 use clap::Parser;
 use relay_cli::cli::{Cli, CliError, exit};
+use support_relayd::relayd;
 
-/// Builds `relayd` once and returns where it is.
-fn relayd() -> &'static PathBuf {
-	static PATH: OnceLock<PathBuf> = OnceLock::new();
-	PATH.get_or_init(|| {
-		let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
-		let built = std::process::Command::new(cargo)
-			.args(["build", "--quiet", "-p", "relay-daemon"])
-			.status()
-			.expect("cargo runs");
-		assert!(built.success(), "relayd builds");
-		// target/<profile>/deps/<this test> -> target/<profile>/relayd
-		let exe = std::env::current_exe().expect("exe");
-		exe.parent()
-			.and_then(|deps| deps.parent())
-			.expect("target dir")
-			.join("relayd")
-	})
-}
+mod support_relayd;
 
 struct Setup {
 	dir: tempfile::TempDir,
@@ -95,7 +78,10 @@ async fn the_daemon_is_started_inspected_and_stopped_by_the_cli() {
 	let error = s.daemon("status").await.expect_err("not running");
 	assert_eq!(error.exit_code(), exit::UNREACHABLE);
 	assert!(error.to_string().contains("relay daemon start"), "{error}");
-	let error = s.relay(&["peers"]).await.expect_err("no implicit start");
+	let error = s
+		.relay(&["--no-autostart", "peers"])
+		.await
+		.expect_err("autostart is off");
 	assert_eq!(error.exit_code(), exit::UNREACHABLE);
 	assert!(error.to_string().contains("relay daemon start"), "{error}");
 	assert!(

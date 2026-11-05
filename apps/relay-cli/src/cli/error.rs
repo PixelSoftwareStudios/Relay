@@ -40,6 +40,9 @@ pub enum CliError {
 		/// Underlying transport error.
 		source: ApiError,
 	},
+	/// Starting the daemon for this command failed.
+	#[error("{0}")]
+	DaemonStart(String),
 	/// Nothing serves the endpoint.
 	#[error("daemon not running at {endpoint}; try `relay daemon start`")]
 	NotRunning {
@@ -92,7 +95,9 @@ impl CliError {
 	/// Process exit code for this error.
 	pub fn exit_code(&self) -> u8 {
 		match self {
-			Self::Unreachable { .. } | Self::NotRunning { .. } => exit::UNREACHABLE,
+			Self::Unreachable { .. } | Self::NotRunning { .. } | Self::DaemonStart(_) => {
+				exit::UNREACHABLE
+			}
 			Self::Api(ApiError::OperationTimeout) => exit::TIMEOUT,
 			Self::Api(ApiError::Status(status)) => match status.code() {
 				tonic::Code::Unavailable => exit::UNREACHABLE,
@@ -111,7 +116,9 @@ impl CliError {
 	/// Stable short code used in `--json` error bodies.
 	pub fn code(&self) -> &str {
 		match self {
-			Self::Unreachable { .. } | Self::NotRunning { .. } => "engine_unreachable",
+			Self::Unreachable { .. } | Self::NotRunning { .. } | Self::DaemonStart(_) => {
+				"engine_unreachable"
+			}
 			Self::Api(ApiError::OperationTimeout) => "timeout",
 			Self::Api(_) => "api_error",
 			Self::Rejected { code, .. } => code,
