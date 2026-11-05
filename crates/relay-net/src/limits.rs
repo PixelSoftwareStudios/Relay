@@ -12,6 +12,13 @@ pub const HANDSHAKE_MESSAGE_MAX_BYTES: usize = 4096;
 pub const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
 /// Maximum number of simultaneously pending unauthenticated handshakes.
 pub const PENDING_HANDSHAKES_MAX: usize = 8;
+/// Pending unauthenticated handshakes allowed from one source (an IPv4 address or an IPv6 /64).
+pub const PENDING_HANDSHAKES_PER_SOURCE: usize = 2;
+/// Time a new connection has to send its 24-byte preface before the slot is released.
+pub const PREFACE_TIMEOUT: Duration = Duration::from_secs(1);
+/// Authenticated but untrusted links kept at once, and per source address.
+pub const UNTRUSTED_LINKS_MAX: usize = 16;
+pub const UNTRUSTED_LINKS_PER_SOURCE: usize = 2;
 /// Maximum number of discovered entries retained.
 pub const DISCOVERY_ENTRIES_MAX: usize = 256;
 /// Size of the media replay window, in records.

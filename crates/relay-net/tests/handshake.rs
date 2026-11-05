@@ -165,10 +165,13 @@ async fn tampered_epoch_in_preface_breaks_the_prologue_binding() {
 
 #[tokio::test]
 async fn pending_handshake_gate_is_bounded() {
-	let gate = HandshakeGate::with_capacity(2);
-	let a = gate.try_enter().unwrap();
-	let _b = gate.try_enter().unwrap();
-	assert!(matches!(gate.try_enter(), Err(HandshakeError::Overloaded)));
+	let gate = HandshakeGate::with_limits(2, 2);
+	let a = gate.try_enter("192.168.1.2".parse().unwrap()).unwrap();
+	let b = gate.try_enter("192.168.1.3".parse().unwrap()).unwrap();
+	// Full: a third source evicts the oldest slot rather than being refused.
+	let c = gate.try_enter("192.168.1.4".parse().unwrap()).unwrap();
+	assert!(a.is_evicted() && !b.is_evicted() && !c.is_evicted());
+	assert_eq!(gate.in_use(), 2);
 	drop(a);
-	assert!(gate.try_enter().is_ok());
+	assert_eq!(gate.in_use(), 2);
 }

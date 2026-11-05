@@ -1,8 +1,10 @@
 //! TCP preface plus Noise XX handshake. Completing it proves key possession only; trust and
 //! call acceptance are separate decisions made by the caller afterwards.
 
+mod backoff;
 mod framing;
 mod gate;
+mod untrusted;
 
 use std::time::Duration;
 
@@ -10,10 +12,14 @@ use thiserror::Error;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::timeout;
 
+pub use backoff::AcceptBackoff;
 pub use gate::{HandshakeGate, HandshakePermit};
+pub use untrusted::UntrustedLinks;
 
 use crate::identity::{Fingerprint, Identity, KEY_BYTES, PublicKey};
-use crate::limits::{EPOCH_BYTES, HANDSHAKE_MESSAGE_MAX_BYTES, HANDSHAKE_TIMEOUT, PREFACE_BYTES};
+use crate::limits::{
+	EPOCH_BYTES, HANDSHAKE_MESSAGE_MAX_BYTES, HANDSHAKE_TIMEOUT, PREFACE_BYTES, PREFACE_TIMEOUT,
+};
 use crate::noise::{PROTOCOL_MAJOR, builder, prologue};
 use crate::session::{LinkEpoch, Role, SecureSession};
 
@@ -188,13 +194,28 @@ async fn respond_inner<S: AsyncRead + AsyncWrite + Unpin>(
 	use tokio::io::AsyncReadExt;
 
 	let mut raw = [0u8; PREFACE_BYTES];
-	stream.read_exact(&mut raw).await?;
+	// A connection that sends nothing must not hold a slot for the whole handshake budget.
+	timeout(PREFACE_TIMEOUT, stream.read_exact(&mut raw))
+		.await
+		.map_err(|_| HandshakeError::Timeout)??;
 	let epoch = decode_preface(&raw)?;
 	let mut state = noise_state(identity, &epoch, Role::Responder)?;
 	recv_step(stream, &mut state).await?;
 	send_step(stream, &mut state).await?;
 	recv_step(stream, &mut state).await?;
 	finish(state, epoch, Role::Responder)
+}
+
+/// [`respond`] that gives up as soon as the gate evicts `permit` to admit a newcomer.
+pub async fn respond_gated<S: AsyncRead + AsyncWrite + Unpin>(
+	stream: &mut S,
+	identity: &Identity,
+	permit: &HandshakePermit,
+) -> Result<SecureSession, HandshakeError> {
+	tokio::select! {
+		result = respond(stream, identity) => result,
+		() = permit.evicted() => Err(HandshakeError::Overloaded),
+	}
 }
 
 /// Handshake timeout, exposed so callers can size their own surrounding deadlines.
