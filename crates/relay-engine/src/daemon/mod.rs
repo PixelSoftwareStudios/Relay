@@ -1,6 +1,7 @@
 //! The engine process: loads configuration and identity, serves the local
 //! API on an owner-only socket and shuts down gracefully.
 
+mod channel_store;
 mod env;
 mod error;
 mod settings;
@@ -19,6 +20,7 @@ use relay_core::Limits;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
+pub use channel_store::SqliteChannelStore;
 pub use env::Environment;
 pub use error::DaemonError;
 pub use settings::FileSettings;

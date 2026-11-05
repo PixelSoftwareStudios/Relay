@@ -17,7 +17,7 @@ mod store;
 
 use std::collections::BTreeMap;
 
-use zeroize::Zeroizing;
+pub use zeroize::Zeroizing;
 
 pub use store::ChannelStorage;
 
