@@ -1,10 +1,10 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use relay_desktop::controller::{Controller, SessionSlot};
-use relay_desktop::hub::Hub;
-use relay_desktop::mock;
-use relay_desktop::model::{Mode, Phase};
+use relay_ui::controller::{Controller, SessionSlot};
+use relay_ui::hub::Hub;
+use relay_ui::mock;
+use relay_ui::model::{Mode, Phase};
 
 async fn rig() -> (Controller, Arc<Hub>) {
 	let hub = Arc::new(Hub::default());
@@ -51,7 +51,7 @@ async fn meters_run_only_while_visible() {
 #[tokio::test(start_paused = true)]
 async fn mock_channels_invites_and_privacy_work_end_to_end() {
 	use relay_client::ChannelOptions;
-	use relay_desktop::model::{Advert, Inbound};
+	use relay_ui::model::{Advert, Inbound};
 	let (ctl, hub) = rig().await;
 	let options = ChannelOptions {
 		listed: true,

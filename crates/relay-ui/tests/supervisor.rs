@@ -5,11 +5,11 @@ use std::time::Duration;
 
 use common::*;
 use relay_api::{WatchItem, pb};
-use relay_desktop::controller::SessionSlot;
-use relay_desktop::engine::EngineError;
-use relay_desktop::hub::Hub;
-use relay_desktop::model::{Link, Phase};
-use relay_desktop::supervisor::{backoff, supervise};
+use relay_ui::controller::SessionSlot;
+use relay_ui::engine::EngineError;
+use relay_ui::hub::Hub;
+use relay_ui::model::{Link, Phase};
+use relay_ui::supervisor::{backoff, supervise};
 
 struct Rig {
 	engine: Arc<ScriptedEngine>,

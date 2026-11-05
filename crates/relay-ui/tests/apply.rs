@@ -2,7 +2,7 @@ mod common;
 
 use common::*;
 use relay_api::pb::{self, state_event::Event};
-use relay_desktop::model::{AppState, Direction, Phase, Trust};
+use relay_ui::model::{AppState, Direction, Phase, Trust};
 
 fn loaded() -> AppState {
 	let mut s = AppState {
@@ -44,10 +44,7 @@ fn unknown_enum_values_degrade_conservatively() {
 	});
 	apply(&mut s, 4, Event::Call(call));
 	assert_eq!(s.calls[0].phase, Phase::Preparing);
-	assert_eq!(
-		s.calls[0].transmit.mode,
-		relay_desktop::model::Mode::ReceiveOnly
-	);
+	assert_eq!(s.calls[0].transmit.mode, relay_ui::model::Mode::ReceiveOnly);
 	assert!(!s.calls[0].controlled_by_me);
 }
 
@@ -127,10 +124,7 @@ fn collections_and_warnings_stay_bounded() {
 #[test]
 fn going_down_drops_engine_data_so_stale_state_is_not_shown() {
 	let mut s = loaded();
-	s.set_link_down(
-		relay_desktop::model::Link::Reconnecting,
-		Some("gone".into()),
-	);
+	s.set_link_down(relay_ui::model::Link::Reconnecting, Some("gone".into()));
 	assert!(s.calls.is_empty() && s.peers.is_empty() && s.devices.is_empty());
 	assert_eq!(s.link_error.as_deref(), Some("gone"));
 }

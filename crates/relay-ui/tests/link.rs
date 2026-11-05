@@ -1,6 +1,6 @@
 use relay_api::Endpoint;
-use relay_desktop::engine::{Engine, EngineError};
-use relay_desktop::relay_link::RelayLink;
+use relay_ui::engine::{Engine, EngineError};
+use relay_ui::relay_link::RelayLink;
 
 #[tokio::test]
 async fn a_missing_socket_reads_as_daemon_unavailable() {

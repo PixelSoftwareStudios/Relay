@@ -5,9 +5,9 @@ use std::time::Duration;
 
 use common::*;
 use relay_api::pb;
-use relay_desktop::emitter::{self, Cadence, Sink, TraySummary, tray_summary};
-use relay_desktop::hub::Hub;
-use relay_desktop::model::{AppState, Link, Meters};
+use relay_ui::emitter::{self, Cadence, Sink, TraySummary, tray_summary};
+use relay_ui::hub::Hub;
+use relay_ui::model::{AppState, Link, Meters};
 
 #[derive(Default)]
 struct Recorder {
@@ -167,7 +167,7 @@ async fn identical_updates_do_not_wake_the_ui() {
 
 #[test]
 fn tray_icon_follows_call_and_mute_state() {
-	use relay_desktop::emitter::TrayState;
+	use relay_ui::emitter::TrayState;
 	let mut state = AppState {
 		link: Link::Connected,
 		..AppState::default()

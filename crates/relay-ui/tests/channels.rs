@@ -3,11 +3,11 @@ mod common;
 use common::*;
 use relay_api::pb::{self, state_event::Event};
 use relay_client::ChannelOptions;
-use relay_desktop::channels::{JoinTarget, parse_join_target};
-use relay_desktop::controller::ControlError;
-use relay_desktop::engine::Command;
-use relay_desktop::model::{Advert, AppState, Inbound};
-use relay_desktop::viewmodel::peer_rows;
+use relay_ui::channels::{JoinTarget, parse_join_target};
+use relay_ui::controller::ControlError;
+use relay_ui::engine::Command;
+use relay_ui::model::{Advert, AppState, Inbound};
+use relay_ui::viewmodel::peer_rows;
 
 fn chan_hex() -> String {
 	hex::encode(CHAN)

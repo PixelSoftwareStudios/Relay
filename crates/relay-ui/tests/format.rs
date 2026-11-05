@@ -1,11 +1,11 @@
-use relay_desktop::format::*;
-use relay_desktop::model::{Call, Mode, Transmit};
+use relay_ui::format::*;
+use relay_ui::model::{Call, Mode, Transmit};
 
 fn call(transmit: Transmit) -> Call {
 	Call {
 		call_id: "c".into(),
 		peer_id: "p".into(),
-		phase: relay_desktop::model::Phase::Connected,
+		phase: relay_ui::model::Phase::Connected,
 		transmit,
 		user_muted: false,
 		user_deafened: false,

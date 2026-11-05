@@ -2,9 +2,9 @@ mod common;
 
 use common::*;
 use relay_api::pb::CallState;
-use relay_desktop::mock::{meters_at, seed};
-use relay_desktop::model::{AppState, CallMeter, Meters, Mode, Phase, Trust};
-use relay_desktop::viewmodel::*;
+use relay_ui::mock::{meters_at, seed};
+use relay_ui::model::{AppState, CallMeter, Meters, Mode, Phase, Trust};
+use relay_ui::viewmodel::*;
 
 fn state_with(calls: Vec<relay_api::pb::Call>) -> AppState {
 	let mut s = AppState {
@@ -80,7 +80,7 @@ fn mock_seed_is_flagged_and_meters_follow_connected_calls() {
 
 #[test]
 fn profiles_without_an_avatar_hash_resolve_to_the_placeholder() {
-	use relay_desktop::avatar::{Avatar, DEFAULT_PNG};
+	use relay_ui::avatar::{Avatar, DEFAULT_PNG};
 
 	let mut s = state_with(vec![pb_call(CallState::Connected, None)]);
 	assert_eq!(peer_rows(&s)[0].avatar, Avatar::Placeholder);

@@ -2,10 +2,10 @@ mod common;
 
 use common::*;
 use relay_api::pb::{self, CallState};
-use relay_desktop::controller::{AVATAR_MAX_BYTES, ControlError, Controller, SessionSlot};
-use relay_desktop::engine::Command;
-use relay_desktop::hub::Hub;
-use relay_desktop::model::Mode;
+use relay_ui::controller::{AVATAR_MAX_BYTES, ControlError, Controller, SessionSlot};
+use relay_ui::engine::Command;
+use relay_ui::hub::Hub;
+use relay_ui::model::Mode;
 use std::sync::Arc;
 
 fn call_hex() -> String {

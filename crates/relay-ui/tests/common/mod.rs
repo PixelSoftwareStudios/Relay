@@ -6,11 +6,11 @@ use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
 use relay_api::{WatchItem, pb};
-use relay_desktop::controller::{Controller, SessionSlot};
-use relay_desktop::engine::{
+use relay_ui::controller::{Controller, SessionSlot};
+use relay_ui::engine::{
 	Command, Connection, Engine, EngineError, EventSource, Operations, Outcome, TelemetrySource,
 };
-use relay_desktop::hub::Hub;
+use relay_ui::hub::Hub;
 use tokio::sync::mpsc;
 
 pub const ME: [u8; 16] = [7; 16];
@@ -35,8 +35,8 @@ impl FakeOps {
 
 #[async_trait]
 impl Operations for FakeOps {
-	async fn connection_info(&self) -> Result<relay_desktop::model::ConnectionView, EngineError> {
-		Ok(relay_desktop::model::ConnectionView {
+	async fn connection_info(&self) -> Result<relay_ui::model::ConnectionView, EngineError> {
+		Ok(relay_ui::model::ConnectionView {
 			addresses: vec!["10.0.0.2".into()],
 			port: 7000,
 			fingerprint: "ab".repeat(32),

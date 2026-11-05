@@ -1,8 +1,8 @@
 use std::io::Cursor;
 
 use image::{ImageFormat, RgbaImage};
-use relay_desktop::avatar::DEFAULT_PNG;
-use relay_desktop::imaging::{MAX_TEXTURE_DIM, decode_for_texture};
+use relay_ui::avatar::DEFAULT_PNG;
+use relay_ui::imaging::{MAX_TEXTURE_DIM, decode_for_texture};
 
 fn png(width: u32, height: u32) -> Vec<u8> {
 	let mut out = Vec::new();

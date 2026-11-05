@@ -1,4 +1,4 @@
-use relay_desktop::avatar::{Avatar, Lookup, TextureCache};
+use relay_ui::avatar::{Avatar, Lookup, TextureCache};
 
 #[test]
 fn resolve_maps_empty_to_the_placeholder() {

@@ -1,4 +1,4 @@
-use relay_desktop::qr::{modules, render, render_text};
+use relay_ui::qr::{modules, render, render_text};
 
 const STRING: &str =
 	"relay://192.168.1.20:7000#abababababababababababababababababababababababababababababababab";
