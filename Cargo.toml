@@ -10,6 +10,7 @@ members = [
 	"crates/relay-engine",
 	"crates/relay-platform",
 	"crates/relay-client",
+	"crates/relay-ui",
 	"apps/relay-cli",
 	"apps/relay-desktop",
 	"benches",
@@ -47,6 +48,7 @@ relay-api = { path = "crates/relay-api" }
 relay-engine = { path = "crates/relay-engine" }
 relay-platform = { path = "crates/relay-platform" }
 relay-client = { path = "crates/relay-client" }
+relay-ui = { path = "crates/relay-ui" }
 
 # Audio devices, buffering, resampling and codec
 cpal = "0.18.2"
@@ -113,7 +115,8 @@ global-hotkey = "0.9.0"
 ashpd = { version = "0.13.13", default-features = false, features = ["tokio", "global_shortcuts"] }
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] }
 
-# Desktop GUI (apps/relay-desktop only; not in default-members)
+# GUI (relay-ui, apps/relay-desktop; not in default-members)
+egui = { version = "0.37.0", default-features = false }
 eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "accesskit"] }
 tray-icon = { version = "0.26.1", default-features = false }
 async-trait = "0.1"

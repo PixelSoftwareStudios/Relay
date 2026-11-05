@@ -1,0 +1,28 @@
+[package]
+name = "relay-ui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Toolkit-level Relay UI shared by the desktop and mobile shells (egui, no windowing)"
+
+[dependencies]
+relay-api.workspace = true
+relay-client.workspace = true
+egui.workspace = true
+async-trait.workspace = true
+hex.workspace = true
+image.workspace = true
+qrcode.workspace = true
+serde.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
