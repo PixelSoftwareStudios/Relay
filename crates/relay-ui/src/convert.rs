@@ -60,6 +60,16 @@ pub fn problem(p: &pb::Problem) -> Problem {
 	}
 }
 
+/// The short key digest as shown to the user. It comes from the engine, so only hex digits
+/// and dashes survive, within the length of the documented form.
+fn short_fingerprint(text: &str) -> String {
+	text.chars()
+		.filter(|c| c.is_ascii_hexdigit() || *c == '-')
+		.take(24)
+		.collect::<String>()
+		.to_ascii_uppercase()
+}
+
 pub fn peer(p: &pb::Peer) -> Peer {
 	Peer {
 		peer_id: hex::encode(&p.peer_id),
@@ -68,6 +78,7 @@ pub fn peer(p: &pb::Peer) -> Peer {
 		trust: trust(p.trust),
 		reachable: p.reachable,
 		avatar_hash: hex::encode(&p.avatar_sha256),
+		fingerprint_short: short_fingerprint(&p.fingerprint_short),
 		shared_channels: p
 			.shared_channel_ids
 			.iter()

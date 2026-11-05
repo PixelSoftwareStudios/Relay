@@ -92,6 +92,8 @@ pub enum Command {
 		bytes: Vec<u8>,
 		media_type: String,
 	},
+	/// Remove the stored avatar; trusted peers stop showing it.
+	ClearAvatar,
 	/// Call a pasted `relay://` string; the engine validates it.
 	StartCallConnection {
 		text: String,

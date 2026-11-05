@@ -50,29 +50,15 @@ pub fn gain_percent(gain: f32) -> String {
 	format!("{}%", (gain * 100.0).round())
 }
 
-/// Client-side pre-check only; the engine decodes and validates for real.
-pub fn avatar_problem(size: usize, media_type: &str) -> Option<&'static str> {
-	if !matches!(media_type, "image/png" | "image/jpeg") {
-		Some("Use a PNG or JPEG image.")
-	} else if size == 0 {
-		Some("The file is empty.")
-	} else if size > MAX_AVATAR_BYTES {
-		Some("The image must be 1 MiB or smaller.")
-	} else {
-		None
-	}
-}
+/// The engine's own text for an empty or oversized avatar body.
+pub const AVATAR_SIZE_REFUSAL: &str =
+	"avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)";
 
-/// Media type from a file name, by extension only.
-pub fn media_type_for(path: &str) -> &'static str {
-	let lower = path.to_ascii_lowercase();
-	if lower.ends_with(".png") {
-		"image/png"
-	} else if lower.ends_with(".jpg") || lower.ends_with(".jpeg") {
-		"image/jpeg"
-	} else {
-		"application/octet-stream"
-	}
+/// Size gate, cheap enough to run before the file is read. The content check
+/// ([`crate::imaging::avatar_check`]) follows once the bytes are in memory; the engine stays
+/// the authority.
+pub fn avatar_problem(size: usize) -> Option<&'static str> {
+	(size == 0 || size > MAX_AVATAR_BYTES).then_some(AVATAR_SIZE_REFUSAL)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

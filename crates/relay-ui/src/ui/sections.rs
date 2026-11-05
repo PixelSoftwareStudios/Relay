@@ -115,6 +115,7 @@ fn call_card(
 		banner(ui, &format!("{} {}", p.message, p.recovery_action), true);
 	}
 	if card.incoming {
+		ui.label(RichText::new(trust_line(&card.trust, &card.fingerprint)).small());
 		ui.horizontal(|ui| {
 			if ui.button("Accept").clicked() {
 				actions.run(|c| async move { c.accept_call(&id).await });
@@ -128,6 +129,16 @@ fn call_card(
 		return;
 	}
 	controls(ui, card, actions, local);
+}
+
+/// The line under an incoming call: trust and the short key digest, which only helps tell
+/// devices apart (verification compares the full digest).
+fn trust_line(trust: &str, fingerprint: &str) -> String {
+	if fingerprint.is_empty() {
+		format!("{trust}.")
+	} else {
+		format!("{trust}. Device key {fingerprint} (to tell devices apart, not to verify).")
+	}
 }
 
 fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
@@ -234,6 +245,13 @@ pub fn peers(
 				ui.vertical(|ui| {
 					ui.label(&row.name);
 					ui.label(RichText::new(&row.subtitle).weak());
+					if !row.fingerprint.is_empty() {
+						ui.label(
+							RichText::new(format!("Key {}", row.fingerprint))
+								.small()
+								.weak(),
+						);
+					}
 					if !row.badges.is_empty() {
 						ui.label(
 							RichText::new(format!("Shared channels: {}", row.badges.join(", ")))
@@ -428,6 +446,7 @@ pub fn app_panel(
 			});
 		}
 		autostart_checkbox(ui, state, actions);
+		super::host_switches::draw(ui, actions);
 		ui.label(RichText::new(HOTKEY_NOTE).weak());
 	});
 	if actions.shell.can_manage_daemon() {

@@ -142,7 +142,7 @@ async fn validates_gains_names_devices_and_avatars() {
 		"unavailable device"
 	);
 	assert!(ctl.select_devices("nope", "spk").await.is_err());
-	assert!(ctl.upload_avatar(vec![1], "image/gif").await.is_err());
+	assert!(ctl.upload_avatar(vec![1], "").await.is_err());
 	assert!(ctl.upload_avatar(Vec::new(), "image/png").await.is_err());
 	assert!(
 		ctl.upload_avatar(vec![0; AVATAR_MAX_BYTES + 1], "image/png")

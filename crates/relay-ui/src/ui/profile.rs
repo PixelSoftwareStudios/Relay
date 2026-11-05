@@ -6,6 +6,7 @@ use std::mem;
 use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
+use crate::avatar::Avatar;
 use crate::model::AppState;
 use crate::viewmodel::local_avatar;
 
@@ -57,20 +58,21 @@ pub fn profile(
 						actions.run(|c| async move { c.set_profile(&name).await });
 					}
 				});
-				image_buttons(ui, actions, local);
+				let stored = local_avatar(state) != Avatar::Placeholder;
+				image_buttons(ui, actions, local, stored);
 			});
 		});
 		ui.label(
 			RichText::new(
-				"JPEG or PNG up to 1 MiB. The engine scales it and shares it with peers. \
-				 Removing a stored image needs an engine request that does not exist yet.",
+				"PNG, JPEG, WebP, GIF, BMP or TIFF, up to 1 MiB and 2048 x 2048. The engine scales \
+				 it and shares it with your trusted peers. Removing it tells them to stop showing it.",
 			)
 			.weak(),
 		);
 	});
 }
 
-fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local) {
+fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local, stored: bool) {
 	ui.horizontal(|ui| {
 		if ui.button("Choose image…").clicked() {
 			actions.pick_avatar();
@@ -82,9 +84,12 @@ fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				let (bytes, media) = (picked.bytes, picked.media_type);
 				actions.run(|c| async move { c.upload_avatar(bytes, media).await });
 			}
+			// Only drops the pending choice; the stored image is untouched.
 			if ui.button("Discard").clicked() {
 				mem::take(&mut local.picked);
 			}
+		} else if stored && ui.button("Remove picture").clicked() {
+			actions.run(|c| async move { c.clear_avatar().await });
 		}
 	});
 }

@@ -13,6 +13,10 @@ pub struct CallCard {
 	pub avatar: Avatar,
 	pub phase: Phase,
 	pub subtitle: String,
+	/// How the caller's trust reads, e.g. "Unknown" (shown on the incoming prompt).
+	pub trust: String,
+	/// The caller's short key digest, empty when unknown. A hint, never a verification.
+	pub fingerprint: String,
 	pub incoming: bool,
 	/// Controls such as mute and transmit mode are shown for these.
 	pub controllable: bool,
@@ -28,6 +32,8 @@ pub struct PeerRow {
 	pub name: String,
 	pub avatar: Avatar,
 	pub subtitle: String,
+	/// Short key digest to tell devices apart (empty when the engine sent none).
+	pub fingerprint: String,
 	pub can_call: bool,
 	/// Names of channels with proven shared membership.
 	pub badges: Vec<String>,
@@ -75,6 +81,8 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 				avatar,
 				phase: call.phase,
 				subtitle,
+				trust: peer.map_or("Unknown", |p| trust_label(p.trust)).to_owned(),
+				fingerprint: peer.map_or_else(String::new, |p| p.fingerprint_short.clone()),
 				incoming: call.phase == Phase::IncomingRinging,
 				controllable: call.phase != Phase::IncomingRinging,
 				speaking,
@@ -127,6 +135,7 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 				},
 				trust_label(p.trust)
 			),
+			fingerprint: p.fingerprint_short.clone(),
 			can_call: callable(state, p),
 			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),
 			revocable: shared_channels(state, p)

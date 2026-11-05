@@ -52,6 +52,7 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		trust,
 		reachable,
 		avatar_hash: String::new(),
+		fingerprint_short: format!("A1B2-C3D4-E5F6-07{n:02X}-293A"),
 		shared_channels: Vec::new(),
 	}
 }
@@ -283,6 +284,11 @@ impl Operations for MockOps {
 				self.hub
 					.update(|s| s.notice = Some("Mock: avatar is not stored.".into()));
 			}
+			Command::ClearAvatar => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.avatar_hash.clear();
+				}
+			}),
 		}
 		Ok(Outcome::default())
 	}

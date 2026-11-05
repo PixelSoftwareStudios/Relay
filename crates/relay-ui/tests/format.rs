@@ -35,13 +35,11 @@ fn unknown_readings_render_empty_and_say_so() {
 
 #[test]
 fn avatar_precheck() {
-	assert_eq!(avatar_problem(1000, "image/png"), None);
-	assert_eq!(avatar_problem(MAX_AVATAR_BYTES, "image/jpeg"), None);
-	assert!(avatar_problem(10, "image/gif").is_some());
-	assert!(avatar_problem(0, "image/png").is_some());
-	assert!(avatar_problem(MAX_AVATAR_BYTES + 1, "image/png").is_some());
-	assert_eq!(media_type_for("A.JPEG"), "image/jpeg");
-	assert_eq!(media_type_for("a.bmp"), "application/octet-stream");
+	assert_eq!(avatar_problem(1000), None);
+	assert_eq!(avatar_problem(MAX_AVATAR_BYTES), None);
+	let refusal = "avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)";
+	assert_eq!(avatar_problem(0), Some(refusal));
+	assert_eq!(avatar_problem(MAX_AVATAR_BYTES + 1), Some(refusal));
 }
 
 #[test]

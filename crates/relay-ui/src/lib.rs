@@ -14,6 +14,7 @@ pub mod daemon_control;
 pub mod emitter;
 pub mod engine;
 pub mod format;
+pub mod host_options;
 pub mod hub;
 pub mod imaging;
 pub mod inbox;

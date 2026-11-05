@@ -89,4 +89,8 @@ pub trait Shell: FilePicker {
 	}
 	/// True when closing the window hides it (a tray exists), so the UI can say so.
 	fn hides_to_tray(&self) -> bool;
+	/// Desktop-only switches (call notifications, start at login). `None` hides them.
+	fn host_options(&self) -> Option<&dyn crate::host_options::HostOptions> {
+		None
+	}
 }

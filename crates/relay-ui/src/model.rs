@@ -81,6 +81,9 @@ pub struct Peer {
 	pub reachable: bool,
 	/// Hex SHA-256 of the avatar image; empty when the peer has none.
 	pub avatar_hash: String,
+	/// Short key digest (`A1B2-C3D4-E5F6-0718-293A`): a hint to tell devices apart, never a
+	/// verification string. Empty when the engine sent none.
+	pub fingerprint_short: String,
 	/// Hex ids of channels with proven shared membership.
 	pub shared_channels: Vec<String>,
 }

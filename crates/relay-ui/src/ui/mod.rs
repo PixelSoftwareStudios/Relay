@@ -4,6 +4,7 @@
 
 mod channels;
 mod connection;
+mod host_switches;
 mod local;
 pub mod messages;
 mod nav;

@@ -248,6 +248,7 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 		Command::UploadAvatar { bytes, media_type } => {
 			WireCommand::UploadAvatar { bytes, media_type }
 		}
+		Command::ClearAvatar => WireCommand::ClearAvatar,
 		Command::StartCallConnection { text } => {
 			WireCommand::StartCall(CallTarget::ConnectionString(text))
 		}
