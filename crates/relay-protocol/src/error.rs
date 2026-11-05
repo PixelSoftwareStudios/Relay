@@ -25,14 +25,6 @@ pub enum RtpError {
 	OutputTooSmall { need: usize },
 }
 
-/// Failures of the packet-number space.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
-pub enum PacketNumberError {
-	/// The key must be rotated before any further packet is sent.
-	#[error("packet-number space exhausted; rekey required")]
-	Exhausted,
-}
-
 /// Failures of the frame assembler.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum AssemblyError {

@@ -21,14 +21,12 @@ oracle.
   Reset the extenders (or the buffer) on a new stream generation.
 - `ReplayWindow<WORDS>` is a sliding bitmap (64 numbers per word).
 
-## Packet numbers (secure datagram nonce material)
+## Packet numbers
 
-`PacketNumberSpace` allocates a strictly increasing u64 per lane and fails with
-`Exhausted` at the rekey budget (default 2^32 records). It is independent of
-the RTP sequence number and never resets across talk-spurt generations.
-`PacketNumber::nonce(lane)` builds a 12-byte nonce (`lane` u32 BE || number u64
-BE). `PacketReplay` is a 1024-packet window: `check` before decrypting,
-`accept` only after the AEAD tag verified.
+There is no packet-number type here. The secure-datagram nonce, its per-lane counter
+and the replay window live in `relay-net` (`session` for control records,
+`media::ReplayWindow` for audio), which is the only implementation of the primitive.
+`seq::ReplayWindow` stays for the jitter buffer's RTP sequence numbers.
 
 ## Jitter buffer and playout planner
 
