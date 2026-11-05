@@ -13,6 +13,7 @@ mod meters;
 mod net;
 mod packet;
 mod recv;
+mod rekey;
 mod render_worker;
 mod send;
 mod sink;

@@ -127,6 +127,15 @@ impl MediaReceiver {
 	/// Admits `session` as the newest epoch. Older epochs stay for the overlap window and are
 	/// then retired; at most two are ever held.
 	pub fn install_epoch(&mut self, session: Arc<SecureSession>, now: Instant) {
+		// Idempotent: a retried switchover must not push a duplicate slot out
+		// of the two-epoch limit or restart the replay window.
+		if self
+			.slots
+			.iter()
+			.any(|s| s.session.epoch() == session.epoch())
+		{
+			return;
+		}
 		for slot in &mut self.slots {
 			slot.retire_at.get_or_insert(now + self.overlap);
 		}

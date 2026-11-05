@@ -114,9 +114,9 @@ pub(super) struct Inner {
 	pub(super) input_selected: AtomicBool,
 	capture_load: Arc<LoadMeter>,
 	render_load: Arc<LoadMeter>,
-	stop: Arc<AtomicBool>,
+	pub(super) stop: Arc<AtomicBool>,
 	workers: Mutex<Vec<JoinHandle<()>>>,
-	peers: PeerHandle,
+	pub(super) peers: PeerHandle,
 	pub(super) runtime: Handle,
 	origin: Instant,
 	state: Mutex<State>,
@@ -237,7 +237,7 @@ impl MediaSystem {
 			.gates
 			.clone()
 			.map_or_else(GateBoard::new, GateBoard::following);
-		Ok(Self {
+		let system = Self {
 			inner: Arc::new(Inner {
 				config,
 				events,
@@ -258,7 +258,12 @@ impl MediaSystem {
 				origin: Instant::now(),
 				state: Mutex::new(State::default()),
 			}),
-		})
+		};
+		system
+			.inner
+			.runtime
+			.spawn(super::rekey::follow(Arc::downgrade(&system.inner)));
+		Ok(system)
 	}
 
 	pub(super) fn state(&self) -> MutexGuard<'_, State> {
