@@ -21,6 +21,8 @@ device channels only at the output edge.
 | `mixer` | per-call and master gain (capped at 2.0), sample-wise limiter, preallocated scratch |
 | `dsp` | `NoiseSuppressor` contract, `OffSuppressor`, model manifest validation, benchmark harness |
 | `pipeline` | single-call loopback wiring every stage together |
+| `dsp::DspChain` | fixed-order chain: high-pass, AEC slot, NS, AGC, limiter |
+| `dsp::eval` | evaluation-only candidates (features `eval-sonora`, `eval-nnnoiseless`) |
 
 ## Real-time rules
 
@@ -59,6 +61,25 @@ verified here (no hashing dependency yet).
 
 The `Harness` records real `Instant` timings only; fields it cannot observe
 stay `null`. `measure_delay_samples` measures wrapper delay with an impulse.
+
+## DSP chain
+
+`DspChain` runs high-pass -> AEC -> NS -> AGC -> limiter on 480-sample frames in
+place. `DspPreferences` defaults enable only the high-pass filter. Each
+component declares what it `provides` (`StageKind`); the chain refuses two
+providers of the same stage, so a backend that already bundles AGC conflicts
+with enabling AGC separately. The AEC slot is a trait with a render-reference
+input; only `NoOpAec` exists, and enabling echo cancellation without a real
+canceller is an error. The AGC is capped (+12/-12 dB), gated below -50 dBFS so
+room noise is not amplified, and relaxes to unity during gated passages.
+
+## Evaluation candidates
+
+`eval-sonora` (pure-Rust WebRTC port: NS, NS+AGC2, NS+AEC3) and
+`eval-nnnoiseless` (pure-Rust RNNoise port) are not default features and are
+not reachable from `create_suppressor`. Measured behaviour, including that
+sonora allocates per frame, is in `docs/evidence.md`. Benchmarks and the corpus
+runner live in the `relay-benches` crate (`benches/`).
 
 ## Known limits
 
