@@ -7,9 +7,10 @@ use relay_core::channel::ChannelId;
 use relay_net::channel::limits::CERT_RENEW_GRACE;
 use relay_net::channel::tag::{self, ChannelAdvert};
 use relay_net::discovery::DiscoveredPeer;
+use relay_net::identity::Fingerprint;
 
 use super::hub::ChannelHub;
-use super::state::{AdvertKey, DIAL_MEMORY_MAX, LISTED_SEEN_MAX};
+use super::state::{AdvertKey, DIAL_MEMORY_MAX, DIAL_WINDOW, DIALS_PER_WINDOW, LISTED_SEEN_MAX};
 use crate::peers::AdvertSpec;
 use crate::service::ports::AdvertMode;
 
@@ -61,6 +62,7 @@ impl ChannelHub {
 					.map(|(id, entry)| (id, &entry.name, &entry.policy)),
 				epoch,
 				&instance_id,
+				&self.inner.local,
 			);
 			built
 				.to_txt()
@@ -82,50 +84,60 @@ impl ChannelHub {
 		self.inner.advert.borrow().clone()
 	}
 
-	/// A discovery record arrived. A recognised blinded tag is a hint that a member
-	/// may live there: dial it so a proof can follow once trust allows. Nothing here
-	/// counts as shared.
+	/// A discovery record arrived. A recognised blinded tag names the trusted device
+	/// that produced it: dial exactly that fingerprint so a proof can follow. A copied
+	/// advertisement can only lead to a pinned dial that fails at the handshake.
+	/// Nothing here counts as shared.
 	pub(super) fn on_advert(&self, found: &DiscoveredPeer) {
 		let Some(advert) = ChannelAdvert::from_map(&found.txt) else {
 			return;
 		};
 		let now = self.now();
 		let mono = self.mono();
-		let mut state = self.state();
-		for listed in &advert.listed {
-			if !state.memberships.contains(&listed.id)
-				&& (state.listed_seen.len() < LISTED_SEEN_MAX
-					|| state.listed_seen.contains_key(listed.name.as_str()))
-			{
-				state
-					.listed_seen
-					.insert(listed.name.as_str().to_owned(), listed.id);
-			}
-		}
+		self.note_listed(&advert);
 		if found.instance_id == self.advert().instance_id {
 			return;
 		}
+		let known: Vec<Fingerprint> = self
+			.inner
+			.peers
+			.trusted()
+			.into_iter()
+			.filter(|fp| *fp != self.inner.local)
+			.collect();
+		let mut state = self.state();
 		let local: Vec<ChannelId> = state.memberships.iter().map(|(id, _)| *id).collect();
-		let hits = advert.recognise(&local, &found.instance_id, tag::epoch_of(now));
-		if hits.is_empty() {
-			return;
+		let hits = advert.recognise(&local, &found.instance_id, &known, tag::epoch_of(now));
+		let mut targets: Vec<(Fingerprint, Vec<ChannelId>)> = Vec::new();
+		for hit in hits {
+			match targets.iter_mut().find(|(fp, _)| *fp == hit.fingerprint) {
+				Some((_, channels)) => channels.push(hit.channel),
+				None => targets.push((hit.fingerprint, vec![hit.channel])),
+			}
 		}
-		if state
-			.dialled
-			.get(&found.instance_id)
-			.is_some_and(|at| mono.saturating_sub(*at) < REDIAL_AFTER)
-		{
-			return;
-		}
+		targets.retain(|(fp, _)| !state.links.contains_key(&peer_of(fp)));
+		targets.retain(|(fp, _)| {
+			state
+				.dialled
+				.get(fp)
+				.is_none_or(|at| mono.saturating_sub(*at) >= REDIAL_AFTER)
+		});
 		if state.dialled.len() >= DIAL_MEMORY_MAX {
 			state
 				.dialled
 				.retain(|_, at| mono.saturating_sub(*at) < REDIAL_AFTER);
 		}
-		if state.dialled.len() >= DIAL_MEMORY_MAX {
-			return;
+		// Global pace: a flood of recognised copies cannot cause a dial storm.
+		state
+			.dial_log
+			.retain(|at| mono.saturating_sub(*at) < DIAL_WINDOW);
+		let room = DIALS_PER_WINDOW.saturating_sub(state.dial_log.len());
+		let room = room.min(DIAL_MEMORY_MAX.saturating_sub(state.dialled.len()));
+		targets.truncate(room);
+		for (fp, _) in &targets {
+			state.dialled.insert(*fp, mono);
+			state.dial_log.push_back(mono);
 		}
-		state.dialled.insert(found.instance_id, mono);
 		drop(state);
 		let addresses: Vec<_> = found
 			.addresses
@@ -133,21 +145,47 @@ impl ChannelHub {
 			.copied()
 			.take(ADDRESSES_PER_ADVERT)
 			.collect();
-		let hub = self.clone();
-		tokio::spawn(async move {
-			for address in addresses {
-				let Ok(peer) = hub.inner.peers.dial(address, None).await else {
-					continue;
-				};
-				if peer != relay_core::PeerId::from_bytes(*hub.inner.local.as_bytes()) {
+		for (fingerprint, channels) in targets {
+			let (hub, addresses) = (self.clone(), addresses.clone());
+			tokio::spawn(async move {
+				let peer = peer_of(&fingerprint);
+				for address in addresses {
+					if hub.inner.peers.dial(address, Some(peer)).await.is_err() {
+						continue;
+					}
 					let mut state = hub.state();
-					for id in hits {
+					for id in channels {
 						state.note(peer, id, relay_core::channel::Evidence::Candidate);
 					}
+					break;
 				}
-				break;
+			});
+		}
+	}
+
+	/// Binds each listed channel name to the first id seen for it. A second, different id
+	/// for the same name marks the name ambiguous, so joining by that name is refused and
+	/// the id (join code) is required.
+	fn note_listed(&self, advert: &ChannelAdvert) {
+		let mut state = self.state();
+		for listed in &advert.listed {
+			if state.memberships.contains(&listed.id) {
+				continue;
 			}
-		});
+			let name = listed.name.as_str();
+			if state.listed_seen.len() >= LISTED_SEEN_MAX && !state.listed_seen.contains_key(name) {
+				continue;
+			}
+			match state.listed_seen.get(name).copied() {
+				None => {
+					state.listed_seen.insert(name.to_owned(), Some(listed.id));
+				}
+				Some(Some(first)) if first != listed.id => {
+					state.listed_seen.insert(name.to_owned(), None);
+				}
+				Some(_) => {}
+			}
+		}
 	}
 
 	/// Periodic upkeep: follow the privacy setting, rotate the epoch, keep the
@@ -156,6 +194,9 @@ impl ChannelHub {
 	pub async fn tick(&self) {
 		self.drop_stale_admissions();
 		self.keep_own_certificates();
+		if self.expire_proofs() {
+			self.publish().await;
+		}
 		self.refresh_advert();
 		let renewals = self.due_renewals();
 		for (peer, channel) in renewals {
@@ -218,4 +259,8 @@ impl ChannelHub {
 	pub(super) fn renew_window() -> u64 {
 		CERT_RENEW_GRACE.as_secs() / 2
 	}
+}
+
+fn peer_of(fingerprint: &Fingerprint) -> relay_core::PeerId {
+	relay_core::PeerId::from_bytes(*fingerprint.as_bytes())
 }

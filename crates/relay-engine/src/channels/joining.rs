@@ -104,6 +104,7 @@ impl ChannelHub {
 				.listed_seen
 				.get(request.name.trim())
 				.copied()
+				.flatten()
 				.ok_or(Failure::Denied),
 		}
 	}

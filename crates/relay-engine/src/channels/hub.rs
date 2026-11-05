@@ -135,6 +135,7 @@ impl ChannelHub {
 		for scope in state.scopes.values_mut() {
 			gone.iter().for_each(|id| scope.forget(id));
 		}
+		state.proofs.retain(|(_, id), _| !gone.contains(id));
 		state.records = records;
 		state.memberships = memberships;
 		Ok(())

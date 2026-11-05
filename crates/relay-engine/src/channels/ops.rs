@@ -152,6 +152,7 @@ impl ChannelHub {
 			if let Some(scope) = state.scopes.get_mut(&revoked) {
 				scope.forget(&id);
 			}
+			state.proofs.remove(&(revoked, id));
 			state
 				.links
 				.keys()
@@ -160,7 +161,7 @@ impl ChannelHub {
 				.collect()
 		};
 		for peer in audience {
-			self.send_proofs(peer, true, Some(id));
+			self.send_proof_to_member(peer, id);
 		}
 		self.publish().await;
 		Ok(())

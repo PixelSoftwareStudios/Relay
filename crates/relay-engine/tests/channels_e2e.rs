@@ -370,7 +370,7 @@ async fn a_recognised_tag_dials_the_member_and_a_proof_follows() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn a_forged_tag_is_only_a_hint_and_never_counts_as_shared() {
+async fn a_forged_tag_from_an_untrusted_device_causes_no_dial_and_proves_nothing() {
 	let mut a = side(440.0).await;
 	let mut c = side(3_100.0).await;
 	let id = create_open(&mut a.cli, "Sealed").await;
@@ -381,7 +381,7 @@ async fn a_forged_tag_is_only_a_hint_and_never_counts_as_shared() {
 			.expect("privacy"),
 	);
 
-	// Anyone who knows the channel id can forge a tag that points at C.
+	// Anyone who knows the channel id can forge a tag that names C.
 	let epoch = relay_net::channel::tag::epoch_of(
 		std::time::SystemTime::now()
 			.duration_since(std::time::UNIX_EPOCH)
@@ -392,8 +392,15 @@ async fn a_forged_tag_is_only_a_hint_and_never_counts_as_shared() {
 	let channel = relay_net::channel::ChannelId::from_bytes(id.clone().try_into().unwrap());
 	let name = relay_net::channel::ChannelName::new("Sealed").unwrap();
 	let policy = relay_net::channel::Policy::default();
-	let forged =
-		relay_net::channel::ChannelAdvert::build([(&channel, &name, &policy)], epoch, &instance);
+	let c_id = id_of(&c);
+	let c_fingerprint =
+		relay_net::identity::Fingerprint::from_bytes(c_id.clone().try_into().unwrap());
+	let forged = relay_net::channel::ChannelAdvert::build(
+		[(&channel, &name, &policy)],
+		epoch,
+		&instance,
+		&c_fingerprint,
+	);
 	let mut found = c.discovered();
 	found.instance_id = instance;
 	found.txt = forged.to_txt().into_iter().collect();
@@ -403,30 +410,23 @@ async fn a_forged_tag_is_only_a_hint_and_never_counts_as_shared() {
 		.on_event(relay_engine::peers::ChannelEvent::Advert(Box::new(found)))
 		.await;
 
-	// A dials C (a hint); both users pin the stranger; C still proves nothing.
-	pin_unknown(&mut a.cli, 1).await;
-	pin_unknown(&mut c.cli, 1).await;
-	let c_id = id_of(&c);
-	eventually!(
+	// C is not pinned by A, so the tag is not even followed up: no link, no proof.
+	settle(800).await;
+	assert!(
 		a.cli
 			.snapshot()
 			.await
 			.expect("snapshot")
 			.peers
 			.iter()
-			.find(|p| p.peer_id == c_id && p.reachable)
-			.map(|_| ())
+			.all(|p| p.peer_id != c_id || !p.reachable),
+		"an unpinned device named by a tag is never dialled"
 	);
-	settle(800).await;
 	assert!(shared_with(&mut a.cli, &c_id).await.is_empty());
 
 	// So its call does not ring under SharedChannelOnly.
 	let call = ring(&mut c, &a, 5).await;
-	eventually!(
-		call_in(&mut c.cli, &call)
-			.await
-			.filter(|x| x.state == relay_api::pb::CallState::Declined as i32)
-	);
+	settle(500).await;
 	assert!(call_in(&mut a.cli, &call).await.is_none());
 
 	a.daemon.shutdown().await.expect("a stops");

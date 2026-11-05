@@ -309,7 +309,8 @@ pub struct PeerHandle {
 	pub(super) local_addr: SocketAddr,
 	pub(super) local: Fingerprint,
 	pub(super) snapshot: Arc<ArcSwap<Vec<PeerSnapshot>>>,
-	pub(super) sessions: Arc<std::sync::Mutex<super::signaling::SessionTable>>,
+	pub(super) sessions: Arc<std::sync::Mutex<super::sessions::SessionTable>>,
+	pub(super) trust: super::trust::SharedTrust,
 }
 
 impl PeerHandle {
@@ -382,6 +383,11 @@ impl PeerHandle {
 	/// Remembers a manual address for a peer and dials it if wanted.
 	pub fn add_address(&self, peer: PeerId, addr: SocketAddr) -> Result<(), PeerError> {
 		self.try_send(Command::AddAddress(fingerprint(peer), addr))
+	}
+
+	/// Fingerprints of every device the user trusts, linked or not.
+	pub fn trusted(&self) -> Vec<Fingerprint> {
+		self.trust.lock().fingerprints()
 	}
 
 	/// Dials `addr`, optionally requiring a specific peer key. Returns the

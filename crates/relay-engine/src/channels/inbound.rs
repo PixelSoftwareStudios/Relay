@@ -42,20 +42,20 @@ impl ChannelHub {
 	async fn link_up(&self, peer: PeerId, binding: SessionBinding) {
 		let replaced = {
 			let mut state = self.state();
-			state.scopes.remove(&peer);
+			state.forget_peer(&peer);
 			state.links.insert(peer, Link::new(binding))
 		};
 		if let Some(old) = replaced.and_then(|l| l.join) {
 			let _ = old.done.send(Err(Failure::Denied));
 		}
-		self.send_proofs(peer, false, None);
+		self.send_refs(peer, None);
 		self.publish().await;
 	}
 
 	async fn link_down(&self, peer: PeerId) {
 		let gone = {
 			let mut state = self.state();
-			state.scopes.remove(&peer);
+			state.forget_peer(&peer);
 			state.links.remove(&peer)
 		};
 		if let Some(slot) = gone.and_then(|l| l.join) {
@@ -70,7 +70,22 @@ impl ChannelHub {
 			return;
 		}
 		let Some(body) = &message.body else { return };
+		// A link may not make us verify, hash or store without bound.
+		let mono = self.mono();
+		let allowed = self
+			.state()
+			.links
+			.get_mut(&peer)
+			.is_some_and(|l| l.budget.allow(mono));
+		if !allowed {
+			tracing::debug!("channel message dropped: link over its rate");
+			return;
+		}
 		let changed = match body {
+			Body::MemberRef(_) => {
+				self.on_member_ref(peer, message);
+				false
+			}
 			Body::Proof(_) => self.on_proof(peer, message),
 			Body::JoinStart(_) => {
 				self.admit_begin(peer, binding, message);

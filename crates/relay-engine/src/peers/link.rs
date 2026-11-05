@@ -5,7 +5,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use relay_net::control::{ControlError, control_channel, new_envelope, new_hello};
-use relay_net::handshake::{HandshakeError, initiate, respond};
+use relay_net::handshake::{HandshakeError, HandshakePermit, initiate, respond_gated};
 use relay_net::identity::{Fingerprint, Identity, PublicKey};
 use relay_net::proto::{Envelope, Keepalive, envelope::Body};
 use relay_net::session::{LinkEpoch, Role, SecureSession};
@@ -89,6 +89,10 @@ pub struct Established {
 	pub epoch: [u8; 16],
 	/// Local address of the control connection.
 	pub local_ip: std::net::IpAddr,
+	/// Remote address of the control connection (source of the untrusted-link share).
+	pub remote_ip: std::net::IpAddr,
+	/// Subnet of the local interface, when the system lists it.
+	pub subnet: Option<super::subnet::Subnet>,
 	/// The session, shared with the media endpoint.
 	pub session: Arc<SecureSession>,
 	/// Outbound control queue.
@@ -124,12 +128,17 @@ pub async fn establish(
 	params: &LinkParams,
 	id: LinkId,
 	events: mpsc::Sender<LinkEvent>,
+	permit: Option<&HandshakePermit>,
 ) -> Result<(), LinkError> {
 	stream.set_nodelay(true)?;
 	let local_ip = stream.local_addr()?.ip();
+	let remote_ip = stream.peer_addr()?.ip();
 	let session = Arc::new(match role {
 		Role::Initiator => initiate(&mut stream, &params.identity, expected.as_ref()).await?,
-		Role::Responder => respond(&mut stream, &params.identity).await?,
+		Role::Responder => match permit {
+			Some(permit) => respond_gated(&mut stream, &params.identity, permit).await?,
+			None => relay_net::handshake::respond(&mut stream, &params.identity).await?,
+		},
 	});
 	let (mut sender, mut receiver) = control_channel(stream, Arc::clone(&session));
 	let hello = new_hello(
@@ -170,6 +179,8 @@ pub async fn establish(
 		dialled_locally: role == Role::Initiator,
 		epoch: epoch_bytes(session.epoch()),
 		local_ip,
+		remote_ip,
+		subnet: super::subnet::Subnet::of_interface(local_ip),
 		session,
 		outbox,
 		bulk,

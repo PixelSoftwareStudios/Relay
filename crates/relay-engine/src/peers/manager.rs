@@ -10,6 +10,7 @@ use arc_swap::ArcSwap;
 use relay_core::PeerEvent;
 use relay_net::channel::SessionBinding;
 use relay_net::discovery::DiscoveryTable;
+use relay_net::handshake::UntrustedLinks;
 use relay_net::identity::{Fingerprint, PeerTrust, TrustRecord, TrustState, evaluate_peer};
 use relay_net::proto::{Envelope, envelope::Body};
 use tokio::sync::{mpsc, oneshot};
@@ -20,10 +21,15 @@ use super::handle::{
 	ChannelEvent, Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id,
 };
 use super::link::{Established, LinkEvent, LinkId, LinkParams};
-use super::signaling::{Inbound, SessionTable, decode};
+use super::sessions::SessionTable;
+use super::signaling::{Inbound, LinkNet, decode};
 use super::trust::{SharedTrust, now};
 
 const PENDING_PER_PEER: usize = 32;
+/// Discovery records not refreshed within this long are forgotten (longer than the mDNS refresh).
+const DISCOVERY_TTL: std::time::Duration = std::time::Duration::from_secs(120);
+/// Period of the manager's own upkeep.
+const UPKEEP: std::time::Duration = std::time::Duration::from_secs(5);
 
 enum Outbox {
 	Sent,
@@ -47,6 +53,8 @@ pub(super) struct Actor {
 	pub(super) dialling: HashMap<LinkId, Option<Fingerprint>>,
 	pub(super) addresses: HashMap<Fingerprint, Vec<SocketAddr>>,
 	pub(super) table: DiscoveryTable,
+	/// Authenticated links nobody trusts yet, bounded in total and per source.
+	pub(super) untrusted: UntrustedLinks<LinkId>,
 	pub(super) pending: HashMap<Fingerprint, VecDeque<Envelope>>,
 	pub(super) sessions: Arc<Mutex<SessionTable>>,
 	pub(super) waiters: HashMap<LinkId, oneshot::Sender<Result<Fingerprint, PeerError>>>,
@@ -67,8 +75,11 @@ impl Actor {
 		mut commands: mpsc::Receiver<Command>,
 		mut links: mpsc::Receiver<LinkEvent>,
 	) {
+		let mut upkeep = tokio::time::interval(UPKEEP);
+		upkeep.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 		loop {
 			tokio::select! {
+				_ = upkeep.tick() => self.upkeep(),
 				command = commands.recv() => match command {
 					Some(Command::Shutdown) | None => break,
 					Some(command) => self.on_command(command).await,
@@ -79,6 +90,12 @@ impl Actor {
 		}
 		// Dropping the links aborts their tasks; stop accepting new ones too.
 		self.accept.abort();
+	}
+
+	/// Forgets discovery records that stopped refreshing, whether or not a goodbye came.
+	fn upkeep(&mut self) {
+		self.table.expire(DISCOVERY_TTL);
+		self.table.take_evicted();
 	}
 
 	pub(super) async fn emit(&self, output: PeerOutput) {
@@ -97,7 +114,7 @@ impl Actor {
 				expected,
 				reply,
 			} => {
-				if let Err(error) = self.config.manual_policy().check_socket(addr) {
+				if let Err(error) = self.config.manual_policy().check_manual_socket(addr) {
 					let _ = reply.send(Err(error.into()));
 					return;
 				}
@@ -118,7 +135,12 @@ impl Actor {
 				let _ = reply.send(info);
 			}
 			Command::AddAddress(peer, addr) => {
-				if self.config.manual_policy().check_socket(addr).is_ok() {
+				if self
+					.config
+					.manual_policy()
+					.check_manual_socket(addr)
+					.is_ok()
+				{
 					self.remember_address(peer, addr);
 					self.try_dial(peer);
 				}
@@ -166,7 +188,9 @@ impl Actor {
 			.copied()
 			.collect();
 		let hints = found.clone();
-		if self.table.upsert(found).is_err() {
+		let stored = self.table.upsert(found).is_ok();
+		self.table.take_evicted();
+		if !stored {
 			return;
 		}
 		// The channel driver recognises blinded tags; they are hints, never proof.
@@ -227,12 +251,15 @@ impl Actor {
 	}
 
 	async fn pin(&mut self, peer: Fingerprint, state: TrustState) -> Result<(), PeerError> {
-		let name = self
+		let (name, key) = self
 			.canonical
 			.get(&peer)
 			.and_then(|id| self.links.get(id))
-			.map(|entry| entry.link.name.clone())
+			.map(|entry| (entry.link.name.clone(), entry.link.key))
 			.ok_or(PeerError::UnknownKey)?;
+		// The held link carries the key, so identity churn cannot evict it from the
+		// store's bounded cache before the user decides.
+		self.trust.lock().observe(&key);
 		self.trust
 			.lock()
 			.put(TrustRecord {
@@ -251,6 +278,9 @@ impl Actor {
 			.and_then(|id| self.links.get_mut(id))
 			.is_some_and(|entry| !std::mem::replace(&mut entry.trusted, true));
 		if promoted {
+			if let Some(id) = self.canonical.get(&peer) {
+				self.untrusted.release(id);
+			}
 			self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
 				.await;
 			self.flush_pending(peer).await;
@@ -310,10 +340,17 @@ impl Actor {
 			}
 			previously_up = old.trusted;
 			self.links.remove(&old_id);
+			self.untrusted.release(&old_id);
 		}
 		self.canonical.insert(peer, link.id);
 		let name = link.name.clone();
+		let (id, source) = (link.id, link.remote_ip);
 		self.links.insert(link.id, Entry { link, trusted });
+		if !trusted {
+			for victim in self.untrusted.admit(id, source) {
+				self.drop_link(victim).await;
+			}
+		}
 		if let Some(want) = self.wanted.get_mut(&peer) {
 			want.attempt = 0;
 			want.dialling = false;
@@ -377,7 +414,11 @@ impl Actor {
 		let peer = peer_id(&fingerprint);
 		let inbound = {
 			let mut table = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
-			decode(peer, body, &mut table, &self.config.policy)
+			let net = LinkNet {
+				remote_ip: entry.link.remote_ip,
+				subnet: entry.link.subnet,
+			};
+			decode(peer, body, &mut table, &self.config.policy, &net)
 		};
 		match inbound {
 			Inbound::Event(event) => self.emit(PeerOutput::Core(event)).await,
@@ -388,6 +429,7 @@ impl Actor {
 
 	/// Removes a link; reports the peer down only if it was the live one.
 	async fn drop_link(&mut self, id: LinkId) {
+		self.untrusted.release(&id);
 		let Some(entry) = self.links.remove(&id) else {
 			return;
 		};

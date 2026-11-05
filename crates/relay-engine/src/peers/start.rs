@@ -6,17 +6,19 @@ use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
 use relay_net::discovery::{AdvertMode, Advertisement, Discovery, DiscoveryEvent, DiscoveryTable};
-use relay_net::handshake::HandshakeGate;
+use relay_net::handshake::{AcceptBackoff, HandshakeGate, UntrustedLinks};
 use relay_net::identity::{Fingerprint, Identity};
 use relay_net::session::Role;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, watch};
 
-use super::handle::{AdvertSink, AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
+use super::handle::{
+	AdvertSink, AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput,
+};
 use super::link::{LinkEvent, LinkParams, establish};
 use super::manager::Actor;
 use super::profile::{LocalProfile, Profiles};
-use super::signaling::SessionTable;
+use super::sessions::SessionTable;
 use super::trust::SharedTrust;
 
 const COMMAND_DEPTH: usize = 256;
@@ -73,13 +75,14 @@ pub async fn spawn(
 		config,
 		local,
 		params,
-		trust,
+		trust: trust.clone(),
 		links: HashMap::new(),
 		canonical: HashMap::new(),
 		wanted: HashMap::new(),
 		dialling: HashMap::new(),
 		addresses: HashMap::new(),
 		table: DiscoveryTable::new(),
+		untrusted: UntrustedLinks::new(),
 		pending: HashMap::new(),
 		sessions: Arc::clone(&sessions),
 		waiters: HashMap::new(),
@@ -100,6 +103,7 @@ pub async fn spawn(
 		local,
 		snapshot,
 		sessions,
+		trust,
 	};
 	Ok((handle, output_rx))
 }
@@ -237,21 +241,40 @@ async fn accept_loop(
 	events: mpsc::Sender<LinkEvent>,
 ) {
 	let gate = HandshakeGate::new();
+	let mut backoff = AcceptBackoff::new();
 	loop {
-		let Ok((stream, from)) = listener.accept().await else {
-			continue;
+		let (stream, from) = match listener.accept().await {
+			Ok(accepted) => {
+				backoff.reset();
+				accepted
+			}
+			Err(error) => {
+				// Persistent errors (fd exhaustion) must not spin on the backlog.
+				let delay = backoff.on_error();
+				tracing::warn!(%error, ?delay, "accept failed");
+				tokio::time::sleep(delay).await;
+				continue;
+			}
 		};
 		if policy.check_socket(from).is_err() {
 			continue;
 		}
-		let Ok(permit) = gate.try_enter() else {
+		let Ok(permit) = gate.try_enter(from.ip()) else {
 			continue;
 		};
 		let (params, events) = (Arc::clone(&params), events.clone());
 		let id = ids.fetch_add(1, Ordering::Relaxed);
 		tokio::spawn(async move {
-			let result =
-				establish(stream, Role::Responder, None, &params, id, events.clone()).await;
+			let result = establish(
+				stream,
+				Role::Responder,
+				None,
+				&params,
+				id,
+				events.clone(),
+				Some(&permit),
+			)
+			.await;
 			drop(permit);
 			if let Err(error) = result {
 				let _ = events

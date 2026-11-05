@@ -4,11 +4,13 @@
 //! bounded call-to-session table: outbound invitations record the session the
 //! domain chose, inbound ones derive a stable session from the call id.
 
-use std::collections::{HashMap, VecDeque};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 
 use relay_core::{CallId, PeerEvent, PeerId, PeerMessage, SessionId};
 use relay_net::AddressPolicy;
+
+use super::sessions::SessionTable;
+use super::subnet::Subnet;
 use relay_net::control::new_envelope;
 use relay_net::proto::{
 	Accept, End, Endpoint, EndpointOffer, Envelope, Invite, MediaReady, Reject, envelope::Body,
@@ -18,7 +20,6 @@ use relay_net::proto::{
 pub const PROFILE: &str = "opus-48k-mono-10ms";
 /// Ring timeout advertised in invitations (informational; the domain owns timers).
 const RING_TIMEOUT_MS: u32 = 30_000;
-const SESSIONS_MAX: usize = 256;
 const REASON_BUSY: &str = "busy";
 const REASON_DECLINED: &str = "declined";
 const REASON_HANGUP: &str = "hangup";
@@ -55,36 +56,6 @@ pub enum Inbound {
 	Media(MediaSignal),
 	/// Valid but not acted on here (ringing, profile, advisory feedback).
 	Ignored,
-}
-
-/// Call-to-session table, bounded with FIFO eviction.
-#[derive(Debug, Default)]
-pub struct SessionTable {
-	map: HashMap<CallId, (SessionId, PeerId)>,
-	order: VecDeque<CallId>,
-}
-
-impl SessionTable {
-	fn remember(&mut self, call: CallId, session: SessionId, peer: PeerId) {
-		if self.map.insert(call, (session, peer)).is_none() {
-			self.order.push_back(call);
-			if self.order.len() > SESSIONS_MAX
-				&& let Some(oldest) = self.order.pop_front()
-			{
-				self.map.remove(&oldest);
-			}
-		}
-	}
-
-	/// The session recorded for a call.
-	pub fn get(&self, call: CallId) -> Option<SessionId> {
-		self.map.get(&call).map(|(session, _)| *session)
-	}
-
-	/// The peer a call was exchanged with.
-	pub fn peer_of(&self, call: CallId) -> Option<PeerId> {
-		self.map.get(&call).map(|(_, peer)| *peer)
-	}
 }
 
 /// Session id for a call the remote started: stable and unpredictable to third parties.
@@ -175,6 +146,7 @@ pub fn decode(
 	body: Body,
 	table: &mut SessionTable,
 	policy: &AddressPolicy,
+	net: &LinkNet,
 ) -> Inbound {
 	match body {
 		Body::Invite(m) => {
@@ -182,7 +154,11 @@ pub fn decode(
 				return Inbound::Ignored;
 			};
 			let session = derived_session(call);
-			table.remember(call, session, peer);
+			// Rate limit first, then the owner check: a flood or a replayed call id of
+			// another peer never reaches the table or the domain.
+			if !table.admit_invite(peer) || !table.remember(call, session, peer) {
+				return Inbound::Ignored;
+			}
 			Inbound::Event(PeerEvent::Invite {
 				call,
 				session,
@@ -190,15 +166,13 @@ pub fn decode(
 				allow_parallel_same_peer: m.allow_parallel_same_peer,
 			})
 		}
-		Body::Accept(m) => with_session(&m.call_id, table, |call, session| PeerEvent::Accepted {
-			call,
-			session,
+		Body::Accept(m) => with_session(&m.call_id, peer, table, |call, session| {
+			PeerEvent::Accepted { call, session }
 		}),
-		Body::Reject(m) => with_session(&m.call_id, table, |call, session| PeerEvent::Declined {
-			call,
-			session,
+		Body::Reject(m) => with_session(&m.call_id, peer, table, |call, session| {
+			PeerEvent::Declined { call, session }
 		}),
-		Body::End(m) => with_session(&m.call_id, table, |call, session| PeerEvent::Ended {
+		Body::End(m) => with_session(&m.call_id, peer, table, |call, session| PeerEvent::Ended {
 			call,
 			session,
 		}),
@@ -210,6 +184,7 @@ pub fn decode(
 				.candidates
 				.iter()
 				.filter_map(|e: &Endpoint| policy.candidate_from_proto(e).ok())
+				.filter(|addr| net.allows(addr.ip()))
 				.collect();
 			Inbound::Media(MediaSignal::Offer { epoch, candidates })
 		}
@@ -220,6 +195,10 @@ pub fn decode(
 			) else {
 				return Inbound::Ignored;
 			};
+			// Only a call this peer owns, and only at a bounded pace.
+			if table.peer_of(call) != Some(peer) || !table.admit_ready(peer) {
+				return Inbound::Ignored;
+			}
 			Inbound::Media(MediaSignal::Ready {
 				call,
 				ssrc: m.send_ssrc,
@@ -233,10 +212,27 @@ pub fn decode(
 
 fn with_session(
 	call_id: &[u8],
+	peer: PeerId,
 	table: &SessionTable,
 	make: impl FnOnce(CallId, SessionId) -> PeerEvent,
 ) -> Inbound {
 	parse_call(call_id)
-		.and_then(|call| table.get(call).map(|session| make(call, session)))
+		.and_then(|call| table.get_for(call, peer).map(|session| make(call, session)))
 		.map_or(Inbound::Ignored, Inbound::Event)
+}
+
+/// What an offered media candidate must match: the link's remote host, or its subnet.
+#[derive(Debug, Clone, Copy)]
+pub struct LinkNet {
+	/// Remote address of the control link.
+	pub remote_ip: IpAddr,
+	/// Subnet of the local interface the link arrived on, when known.
+	pub subnet: Option<Subnet>,
+}
+
+impl LinkNet {
+	/// True for the link's remote host or an address inside the interface subnet.
+	pub fn allows(&self, ip: IpAddr) -> bool {
+		ip == self.remote_ip || self.subnet.is_some_and(|s| s.contains(ip))
+	}
 }

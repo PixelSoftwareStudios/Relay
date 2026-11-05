@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use relay_core::{CallId, PeerEvent, PeerMessage, SessionId};
 use relay_engine::peers::{
-	BackoffConfig, Inbound, LinkFacts, SessionTable, Verdict, decode, derived_session, elect,
-	encode,
+	BackoffConfig, Inbound, LinkFacts, LinkNet, SessionTable, Verdict, decode, derived_session,
+	elect, encode,
 };
 use relay_net::AddressPolicy;
 use relay_net::identity::Fingerprint;
@@ -94,14 +94,14 @@ fn outbound_invite_session_survives_the_round_trip() {
 	);
 	let peer = relay_core::PeerId::from_bytes([3; 32]);
 	let policy = AddressPolicy::lan_only();
-	let decoded = decode(peer, accept.body.unwrap(), &mut table, &policy);
+	let decoded = decode(peer, accept.body.unwrap(), &mut table, &policy, &net());
 	assert_eq!(
 		decoded,
 		Inbound::Event(PeerEvent::Accepted { call, session })
 	);
 	// The remote sees our invite with a derived session and the flag intact.
 	let mut remote = SessionTable::default();
-	match decode(peer, envelope.body.unwrap(), &mut remote, &policy) {
+	match decode(peer, envelope.body.unwrap(), &mut remote, &policy, &net()) {
 		Inbound::Event(PeerEvent::Invite {
 			call: c,
 			session: s,
@@ -140,7 +140,7 @@ fn unknown_calls_and_other_bodies_are_ignored() {
 		&mut SessionTable::default(),
 	);
 	assert_eq!(
-		decode(peer, end.body.unwrap(), &mut table, &policy),
+		decode(peer, end.body.unwrap(), &mut table, &policy, &net()),
 		Inbound::Ignored
 	);
 }
@@ -166,7 +166,8 @@ fn decline_maps_busy_and_plain_to_declined_events() {
 				peer,
 				env.body.unwrap(),
 				&mut table,
-				&AddressPolicy::lan_only()
+				&AddressPolicy::lan_only(),
+				&net()
 			),
 			Inbound::Event(PeerEvent::Declined { call, session })
 		);
@@ -183,6 +184,13 @@ fn table_remember(table: &mut SessionTable, call: CallId, session: SessionId) {
 		peer0(),
 		table,
 	);
+}
+
+fn net() -> LinkNet {
+	LinkNet {
+		remote_ip: [192, 168, 1, 9].into(),
+		subnet: None,
+	}
 }
 
 fn peer0() -> relay_core::PeerId {

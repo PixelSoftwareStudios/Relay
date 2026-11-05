@@ -3,11 +3,12 @@
 //! The handshake never writes here. Only [`TrustBook::pin`], reached from an
 //! explicit user decision, persists a key.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use relay_config::identity::{TrustEntry, TrustLevel, TrustStore as ConfigStore};
+use relay_net::discovery::name_skeleton;
 use relay_net::identity::{
 	Fingerprint, InMemoryTrustStore, PublicKey, TrustError, TrustRecord, TrustState, TrustStore,
 };
@@ -20,6 +21,9 @@ const SEEN_KEYS_MAX: usize = 64;
 pub trait KeyedTrustStore: TrustStore + Send {
 	/// Remembers an authenticated key so a later explicit `put` can persist it.
 	fn observe(&mut self, key: &PublicKey);
+
+	/// Every fingerprint the user has trusted (bounded by the store).
+	fn fingerprints(&self) -> Vec<Fingerprint>;
 }
 
 /// Shared handle used by link tasks and the manager. Never held across `.await`.
@@ -73,25 +77,36 @@ impl SeenKeys {
 
 /// In-memory store with key observation.
 #[derive(Debug, Default)]
-pub struct MemoryTrust(InMemoryTrustStore);
+pub struct MemoryTrust {
+	store: InMemoryTrustStore,
+	keys: HashSet<Fingerprint>,
+}
 
 impl TrustStore for MemoryTrust {
 	fn get(&self, fingerprint: &Fingerprint) -> Option<TrustRecord> {
-		self.0.get(fingerprint)
+		self.store.get(fingerprint)
 	}
 	fn find_by_name(&self, display_name: &str) -> Vec<TrustRecord> {
-		self.0.find_by_name(display_name)
+		self.store.find_by_name(display_name)
 	}
 	fn put(&mut self, record: TrustRecord) -> Result<(), TrustError> {
-		self.0.put(record)
+		let fingerprint = record.fingerprint;
+		self.store.put(record)?;
+		self.keys.insert(fingerprint);
+		Ok(())
 	}
 	fn remove(&mut self, fingerprint: &Fingerprint) -> Result<(), TrustError> {
-		self.0.remove(fingerprint)
+		self.keys.remove(fingerprint);
+		self.store.remove(fingerprint)
 	}
 }
 
 impl KeyedTrustStore for MemoryTrust {
 	fn observe(&mut self, _key: &PublicKey) {}
+
+	fn fingerprints(&self) -> Vec<Fingerprint> {
+		self.keys.iter().copied().collect()
+	}
 }
 
 /// Adapter over the persistent `relay-config` trust file.
@@ -133,8 +148,10 @@ impl TrustStore for ConfigTrust {
 	}
 
 	fn find_by_name(&self, display_name: &str) -> Vec<TrustRecord> {
+		// Compared on the confusable skeleton, so a lookalike name still raises KeyChanged.
+		let wanted = name_skeleton(display_name);
 		self.records()
-			.filter(|r| r.display_name == display_name)
+			.filter(|r| name_skeleton(&r.display_name) == wanted)
 			.collect()
 	}
 
@@ -183,6 +200,10 @@ impl TrustStore for ConfigTrust {
 impl KeyedTrustStore for ConfigTrust {
 	fn observe(&mut self, key: &PublicKey) {
 		self.seen.insert(key);
+	}
+
+	fn fingerprints(&self) -> Vec<Fingerprint> {
+		self.records().map(|r| r.fingerprint).collect()
 	}
 }
 
