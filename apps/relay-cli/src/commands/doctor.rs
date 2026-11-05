@@ -6,7 +6,7 @@ use std::path::Path;
 
 use relay_config::Paths;
 use relay_config::diagnostics::{BundleInput, build_bundle};
-use relay_config::prefs::Preferences;
+use relay_config::prefs::{PreferenceStore, Preferences};
 use serde::Serialize;
 
 use super::Out;
@@ -163,27 +163,16 @@ fn load_preferences(checks: &mut Vec<Check>) -> Preferences {
 			return Preferences::default();
 		}
 	};
-	let file = paths.preferences_file();
-	match std::fs::read_to_string(&file) {
-		Ok(text) => match toml::from_str::<Preferences>(&text) {
-			Ok(prefs) => {
-				checks.push(Check {
-					name: "preferences",
-					ok: true,
-					detail: "readable".into(),
-				});
-				prefs
-			}
-			Err(e) => {
-				checks.push(Check {
-					name: "preferences",
-					ok: false,
-					detail: format!("unreadable: {e}"),
-				});
-				Preferences::default()
-			}
-		},
-		Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+	match PreferenceStore::read_only(&paths) {
+		Ok(Some(prefs)) => {
+			checks.push(Check {
+				name: "preferences",
+				ok: true,
+				detail: "readable".into(),
+			});
+			prefs
+		}
+		Ok(None) => {
 			checks.push(Check {
 				name: "preferences",
 				ok: true,
@@ -195,7 +184,7 @@ fn load_preferences(checks: &mut Vec<Check>) -> Preferences {
 			checks.push(Check {
 				name: "preferences",
 				ok: false,
-				detail: e.to_string(),
+				detail: format!("unreadable: {e}"),
 			});
 			Preferences::default()
 		}

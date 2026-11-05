@@ -62,7 +62,7 @@ Text by default. With `--json`, stdout is exactly one JSON value per command (ar
 
 ## `relay doctor`
 
-Checks, in order: endpoint, engine reachability and version, input and output device availability, engine warnings, preferences readability. It reads `preferences.toml` directly without taking the writer lock, so it works while the engine runs. `--bundle FILE` writes `relay_config::diagnostics::build_bundle` output (redacted, size capped) with mode `0600`, even if the engine is down. Any failed check exits 1.
+Checks, in order: endpoint, engine reachability and version, input and output device availability, engine warnings, preferences readability. It reads the preferences database read-only (`PreferenceStore::read_only`) without taking the writer lock, so it works while the engine runs. `--bundle FILE` writes `relay_config::diagnostics::build_bundle` output (redacted, size capped) with mode `0600`, even if the engine is down. Any failed check exits 1.
 
 ## TUI
 
