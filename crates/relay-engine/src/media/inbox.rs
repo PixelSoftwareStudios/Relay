@@ -39,6 +39,13 @@ impl<T> Inbox<T> {
 		let _ = self.0.waker.set(worker);
 	}
 
+	/// Wakes the worker without a command (state it reads elsewhere changed).
+	pub fn wake(&self) {
+		if let Some(worker) = self.0.waker.get() {
+			worker.unpark();
+		}
+	}
+
 	/// Enqueues a command and wakes the worker, or hands the command back if
 	/// the queue is full.
 	pub fn push(&self, command: T) -> Result<(), T> {

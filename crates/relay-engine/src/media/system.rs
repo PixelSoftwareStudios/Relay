@@ -331,6 +331,24 @@ impl MediaSystem {
 		}
 	}
 
+	/// Hands the render worker the tone player, built on the caller's thread.
+	pub fn set_tone_player(&self, player: relay_audio::tones::TonePlayer) {
+		if self
+			.inner
+			.render
+			.push(RenderCmd::SetTones(Box::new(player)))
+			.is_err()
+		{
+			tracing::warn!("render queue full; tone player dropped");
+		}
+	}
+
+	/// Wakes the render worker after a tone was started through its control
+	/// handle, so an idle worker begins ticking at once.
+	pub fn wake_render(&self) {
+		self.inner.render.wake();
+	}
+
 	/// Current load as admission sees it.
 	pub fn load(&self) -> LoadSnapshot {
 		LoadSnapshot {

@@ -14,6 +14,7 @@ use relay_audio::device::{Direction, Recovery, StreamHealth, recovery_for};
 use relay_audio::mixer::{CallSlot, Mixer};
 use relay_audio::playback::PlaybackShared;
 use relay_audio::priority::WorkerKind;
+use relay_audio::tones::TonePlayer;
 use relay_audio::{FRAME_SAMPLES, MAX_CALLS};
 use relay_core::{CallId, ReceiveMix};
 use rtrb::Consumer;
@@ -62,6 +63,10 @@ pub enum RenderCmd {
 	Attach(Box<RenderOutput>),
 	/// Detaches the playback stream.
 	Detach,
+	/// Installs the tone player (built on the control side: it decodes its
+	/// sound assets). Its tones are mixed into the output, and the worker keeps
+	/// its schedule running while one plays, even with no call.
+	SetTones(Box<TonePlayer>),
 }
 
 struct Rendering {
@@ -85,6 +90,7 @@ struct Worker {
 	monitor: MonitorRx,
 	/// The call being rendered when a step panics.
 	current: Option<CallId>,
+	tones: Option<Box<TonePlayer>>,
 }
 
 /// Starts the render worker thread under `supervision`.
@@ -110,6 +116,7 @@ pub fn spawn(
 		meters,
 		monitor,
 		current: None,
+		tones: None,
 	};
 	thread::Builder::new()
 		.name("relay-render".to_owned())
@@ -122,7 +129,7 @@ impl Supervised for Worker {
 	}
 
 	fn wait(&self) -> Duration {
-		if self.is_idle() {
+		if self.idle_hint() {
 			IDLE_WAIT
 		} else {
 			self.next_tick
@@ -157,9 +164,23 @@ impl Supervised for Worker {
 }
 
 impl Worker {
-	fn is_idle(&self) -> bool {
+	/// Idle test that needs no `&mut`: used only to pick the sleep length.
+	fn idle_hint(&self) -> bool {
 		self.output.is_none()
-			|| (self.calls.is_empty() && !self.meters.monitor.load(Ordering::Relaxed))
+			|| (self.calls.is_empty()
+				&& !self.meters.monitor.load(Ordering::Relaxed)
+				&& !self.tones.as_ref().is_some_and(|t| !t.is_idle()))
+	}
+
+	fn is_idle(&mut self) -> bool {
+		if let Some(tones) = self.tones.as_mut() {
+			tones.poll_commands();
+		}
+		let tone_playing = self.tones.as_ref().is_some_and(|t| !t.is_idle());
+		self.output.is_none()
+			|| (self.calls.is_empty()
+				&& !self.meters.monitor.load(Ordering::Relaxed)
+				&& !tone_playing)
 	}
 
 	fn remove_call(&mut self, call: CallId) {
@@ -206,6 +227,7 @@ impl Worker {
 			meters,
 			monitor,
 			current,
+			tones,
 			..
 		} = self;
 		let Some(output) = output.as_mut() else {
@@ -220,6 +242,9 @@ impl Worker {
 			}
 		}
 		*current = None;
+		if let Some(tones) = tones.as_mut() {
+			mixer.add_tones(tones);
+		}
 		if mixer.finish(mixed).is_ok() {
 			if meters.monitor.load(Ordering::Relaxed) {
 				mix_monitor(monitor, mixed);
@@ -293,6 +318,7 @@ impl Worker {
 					self.next_tick = Instant::now();
 				}
 				RenderCmd::Detach => self.output = None,
+				RenderCmd::SetTones(player) => self.tones = Some(player),
 			}
 		}
 	}

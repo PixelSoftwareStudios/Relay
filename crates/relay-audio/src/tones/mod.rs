@@ -162,6 +162,14 @@ impl TonePlayer {
 		}
 	}
 
+	/// Applies queued control commands without rendering, so an idle owner can
+	/// tell whether a tone was just started.
+	pub fn poll_commands(&mut self) {
+		while let Ok(command) = self.rx.pop() {
+			self.apply(command);
+		}
+	}
+
 	/// True when nothing is playing or queued to play.
 	pub fn is_idle(&self) -> bool {
 		self.active.is_none() && self.pending.is_none()
