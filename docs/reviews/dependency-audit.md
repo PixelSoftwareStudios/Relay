@@ -285,3 +285,27 @@ Worth reconsidering:
 5. Swap batch (approved): switch the backoff choice to `exponential-backoff` or `backon` before touching `Cargo.toml` (3.1), then `rusqlite_migration`, then the atomic write.
 6. Decide: lock helper vs `parking_lot` (4.1), `uuid` removal (4.3), `image` feature trim (7.2), `ratatui` default features (7.2).
 7. Product work using libraries from day one: completions and man page (6), login autostart, incoming-call notifications.
+
+## 9. Part 1 outcome (relay-net, relay-messages, relay-protocol, relay-config, relay-platform, benches, fuzz, relay-testkit)
+
+Done:
+- 2.1 `subtle::ConstantTimeEq` in `relay-net` `channel/ids.rs::ct_eq` and `Secret32::eq`.
+- 2.2 `looks_like_ip` rewritten on `IpAddr`/`SocketAddr` parsing (`diagnostics/ip.rs`), handling compressed IPv6, brackets, ports, IPv4-mapped and `%zone`; `peer:<ip>` words are also checked. Regression tests in `relay-config/tests/diagnostics.rs`. Note: std is strict, so a malformed dotted quad such as `999.1.1.1` or `010.0.0.1` is no longer redacted.
+- 2.3 `base64` 0.22 STANDARD engine; `store/base64.rs` deleted; RFC 4648 vector, hostile-input and proptest cases in `relay-messages/tests/export_base64.rs` (non-canonical trailing bits, whitespace, URL-safe alphabet and misplaced padding are all refused).
+- 2.4 `hex` in `relay-net` (tag, advert, connect, fingerprint via `encode_upper`, one shared fixed-width `fixed_hex::decode` over `hex::decode_to_slice`), `relay-messages` and `benches`.
+- 2.5 `floor_char_boundary` in four loops (the audit counted five; the grep finds four).
+- 2.6 One `ReplayWindow`: `relay-net` now depends on `relay-protocol` (which has only `thiserror`) and aliases `ReplayWindow<16>`; the copy is deleted and `commit` is now `accept`.
+- 2.7 `crates/relay-testkit` (member, not a default member, `publish = false`) holds `CountingAlloc`, `allocations_in` (per-thread arming) and `total_allocations` (process-wide, for `benches/tests/neural_allocs.rs`). Test binaries install it with a two-line `#[global_allocator]`. No `relay-engine` test has a counting allocator, so nothing is deferred there.
+- 2.8 `relay-protocol` `criterion` removed. `cargo machete --with-metadata` still lists the build-script false positives (`relay-api`, `relay-net`).
+- 4.2 (the std part) `Ipv6Addr::is_unicast_link_local`/`is_unique_local` in `relay-net/src/address.rs`.
+
+Kept, with reasons:
+- 3.1 `AcceptBackoff` (`relay-net/src/handshake/backoff.rs`, 12 lines of logic) stays. `exponential-backoff` 2.1.1 would fit the "plain delay, never sleeps" rule (set jitter 0.0 for determinism, call `Backoff::next(attempt)`), but the accept loop wants unbounded retries, no jitter and a `reset`, so the crate would wrap a counter we still own, delete no lines and add `fastrand` plus itself. `backon` is an async retry executor and does not fit a loop that must sleep on a caller's own clock. For the engine, UI and CLI call sites that do want jitter, `exponential-backoff` is the pick.
+- `rusqlite_migration` 2.6.0 (Apache-2.0) requires `rusqlite` 0.40 while the workspace uses 0.41.1. Two `rusqlite` versions cannot coexist (both link `libsqlite3-sys`, a `links = "sqlite3"` crate), so it cannot be adopted until it releases for 0.41 or we pin 0.40. `db/migrate.rs` is a ten-line loop around the schema text; the refuse-newer check and notices live in `db/open.rs` and are unchanged.
+
+Deferred to part 2 (owned by crates other agents are editing):
+- `relay-api` `middleware.rs::constant_time_eq` to `subtle` (2.1); `relay-client` `Secret` zeroize plus constant-time `PartialEq`, and the CLI `Secret` removal (4.4).
+- Unused dependencies: `relay-engine` `anyhow`, `bytes`; `apps/relay-cli` `tracing`, `tracing-subscriber` (2.8).
+- Backoff swap to `exponential-backoff` for `relay-engine/src/peers/backoff.rs`, `relay-ui` `supervisor.rs`/`autostart.rs` and the CLI `client/feed.rs` loops (3.1).
+- MAYBEs: `ipnet` for `relay-engine` `Subnet` (4.2), `lru` for the `relay-ui` avatar cache (4.5), `uuid` as random bytes (4.3), the lock helper (4.1).
+- `relay-audio/src/priority*` was not touched; `relay-audio` only gained the `relay-testkit` dev-dependency and its allocation tests were switched.
