@@ -132,7 +132,7 @@ impl RelayClient {
 			avatar_sha256: sha256.to_vec(),
 		};
 		let image = self.inner.get_avatar(request).await?.into_inner();
-		if image.png.len() > AVATAR_MAX_BYTES {
+		if image.image.len() > AVATAR_MAX_BYTES {
 			return Err(ApiError::InvalidResponse("avatar exceeds size limit"));
 		}
 		Ok(image)

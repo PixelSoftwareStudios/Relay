@@ -128,7 +128,7 @@ async fn avatar_fetch_and_size_bound() {
 		.channels
 		.put_avatar(&[5; 32], vec![0x89, b'P', b'N', b'G']);
 	let img: AvatarImage = c.get_avatar(&[5; 32]).await.unwrap();
-	assert_eq!(img.png.len(), 4);
+	assert_eq!(img.image.len(), 4);
 	h.engine
 		.channels
 		.put_avatar(&[6; 32], vec![0; AVATAR_MAX_BYTES + 1]);

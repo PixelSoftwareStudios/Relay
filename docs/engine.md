@@ -117,7 +117,7 @@ The advertised display name is the stored preference, or the computer's hostname
 `gethostname`) when the preference is empty or still the factory default; either way it passes
 `relay_net::discovery::sanitize_display_name`. `SetProfile` sanitizes and persists through
 `relay-config`. `UploadAvatar` goes through `relay_config::avatar::process_avatar`
-(size/dimension-capped decode, centre crop, 256x256 PNG re-encode and lossless oxipng compression, blake3 hash) and the avatar
+(size/dimension-capped decode, centre crop, 256x256 lossless WebP encode, blake3 hash; accepts PNG, JPEG, WebP, GIF, BMP and TIFF) and the avatar
 cache. `Settings.display_name` and `Settings.avatar_sha256` carry both in snapshots and
 settings events. The peers adapter learns the profile through `PeerControl::profile_changed`
 (called at start-up and on every change) and advertises/transfers it.

@@ -273,7 +273,7 @@ message StartMicTestRequest {
 message SetProfileRequest { MutationContext context = 1; string display_name = 2; }
 message UploadAvatarRequest {
   MutationContext context = 1;
-  bytes encoded_image = 2; // bounded <=1MiB, not a local path or raw pixel array
+  bytes encoded_image = 2; // bounded <=1MiB, any of PNG/JPEG/WebP/GIF/BMP/TIFF, not a local path or raw pixel array
   string declared_media_type = 3; // do not trust without decoding validation
 }
 message DecidePeerTrustRequest {
@@ -399,15 +399,16 @@ message SetPrivacyRequest {
   optional AdvertMode advert_mode = 3;
 }
 
-// Avatars: canonical PNG, at most avatar_max_bytes (1 MiB). Unknown hash is NOT_FOUND.
+// Avatars: canonical lossless WebP (256x256), at most avatar_max_bytes (1 MiB). Unknown hash is NOT_FOUND.
 message GetAvatarRequest { ClientContext client = 1; bytes avatar_sha256 = 2; }
 message AvatarImage {
   bytes avatar_sha256 = 1;
-  bytes png = 2;
+  bytes image = 2; // encoded image file; format given by media_type
   uint32 width = 3;
   uint32 height = 4;
 }
 
+  string media_type = 5; // always "image/webp" (lossless) today
 // What a remote user needs to reach this device.
 message ConnectionInfo {
   repeated string local_addresses = 1; // eligible LAN IPs, no port

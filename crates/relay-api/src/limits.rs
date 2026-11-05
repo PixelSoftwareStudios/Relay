@@ -1,4 +1,4 @@
-/// Largest avatar image the API will carry: 1 MiB, for uploads and canonical PNGs alike.
+/// Largest avatar image the API will carry: 1 MiB, for uploads and canonical WebP files alike.
 pub const AVATAR_MAX_BYTES: usize = 1024 * 1024;
 
 /// Resource bounds applied by the transport and middleware.

@@ -34,7 +34,7 @@ Each mutation carries a 16-byte `operation_id`. Same id + identical request retu
 - Channel RPCs (`CreateChannel`, `JoinChannel`, `LeaveChannel`, `ListChannels`, `CreateInvite`, `RevokeChannelMember`) follow `docs/channels.md`. `Snapshot.channels`, `Peer.shared_channel_ids`, `Settings.inbound_policy` and `Settings.advert_mode` expose state; `SetPrivacy` changes the last two.
 - Failed channel operations carry stable `Problem.code`s: `CHANNEL_DENIED` (uniform for unknown channel, wrong secret, bad or spent invite), `CHANNEL_LOCKED_OUT`, `CHANNEL_LIMIT`, `CHANNEL_NAME_INVALID`.
 - Passwords and invite secrets live only in request bodies (and the `CreateInviteResponse`). The generated `Debug` is disabled for those messages and replaced by redacting impls; the guard logs method paths only (`SENSITIVE_METHODS` lists the affected RPCs). The engine must not put them in events, snapshots, operation results or logs.
-- `GetAvatar(hash)` returns a canonical PNG up to `AVATAR_MAX_BYTES` (1 MiB; the default message limit is that plus 64 KiB of envelope); unknown hash is `NOT_FOUND`. `RelayClient::get_avatar` rejects larger answers.
+- `GetAvatar(hash)` returns the canonical avatar (a 256x256 lossless WebP in `AvatarImage.image`, `media_type = "image/webp"`, with `width`/`height`) up to `AVATAR_MAX_BYTES` (1 MiB; the default message limit is that plus 64 KiB of envelope); unknown hash is `NOT_FOUND`. `RelayClient::get_avatar` rejects larger answers.
 - `GetConnectionInfo` returns eligible LAN addresses, listen port, local fingerprint and an opaque `connection_string` filled by the engine. `StartCallRequest.target` also accepts `manual_connection_string`.
 
 ## Client sketch

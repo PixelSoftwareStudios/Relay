@@ -32,6 +32,8 @@ A tokio runtime (2 worker threads) runs the supervisor, the emitter and every co
 ## Controller rules
 `Controller` validates before anything reaches the engine: id lengths and hex, known call / peer / available device, finite gains in 0..4, display name 1 to 64 printable characters, avatar PNG or JPEG up to 1 MiB (the engine decodes and validates for real). Transmit modes other than listen-only are refused unless consent is in the same request; accepting a call never enables the microphone. Call mutations use the lease generation from state; if this client does not hold the call, `AcquireController` runs first without takeover.
 
+Peer and local avatars arrive from `GetAvatar` as lossless WebP (`AvatarImage.media_type`); `imaging::decode_for_texture` decodes them with the `image` crate (WebP enabled), under the same dimension and allocation limits as other images. The upload picker still offers PNG and JPEG only, although the engine also accepts WebP, GIF, BMP and TIFF.
+
 Not implemented: peer trust decisions, mic test, noise-suppression selection, the `InputControl` stream, latency figures. The profile image is chosen by typing a file path (no native file dialog dependency); there is no preview.
 
 ## Window, tray, daemon

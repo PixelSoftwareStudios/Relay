@@ -139,8 +139,8 @@ async fn an_avatar_is_fetched_in_chunks_verified_and_cached() {
 	})
 	.await;
 	assert_eq!(hash, avatar.hash);
-	assert_eq!(b.cache.get(&hash).unwrap().unwrap(), avatar.png);
-	assert!(avatar.png.len() > 8192, "the transfer used several chunks");
+	assert_eq!(b.cache.get(&hash).unwrap().unwrap(), avatar.image);
+	assert!(avatar.image.len() > 8192, "the transfer used several chunks");
 	let _ = &mut a.output;
 }
 
@@ -221,13 +221,13 @@ async fn a_valid_image_under_a_lying_hash_is_rejected() {
 	let (mut target, mut raw) = trusted_target().await;
 	let real = process_avatar(&noisy_png()).unwrap();
 	let lie = [9u8; 32];
-	announce(&mut raw, lie, real.png.len() as u32).await;
+	announce(&mut raw, lie, real.image.len() as u32).await;
 	assert!(matches!(
 		raw.next_body(Duration::from_secs(2)).await,
 		Some(Body::AvatarRequest(_))
 	));
-	for (i, part) in real.png.chunks(8192).enumerate() {
-		let last = (i + 1) * 8192 >= real.png.len();
+	for (i, part) in real.image.chunks(8192).enumerate() {
+		let last = (i + 1) * 8192 >= real.image.len();
 		raw.send(chunk(lie, (i * 8192) as u32, part.to_vec(), last))
 			.await;
 	}

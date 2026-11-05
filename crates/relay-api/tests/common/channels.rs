@@ -59,17 +59,18 @@ impl Channels {
 		});
 	}
 
-	pub fn put_avatar(&self, hash: &[u8], png: Vec<u8>) {
-		self.avatars.lock().unwrap().insert(hash.to_vec(), png);
+	pub fn put_avatar(&self, hash: &[u8], image: Vec<u8>) {
+		self.avatars.lock().unwrap().insert(hash.to_vec(), image);
 	}
 
 	pub fn avatar(&self, hash: &[u8]) -> Option<AvatarImage> {
-		let png = self.avatars.lock().unwrap().get(hash)?.clone();
+		let image = self.avatars.lock().unwrap().get(hash)?.clone();
 		Some(AvatarImage {
 			avatar_sha256: hash.to_vec(),
-			png,
-			width: 128,
-			height: 128,
+			image,
+			width: 256,
+			height: 256,
+			media_type: "image/webp".to_owned(),
 		})
 	}
 
@@ -161,6 +162,7 @@ impl Channels {
 		Some(CreateInviteResponse {
 			invite,
 			expires_unix: 1_000 + u64::from(req.ttl_seconds),
+			..Default::default()
 		})
 	}
 
