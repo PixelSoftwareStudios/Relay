@@ -15,6 +15,7 @@ security review still open**; the composition is a proposal, not an audited prot
 | `record` | 32-byte public header, inner header copy, kind registry (`0x01/02/03` media lane, `0x80` control lane). |
 | `control` | TCP framing (u32 length, <= 16 KiB record), envelope validation, Hello-first rule, duplicate-id handling. |
 | `channel` | Named channels (see `docs/channels.md`): blinded mDNS tags, SPAKE2 join inside the Noise link, signed membership certificates, invites, attempt limiter, `ChannelStore` trait. Not wired into discovery or the engine yet; independent review open. |
+| `connect` | `relay://<ip>:<port>#<64 hex fingerprint>` codec. `ConnectionString::parse` applies the LAN-only `AddressPolicy` (no DNS, no credentials/paths) and requires the fingerprint; the result is an address plus `expected`, which the caller passes to `handshake::initiate(.., Some(&expected))` so a different key is refused before our static key is sent. Pinning is only as good as the channel the string travelled over and does not set `Verified`. `encode` ranks eligible local addresses: private IPv4 on physical-looking interfaces, then ULA IPv6, then IPv4 link-local; excludes tunnel/VPN interface names, public, loopback, 100.64.0.0/10 and link-local IPv6 (its scope id is not portable). |
 | `media` | UDP datagrams (<= 1200 B), replay window (1024), epoch overlap (<= 2 epochs, <= 2 s), path challenge/response, `MediaEndpoint`. |
 
 ## Invariants enforced here
@@ -41,6 +42,17 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
 
 ## Integration notes
 
+- Address policy and 100.64.0.0/10: shared address space (CGNAT, Tailscale and similar overlays) is
+  **deliberately refused** with `AddressError::OverlayNetwork`. Such a path can leave the LAN
+  through a coordination service, contradicting the LAN-only boundary, and it is not "private" in
+  the RFC 1918 sense. Supporting overlays would need an explicit, separate opt-in policy.
+- `SecureSession::handshake_hash()` exposes the Noise `h` (commits to prologue, epoch, both
+  static keys and all handshake messages). Upper layers bind proofs to it; it is not a key.
+- Discovery: `Advertisement.mode` (`Open` or `Hidden`: no name, no fingerprint hint),
+  `Advertisement.extra_txt` (<= 8 short ASCII entries, core keys protected) and
+  `DiscoveredPeer.txt` (bounded raw TXT, never interpreted by discovery).
+- `Envelope.channel = 20` carries `ChannelMessage` (see `docs/channels.md`); the engine ignores
+  bodies it does not handle, so channel messages cannot reach call state.
 - Typical flow: `handshake::initiate/respond` on a TCP stream, `control_channel(stream, Arc<session>)`,
   send `new_hello(...)` first, evaluate trust, then signaling. Media: `MediaEndpoint::bind`, run `recv()`
   in one task, `bind_stream` after Accept/MediaReady, `validate_path` for each validated candidate.

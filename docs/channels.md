@@ -212,7 +212,7 @@ non-member that learned the channel name, an attacker with a copy of the local s
 Driver sketch for the engine's peer adapter (all calls are synchronous and cheap except the
 joiner's one-time Argon2 and the store):
 
-1. After the control link is up, `SessionBinding::for_session(&session, local_public)`.
+1. After the control link is up, `SessionBinding::for_session(&session)`.
 2. On each discovery update, `ChannelAdvert::recognise` gives `Evidence::Candidate` per channel;
    dial and send `make_proof` (not before trust evaluation of the peer has run).
 3. Incoming `ChannelMessage`: `Proof` -> `check_proof` over `store.list()`; on `proven`, note
@@ -228,39 +228,25 @@ joiner's one-time Argon2 and the store):
   come from maintained crates but the composition has not been reviewed.
 - Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
 - Owner key loss means the channel cannot admit or revoke any more (create a new one).
-- The session binding uses the link epoch and both static keys; exposing the Noise handshake
-  hash from `SecureSession` would be a stronger anchor.
 - No rate limit on tag recognition work beyond the 256-entry discovery table.
-- Hidden mode requires discovery changes (see the integration section) that are not made.
+- The engine does not yet advertise in hidden mode, rotate the pseudonymous instance id, or
+  route channel messages.
 
 ## Proposed API and wire changes (drafted, NOT wired)
 
-### Peer wire (`relay.peer.v1`)
+### Peer wire and discovery (done in `relay-net`)
 
-`crates/relay-net/proto/relay/peer/v1/channel.proto` defines the messages (already compiled by
-`relay-net`). Integrators add, additively, to `peer.proto`:
-
-```proto
-import "relay/peer/v1/channel.proto";
-// in Envelope.body:   ChannelMessage channel = 20;
-```
-
-and one arm in `control::validate_body` that calls `relay_net::channel::wire::validate`. The
-engine's peer adapter routes `Body::Channel` to a `JoinAdmitter`/`JoinClient`/`proof` driver and
-must never let a channel message reach call state.
-
-### Discovery
-
-- `Advertisement` gains `extra_txt: Vec<(String, String)>` and `DiscoveredPeer` gains the raw
-  `txt` map (bounded) so `channel::tag::ChannelAdvert::{to_txt, from_txt}` can ride along.
-- `Advertisement` gains an `AdvertMode::Hidden` builder (rotating instance id, no name, no hint);
-  `channel::tag::hidden_instance_id` computes the id.
-
-### Session
-
-- `SecureSession` should expose its Noise handshake hash (`handshake_hash() -> [u8; 32]`).
-  `SessionBinding` currently uses epoch + roles + both static keys, which is sufficient but the
-  hash is a stronger anchor. Ask for it in the reviewed profile.
+- `channel.proto` is compiled with `peer.proto`; `Envelope.channel = 20` carries a
+  `ChannelMessage`, and `control::validate_body` checks it with `channel::wire::validate`.
+  The engine's body matches all have wildcard arms, so channel messages are ignored there until
+  the peer adapter routes them; they must never reach call state.
+- `Advertisement` has `mode: AdvertMode` (`Hidden` omits name and fingerprint hint) and
+  `extra_txt`; `DiscoveredPeer.txt` holds the bounded raw TXT. `ChannelAdvert::{to_txt,
+  from_map}` use keys `ce` (epoch), `ct` (tags) and `chl0..chl2` (listed channels). In hidden
+  mode use `tag::hidden_instance_id(secret, epoch)` as the instance id and re-advertise when the
+  epoch changes.
+- `SessionBinding` is now derived from `SecureSession::handshake_hash()`
+  (`SessionBinding::for_session(&session)`), replacing the epoch-plus-keys construction.
 
 ### Local gRPC (`relay.engine.v1`, additive)
 
