@@ -23,13 +23,13 @@ shipped artifact. Gate status lives in `docs/gates.md`; measurements in `docs/ev
 | Purpose | Command | Notes |
 |---|---|---|
 | Dependency policy | `cargo deny check` | `cargo install cargo-deny --locked` |
-| Third-party notices | `cargo about generate about.hbs > THIRD_PARTY_LICENSES.html` | `cargo install cargo-about --locked`; needs an `about.toml` listing accepted licenses (same list as `deny.toml`) and an `about.hbs` template. Not yet committed: generate it from the release revision, so it matches the lockfile. |
-| SBOM | `cargo cyclonedx --format json` per shipped binary | `cargo install cargo-cyclonedx --locked`. Produces CycloneDX per package; ship the files for `relay-cli` and, if shipped, `relay-desktop`. |
+| Third-party notices | `cargo about generate about.hbs > THIRD_PARTY_LICENSES` | `cargo install cargo-about --locked --features cli`. Config in `about.toml` (accepted list mirrors `deny.toml`) and `about.hbs`. Run on 2026-11-05 (cargo-about 0.9.3); the committed `THIRD_PARTY_LICENSES` is a snapshot of that run and must be regenerated from the release revision. |
+| SBOM | `cargo cyclonedx --manifest-path apps/relay-cli/Cargo.toml --format json --describe binaries` | `cargo install cargo-cyclonedx --locked`. Run once on 2026-11-05 (CycloneDX 1.3, 387 components for `relay`); output was not committed because it is tied to one lockfile. It writes `*_bin.cdx.json` next to each binary crate's manifest, including `relay-desktop` and the benches; ship only the files for artifacts that are shipped. |
 | Fuzz build | `cd fuzz && cargo +nightly fuzz build` | Needs nightly and `cargo install cargo-fuzz --locked`. |
 | Fuzz run | `cd fuzz && cargo +nightly fuzz run <target> -- -max_total_time=600` | Targets: `rtp_parse`, `record_header`, `control_envelope`, `media_datagram`, `channel_wire`, `channel_text`, `manual_endpoint`, `avatar_decode`. |
 
-Generated notices and SBOMs are release outputs. They are attached to the release, not committed on
-`main`, unless a reviewer asks for a snapshot.
+SBOMs are release outputs attached to the release, not committed on `main`. The notices file is committed
+as a snapshot but is only authoritative when regenerated at the release revision.
 
 ## Steps
 
@@ -44,7 +44,7 @@ Generated notices and SBOMs are release outputs. They are attached to the releas
 5. **Build artifacts** from a clean checkout with the pinned toolchain (`rust-toolchain.toml`), using
    `cargo build --release --locked -p relay-cli` (and `-p relay-desktop` for the GUI). Each target is
    built on its native runner; there is no cross-compiled artifact unless it is separately qualified.
-6. **Notices and SBOM.** Generate `THIRD_PARTY_LICENSES` and CycloneDX files from the tagged revision.
+6. **Notices and SBOM.** Regenerate `THIRD_PARTY_LICENSES` and the CycloneDX files from the tagged revision.
 7. **Hash and sign** (below), publish, then record the release in `docs/evidence.md` with the commit,
    toolchain, host OS and artifact hashes.
 

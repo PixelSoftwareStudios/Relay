@@ -1,0 +1,16 @@
+Third-party licenses for Relay (Apache-2.0).
+Generated with cargo-about; regenerate with:
+  cargo about generate about.hbs > THIRD_PARTY_LICENSES
+
+{{#each licenses}}
+================================================================================
+{{{name}}} ({{id}})
+
+Used by:
+{{#each used_by}}
+  - {{crate.name}} {{crate.version}}{{#if crate.repository}} ({{crate.repository}}){{/if}}
+{{/each}}
+
+{{{text}}}
+
+{{/each}}
