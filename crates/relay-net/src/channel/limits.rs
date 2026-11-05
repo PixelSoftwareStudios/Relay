@@ -55,6 +55,11 @@ pub const LOCKOUT_MAX: Duration = Duration::from_secs(3600);
 pub const CHANNEL_FAILURES: usize = 20;
 /// Failures per peer (any channel) per [`FAILURE_WINDOW`], then [`CHANNEL_COOLDOWN`].
 pub const PEER_FAILURES: usize = 30;
+/// Reserved lane used while the channel budget is cooling down, only by an identity with no
+/// failure of any kind in the last [`FAILURE_WINDOW`]: attempts per [`FAILURE_WINDOW`], then
+/// [`CHANNEL_COOLDOWN`] for the lane. Raises the online-guessing ceiling by at most
+/// `RESERVE_FAILURES` per cool-down.
+pub const RESERVE_FAILURES: usize = 6;
 pub const FAILURE_WINDOW: Duration = Duration::from_secs(3600);
 pub const CHANNEL_COOLDOWN: Duration = Duration::from_secs(900);
 /// Tracked (peer, channel) limiter entries.

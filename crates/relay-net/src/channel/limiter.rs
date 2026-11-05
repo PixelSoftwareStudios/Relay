@@ -2,8 +2,11 @@
 //!
 //! Per-peer lockout alone is bypassable because a LAN attacker can mint unlimited Noise
 //! identities, so a per-channel failure budget (and a per-peer one across channels) backs it.
-//! The channel budget lets an attacker lock legitimate joiners out; that is the documented
-//! price of bounding online guessing.
+//! The channel budget lets attackers lock legitimate joiners out (review F-12), so while it
+//! cools down a separate reserved lane admits identities with a clean record (no failure on
+//! any channel in the window, no entry for the pair). Each attacker identity can use the lane
+//! once per window, so the lane is not drained by a few identities retrying, and it adds at
+//! most `RESERVE_FAILURES` guesses per cool-down to the channel's ceiling.
 
 use std::collections::{HashMap, VecDeque};
 use std::time::Duration;
@@ -12,7 +15,7 @@ use relay_core::channel::ChannelId;
 
 use super::limits::{
 	CHANNEL_COOLDOWN, CHANNEL_FAILURES, FAILURE_WINDOW, LIMITER_ENTRIES_MAX, LOCKOUT_BASE,
-	LOCKOUT_MAX, PEER_CHANNEL_FAILURES, PEER_FAILURES,
+	LOCKOUT_MAX, PEER_CHANNEL_FAILURES, PEER_FAILURES, RESERVE_FAILURES,
 };
 use crate::identity::Fingerprint;
 
@@ -65,6 +68,8 @@ impl Window {
 struct PairEntry {
 	failures: u32,
 	strikes: u32,
+	/// The last charge for this pair went to the reserved lane, not the channel window.
+	reserved: bool,
 	locked_until: Duration,
 	last_failure: Duration,
 }
@@ -73,6 +78,7 @@ struct PairEntry {
 pub struct AttemptLimiter {
 	pairs: HashMap<(Fingerprint, ChannelId), PairEntry>,
 	channels: HashMap<ChannelId, Window>,
+	reserve: HashMap<ChannelId, Window>,
 	peers: HashMap<Fingerprint, Window>,
 }
 
@@ -93,7 +99,13 @@ impl AttemptLimiter {
 			longest = longest.max(entry.locked_until.saturating_sub(now));
 		}
 		if let Some(window) = self.channels.get(channel) {
-			longest = longest.max(window.remaining(now).unwrap_or_default());
+			let cooling = window.remaining(now).unwrap_or_default();
+			if !cooling.is_zero() && self.eligible(now, peer, channel) {
+				let lane = self.reserve.get(channel).and_then(|w| w.remaining(now));
+				longest = longest.max(lane.unwrap_or_default());
+			} else {
+				longest = longest.max(cooling);
+			}
 		}
 		if let Some(window) = self.peers.get(peer) {
 			longest = longest.max(window.remaining(now).unwrap_or_default());
@@ -107,18 +119,46 @@ impl AttemptLimiter {
 		}
 	}
 
+	/// Whether `peer` has a clean record: no failure anywhere in the window and no lockout.
+	fn eligible(&self, now: Duration, peer: &Fingerprint, channel: &ChannelId) -> bool {
+		if *channel == UNKNOWN_CHANNEL {
+			return false;
+		}
+		let pair_clean = self.pairs.get(&(*peer, *channel)).is_none_or(|e| {
+			e.locked_until <= now && now.saturating_sub(e.last_failure) >= FAILURE_WINDOW
+		});
+		let peer_clean = self.peers.get(peer).is_none_or(|w| {
+			w.remaining(now).is_none()
+				&& w.failures
+					.iter()
+					.all(|t| now.saturating_sub(*t) >= FAILURE_WINDOW)
+		});
+		pair_clean && peer_clean
+	}
+
 	pub fn record_failure(&mut self, now: Duration, peer: &Fingerprint, channel: &ChannelId) {
 		self.make_room(now);
+		let on_reserve = self
+			.channels
+			.get(channel)
+			.is_some_and(|w| w.remaining(now).is_some())
+			&& self.eligible(now, peer, channel);
 		let entry = self.pairs.entry((*peer, *channel)).or_default();
 		entry.failures += 1;
 		entry.last_failure = now;
+		entry.reserved = on_reserve;
 		if entry.failures >= PEER_CHANNEL_FAILURES {
 			entry.strikes = entry.strikes.saturating_add(1);
 			entry.failures = 0;
 			let factor = 1u32 << entry.strikes.saturating_sub(1).min(16);
 			entry.locked_until = now + (LOCKOUT_BASE * factor).min(LOCKOUT_MAX);
 		}
-		if *channel != UNKNOWN_CHANNEL {
+		if on_reserve {
+			self.reserve
+				.entry(*channel)
+				.or_default()
+				.record(now, RESERVE_FAILURES);
+		} else if *channel != UNKNOWN_CHANNEL {
 			self.channels
 				.entry(*channel)
 				.or_default()
@@ -134,8 +174,16 @@ impl AttemptLimiter {
 	/// completed, and clears the pair's strikes. Earlier failures stay in the windows, so an
 	/// attacker cannot reset the shared budgets by also succeeding somewhere.
 	pub fn record_success(&mut self, peer: &Fingerprint, channel: &ChannelId) {
-		self.pairs.remove(&(*peer, *channel));
-		if let Some(window) = self.channels.get_mut(channel) {
+		let reserved = self
+			.pairs
+			.remove(&(*peer, *channel))
+			.is_some_and(|e| e.reserved);
+		let shared = if reserved {
+			self.reserve.get_mut(channel)
+		} else {
+			self.channels.get_mut(channel)
+		};
+		if let Some(window) = shared {
 			window.failures.pop_back();
 		}
 		if let Some(window) = self.peers.get_mut(peer) {
@@ -152,6 +200,10 @@ impl AttemptLimiter {
 			e.locked_until > now || now.saturating_sub(e.last_failure) < FAILURE_WINDOW
 		});
 		self.channels.retain(|_, w| {
+			w.prune(now);
+			!w.idle(now)
+		});
+		self.reserve.retain(|_, w| {
 			w.prune(now);
 			!w.idle(now)
 		});

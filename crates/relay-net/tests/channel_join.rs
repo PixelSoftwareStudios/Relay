@@ -83,18 +83,21 @@ fn guessing_locks_the_peer_out_even_when_it_never_confirms() {
 }
 
 #[test]
-fn many_identities_hit_the_channel_wide_budget() {
+fn many_identities_hit_the_channel_wide_budget_but_a_clean_joiner_gets_the_reserved_lane() {
 	let w = world(PASSWORD_ONLY, Some("correct horse"), &owner().fingerprint());
 	let wrong = Credential::from_bytes([9; 32]);
 	for i in 0..limits::CHANNEL_FAILURES {
 		let pair = Pair::new();
 		assert!(run_join(&pair, &w, &wrong, None, mono(i as u64)).is_err());
 	}
-	// A fresh identity with the right password is now locked out by the channel budget.
-	let pair = Pair::new();
 	let right = Credential::from_password("correct horse", &w.channel).unwrap();
-	assert!(run_join(&pair, &w, &right, None, mono(30)).is_err());
-	assert!(run_join(&pair, &w, &right, None, mono(30 + 901)).is_ok());
+	// An identity that already failed is locked out by the channel budget.
+	let spent = Pair::new();
+	assert!(run_join(&spent, &w, &right, None, mono(30)).is_ok());
+	let again = Pair::new();
+	assert!(run_join(&again, &w, &wrong, None, mono(31)).is_err());
+	assert!(run_join(&again, &w, &right, None, mono(32)).is_err());
+	assert!(run_join(&again, &w, &right, None, mono(32 + 901)).is_ok());
 }
 
 #[test]
