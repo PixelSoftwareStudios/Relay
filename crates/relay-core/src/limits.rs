@@ -5,6 +5,9 @@ use std::time::Duration;
 
 use crate::error::LimitsError;
 
+/// Longest permitted owner grace.
+pub const OWNER_GRACE_MAX: Duration = Duration::from_secs(60);
+
 /// Hard maximum of the push-to-talk release delay.
 pub const PTT_RELEASE_DELAY_MAX: Duration = Duration::from_millis(2000);
 
@@ -33,6 +36,9 @@ pub struct Limits {
 	pub ptt_lease_max: Duration,
 	/// Initial push-to-talk release delay (hold after an ordinary key-up).
 	pub ptt_release_delay: Duration,
+	/// How long a call survives its owner being detached, so a reconnecting
+	/// client keeps it. Hard maximum 60 s.
+	pub owner_grace: Duration,
 	/// Distinct input sources one client may use.
 	pub input_sources_per_client: usize,
 	/// Terminal calls kept for idempotent answers.
@@ -63,6 +69,7 @@ impl Default for Limits {
 			ptt_lease_default: Duration::from_millis(300),
 			ptt_lease_max: Duration::from_millis(500),
 			ptt_release_delay: Duration::from_millis(200),
+			owner_grace: Duration::from_secs(3),
 			input_sources_per_client: 8,
 			retained_terminal_calls: 64,
 			glare_aliases: 64,
@@ -148,6 +155,11 @@ impl Limits {
 		if self.ptt_release_delay > PTT_RELEASE_DELAY_MAX {
 			return Err(LimitsError::OutOfRange {
 				name: "ptt_release_delay",
+			});
+		}
+		if self.owner_grace.is_zero() || self.owner_grace > OWNER_GRACE_MAX {
+			return Err(LimitsError::OutOfRange {
+				name: "owner_grace",
 			});
 		}
 		let timers = [

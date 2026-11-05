@@ -89,4 +89,6 @@ pub enum EndReason {
 	TeardownComplete,
 	/// A generation counter ran out.
 	GenerationExhausted,
+	/// The client that owned the call went away and nobody took it over.
+	OwnerGone,
 }

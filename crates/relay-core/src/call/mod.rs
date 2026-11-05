@@ -116,6 +116,8 @@ pub struct Call {
 	pub route_exhausted: bool,
 	/// What was last published to the media side.
 	pub published: Published,
+	/// When the call ends because nobody who owns it is attached.
+	pub orphan_at: Option<MonoTime>,
 }
 
 impl Call {
@@ -146,6 +148,7 @@ impl Call {
 			media_prepared: false,
 			route_exhausted: false,
 			published: Published::default(),
+			orphan_at: None,
 		}
 	}
 

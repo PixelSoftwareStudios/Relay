@@ -20,8 +20,18 @@ impl State {
 				self.complete_open(generation, CaptureState::Lost)
 			}
 			SystemEvent::CaptureLost { generation } => self.capture_lost(generation),
-			SystemEvent::PresenceChanged { attached } => {
-				self.attached = attached;
+			SystemEvent::TrackPresence => {
+				self.presence.get_or_insert_with(Default::default);
+				Ok(Reply::Done)
+			}
+			SystemEvent::Watching { client, watching } => {
+				if let Some(set) = self.presence.as_mut() {
+					if watching {
+						set.insert(client);
+					} else {
+						set.remove(&client);
+					}
+				}
 				Ok(Reply::Done)
 			}
 			SystemEvent::MediaPrepared { call, session } => {

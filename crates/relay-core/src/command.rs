@@ -214,11 +214,19 @@ pub enum SystemEvent {
 		/// The generation that was running.
 		generation: AudioGeneration,
 	},
-	/// Whether any client is attached (watching, or controlling a call). While
-	/// none is, inbound invitations are declined as busy and nothing rings.
-	PresenceChanged {
-		/// A client is attached.
-		attached: bool,
+	/// Start tracking which clients are attached. Until this arrives every
+	/// client counts as attached (hosts and tests without a notion of presence).
+	/// Afterwards nobody is attached until reported.
+	TrackPresence,
+	/// A client opened (`watching`) or closed its last state watch. A call is
+	/// owned by its controller; when the owner is not attached for the grace
+	/// period the call ends, and while nobody is attached inbound invitations
+	/// are declined as busy.
+	Watching {
+		/// The client.
+		client: ClientId,
+		/// It holds at least one open watch.
+		watching: bool,
 	},
 	/// Local media resources for a call are ready.
 	MediaPrepared {

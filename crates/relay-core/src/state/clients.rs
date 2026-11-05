@@ -34,6 +34,9 @@ impl State {
 			self.close_leases(call, InputFault::ClientGone);
 			self.lose_controller(call, InputFault::ClientGone);
 		}
+		if let Some(set) = self.presence.as_mut() {
+			set.remove(&client);
+		}
 		self.ops.purge_client(client);
 		self.push_event(Event::ClientDetached(client));
 	}

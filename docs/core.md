@@ -9,7 +9,7 @@ snapshot + watch contract with no gaps. No I/O, no clock reads, no Tokio.
 
 `State::apply(Input, MonoTime) -> Outcome { result, revision, duplicate, effects }`
 
-- `SystemEvent::PresenceChanged { attached }`: while no client is attached, an inbound invite is answered with the existing busy decline (`Reject::NotAttached`), creates no call and opens no capture. Calls already running are untouched. The default is attached (hosts without presence, tests); the engine reports it explicitly.
+- Presence and ownership (`state/owner.rs`): after `SystemEvent::TrackPresence`, `SystemEvent::Watching { client, watching }` says which clients hold an open state watch. A call is owned by the client holding its controller lease. A live call whose owner is not attached gets a grace timer (`Limits::owner_grace`, default 3 s, at most 60 s, folded into `next_deadline`); if it is still orphaned when it fires the call ends like a hangup (`EndReason::OwnerGone`: End or Decline{busy} to the peer, media stopped, capture closed, route reset). Re-attaching, or an attached client taking the lease over, keeps the call; other clients' calls are untouched; observers own nothing. A ringing incoming call has no owner and is declined once nobody at all is attached. While nobody is attached, an inbound invite is declined busy (`Reject::NotAttached`), creates no call and opens no capture. Without `TrackPresence` (tests, simple hosts) every client counts as attached and none of this applies.
 - `Input`: `Client(Request)`, `Disconnected`, `Peer(PeerEvent)`, `System(SystemEvent)`, `Tick`.
 - `Request { client, operation, command }`: deduplicated per `(client, operation)`.
 - `Effect`: adapter work (`GateUpdate`, `ReceiveMix`, `OpenCapture`/`CloseCapture`,

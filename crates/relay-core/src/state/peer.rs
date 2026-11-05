@@ -168,7 +168,7 @@ impl State {
 			return Ok(Reply::Done);
 		}
 		self.link_up(peer, now);
-		if !self.attached {
+		if !self.anyone_attached() {
 			// Nobody is home: answer as busy, ring nothing, open nothing.
 			let message = PeerMessage::Decline {
 				call,

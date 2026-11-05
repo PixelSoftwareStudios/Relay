@@ -10,6 +10,7 @@ mod clients;
 mod controller;
 mod flush;
 mod lifecycle;
+mod owner;
 mod peer;
 mod routing;
 mod watch;
@@ -88,9 +89,8 @@ pub struct State {
 	pub(crate) revision: Revision,
 	pub(crate) globals: Globals,
 	pub(crate) session: SessionFlags,
-	/// A client is attached. Hosts that have no notion of presence stay
-	/// attached (the default); the engine reports it explicitly.
-	pub(crate) attached: bool,
+	/// Clients holding an open watch; `None` while presence is not tracked.
+	pub(crate) presence: Option<BTreeSet<ClientId>>,
 	pub(crate) capture: Capture,
 	pub(crate) clients: BTreeMap<ClientId, ClientSession>,
 	pub(crate) links: BTreeSet<PeerId>,
@@ -125,7 +125,7 @@ impl State {
 				settings: SettingsRevision::ZERO,
 			},
 			session: SessionFlags::default(),
-			attached: true,
+			presence: None,
 			capture: Capture {
 				state: CaptureState::Closed,
 				generation: AudioGeneration::ZERO,
@@ -190,7 +190,8 @@ impl State {
 			.calls
 			.values()
 			.flat_map(|call| call.input_leases.values().map(|lease| lease.expires_at));
-		timers.chain(leases).min()
+		let orphans = self.calls.values().filter_map(|call| call.orphan_at);
+		timers.chain(leases).chain(orphans).min()
 	}
 
 	/// Processes one input at `now` and returns its outcome.
@@ -198,6 +199,7 @@ impl State {
 		self.ops.expire(now);
 		self.expire_leases(now);
 		self.run_timers(now);
+		self.end_orphans(now);
 		let mut duplicate = false;
 		let result = match input {
 			Input::Client(request) => {
@@ -213,6 +215,7 @@ impl State {
 			Input::System(event) => self.on_system(event),
 			Input::Tick => Ok(Reply::Done),
 		};
+		self.reconcile_owners(now);
 		self.finish(result, duplicate)
 	}
 
