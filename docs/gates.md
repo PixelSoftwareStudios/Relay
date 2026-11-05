@@ -62,7 +62,7 @@ A hardware or review gate is never marked met by a test that uses fakes.
 
 | Gate | Status | Evidence / what is needed |
 |---|---|---|
-| Reordering, wrap, loss, DTX-style gaps | met-by-test | relay-protocol `jitter_buffer::reordered_packets_within_margin_play_in_order`, `survives_sequence_and_timestamp_wrap`, `single_loss_is_concealed_then_resumes`, `deliberate_gap_is_silence_not_loss`; `jitter_props::invariants_hold_under_chaos`; `seq_extension.rs`; `rtp_oracle.rs`. |
+| Reordering, wrap, loss, DTX-style gaps | met-by-test | relay-protocol `jitter_buffer::reordered_packets_within_margin_play_in_order`, `survives_sequence_and_timestamp_wrap`, `single_loss_is_concealed_then_resumes`, `deliberate_gap_is_silence_not_loss`; `jitter_props::invariants_hold_under_chaos`; `seq_extension.rs`; `rtp_oracle.rs` (RFC 3550 reference model). |
 | Simulated drift at +-100 and +-300 ppm | met-by-test | relay-protocol `drift_sim::converges_for_each_simulated_drift`, `saturates_instead_of_chasing_excess_drift`. Simulation only; hardware clock behaviour is unmeasured. |
 | Late packets cannot grow playout delay past the bound | met-by-test | relay-protocol `jitter_buffer::late_packet_is_dropped_and_does_not_grow_delay`, `stall_burst_keeps_delay_bounded`. |
 

@@ -10,8 +10,8 @@ Opus frame per packet (10 ms = 480 ticks, 20 ms = 960). No CSRC, extension
 or padding: such packets are rejected with a typed `RtpError`. Payload is
 1..=1000 bytes. The marker bit flags the first packet of a talk spurt.
 `RtpProfile::parse` borrows the payload from the datagram; `write` serializes
-into a caller buffer. The `rtp` crate is used only as a differential test
-oracle.
+into a caller buffer. Differential tests compare against an independent RFC 3550 reference
+model and fixed known-answer vectors; no third-party RTP crate is used.
 
 ## Counters
 
