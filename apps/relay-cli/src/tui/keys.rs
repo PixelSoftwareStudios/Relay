@@ -3,6 +3,7 @@
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use relay_api::pb::{DeviceDirection, TransmitMode};
 
+use super::messages::{Handled, MsgCommand};
 use super::model::{Model, Prompt, Tab};
 use crate::client::{CallAction, PttAction, PttRequest};
 
@@ -34,6 +35,8 @@ pub enum TuiCommand {
 		device_id: String,
 	},
 	Ptt(PttRequest),
+	/// The Messages tab asks the daemon (or the clipboard) for something.
+	Messages(MsgCommand),
 }
 
 /// Handle one key; returns the engine command it asks for, if any.
@@ -48,11 +51,22 @@ pub fn handle_key(model: &mut Model, key: KeyEvent) -> Option<TuiCommand> {
 		model.quit = true;
 		return None;
 	}
+	if model.tab == Tab::Messages {
+		match super::messages::keys::handle(&mut model.messages, key) {
+			Handled::Pass => {}
+			Handled::Done(command, status) => {
+				if let Some(status) = status {
+					model.status = status;
+				}
+				return command.map(TuiCommand::Messages);
+			}
+		}
+	}
 	match key.code {
 		KeyCode::Char('q') | KeyCode::Esc => model.quit = true,
 		KeyCode::Tab | KeyCode::Right => switch_tab(model, 1),
 		KeyCode::BackTab | KeyCode::Left => switch_tab(model, -1),
-		KeyCode::Char(c @ '1'..='4') => {
+		KeyCode::Char(c @ '1'..='5') => {
 			model.tab = Tab::ALL[usize::from(c as u8 - b'1')];
 		}
 		KeyCode::Down | KeyCode::Char('j') => model.move_selection(1),
@@ -243,6 +257,6 @@ fn activate(model: &mut Model) -> Option<TuiCommand> {
 			3 => Some(TuiCommand::SetDeafened(!deafened(model))),
 			_ => None,
 		},
-		Tab::Calls => None,
+		Tab::Calls | Tab::Messages => None,
 	}
 }

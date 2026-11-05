@@ -73,7 +73,13 @@ impl RealClient {
 
 	/// Open a second registered connection to the same engine.
 	pub async fn duplicate(&self) -> Result<Self, ApiError> {
-		Self::open(&self.endpoint, self.takeover, self.timeout, self.capabilities).await
+		Self::open(
+			&self.endpoint,
+			self.takeover,
+			self.timeout,
+			self.capabilities,
+		)
+		.await
 	}
 
 	async fn open(

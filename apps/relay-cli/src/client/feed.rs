@@ -31,6 +31,8 @@ pub enum Update {
 	Hotkey(HotkeyUpdate),
 	/// Link state changed.
 	Connection(ConnectionState),
+	/// Session messaging, from the separate messages connection.
+	Messages(Box<crate::tui::messages::MsgUpdate>),
 }
 
 /// Whether the error means "open a fresh watch" rather than "give up for now".

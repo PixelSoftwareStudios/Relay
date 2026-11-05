@@ -78,8 +78,10 @@ pub fn footer(frame: &mut Frame, area: Rect, model: &Model) {
 		format!("Allow the microphone on this call ({mode})? y = allow, any other key = no")
 	} else if !model.status.is_empty() {
 		model.status.clone()
+	} else if model.tab == Tab::Messages {
+		crate::tui::messages::view::hints(&model.messages).to_owned()
 	} else {
-		"tab/1-4 switch  j/k move  enter act  c call  a/x/e accept/decline/end  t route  space ptt  m mute  d deafen  q quit".to_owned()
+		"tab/1-5 switch  j/k move  enter act  c call  a/x/e accept/decline/end  t route  space ptt  m mute  d deafen  q quit".to_owned()
 	};
 	frame.render_widget(
 		Paragraph::new(text).style(Style::new().fg(Color::DarkGray)),

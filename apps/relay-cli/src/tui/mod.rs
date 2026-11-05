@@ -7,9 +7,10 @@
 pub mod app;
 pub mod exec;
 pub mod keys;
+pub mod messages;
 pub mod model;
 pub mod view;
 
-pub use app::{drive, run};
+pub use app::{MessagesPort, drive, drive_with, run};
 pub use keys::TuiCommand;
 pub use model::{Model, Prompt, Tab};

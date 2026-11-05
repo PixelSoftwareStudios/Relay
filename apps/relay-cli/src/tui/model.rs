@@ -6,6 +6,7 @@ use relay_api::pb::{Call, Device, OperationState, Peer, Problem, Snapshot, Telem
 
 use relay_platform::ptt::PttState;
 
+use super::messages::MessagesState;
 use crate::client::{ConnectionState, Update};
 use crate::commands::names;
 use crate::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
@@ -17,11 +18,18 @@ pub enum Tab {
 	Calls,
 	Devices,
 	Settings,
+	Messages,
 }
 
 impl Tab {
 	/// All tabs in display order.
-	pub const ALL: [Tab; 4] = [Tab::Peers, Tab::Calls, Tab::Devices, Tab::Settings];
+	pub const ALL: [Tab; 5] = [
+		Tab::Peers,
+		Tab::Calls,
+		Tab::Devices,
+		Tab::Settings,
+		Tab::Messages,
+	];
 
 	/// Title shown in the tab bar.
 	pub fn title(self) -> &'static str {
@@ -30,6 +38,7 @@ impl Tab {
 			Tab::Calls => "Calls",
 			Tab::Devices => "Devices",
 			Tab::Settings => "Settings",
+			Tab::Messages => "Messages",
 		}
 	}
 
@@ -62,7 +71,9 @@ pub struct Model {
 	/// Which call the hotkey controls.
 	pub ptt_target: Option<TargetStatus>,
 	pub tab: Tab,
-	pub selected: [usize; 4],
+	pub selected: [usize; 5],
+	/// The Messages tab: sessions, transcripts, compose box.
+	pub messages: MessagesState,
 	pub telemetry: Option<TelemetrySnapshot>,
 	pub status: String,
 	pub prompt: Option<Prompt>,
@@ -88,7 +99,8 @@ impl Model {
 			ptt: PttState::Idle,
 			ptt_target: None,
 			tab: Tab::Peers,
-			selected: [0; 4],
+			selected: [0; 5],
+			messages: MessagesState::default(),
 			telemetry: None,
 			status: String::new(),
 			prompt: None,
@@ -122,6 +134,7 @@ impl Model {
 			Tab::Calls => self.live_calls().len(),
 			Tab::Devices => self.snapshot.devices.len(),
 			Tab::Settings => 5,
+			Tab::Messages => 0,
 		}
 	}
 
@@ -168,6 +181,7 @@ impl Model {
 		match update {
 			Update::Connection(state) => self.connection = state,
 			Update::Telemetry(sample) => self.telemetry = Some(sample),
+			Update::Messages(update) => self.messages.apply(*update),
 			Update::Hotkey(update) => match update {
 				HotkeyUpdate::Report(report) => self.hotkey = report,
 				HotkeyUpdate::Ptt(state) => self.ptt = state,

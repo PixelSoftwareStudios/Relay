@@ -10,10 +10,12 @@ use ratatui::backend::Backend;
 use tokio::sync::{mpsc, oneshot};
 
 use super::keys::{self, TuiCommand};
+use super::messages::{self, Link, MsgCommand};
 use super::model::Model;
 use super::{exec, view};
 use crate::cli::{CliError, GlobalArgs};
-use crate::client::{self, Control, RealClient, Update};
+use crate::client::{self, Control, Messaging, RealClient, Update};
+use crate::commands::clipboard::{Clipboard, SystemClipboard};
 use crate::hotkey::{HotkeyFeed, HotkeyReport, HotkeyUpdate, run_against_engine};
 
 /// Interval of the push-to-talk lease renewal and periodic redraw.
@@ -25,10 +27,34 @@ fn terminal_error(e: impl std::fmt::Debug) -> CliError {
 	CliError::Other(anyhow::anyhow!("terminal error: {e:?}"))
 }
 
-/// Run the UI until quit, the event source ends or the update feed closes.
+/// The Messages tab's way to the daemon: its own `messages` connection and the clipboard.
+pub struct MessagesPort<'a, M: Messaging> {
+	pub client: &'a mut M,
+	pub clipboard: &'a mut dyn Clipboard,
+}
+
+/// Most queued updates applied between two redraws, so a burst costs one frame.
+const BATCH: usize = 256;
+
+/// Run the UI without a messages connection (the Messages tab says so).
 pub async fn drive<C: Control, B: Backend>(
 	terminal: &mut Terminal<B>,
 	client: &mut C,
+	model: &mut Model,
+	updates: &mut mpsc::Receiver<Update>,
+	events: &mut mpsc::Receiver<Event>,
+) -> Result<(), CliError>
+where
+	B::Error: std::fmt::Debug,
+{
+	drive_with::<C, B, RealClient>(terminal, client, None, model, updates, events).await
+}
+
+/// Run the UI until quit, the event source ends or the update feed closes.
+pub async fn drive_with<C: Control, B: Backend, M: Messaging>(
+	terminal: &mut Terminal<B>,
+	client: &mut C,
+	mut port: Option<MessagesPort<'_, M>>,
 	model: &mut Model,
 	updates: &mut mpsc::Receiver<Update>,
 	events: &mut mpsc::Receiver<Event>,
@@ -56,14 +82,25 @@ where
 			update = updates.recv() => match update {
 				Some(update) => {
 					model.apply(update);
+					// Coalesce a burst into this one redraw.
+					for _ in 0..BATCH {
+						match updates.try_recv() {
+							Ok(more) => model.apply(more),
+							Err(_) => break,
+						}
+					}
 					None
 				}
 				None => return Ok(()),
 			},
 			_ = ticker.tick() => keys::on_tick(model),
 		};
-		if let Some(command) = command {
-			run_command(client, model, command).await;
+		match command {
+			Some(TuiCommand::Messages(command)) => {
+				run_messages(port.as_mut(), model, command).await;
+			}
+			Some(command) => run_command(client, model, command).await,
+			None => {}
 		}
 	}
 }
@@ -72,6 +109,35 @@ async fn run_command<C: Control>(client: &mut C, model: &mut Model, command: Tui
 	match exec::execute(client, command).await {
 		Ok(status) if !status.is_empty() => model.status = status,
 		Ok(_) => {}
+		Err(err) => model.status = err.to_string(),
+	}
+}
+
+async fn run_messages<M: Messaging>(
+	port: Option<&mut MessagesPort<'_, M>>,
+	model: &mut Model,
+	command: MsgCommand,
+) {
+	let Some(port) = port else {
+		model.status = "messages are unavailable on this connection".into();
+		return;
+	};
+	match messages::exec::execute(&mut *port.client, &mut *port.clipboard, command).await {
+		Ok(outcome) => {
+			model.status = outcome.status;
+			if outcome.sent {
+				model.messages.compose.clear();
+			}
+			if let Some((session, hits)) = outcome.hits
+				&& let Some(pane) = model
+					.messages
+					.sessions
+					.iter_mut()
+					.find(|p| p.summary.session_id == session)
+			{
+				pane.hits = hits;
+			}
+		}
 		Err(err) => model.status = err.to_string(),
 	}
 }
@@ -101,10 +167,33 @@ pub async fn run(global: &GlobalArgs, hotkeys: HotkeyFeed) -> Result<(), CliErro
 	let reader = spawn_key_reader(event_tx, Arc::clone(&stop));
 
 	let mut model = Model::new();
+	// The messages connection is separate and asks for `messages` only; without it the
+	// rest of the UI works and the Messages tab says why it cannot.
+	let mut messaging = match client::connect_existing_messages(global).await {
+		Ok(commands) => match commands.duplicate().await {
+			Ok(feed) => {
+				tokio::spawn(client::run_session_feed(feed, update_tx.clone(), RETRY));
+				Some(commands)
+			}
+			Err(err) => {
+				model.messages.link = Link::Unavailable(err.to_string());
+				None
+			}
+		},
+		Err(err) => {
+			model.messages.link = Link::Unavailable(err.to_string());
+			None
+		}
+	};
+	let mut clipboard = SystemClipboard;
 	let mut terminal = ratatui::init();
-	let result = drive(
+	let result = drive_with(
 		&mut terminal,
 		&mut client,
+		messaging.as_mut().map(|client| MessagesPort {
+			client,
+			clipboard: &mut clipboard,
+		}),
 		&mut model,
 		&mut updates,
 		&mut events,

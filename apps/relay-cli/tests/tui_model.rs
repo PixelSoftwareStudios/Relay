@@ -126,6 +126,8 @@ fn navigation_keys_switch_tabs_and_move_selection() {
 	handle_key(&mut m, KeyEvent::new(KeyCode::Tab, KeyModifiers::NONE));
 	assert_eq!(m.tab, Tab::Settings);
 	handle_key(&mut m, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
+	assert_eq!(m.tab, Tab::Messages);
+	handle_key(&mut m, KeyEvent::new(KeyCode::Right, KeyModifiers::NONE));
 	assert_eq!(m.tab, Tab::Peers, "wraps around");
 	handle_key(&mut m, key('j'));
 	assert_eq!(m.selection(Tab::Peers), 1);

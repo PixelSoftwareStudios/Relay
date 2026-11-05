@@ -9,6 +9,7 @@ mod manage;
 mod messaging;
 mod real;
 mod requests;
+mod session_feed;
 
 use std::future::Future;
 
@@ -16,13 +17,14 @@ use relay_api::ApiError;
 use relay_api::pb::{EngineInfo, Operation, Snapshot, TelemetrySnapshot};
 use relay_api::{Endpoint, WatchItem};
 
-pub use feed::{ConnectionState, Update, run_state_feed, run_telemetry_feed};
 pub(crate) use feed::needs_resync;
+pub use feed::{ConnectionState, Update, run_state_feed, run_telemetry_feed};
 pub use manage::{ChannelRef, Credential, Manage};
 pub use messaging::{Messaging, RealSessionWatch};
 pub use real::RealClient;
 pub use relay_client::{CallAction, CallTarget};
 pub use requests::{CallControls, GlobalControls, PttAction, PttRequest, TrustDecision};
+pub use session_feed::run_session_feed;
 
 use crate::cli::{CliError, GlobalArgs, endpoint};
 
@@ -123,6 +125,18 @@ pub async fn connect(global: &GlobalArgs) -> Result<RealClient, CliError> {
 pub async fn connect_messages(global: &GlobalArgs) -> Result<RealClient, CliError> {
 	let endpoint = endpoint::resolve(global)?;
 	autostart(&endpoint, global).await?;
+	RealClient::connect_messages(&endpoint, global)
+		.await
+		.map_err(|source| CliError::Unreachable {
+			endpoint: endpoint::describe(&endpoint),
+			source,
+		})
+}
+
+/// The messages connection of the TUI: the daemon is already running (the main connection
+/// started it), so this never starts one.
+pub async fn connect_existing_messages(global: &GlobalArgs) -> Result<RealClient, CliError> {
+	let endpoint = endpoint::resolve(global)?;
 	RealClient::connect_messages(&endpoint, global)
 		.await
 		.map_err(|source| CliError::Unreachable {

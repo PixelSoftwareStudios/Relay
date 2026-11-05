@@ -26,6 +26,7 @@ pub fn draw(frame: &mut Frame, model: &Model) {
 		Tab::Calls => calls::calls(frame, body, model),
 		Tab::Devices => lists::devices(frame, body, model),
 		Tab::Settings => lists::settings(frame, body, model),
+		Tab::Messages => super::messages::view::draw(frame, body, &model.messages),
 	}
 	header::footer(frame, foot, model);
 }

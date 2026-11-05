@@ -65,6 +65,11 @@ pub async fn execute<C: Control>(client: &mut C, command: TuiCommand) -> Result<
 			};
 			client.select_devices(&input, &output).await?
 		}
+		TuiCommand::Messages(_) => {
+			return Err(CliError::Usage(
+				"messages commands run on the messages connection".into(),
+			));
+		}
 		TuiCommand::Ptt(request) => {
 			client.ptt(request).await?;
 			return Ok(String::new());
