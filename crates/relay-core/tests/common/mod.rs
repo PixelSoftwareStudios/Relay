@@ -1,5 +1,7 @@
 #![allow(dead_code)]
 
+use std::time::Duration;
+
 use relay_core::testing::{Node, device_key};
 use relay_core::*;
 
@@ -17,7 +19,16 @@ pub struct Fixture {
 
 impl Fixture {
 	pub fn new() -> Self {
-		let mut node = Node::new(0xA0);
+		Self::with_release_delay(Duration::ZERO)
+	}
+
+	/// A fixture whose push-to-talk release delay is `delay`.
+	pub fn with_release_delay(delay: Duration) -> Self {
+		let limits = Limits {
+			ptt_release_delay: delay,
+			..Limits::default()
+		};
+		let mut node = Node::with_limits(0xA0, limits);
 		let client = node.attach_client();
 		let (call, lease) = activate(&mut node, client, peer());
 		Self {
@@ -51,6 +62,7 @@ impl Fixture {
 			sequence,
 			pressed,
 			ttl: None,
+			immediate: false,
 		};
 		self.cmd(Command::Ptt(update))
 	}

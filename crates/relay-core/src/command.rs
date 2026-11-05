@@ -102,6 +102,8 @@ pub enum Command {
 		deafened: Option<bool>,
 		/// New master output gain, if changing.
 		output_gain: Option<Gain>,
+		/// New push-to-talk release delay (at most 2000 ms), if changing.
+		ptt_release_delay: Option<Duration>,
 		/// Reject if settings changed since this revision.
 		expected: Option<SettingsRevision>,
 	},
@@ -126,6 +128,9 @@ pub struct PttUpdate {
 	pub pressed: bool,
 	/// Requested lease length; clamped to the hard maximum.
 	pub ttl: Option<Duration>,
+	/// Release only: close at once, skipping the release delay. Set for
+	/// source retirement and stream closure; an ordinary key-up leaves it off.
+	pub immediate: bool,
 }
 
 /// Events from the peer-link adapter.

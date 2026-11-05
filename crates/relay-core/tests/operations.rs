@@ -222,6 +222,7 @@ fn queue_overflow_rejects_but_safety_denies_bypass_it() {
 		muted: Some(true),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: None,
 	};
 	match engine.submit(next(mute), now) {

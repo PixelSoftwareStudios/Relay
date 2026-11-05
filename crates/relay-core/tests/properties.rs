@@ -36,6 +36,8 @@ enum Step {
 	Resume,
 	Session(u8),
 	Advance(u16),
+	SetDelay(u16),
+	PttImmediate(u8, u8, u8),
 }
 
 fn step() -> impl Strategy<Value = Step> {
@@ -68,6 +70,8 @@ fn step() -> impl Strategy<Value = Step> {
 		1 => Just(Step::Resume),
 		1 => (0u8..4).prop_map(Step::Session),
 		4 => (0u16..400).prop_map(Step::Advance),
+		2 => (0u16..2100).prop_map(Step::SetDelay),
+		2 => (idx.clone(), idx.clone(), 0u8..3).prop_map(|(c, k, s)| Step::PttImmediate(c, k, s)),
 	]
 }
 
@@ -207,6 +211,7 @@ impl World {
 						sequence,
 						pressed,
 						ttl: None,
+						immediate: false,
 					};
 					drop(self.node.command(self.client(c), Command::Ptt(update)));
 				}
@@ -229,6 +234,7 @@ impl World {
 					muted: Some(muted),
 					deafened: Some(deafened),
 					output_gain: None,
+					ptt_release_delay: None,
 					expected: None,
 				};
 				drop(self.node.command(self.client(0), cmd));
@@ -279,6 +285,34 @@ impl World {
 				self.node.feed(Input::System(SystemEvent::Session(event)));
 			}
 			Step::Advance(ms) => drop(self.node.advance(u64::from(ms))),
+			Step::SetDelay(ms) => {
+				let delay = std::time::Duration::from_millis(u64::from(ms));
+				let command = Command::SetGlobalControls {
+					muted: None,
+					deafened: None,
+					output_gain: None,
+					ptt_release_delay: Some(delay),
+					expected: None,
+				};
+				drop(self.node.command(self.client(0), command));
+			}
+			Step::PttImmediate(c, k, s) => {
+				if let Some(call) = self.call(k) {
+					let next = self.seq.entry((c, s)).or_insert(0);
+					*next += 1;
+					let sequence = *next;
+					let update = PttUpdate {
+						call,
+						lease: self.lease(call, false),
+						source: InputSourceId::new(u64::from(s)),
+						sequence,
+						pressed: false,
+						ttl: None,
+						immediate: true,
+					};
+					drop(self.node.command(self.client(c), Command::Ptt(update)));
+				}
+			}
 		}
 	}
 
@@ -313,6 +347,10 @@ impl World {
 				if view.route.mode == RouteMode::PushToTalk {
 					assert!(view.ptt_held);
 				}
+			}
+			if view.releasing {
+				// A pending hold only exists while every deny condition is clear.
+				assert!(view.gate.open, "hold survived a deny");
 			}
 			if view.ptt_held {
 				assert_eq!(view.route.mode, RouteMode::PushToTalk);

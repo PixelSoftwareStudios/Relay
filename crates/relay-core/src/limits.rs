@@ -5,6 +5,9 @@ use std::time::Duration;
 
 use crate::error::LimitsError;
 
+/// Hard maximum of the push-to-talk release delay.
+pub const PTT_RELEASE_DELAY_MAX: Duration = Duration::from_millis(2000);
+
 /// Bounds enforced by the state owner.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Limits {
@@ -28,6 +31,8 @@ pub struct Limits {
 	pub ptt_lease_default: Duration,
 	/// Hard maximum push-to-talk lease length.
 	pub ptt_lease_max: Duration,
+	/// Initial push-to-talk release delay (hold after an ordinary key-up).
+	pub ptt_release_delay: Duration,
 	/// Distinct input sources one client may use.
 	pub input_sources_per_client: usize,
 	/// Terminal calls kept for idempotent answers.
@@ -57,6 +62,7 @@ impl Default for Limits {
 			operation_retention: Duration::from_secs(600),
 			ptt_lease_default: Duration::from_millis(300),
 			ptt_lease_max: Duration::from_millis(500),
+			ptt_release_delay: Duration::from_millis(200),
 			input_sources_per_client: 8,
 			retained_terminal_calls: 64,
 			glare_aliases: 64,
@@ -138,6 +144,11 @@ impl Limits {
 			if value.is_zero() || value > max {
 				return Err(LimitsError::OutOfRange { name });
 			}
+		}
+		if self.ptt_release_delay > PTT_RELEASE_DELAY_MAX {
+			return Err(LimitsError::OutOfRange {
+				name: "ptt_release_delay",
+			});
 		}
 		let timers = [
 			("link_setup_timeout", self.link_setup_timeout),

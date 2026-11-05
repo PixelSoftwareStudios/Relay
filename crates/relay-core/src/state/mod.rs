@@ -15,6 +15,7 @@ mod routing;
 mod watch;
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::time::Duration;
 
 use crate::call::{Call, Gain};
 use crate::command::{Command, Input, Request};
@@ -25,7 +26,7 @@ use crate::id::{
 	AudioGeneration, CallId, ClientId, ControllerLeaseId, Incarnation, InputLeaseId, InputSourceId,
 	OperationId, PeerId, Revision, SettingsRevision,
 };
-use crate::limits::Limits;
+use crate::limits::{Limits, PTT_RELEASE_DELAY_MAX};
 use crate::ops::{Lookup, OperationCache, OperationRecord};
 use crate::outcome::{OpResult, Outcome, Reply};
 use crate::time::MonoTime;
@@ -37,6 +38,7 @@ pub(crate) struct Globals {
 	pub muted: bool,
 	pub deafened: bool,
 	pub output_gain: Gain,
+	pub ptt_release_delay: Duration,
 	pub settings: SettingsRevision,
 }
 
@@ -116,6 +118,7 @@ impl State {
 				muted: false,
 				deafened: false,
 				output_gain: Gain::UNITY,
+				ptt_release_delay: limits.ptt_release_delay,
 				settings: SettingsRevision::ZERO,
 			},
 			session: SessionFlags::default(),
@@ -271,8 +274,9 @@ impl State {
 				muted,
 				deafened,
 				output_gain,
+				ptt_release_delay,
 				expected,
-			} => self.set_global_controls(muted, deafened, output_gain, expected),
+			} => self.set_global_controls(muted, deafened, output_gain, ptt_release_delay, expected),
 			Command::ResumeCapture => self.resume_capture(),
 			Command::Ptt(update) => self.ptt(client, update, now),
 		}
@@ -283,8 +287,12 @@ impl State {
 		muted: Option<bool>,
 		deafened: Option<bool>,
 		output_gain: Option<Gain>,
+		release_delay: Option<Duration>,
 		expected: Option<SettingsRevision>,
 	) -> OpResult {
+		if release_delay.is_some_and(|delay| delay > PTT_RELEASE_DELAY_MAX) {
+			return Err(Reject::InvalidReleaseDelay);
+		}
 		if let Some(expected) = expected
 			&& expected != self.globals.settings
 		{
@@ -296,14 +304,20 @@ impl State {
 			self.globals.muted,
 			self.globals.deafened,
 			self.globals.output_gain,
+			self.globals.ptt_release_delay,
 		);
 		let g = &mut self.globals;
 		g.muted = muted.unwrap_or(g.muted);
 		g.deafened = deafened.unwrap_or(g.deafened);
 		g.output_gain = output_gain.unwrap_or(g.output_gain);
-		if before != (g.muted, g.deafened, g.output_gain) {
+		g.ptt_release_delay = release_delay.unwrap_or(g.ptt_release_delay);
+		if before != (g.muted, g.deafened, g.output_gain, g.ptt_release_delay) {
 			g.settings = g.settings.next().unwrap_or(g.settings);
 			self.scratch.dirty_global = true;
+		}
+		// A mute or deafen is a deny: it ends any pending release hold.
+		if g.muted || g.deafened {
+			self.cancel_all_holds();
 		}
 		Ok(Reply::Done)
 	}
@@ -313,6 +327,7 @@ impl State {
 			muted: self.globals.muted,
 			deafened: self.globals.deafened,
 			output_gain: self.globals.output_gain,
+			ptt_release_delay: self.globals.ptt_release_delay,
 			settings: self.globals.settings,
 			locked: self.session.locked,
 			suspended: self.session.suspended,

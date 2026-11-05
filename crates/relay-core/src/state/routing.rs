@@ -6,6 +6,7 @@ use crate::command::PttUpdate;
 use crate::error::Reject;
 use crate::event::{Event, InputFault};
 use crate::id::{CallId, ClientId, ControllerLeaseId};
+use crate::limits::PTT_RELEASE_DELAY_MAX;
 use crate::outcome::{OpResult, Reply};
 use crate::time::MonoTime;
 
@@ -71,8 +72,12 @@ impl State {
 		entry.controls.muted = muted.unwrap_or(before.muted);
 		entry.controls.deafened = deafened.unwrap_or(before.deafened);
 		entry.controls.gain = gain.unwrap_or(before.gain);
+		let denied = entry.controls.muted || entry.controls.deafened;
 		if entry.controls != before {
 			self.mark_dirty(id);
+		}
+		if denied {
+			self.cancel_holds(id);
 		}
 		Ok(Reply::Done)
 	}
@@ -92,7 +97,7 @@ impl State {
 			self.ptt_press(client, update, now)
 		} else {
 			self.record_sequence(client, &update);
-			self.ptt_release(client, &update);
+			self.ptt_release(client, &update, now);
 			Ok(Reply::Done)
 		}
 	}
@@ -104,14 +109,53 @@ impl State {
 	}
 
 	/// Release always takes effect, even if the call or lease is stale.
-	fn ptt_release(&mut self, client: ClientId, update: &PttUpdate) {
+	///
+	/// An ordinary key-up on an open gate holds the lease for the release
+	/// delay; an immediate release (source retirement) closes at once.
+	fn ptt_release(&mut self, client: ClientId, update: &PttUpdate, now: MonoTime) {
 		let id = self.resolve(update.call);
-		let removed = self
-			.calls
-			.get_mut(&id)
-			.is_some_and(|call| call.input_leases.remove(&(client, update.source)).is_some());
-		if removed {
+		let key = (client, update.source);
+		let delay = self.globals.ptt_release_delay.min(PTT_RELEASE_DELAY_MAX);
+		let hold = !update.immediate
+			&& !delay.is_zero()
+			&& self
+				.calls
+				.get(&id)
+				.is_some_and(|call| self.gate_snapshot(call).open);
+		let Some(call) = self.calls.get_mut(&id) else {
+			return;
+		};
+		let changed = match call.input_leases.get_mut(&key) {
+			None => false,
+			Some(lease) if hold && lease.holding => false,
+			Some(lease) if hold => {
+				lease.holding = true;
+				lease.expires_at = now.saturating_add(delay);
+				true
+			}
+			Some(_) => call.input_leases.remove(&key).is_some(),
+		};
+		if changed {
 			self.mark_dirty(id);
+		}
+	}
+
+	/// Ends pending release holds on a call without touching held keys.
+	pub(crate) fn cancel_holds(&mut self, id: CallId) {
+		let Some(call) = self.calls.get_mut(&id) else {
+			return;
+		};
+		let before = call.input_leases.len();
+		call.input_leases.retain(|_, lease| !lease.holding);
+		if call.input_leases.len() != before {
+			self.mark_dirty(id);
+		}
+	}
+
+	pub(crate) fn cancel_all_holds(&mut self) {
+		let ids: Vec<CallId> = self.calls.keys().copied().collect();
+		for id in ids {
+			self.cancel_holds(id);
 		}
 	}
 
@@ -137,6 +181,10 @@ impl State {
 		}
 		let (route_generation, key) = (entry.route_generation, (client, update.source));
 		let existing = entry.input_leases.get(&key).map(|lease| lease.id);
+		let was_holding = entry
+			.input_leases
+			.get(&key)
+			.is_some_and(|lease| lease.holding);
 		let lease_id = existing.unwrap_or(self.next_input);
 		if existing.is_none() {
 			self.next_input = lease_id.next().unwrap_or(lease_id);
@@ -154,9 +202,10 @@ impl State {
 				expires_at,
 				controller: update.lease,
 				route_generation,
+				holding: false,
 			},
 		);
-		if existing.is_none() {
+		if existing.is_none() || was_holding {
 			self.mark_dirty(id);
 		}
 		Ok(Reply::Input {
@@ -166,22 +215,35 @@ impl State {
 	}
 
 	/// Kills every lease whose expiry has passed. A missed refresh is an early
-	/// mute, never a stuck-open microphone.
+	/// mute, never a stuck-open microphone. A hold that runs out is the normal
+	/// end of a release delay; a stalled press also cancels pending holds.
 	pub(super) fn expire_leases(&mut self, now: MonoTime) {
-		let mut expired = Vec::new();
+		let mut stalled = Vec::new();
+		let mut changed = Vec::new();
 		for call in self.calls.values_mut() {
 			let before = call.input_leases.len();
-			call.input_leases.retain(|_, lease| lease.expires_at > now);
+			let mut stale = false;
+			call.input_leases.retain(|_, lease| {
+				let live = lease.expires_at > now;
+				stale |= !live && !lease.holding;
+				live
+			});
+			if stale {
+				stalled.push(call.id);
+			}
 			if call.input_leases.len() != before {
-				expired.push(call.id);
+				changed.push(call.id);
 			}
 		}
-		for id in expired {
-			self.mark_dirty(id);
+		for id in stalled {
+			self.cancel_holds(id);
 			self.push_event(Event::InputFault {
 				call: id,
 				fault: InputFault::Expired,
 			});
+		}
+		for id in changed {
+			self.mark_dirty(id);
 		}
 	}
 }

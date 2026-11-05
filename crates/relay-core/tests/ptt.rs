@@ -64,6 +64,7 @@ fn requested_ttl_is_clamped_to_the_hard_maximum() {
 		sequence: 1,
 		pressed: true,
 		ttl: Some(Duration::from_secs(60)),
+		immediate: false,
 	};
 	let Ok(Reply::Input { expires_at, .. }) = f.cmd(Command::Ptt(update)) else {
 		panic!("press failed");
@@ -72,6 +73,7 @@ fn requested_ttl_is_clamped_to_the_hard_maximum() {
 	let zero = PttUpdate {
 		sequence: 2,
 		ttl: Some(Duration::ZERO),
+		immediate: false,
 		..update
 	};
 	assert_eq!(f.cmd(Command::Ptt(zero)), Err(Reject::InvalidTtl));
@@ -189,6 +191,7 @@ fn global_mute_wins_over_a_held_press() {
 		muted: Some(true),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: None,
 	})
 	.unwrap();

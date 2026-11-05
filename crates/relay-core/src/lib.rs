@@ -35,7 +35,7 @@ pub use event::{
 };
 pub use gate::{DenyReason, GateDecision, GateInputs, evaluate};
 pub use id::*;
-pub use limits::Limits;
+pub use limits::{Limits, PTT_RELEASE_DELAY_MAX};
 pub use ops::OperationRecord;
 pub use outcome::{OpResult, Outcome, Reply};
 pub use state::State;

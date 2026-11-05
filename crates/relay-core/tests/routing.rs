@@ -95,6 +95,7 @@ fn every_deny_wins_over_open_mic() {
 		muted: Some(true),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: None,
 	})
 	.unwrap();
@@ -113,6 +114,7 @@ fn every_deny_wins_over_open_mic() {
 		muted: Some(false),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: None,
 	})
 	.unwrap();
@@ -137,6 +139,7 @@ fn deafen_suppresses_receive_and_transmit_and_preserves_mute() {
 		muted,
 		deafened,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: None,
 	};
 	f.cmd(global(Some(true), None)).unwrap();
@@ -279,6 +282,7 @@ fn global_settings_conflict_is_reported_with_current_revision() {
 		muted: Some(true),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: Some(stale),
 	})
 	.unwrap();
@@ -286,6 +290,7 @@ fn global_settings_conflict_is_reported_with_current_revision() {
 		muted: Some(false),
 		deafened: None,
 		output_gain: None,
+		ptt_release_delay: None,
 		expected: Some(stale),
 	});
 	assert!(matches!(result, Err(Reject::SettingsConflict { current }) if current > stale));

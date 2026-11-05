@@ -44,6 +44,8 @@ pub struct InputLease {
 	pub controller: ControllerLeaseId,
 	/// The route generation it was issued under.
 	pub route_generation: RouteGeneration,
+	/// The key was released normally; the gate stays open until `expires_at`.
+	pub holding: bool,
 }
 
 /// What a pending deadline is waiting for.

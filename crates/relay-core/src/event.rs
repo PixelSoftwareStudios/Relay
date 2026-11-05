@@ -4,6 +4,7 @@
 //! trivial and any gap is detectable from the revision alone.
 
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::time::Duration;
 
 use thiserror::Error;
 
@@ -36,6 +37,8 @@ pub struct GlobalView {
 	pub deafened: bool,
 	/// Master output gain.
 	pub output_gain: Gain,
+	/// Push-to-talk release delay.
+	pub ptt_release_delay: Duration,
 	/// Settings revision.
 	pub settings: SettingsRevision,
 	/// Desktop locked.
@@ -82,6 +85,8 @@ pub struct CallView {
 	pub controls: CallControls,
 	/// A push-to-talk lease is live.
 	pub ptt_held: bool,
+	/// Every live lease is in its release hold (key already up).
+	pub releasing: bool,
 	/// Gate state.
 	pub gate: GateView,
 }
@@ -101,6 +106,8 @@ impl CallView {
 			route_generation: call.route_generation,
 			controls: call.controls,
 			ptt_held: !call.input_leases.is_empty(),
+			releasing: !call.input_leases.is_empty()
+				&& call.input_leases.values().all(|lease| lease.holding),
 			gate: GateView {
 				open: gate.is_some_and(|g| g.open),
 				deny: gate.and_then(|g| g.deny),

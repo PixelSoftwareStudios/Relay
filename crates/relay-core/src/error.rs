@@ -88,6 +88,9 @@ pub enum Reject {
 	/// The requested lease length is zero.
 	#[error("invalid lease duration")]
 	InvalidTtl,
+	/// The release delay exceeds the hard maximum.
+	#[error("release delay above the 2000 ms maximum")]
+	InvalidReleaseDelay,
 	/// The caller's settings revision is out of date.
 	#[error("settings changed, current revision {current}")]
 	SettingsConflict {
