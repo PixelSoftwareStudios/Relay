@@ -1,8 +1,8 @@
 # Session messaging
 
 Design record for call-scoped messages, inline images and file offers. Status: design accepted,
-crate `relay-messages` implements the sans-IO core; engine, API, net and UI integration are
-separate work. See the ADR "Session-scoped ephemeral messaging" in `docs/decisions.md`.
+crate `relay-messages` implements the sans-IO core and `relay-net` the wire messages and the
+per-transfer data link; engine, API and UI integration are separate work. See the ADR "Session-scoped ephemeral messaging" in `docs/decisions.md`.
 
 Session messaging is a companion to voice, **not a chat platform**. There are no accounts,
 rooms, offline delivery, server history, read receipts, typing indicators, reactions, edits or
@@ -218,8 +218,8 @@ for relay-net: each transfer runs on its **own encrypted data link** (new TCP co
 Noise handshake pinned to the same peer fingerprint, identified by the transfer id and
 authorised by the accepted offer), so a saturated file link can never head-of-line block call
 signaling on the control link. Chat messages, images (at most 8 MiB, treated as `Signaling`
-only up to 64 KiB, larger as `Preview`) share the control link under the same class rules. The
-net agent implements this later; the crate only exposes the enum and pacing constants.
+only up to 64 KiB, larger as `Preview`) share the control link under the same class rules. `relay_net::transfer`
+implements it; `relay-messages` only exposes the enum and pacing constants.
 
 ## Security rules
 
@@ -235,61 +235,64 @@ contents, and require an explicit action (a button press) every time; there is n
 sends without confirmation. With more than one call it must require choosing the call (no
 default). Clipboard text goes through the same sanitization and limits as typed text.
 
-## Draft wire messages (peer.proto)
+## Wire messages (peer.proto, implemented in relay-net)
 
-Not yet applied to any `.proto`. Proposed as `Envelope.session_message = 21` (20 is `channel`),
-handled on the control lane, ignored by call state:
+`Envelope.session_message = 21` (20 is `channel`) carries `SessionMessage`; the engine handles it on the
+control lane and call state ignores it. The definitions are in
+`crates/relay-net/proto/relay/peer/v1/peer.proto`; validation is `relay_net::control::session_msg`.
+Differences from the earlier draft:
 
-```proto
-message SessionMessage {
-  oneof body {
-    ChatMessage message = 1;
-    ChatAck ack = 2;
-    FileOffer offer = 3;
-    OfferResponse offer_response = 4;
-    PreviewRequest preview_request = 5;
-    PreviewReply preview_reply = 6;
-    TransferControl transfer = 7;
-    PermissionUpdate permissions = 8;
-  }
-}
-message ChatMessage {            // seq is the sender's per-session counter, starts at 1
-  uint64 seq = 1;
-  uint64 sent_at_unix_ms = 2;    // untrusted claim, display only
-  oneof content { string text = 3; ChatImage image = 4; }
-}
-message ChatImage { bytes data = 1; }   // original compressed bytes; receiver validates the header
-message ChatAck {
-  uint64 seq = 1;
-  enum Status { DELIVERED = 0; DISABLED = 1; TOO_LARGE = 2; INVALID = 3; RATE_LIMITED = 4;
-                HISTORY_FULL = 5; UNSUPPORTED = 6; ENDED = 7; }
-  Status status = 2;
-}
-message FileOffer {
-  uint64 seq = 1;                // offers are numbered like messages
-  uint64 sent_at_unix_ms = 2;
-  bytes offer_id = 3;            // 16 bytes
-  string name = 4;               // receiver re-sanitizes
-  uint64 size = 5;
-  string media_type = 6;         // advisory; the receiver ignores it and derives its own from the name
-  bytes blake3 = 7;              // 32 bytes
-}
-message OfferResponse { bytes offer_id = 1; bool accepted = 2; string reason = 3; }
-message PreviewRequest { bytes offer_id = 1; }
-message PreviewReply { bytes offer_id = 1; bool approved = 2; string text = 3; }
-message TransferControl {
-  bytes offer_id = 1;
-  oneof op {
-    uint64 credit_up_to = 2;     // receiver grants bytes [0, n)
-    bool done = 3;               // sender: all bytes sent
-    TransferResult result = 4;   // receiver: verification outcome
-    CancelReason cancel = 5;     // either side
-  }
-}
-// Chunks are not control messages: they flow on the per-transfer data link as
-// { uint64 offset, bytes data (<= 65536) } frames carrying the offer_id in the link preface.
-message PermissionUpdate { bool allow_messages = 1; bool allow_files = 2; }  // host to guest
+- `ChatImage` data and `PreviewReply.text` are capped at **15 KiB**, not 8 MiB / 16 KiB: a control
+  record is 16 KiB. Larger images go as file offers (the client can render a verified image file).
+- `TransferControl` has `data_link` (a `DataLinkGrant`: 32-byte token, port, ttl), `result` and
+  `cancel`. The draft's `credit_up_to` and `done` moved to the data link (`Credit` and `Done`
+  frames), because the `Receiver` state machine enforces its credit window and the data link is the
+  only place chunks flow. `result` and `cancel` exist on both links (control copy for before the
+  link exists or after it closed). Enums `TransferResult` and `CancelReason` are top level.
+- Seq must be >= 1; `ChatAck.status` and enums outside the declared range are refused.
+- A refused preview (`approved = false`) must not carry text. Offer names are bounded at 255 raw
+  bytes on the wire (honest senders send at most 120 sanitized bytes), media types at 127.
+- Per-link flood guard: session messages beyond 4x the per-sender limit close the link (below that,
+  `relay-messages` answers `RateLimited` acks).
+
+## Data link for file bytes
+
+Implemented in `relay_net::transfer` (details and tests in `docs/net.md`). Offer and accept travel
+on the control link as before. After `Accept`, the receiver (listener) calls `TransferHub::expect`
+and sends `TransferControl.data_link`; the sender dials with the token, and chunks, credit, `Done`
+and the verification `Result` flow on that link as `TransferMsg` values. The token is single use,
+expires in 30 s, and is bound to offer id, session id and the peer's fingerprint. Rate: 16 MiB/s
+per link by default, adjustable at runtime, plus an optional hub-wide cap; at most 8 links.
+
+### API the engine needs
+
+```rust
+// relay_net::transfer
+TransferHub::bind(addr, Arc<Identity>, HubConfig) -> Result<TransferHub, DataError>
+hub.local_addr(); hub.open_links(); hub.pending_tokens(); hub.set_global_rate(Option<u64>)
+hub.expect(Expectation { offer_id: [u8;16], session_id: [u8;16], peer: Fingerprint,
+                         role: TransferRole, size: u64 }, ttl: Option<Duration>)
+    -> Result<(TransferToken, PendingLink), DataError>   // token.as_bytes() -> DataLinkGrant.token
+PendingLink::wait(self) -> Result<DataLink<TcpStream>, DataError>   // Expired on timeout/revoke; drop revokes
+hub.dial(SocketAddr, &Fingerprint, &Ticket { session_id, offer_id, token }, TransferRole, size)
+    -> Result<DataLink<TcpStream>, DataError>
+DataLink { tx: DataTx<_>, rx: DataRx<_> }   // fields are public; split by moving them into tasks
+dataLink.close_handle() -> CloseHandle      // close() ends both halves, even mid-send
+dataLink.peer() -> &Fingerprint
+DataTx::send(&TransferMsg), DataTx::pacer().set_rate(Option<u64>), DataTx::shutdown()
+DataRx::recv() -> Result<TransferMsg, DataError>   // Closed on EOF; every error is terminal
+// control: new_envelope(Body::SessionMessage(msg)), control::session_msg::validate(&msg),
+// ControlReceiver::set_session_limit(SessionRateLimit)
 ```
+
+Engine wiring: map `Effect::Send(TransferMsg::Chunk | Done)` (sender) and `Credit | Result`
+(receiver) to `DataTx::send`; feed `DataRx::recv()` results to `Sender::on_message` /
+`Receiver::on_message`; `Accept`, `Reject`, `Cancel` also go over the control link
+(`OfferResponse`, `TransferControl.cancel`). Run each link in its own task; on cancel or session
+end call `CloseHandle::close()`. Use `TrafficClass::BulkFile` pacing: lower `set_rate` while a call is
+active. Known gaps: the engine must generate offer/session ids, map `ChatAck` and rate limits, and
+decide the listener address (the control link's remote IP plus the granted port); no resume; no
+Windows QoS marking; the hub's own listener port must be reachable (firewall).
 
 ## Draft local API (relay-api)
 
