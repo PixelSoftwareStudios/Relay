@@ -101,7 +101,13 @@ pub struct Network {
 	pub discovery: Discovery,
 	pub interface_policy: String,
 	pub allow_wan: bool,
+	/// TCP port for inbound peer links. Fixed by default so a manually entered
+	/// `ip:port` stays valid across restarts; `0` picks a free port each run.
+	pub listen_port: u16,
 }
+
+/// The default peer-link port.
+pub const DEFAULT_LISTEN_PORT: u16 = 47_800;
 
 impl Default for Network {
 	fn default() -> Self {
@@ -109,6 +115,7 @@ impl Default for Network {
 			discovery: Discovery::Mdns,
 			interface_policy: "eligible_local_interfaces".to_owned(),
 			allow_wan: false,
+			listen_port: DEFAULT_LISTEN_PORT,
 		}
 	}
 }
