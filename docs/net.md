@@ -52,7 +52,9 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
   `AddressError::OverlayNetwork`, whatever the flag, and are never advertised. With the flag off a
   manual entry fails with `AddressError::OverlayManualDisabled`, whose message tells the user how
   to enable it. A call over an overlay is still Noise-authenticated and fingerprint-pinned; the
-  flag only widens where a person may point the dialer. Proptests cover that no network path
+  flag only widens where a person may point the dialer. For media, `with_overlay_peer(ip)` admits
+  exactly one shared-space address in `check_ip`/`check_socket`: the remote IP of an authenticated
+  control link, supplied by the engine only when the opt-in is on; nothing else changes. Proptests cover that no network path
   yields such an address.
 - `SecureSession::handshake_hash()` exposes the Noise `h` (commits to prologue, epoch, both
   static keys and all handshake messages). Upper layers bind proofs to it; it is not a key.

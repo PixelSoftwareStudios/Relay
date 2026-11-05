@@ -121,10 +121,15 @@ Wiring (`daemon/assemble.rs`, `glue.rs`):
   unknown peer starts a dial and answers `FAILED_PRECONDITION`; retry after the handshake.
 - Microphone gain is applied after the suppressor; noise suppression accepts `off` only (other
   backends need a qualified model and report `UNAVAILABLE`).
-- Media over an overlay: signaling and the control link work over an opted-in overlay address,
-  but media candidates a peer offers are checked with the plain LAN policy (peer-supplied, so
-  never overlay). An overlay-only pair therefore connects and rings but sends no audio until
-  media paths are derived from the authenticated link; that was left out deliberately.
+- Media over an overlay: with `network.allow_overlay_manual` on, a link whose authenticated
+  remote socket IP is in 100.64.0.0/10 lets media use exactly that IP (`PeerConfig::overlay_peer`,
+  `LinkInfo.overlay_peer`). The offered candidate is accepted only when its IP equals the link's
+  remote IP (its port comes from the signed offer), and the peer's `MediaEndpoint` is bound with
+  `AddressPolicy::with_overlay_peer(ip)` so path validation and challenge replies accept that one
+  address. The IP is never taken from advertised, discovered or offered data. With the setting off
+  (default), or for any other overlay address, behaviour is unchanged: candidates are refused and
+  an overlay-only pair rings without audio. Covered by `peers_overlay_media` (no real overlay
+  interface exists in tests, so the endpoint side is covered by the `relay-net` address tests).
 
 Recovery notices from `relay-config` appear as `Snapshot.warnings`. Shutdown stops the actor
 first (detaching every client and stopping every live call), lets the hangups leave, stops the
