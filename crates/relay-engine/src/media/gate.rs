@@ -1,0 +1,163 @@
+//! The transmit gate as seen by the media send path.
+//!
+//! The domain publishes a [`GateSnapshot`] per call. The send path reads the
+//! latest one with a single atomic load immediately before every packet, so a
+//! deny takes effect without waiting for any queue.
+
+use std::collections::{HashMap, VecDeque};
+use std::sync::{Arc, Mutex};
+
+use arc_swap::ArcSwap;
+use relay_core::{AudioGeneration, CallId, GateSnapshot, Revision, RouteGeneration};
+
+const PENDING_MAX: usize = 64;
+
+#[derive(Debug, Clone, Copy)]
+struct Versioned {
+	gate: GateSnapshot,
+	revision: Revision,
+}
+
+/// The latest gate of one call. Cheap to read from a worker thread.
+#[derive(Debug)]
+pub struct GateCell {
+	latest: ArcSwap<Versioned>,
+}
+
+/// What a frame was captured under.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct FrameStamp {
+	/// Capture generation the frame came from.
+	pub capture: AudioGeneration,
+	/// Route generation current when the frame left the capture reader.
+	pub route: RouteGeneration,
+}
+
+impl GateCell {
+	/// A closed cell for `call`: nothing is sent until a snapshot opens it.
+	pub fn closed(call: CallId) -> Self {
+		let gate = GateSnapshot {
+			call,
+			open: false,
+			deny: None,
+			route: RouteGeneration::ZERO,
+			capture: AudioGeneration::ZERO,
+		};
+		Self::with(gate, Revision::ZERO)
+	}
+
+	fn with(gate: GateSnapshot, revision: Revision) -> Self {
+		Self {
+			latest: ArcSwap::from_pointee(Versioned { gate, revision }),
+		}
+	}
+
+	/// Installs `gate` unless a newer revision is already current.
+	pub fn publish(&self, gate: GateSnapshot, revision: Revision) {
+		self.latest.rcu(|current| {
+			if revision >= current.revision {
+				Arc::new(Versioned { gate, revision })
+			} else {
+				Arc::clone(current)
+			}
+		});
+	}
+
+	/// The latest snapshot (one atomic load, no allocation).
+	pub fn load(&self) -> GateSnapshot {
+		self.latest.load().gate
+	}
+
+	/// The route generation a frame read now would be stamped with.
+	pub fn route(&self) -> RouteGeneration {
+		self.load().route
+	}
+
+	/// Whether a frame with `stamp` may be emitted right now: the gate is open
+	/// and both generations still match the latest update.
+	pub fn permits(&self, stamp: FrameStamp) -> bool {
+		let gate = self.load();
+		gate.open && gate.route == stamp.route && gate.capture == stamp.capture
+	}
+}
+
+/// All calls' gate cells. The control side publishes; workers hold the cells.
+#[derive(Debug, Default)]
+pub struct GateBoard {
+	inner: Mutex<BoardInner>,
+}
+
+#[derive(Debug, Default)]
+struct BoardInner {
+	cells: HashMap<CallId, Arc<GateCell>>,
+	pending: HashMap<CallId, Versioned>,
+	order: VecDeque<CallId>,
+}
+
+impl GateBoard {
+	/// A shared, empty board.
+	pub fn new() -> Arc<Self> {
+		Arc::new(Self::default())
+	}
+
+	fn lock(&self) -> std::sync::MutexGuard<'_, BoardInner> {
+		self.inner.lock().unwrap_or_else(|p| p.into_inner())
+	}
+
+	/// Applies a `GateUpdate` effect. Updates that arrive before the call's
+	/// media is prepared are kept (bounded) and applied at preparation.
+	pub fn publish(&self, gate: GateSnapshot, revision: Revision) {
+		let mut inner = self.lock();
+		if let Some(cell) = inner.cells.get(&gate.call) {
+			cell.publish(gate, revision);
+			return;
+		}
+		let call = gate.call;
+		let newer = inner
+			.pending
+			.get(&call)
+			.is_none_or(|p| revision >= p.revision);
+		if newer {
+			if inner
+				.pending
+				.insert(call, Versioned { gate, revision })
+				.is_none()
+			{
+				inner.order.push_back(call);
+			}
+			if inner.order.len() > PENDING_MAX
+				&& let Some(oldest) = inner.order.pop_front()
+			{
+				inner.pending.remove(&oldest);
+			}
+		}
+	}
+
+	/// The call's cell, created on first use from any pending update.
+	pub fn cell(&self, call: CallId) -> Arc<GateCell> {
+		let mut inner = self.lock();
+		if let Some(cell) = inner.cells.get(&call) {
+			return Arc::clone(cell);
+		}
+		let cell = Arc::new(match inner.pending.remove(&call) {
+			Some(v) => GateCell::with(v.gate, v.revision),
+			None => GateCell::closed(call),
+		});
+		inner.order.retain(|c| *c != call);
+		inner.cells.insert(call, Arc::clone(&cell));
+		cell
+	}
+
+	/// Forgets a call. Its cell stays valid for any worker still holding it,
+	/// but it is closed first so a late frame cannot pass.
+	pub fn remove(&self, call: CallId) {
+		let mut inner = self.lock();
+		if let Some(cell) = inner.cells.remove(&call) {
+			let mut gate = cell.load();
+			gate.open = false;
+			cell.publish(gate, Revision::new(u64::MAX));
+		}
+		inner.pending.remove(&call);
+		inner.order.retain(|c| *c != call);
+	}
+}
