@@ -43,7 +43,7 @@ relay-engine = { path = "crates/relay-engine" }
 # Audio devices, buffering, resampling and codec
 cpal = "0.18.2"
 opus = "0.4.0"
-ringbuf = "0.6.0"
+rtrb = "0.4.1"
 rubato = "5.0.1"
 bytemuck = "1"
 
@@ -54,8 +54,8 @@ tonic-prost-build = "0.14.9"
 prost = "0.14.4"
 protoc-bin-vendored = "3.3.0"
 tokio-stream = "0.1.19"
-tower = "0.5"
-hyper-util = "0.1"
+tower = { version = "0.5", features = ["util"] }
+hyper-util = { version = "0.1", features = ["tokio"] }
 
 # Async runtime and concurrency
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "net", "sync", "time", "signal", "macros", "io-util", "fs"] }
