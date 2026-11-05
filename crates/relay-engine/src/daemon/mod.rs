@@ -112,6 +112,7 @@ pub struct DaemonHandle {
 	control: ControlHandle,
 	gates: GateReader,
 	notices: Vec<Notice>,
+	local: relay_core::DeviceKeyId,
 }
 
 impl DaemonHandle {
@@ -142,6 +143,7 @@ impl DaemonHandle {
 		let registry = builder.registry();
 
 		let notices = loaded.notices.clone();
+		let local = loaded.local;
 		let environment = Environment {
 			paths: loaded.paths,
 			lock: loaded.lock,
@@ -194,6 +196,7 @@ impl DaemonHandle {
 			control,
 			gates,
 			notices,
+			local,
 		})
 	}
 
@@ -210,6 +213,11 @@ impl DaemonHandle {
 	/// The published transmit gates.
 	pub fn gates(&self) -> &GateReader {
 		&self.gates
+	}
+
+	/// This device's identity digest.
+	pub fn local_peer(&self) -> relay_core::DeviceKeyId {
+		self.local
 	}
 
 	/// Recovery notices raised while loading.
