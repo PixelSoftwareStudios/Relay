@@ -16,9 +16,8 @@ use relay_api::{Endpoint, WatchItem};
 
 pub use feed::{ConnectionState, Update, run_state_feed, run_telemetry_feed};
 pub use real::RealClient;
-pub use requests::{
-	CallAction, CallControls, CallTarget, GlobalControls, PttAction, PttRequest, TrustDecision,
-};
+pub use relay_client::{CallAction, CallTarget};
+pub use requests::{CallControls, GlobalControls, PttAction, PttRequest, TrustDecision};
 
 use crate::cli::{CliError, GlobalArgs, endpoint};
 

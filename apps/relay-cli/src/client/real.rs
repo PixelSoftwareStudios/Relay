@@ -4,27 +4,27 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 use relay_api::pb::{
-	AcquireControllerRequest, CallMutation, ClientContext, DecidePeerTrustRequest, EngineInfo,
-	InputAction, InputControlMessage, MutationContext, Operation, OperationState,
-	SelectDevicesRequest, SetCallControlsRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetProfileRequest, SetTransmitRouteRequest, Snapshot,
-	StartCallRequest, StartMicTestRequest, TelemetryRequest, TelemetrySnapshot, TransmitMode,
-	start_call_request,
+	EngineInfo, InputAction, InputControlMessage, Operation, Snapshot, TelemetrySnapshot,
+	TransmitMode,
 };
 use relay_api::{ApiError, Endpoint, RelayClient, StateWatch, WatchItem, WatchOptions};
+use relay_client::operation::settle;
+use relay_client::wire::{acquire_generation, connect_registered, open_telemetry, send};
+use relay_client::{CallAction, CallTarget, Command};
 use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::Streaming;
 
 use super::{
-	CallAction, CallControls, CallTarget, Control, Feed, GlobalControls, PttAction, PttRequest,
-	Subscribe, TrustDecision,
+	CallControls, Control, Feed, GlobalControls, PttAction, PttRequest, Subscribe, TrustDecision,
 };
 use crate::cli::GlobalArgs;
 
 /// Lease length requested for push-to-talk presses.
 const PTT_LEASE_MS: u32 = 400;
 const POLL_INTERVAL: Duration = Duration::from_millis(50);
+const CLIENT_NAME: &str = "relay-cli";
+const CAPABILITIES: &[&str] = &["observe", "call-control"];
 
 /// A registered connection to the engine.
 pub struct RealClient {
@@ -45,88 +45,49 @@ struct InputStream {
 impl RealClient {
 	/// Connect and register as `relay-cli`.
 	pub async fn connect(endpoint: &Endpoint, global: &GlobalArgs) -> Result<Self, ApiError> {
-		let mut client = RelayClient::connect(endpoint).await?;
-		client
-			.register(
-				"relay-cli",
-				env!("CARGO_PKG_VERSION"),
-				&["observe", "call-control"],
-			)
-			.await?;
-		Ok(Self {
-			client,
-			endpoint: endpoint.clone(),
-			takeover: global.takeover,
-			timeout: Duration::from_millis(global.timeout_ms),
-			input: None,
-		})
+		Self::open(
+			endpoint,
+			global.takeover,
+			Duration::from_millis(global.timeout_ms),
+		)
+		.await
 	}
 
 	/// Open a second registered connection to the same engine.
 	pub async fn duplicate(&self) -> Result<Self, ApiError> {
-		let mut client = RelayClient::connect(&self.endpoint).await?;
-		client
-			.register(
-				"relay-cli",
-				env!("CARGO_PKG_VERSION"),
-				&["observe", "call-control"],
-			)
-			.await?;
+		Self::open(&self.endpoint, self.takeover, self.timeout).await
+	}
+
+	async fn open(
+		endpoint: &Endpoint,
+		takeover: bool,
+		timeout: Duration,
+	) -> Result<Self, ApiError> {
+		let client = connect_registered(
+			endpoint,
+			CLIENT_NAME,
+			env!("CARGO_PKG_VERSION"),
+			CAPABILITIES,
+		)
+		.await?;
 		Ok(Self {
 			client,
-			endpoint: self.endpoint.clone(),
-			takeover: self.takeover,
-			timeout: self.timeout,
+			endpoint: endpoint.clone(),
+			takeover,
+			timeout,
 			input: None,
 		})
 	}
 
-	fn client_context(&self) -> Result<ClientContext, ApiError> {
-		self.client.context().ok_or(ApiError::NotRegistered)
-	}
-
-	fn mutation(&self) -> Result<MutationContext, ApiError> {
-		Ok(MutationContext {
-			client: Some(self.client_context()?),
-			operation_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
-			expected_revision: None,
-		})
-	}
-
-	/// Wait for an accepted operation to leave `ACCEPTED`.
-	async fn settle(&mut self, op: Operation) -> Result<Operation, ApiError> {
-		if op.state != OperationState::Accepted as i32 {
-			return Ok(op);
-		}
-		let id = op.operation_id.clone();
-		self.client
-			.wait_operation(&id, POLL_INTERVAL, self.timeout)
-			.await
+	/// Send a command and wait for it to leave `ACCEPTED`.
+	async fn run(&mut self, command: Command) -> Result<Operation, ApiError> {
+		let op = send(&mut self.client, command).await?;
+		settle(&mut self.client, op, POLL_INTERVAL, self.timeout).await
 	}
 
 	/// Take (or keep) the controller lease and return its generation.
 	async fn controller_generation(&mut self, call_id: &[u8]) -> Result<u64, ApiError> {
-		let request = AcquireControllerRequest {
-			context: Some(self.mutation()?),
-			call_id: call_id.to_vec(),
-			request_explicit_takeover: self.takeover,
-		};
-		let lease = self
-			.client
-			.raw()
-			.acquire_controller(request)
-			.await?
-			.into_inner();
-		Ok(lease.generation)
-	}
-
-	async fn call_mutation(&mut self, call_id: &[u8]) -> Result<CallMutation, ApiError> {
-		let generation = self.controller_generation(call_id).await?;
-		Ok(CallMutation {
-			context: Some(self.mutation()?),
-			call_id: call_id.to_vec(),
-			controller_generation: generation,
-		})
+		acquire_generation(&mut self.client, call_id, self.takeover).await
 	}
 
 	async fn input_stream(&mut self) -> Result<&mut InputStream, ApiError> {
@@ -161,17 +122,7 @@ impl Control for RealClient {
 	}
 
 	async fn start_call(&mut self, target: CallTarget) -> Result<Operation, ApiError> {
-		let target = match target {
-			CallTarget::Peer(id) => start_call_request::Target::PeerId(id),
-			CallTarget::Address(addr) => start_call_request::Target::ManualLocalAddress(addr),
-		};
-		let request = StartCallRequest {
-			context: Some(self.mutation()?),
-			target: Some(target),
-			allow_parallel_same_peer: false,
-		};
-		let op = self.client.raw().start_call(request).await?.into_inner();
-		self.settle(op).await
+		self.run(Command::StartCall(target)).await
 	}
 
 	async fn call_action(
@@ -179,15 +130,13 @@ impl Control for RealClient {
 		action: CallAction,
 		call_id: &[u8],
 	) -> Result<Operation, ApiError> {
-		let request = self.call_mutation(call_id).await?;
-		let raw = self.client.raw();
-		let op = match action {
-			CallAction::Accept => raw.accept_call(request).await?,
-			CallAction::Decline => raw.decline_call(request).await?,
-			CallAction::End => raw.end_call(request).await?,
-		}
-		.into_inner();
-		self.settle(op).await
+		let generation = self.controller_generation(call_id).await?;
+		self.run(Command::CallAction {
+			action,
+			call_id: call_id.to_vec(),
+			generation,
+		})
+		.await
 	}
 
 	async fn set_route(
@@ -196,21 +145,14 @@ impl Control for RealClient {
 		mode: TransmitMode,
 		consent: bool,
 	) -> Result<Operation, ApiError> {
-		let request = SetTransmitRouteRequest {
-			context: Some(self.mutation()?),
+		let generation = self.controller_generation(call_id).await?;
+		self.run(Command::SetTransmit {
 			call_id: call_id.to_vec(),
-			controller_generation: self.controller_generation(call_id).await?,
-			mode: mode as i32,
-			explicit_microphone_consent: consent,
-			authorize_background_open_mic: false,
-		};
-		let op = self
-			.client
-			.raw()
-			.set_transmit_route(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+			generation,
+			mode,
+			consent,
+		})
+		.await
 	}
 
 	async fn set_call_controls(
@@ -218,79 +160,50 @@ impl Control for RealClient {
 		call_id: &[u8],
 		controls: CallControls,
 	) -> Result<Operation, ApiError> {
-		let request = SetCallControlsRequest {
-			context: Some(self.mutation()?),
+		let generation = self.controller_generation(call_id).await?;
+		self.run(Command::SetCallControls {
 			call_id: call_id.to_vec(),
-			controller_generation: self.controller_generation(call_id).await?,
+			generation,
 			muted: controls.muted,
 			deafened: controls.deafened,
 			receive_gain: controls.receive_gain,
-		};
-		let op = self
-			.client
-			.raw()
-			.set_call_controls(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+		})
+		.await
 	}
 
 	async fn set_global_controls(
 		&mut self,
 		controls: GlobalControls,
 	) -> Result<Operation, ApiError> {
-		let request = SetGlobalControlsRequest {
-			context: Some(self.mutation()?),
+		self.run(Command::SetGlobalControls {
 			muted: controls.muted,
 			deafened: controls.deafened,
 			microphone_gain: controls.microphone_gain,
 			playback_gain: controls.playback_gain,
-		};
-		let op = self
-			.client
-			.raw()
-			.set_global_controls(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+		})
+		.await
 	}
 
 	async fn select_devices(&mut self, input: &str, output: &str) -> Result<Operation, ApiError> {
-		let request = SelectDevicesRequest {
-			context: Some(self.mutation()?),
-			input_device_id: input.to_owned(),
-			output_device_id: output.to_owned(),
-		};
-		let op = self
-			.client
-			.raw()
-			.select_devices(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+		self.run(Command::SelectDevices {
+			input_id: input.to_owned(),
+			output_id: output.to_owned(),
+		})
+		.await
 	}
 
 	async fn set_noise_suppression(&mut self, backend: &str) -> Result<Operation, ApiError> {
-		let request = SetNoiseSuppressionRequest {
-			context: Some(self.mutation()?),
-			qualified_backend_id: backend.to_owned(),
-		};
-		let op = self
-			.client
-			.raw()
-			.set_noise_suppression(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+		self.run(Command::SetNoiseSuppression {
+			backend: backend.to_owned(),
+		})
+		.await
 	}
 
 	async fn set_profile(&mut self, display_name: &str) -> Result<Operation, ApiError> {
-		let request = SetProfileRequest {
-			context: Some(self.mutation()?),
+		self.run(Command::SetProfile {
 			display_name: display_name.to_owned(),
-		};
-		let op = self.client.raw().set_profile(request).await?.into_inner();
-		self.settle(op).await
+		})
+		.await
 	}
 
 	async fn start_mic_test(
@@ -298,45 +211,29 @@ impl Control for RealClient {
 		local_playback: bool,
 		confirmed_feedback: bool,
 	) -> Result<Operation, ApiError> {
-		let request = StartMicTestRequest {
-			context: Some(self.mutation()?),
+		self.run(Command::StartMicTest {
 			local_playback,
-			confirmed_feedback_warning: confirmed_feedback,
-		};
-		let op = self
-			.client
-			.raw()
-			.start_mic_test(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+			confirmed_feedback,
+		})
+		.await
 	}
 
 	async fn stop_mic_test(&mut self) -> Result<Operation, ApiError> {
-		let context = self.mutation()?;
-		let op = self.client.raw().stop_mic_test(context).await?.into_inner();
-		self.settle(op).await
+		self.run(Command::StopMicTest).await
 	}
 
 	async fn decide_trust(&mut self, decision: TrustDecision) -> Result<Operation, ApiError> {
-		let request = DecidePeerTrustRequest {
-			context: Some(self.mutation()?),
+		self.run(Command::DecideTrust {
 			peer_id: decision.peer_id,
-			expected_public_key_sha256: decision.public_key_sha256,
-			requested_trust: decision.requested as i32,
+			public_key_sha256: decision.public_key_sha256,
+			requested: decision.requested,
 			out_of_band_verified: decision.out_of_band_verified,
-		};
-		let op = self
-			.client
-			.raw()
-			.decide_peer_trust(request)
-			.await?
-			.into_inner();
-		self.settle(op).await
+		})
+		.await
 	}
 
 	async fn ptt(&mut self, request: PttRequest) -> Result<(), ApiError> {
-		let client = self.client_context()?;
+		let client = self.client.context().ok_or(ApiError::NotRegistered)?;
 		let known = self
 			.input
 			.as_ref()
@@ -405,18 +302,8 @@ impl Subscribe for RealClient {
 	}
 
 	async fn open_telemetry(&mut self, meters_hz: u32) -> Result<RealTelemetry, ApiError> {
-		let request = TelemetryRequest {
-			client: Some(self.client_context()?),
-			call_ids: Vec::new(),
-			meters_hz,
-			stats_hz: 1,
-		};
-		let stream = self
-			.client
-			.raw()
-			.watch_telemetry(request)
-			.await?
-			.into_inner();
-		Ok(RealTelemetry(stream))
+		open_telemetry(&mut self.client, meters_hz, 1)
+			.await
+			.map(RealTelemetry)
 	}
 }

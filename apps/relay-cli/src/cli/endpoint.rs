@@ -14,11 +14,10 @@ pub fn resolve(global: &GlobalArgs) -> Result<Endpoint, CliError> {
 	if let Some(path) = &global.socket {
 		return unix(path.clone());
 	}
-	if let Some(profile_path) = std::env::var_os("RELAY_TCP_PROFILE") {
-		return Ok(Endpoint::LoopbackTcp {
-			profile_path: profile_path.into(),
-		});
+	if let Some(endpoint) = relay_client::endpoint::from_env() {
+		return Ok(endpoint);
 	}
+	#[cfg(not(unix))]
 	if let Some(path) = std::env::var_os("RELAY_SOCKET") {
 		return unix(path.into());
 	}
@@ -38,33 +37,8 @@ fn unix(_: std::path::PathBuf) -> Result<Endpoint, CliError> {
 }
 
 /// The per-user default endpoint. Needs a tokio runtime on Unix.
-#[cfg(unix)]
 pub fn default_endpoint() -> Result<Endpoint, CliError> {
-	let uid = relay_api::current_uid()?;
-	let path = relay_api::default_socket_path(
-		std::env::var_os("XDG_RUNTIME_DIR"),
-		&std::env::temp_dir(),
-		uid,
-	);
-	Ok(Endpoint::Unix(path))
+	Ok(relay_client::endpoint::default_endpoint()?)
 }
 
-/// The per-user default endpoint: a loopback profile in the temp directory.
-#[cfg(not(unix))]
-pub fn default_endpoint() -> Result<Endpoint, CliError> {
-	let dir = std::env::temp_dir().join("relay");
-	Ok(Endpoint::LoopbackTcp {
-		profile_path: relay_api::profile_path(&dir),
-	})
-}
-
-/// Human readable form for error messages.
-pub fn describe(endpoint: &Endpoint) -> String {
-	match endpoint {
-		#[cfg(unix)]
-		Endpoint::Unix(path) => path.display().to_string(),
-		Endpoint::LoopbackTcp { profile_path } => {
-			format!("tcp profile {}", profile_path.display())
-		}
-	}
-}
+pub use relay_client::endpoint::describe;

@@ -1,25 +1,5 @@
 //! Plain request values shared by [`super::Control`] and its callers.
 
-/// Who to call.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum CallTarget {
-	/// A discovered peer by 32-byte id.
-	Peer(Vec<u8>),
-	/// A manual `ip:port` on the local network.
-	Address(String),
-}
-
-/// Lifecycle verbs on an existing call.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CallAction {
-	/// Accept an incoming call.
-	Accept,
-	/// Decline an incoming call.
-	Decline,
-	/// End a call.
-	End,
-}
-
 /// Per-call controls; `None` leaves a value unchanged.
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct CallControls {
