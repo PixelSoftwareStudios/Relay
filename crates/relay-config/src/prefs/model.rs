@@ -157,6 +157,10 @@ pub struct Network {
 	/// Accept 100.64.0.0/10 (Tailscale / CGNAT overlay) addresses the user types or
 	/// pastes. Never applies to discovered, advertised or peer-supplied addresses.
 	pub allow_overlay_manual: bool,
+	/// TCP port of the file-transfer data-link listener. `0` (the default) picks a free
+	/// port each run; the port is only ever told to a peer over an authenticated control link.
+	/// Applies at daemon start.
+	pub transfer_port: u16,
 }
 
 /// The default peer-link port.
@@ -170,6 +174,35 @@ impl Default for Network {
 			allow_wan: false,
 			listen_port: DEFAULT_LISTEN_PORT,
 			allow_overlay_manual: false,
+			transfer_port: 0,
+		}
+	}
+}
+
+/// Session messaging (`docs/session-messages.md`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Messages {
+	/// Master switch. Off: no message, image, offer or transfer is accepted or sent.
+	/// Existing transcripts stay readable.
+	pub enabled: bool,
+	/// Largest file this device will offer or accept, in MiB.
+	pub max_offer_size_mib: u32,
+	/// Pacing cap of one file transfer in megabytes per second (`0` removes the cap).
+	pub transfer_rate_limit_mbps: u32,
+}
+
+/// Largest accepted `messages.max_offer_size_mib` (the protocol ceiling, 4 GiB).
+pub const MAX_OFFER_SIZE_MIB: u32 = 4096;
+/// Largest accepted `messages.transfer_rate_limit_mbps`.
+pub const MAX_TRANSFER_RATE_MBPS: u32 = 1024;
+
+impl Default for Messages {
+	fn default() -> Self {
+		Self {
+			enabled: true,
+			max_offer_size_mib: 2048,
+			transfer_rate_limit_mbps: 16,
 		}
 	}
 }
@@ -280,6 +313,7 @@ pub struct Preferences {
 	pub hotkeys: Hotkeys,
 	pub ptt: Ptt,
 	pub clients: Clients,
+	pub messages: Messages,
 }
 
 impl Default for Preferences {
@@ -295,6 +329,7 @@ impl Default for Preferences {
 			hotkeys: Hotkeys::default(),
 			ptt: Ptt::default(),
 			clients: Clients::default(),
+			messages: Messages::default(),
 		}
 	}
 }
@@ -333,6 +368,12 @@ impl Preferences {
 		}
 		if self.ptt.release_delay_ms > MAX_RELEASE_DELAY_MS {
 			return bad("ptt.release_delay_ms must be within 0..=2000");
+		}
+		if !(1..=MAX_OFFER_SIZE_MIB).contains(&self.messages.max_offer_size_mib) {
+			return bad("messages.max_offer_size_mib must be within 1..=4096");
+		}
+		if self.messages.transfer_rate_limit_mbps > MAX_TRANSFER_RATE_MBPS {
+			return bad("messages.transfer_rate_limit_mbps must be within 0..=1024");
 		}
 		Ok(())
 	}

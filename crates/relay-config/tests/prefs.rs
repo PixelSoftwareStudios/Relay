@@ -291,3 +291,28 @@ fn ring_preferences_default_validate_and_round_trip() {
 	let partial = import_toml("[audio]\nringtone_volume = 0.2\n").unwrap();
 	assert!(partial.audio.call_sounds_enabled);
 }
+
+#[test]
+fn messaging_defaults_validate_and_round_trip() {
+	let prefs = Preferences::default();
+	assert_eq!(flat::get(&prefs, "messages.enabled").unwrap(), "true");
+	assert_eq!(
+		flat::get(&prefs, "messages.max_offer_size_mib").unwrap(),
+		"2048"
+	);
+	assert_eq!(
+		flat::get(&prefs, "messages.transfer_rate_limit_mbps").unwrap(),
+		"16"
+	);
+	assert_eq!(flat::get(&prefs, "network.transfer_port").unwrap(), "0");
+	let off = flat::set(&prefs, "messages.enabled", "false").unwrap();
+	assert!(!off.messages.enabled);
+	let port = flat::set(&prefs, "network.transfer_port", "47801").unwrap();
+	assert_eq!(port.network.transfer_port, 47801);
+	assert!(flat::set(&prefs, "messages.max_offer_size_mib", "0").is_err());
+	assert!(flat::set(&prefs, "messages.max_offer_size_mib", "4097").is_err());
+	assert!(flat::set(&prefs, "messages.transfer_rate_limit_mbps", "1025").is_err());
+	assert!(flat::set(&prefs, "network.transfer_port", "70000").is_err());
+	let unlimited = flat::set(&prefs, "messages.transfer_rate_limit_mbps", "0").unwrap();
+	assert_eq!(unlimited.messages.transfer_rate_limit_mbps, 0);
+}
