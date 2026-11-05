@@ -16,8 +16,8 @@ use rusqlite::Connection;
 pub use migrate::SCHEMA_VERSION;
 
 use crate::error::Result;
-use crate::fsx::WriterLock;
 use crate::notice::Notice;
+use crate::writer_lock::WriterLock;
 
 /// Minimum spacing of non-forced backup refreshes.
 const BACKUP_INTERVAL: Duration = Duration::from_secs(300);

@@ -3,10 +3,10 @@
 use std::fs::{self, File};
 use std::path::Path;
 
+use relay_io::fs::{backup_path, restrict_file, sync_dir, with_suffix};
 use rusqlite::Connection;
 
 use crate::error::{ConfigError, Result};
-use crate::fsx::{backup_path, restrict_file, sync_dir, with_suffix};
 
 /// Writes `<db>.bak` atomically: `VACUUM INTO` a temp file, fsync, rename.
 pub(super) fn snapshot(conn: &Connection, db: &Path) -> Result<()> {

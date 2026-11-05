@@ -18,6 +18,10 @@ pub enum ConfigError {
 	NoPlatformDir,
 	#[error("another process holds the single-writer lock at {0}")]
 	Locked(PathBuf),
+	#[error("{path} is not acceptable: {reason}")]
+	Insecure { path: PathBuf, reason: &'static str },
+	#[error("{path} is larger than the {limit} byte limit")]
+	TooLarge { path: PathBuf, limit: u64 },
 	#[error("database error: {0}")]
 	Database(#[from] rusqlite::Error),
 	#[error("channel limit reached")]
@@ -42,6 +46,19 @@ pub enum ConfigError {
 	InsecureStorageNotEnabled,
 	#[error("avatar rejected: {0}")]
 	Avatar(#[from] AvatarError),
+}
+
+impl From<relay_io::IoError> for ConfigError {
+	fn from(error: relay_io::IoError) -> Self {
+		use relay_io::IoError;
+		match error {
+			IoError::Io { path, source } => Self::Io { path, source },
+			IoError::Insecure { path, reason } => Self::Insecure { path, reason },
+			IoError::Locked(path) => Self::Locked(path),
+			IoError::TooLarge { path, limit } => Self::TooLarge { path, limit },
+			IoError::NoPlatformDir => Self::NoPlatformDir,
+		}
+	}
 }
 
 impl ConfigError {

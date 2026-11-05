@@ -1,17 +1,13 @@
 //! Platform directory resolution and the per-file layout under it.
 //!
-//! `ProjectDirs` resolves inside the current OS user's profile, so every OS user of a
+//! `UserDirs` (relay-io) resolves inside the current OS user's profile, so every OS user of a
 //! shared PC gets a separate database.
 
 use std::path::{Path, PathBuf};
 
-use directories::ProjectDirs;
+use relay_io::paths::UserDirs;
 
-use crate::error::{ConfigError, Result};
-
-const QUALIFIER: &str = "";
-const ORGANIZATION: &str = "Relay";
-const APPLICATION: &str = "Relay";
+use crate::error::Result;
 
 /// Every on-disk location the crate uses, rooted at one config and one data directory.
 #[derive(Debug, Clone)]
@@ -23,9 +19,8 @@ pub struct Paths {
 impl Paths {
 	/// Resolves the platform default directories.
 	pub fn platform() -> Result<Self> {
-		let dirs = ProjectDirs::from(QUALIFIER, ORGANIZATION, APPLICATION)
-			.ok_or(ConfigError::NoPlatformDir)?;
-		Ok(Self::new(dirs.config_dir(), dirs.data_local_dir()))
+		let dirs = UserDirs::platform()?;
+		Ok(Self::new(dirs.config_dir(), dirs.data_dir()))
 	}
 
 	/// Uses explicit directories (portable installs and tests).

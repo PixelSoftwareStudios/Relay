@@ -10,15 +10,16 @@ pub mod channels;
 pub mod db;
 pub mod diagnostics;
 pub mod error;
-pub mod fsx;
 pub mod identity;
 pub mod notice;
 pub mod paths;
 pub mod prefs;
 pub mod storage;
 pub mod vault;
+mod writer_lock;
 
 pub use error::{AvatarError, ConfigError, Result};
 pub use notice::Notice;
 pub use paths::Paths;
 pub use storage::Storage;
+pub use writer_lock::WriterLock;

@@ -4,9 +4,9 @@ use std::sync::Arc;
 
 use crate::db::Database;
 use crate::error::Result;
-use crate::fsx::WriterLock;
 use crate::notice::Notice;
 use crate::paths::Paths;
+use crate::writer_lock::WriterLock;
 
 /// The per-user database plus the notices raised while opening it.
 ///

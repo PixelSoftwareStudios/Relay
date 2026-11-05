@@ -3,9 +3,10 @@
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
+use relay_io::fs::{AtomicWrite, backup_path, read_if_exists, remove_if_exists};
+
 use super::secret::StoredIdentity;
 use crate::error::{ConfigError, Result};
-use crate::fsx::{read_if_exists, write_atomic};
 use crate::paths::Paths;
 use crate::prefs::{KeyStorage, Preferences};
 
@@ -127,18 +128,17 @@ impl IdentityStore for InsecureFileStore {
 	}
 
 	fn save(&self, identity: &StoredIdentity) -> Result<()> {
-		write_atomic(&self.path, &identity.encode(), true)?;
+		AtomicWrite::new(&self.path)
+			.private(true)
+			.backup(true)
+			.write(&identity.encode())?;
 		// Keep no plaintext backup copy of a private key.
-		let _ = std::fs::remove_file(crate::fsx::backup_path(&self.path));
+		let _ = remove_if_exists(&backup_path(&self.path));
 		Ok(())
 	}
 
 	fn delete(&self) -> Result<()> {
-		match std::fs::remove_file(&self.path) {
-			Ok(()) => Ok(()),
-			Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-			Err(e) => Err(ConfigError::io(&self.path, e)),
-		}
+		Ok(remove_if_exists(&self.path)?)
 	}
 }
 

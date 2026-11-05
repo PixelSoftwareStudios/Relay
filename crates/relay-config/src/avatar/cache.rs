@@ -16,7 +16,7 @@ use super::process::{Avatar, validate_canonical};
 use super::store::{self, Store};
 use crate::db::Database;
 use crate::error::Result;
-use crate::fsx::WriterLock;
+use crate::writer_lock::WriterLock;
 
 const LOCAL_KEY: &str = "local_avatar";
 const FILE_NAME: &str = "avatars.db";

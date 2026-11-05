@@ -9,10 +9,12 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
+use relay_io::fs::{
+	AtomicWrite, backup_path, ensure_private_dir, read_if_exists, remove_if_exists,
+};
 use zeroize::Zeroizing;
 
 use crate::error::{ConfigError, Result};
-use crate::fsx::{backup_path, ensure_private_dir, read_if_exists, write_atomic};
 use crate::paths::Paths;
 use crate::prefs::{KeyStorage, Preferences};
 
@@ -129,19 +131,18 @@ impl SecretVault for FileVault {
 	fn put(&self, channel: &[u8; 16], slot: &str, secret: &[u8]) -> Result<()> {
 		ensure_private_dir(&self.dir)?;
 		let path = self.file(channel, slot)?;
-		write_atomic(&path, secret, true)?;
+		AtomicWrite::new(&path)
+			.private(true)
+			.backup(true)
+			.write(secret)?;
 		// No plaintext backup copy of a secret.
-		let _ = std::fs::remove_file(backup_path(&path));
+		let _ = remove_if_exists(&backup_path(&path));
 		Ok(())
 	}
 
 	fn delete(&self, channel: &[u8; 16], slot: &str) -> Result<()> {
 		let path = self.file(channel, slot)?;
-		match std::fs::remove_file(&path) {
-			Ok(()) => Ok(()),
-			Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(()),
-			Err(e) => Err(ConfigError::io(&path, e)),
-		}
+		Ok(remove_if_exists(&path)?)
 	}
 }
 

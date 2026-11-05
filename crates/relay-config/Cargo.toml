@@ -6,8 +6,8 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+relay-io.workspace = true
 blake3.workspace = true
-directories.workspace = true
 hex.workspace = true
 image.workspace = true
 keyring.workspace = true

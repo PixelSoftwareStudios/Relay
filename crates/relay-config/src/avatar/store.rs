@@ -6,14 +6,14 @@
 //! it can be fetched from its peer again. Only real I/O problems, such as permissions,
 //! surface as errors.
 
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use relay_io::fs::{create_private_file, ensure_private_dir, restrict_file, with_suffix};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params};
 
-use crate::error::{ConfigError, Result};
-use crate::fsx::{ensure_private_dir, restrict_file, with_suffix};
+use crate::error::Result;
 
 const BUSY_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -65,18 +65,9 @@ impl Store {
 		if let Some(dir) = self.path.parent() {
 			ensure_private_dir(dir)?;
 		}
-		let mut options = OpenOptions::new();
-		options.write(true).create(true).truncate(false);
-		#[cfg(unix)]
-		{
-			use std::os::unix::fs::OpenOptionsExt;
-			options.mode(0o600);
-		}
-		options
-			.open(&self.path)
-			.map(drop)
-			.map_err(|e| ConfigError::io(&self.path, e))?;
-		restrict_file(&self.path)
+		create_private_file(&self.path)?;
+		restrict_file(&self.path)?;
+		Ok(())
 	}
 
 	fn connect(&mut self) -> Result<&mut Connection> {

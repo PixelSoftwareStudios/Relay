@@ -1,14 +1,16 @@
 //! Opening the database file, detecting damage and recovering from the backup.
 
-use std::fs::{self, OpenOptions};
+use std::fs;
 use std::path::Path;
 use std::time::Duration;
 
+use relay_io::fs::{
+	backup_path, corrupt_path, create_private_file, ensure_private_dir, restrict_file, with_suffix,
+};
 use rusqlite::{Connection, ErrorCode};
 
 use super::migrate;
 use crate::error::{ConfigError, Result};
-use crate::fsx::{backup_path, corrupt_path, ensure_private_dir, restrict_file, with_suffix};
 use crate::notice::Notice;
 use crate::prefs::sql as prefs_sql;
 
@@ -58,7 +60,7 @@ fn try_open(path: &Path, strict_empty: bool) -> std::result::Result<Connection, 
 	if len.is_none() {
 		create_private(path)?;
 	}
-	restrict_file(path)?;
+	restrict_file(path).map_err(ConfigError::from)?;
 	let mut conn = Connection::open(path)?;
 	let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
 	if version > i64::from(migrate::SCHEMA_VERSION) {
@@ -82,17 +84,8 @@ fn try_open(path: &Path, strict_empty: bool) -> std::result::Result<Connection, 
 }
 
 fn create_private(path: &Path) -> Result<()> {
-	let mut options = OpenOptions::new();
-	options.write(true).create(true).truncate(false);
-	#[cfg(unix)]
-	{
-		use std::os::unix::fs::OpenOptionsExt;
-		options.mode(0o600);
-	}
-	options
-		.open(path)
-		.map(drop)
-		.map_err(|e| ConfigError::io(path, e))
+	create_private_file(path)?;
+	Ok(())
 }
 
 /// Moves the damaged database aside and returns where it was kept.

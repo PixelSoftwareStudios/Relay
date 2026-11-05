@@ -6,6 +6,7 @@ mod names;
 mod noreplace;
 mod private;
 mod read;
+mod remove;
 mod space;
 mod temp;
 
@@ -19,5 +20,6 @@ pub use private::{
 	ensure_private_dir, restrict_file, write_private, write_private_fresh,
 };
 pub use read::{read_if_exists, read_limited, read_string_limited};
+pub use remove::remove_if_exists;
 pub use space::free_space;
 pub use temp::TempFile;
