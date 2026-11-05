@@ -24,6 +24,8 @@ pub struct FakeEngine {
 	pub log: Arc<Mutex<Vec<String>>>,
 	pub snapshot: Arc<Mutex<Snapshot>>,
 	pub fail_with: Arc<Mutex<Option<Problem>>>,
+	/// The capabilities each client asked for when it registered.
+	pub registered: Arc<Mutex<Vec<Vec<String>>>>,
 	/// Every secret the engine received, to prove they arrive and never leak.
 	pub secrets: Arc<Mutex<Vec<String>>>,
 }
@@ -64,7 +66,11 @@ impl Engine for FakeEngine {
 		}))
 	}
 
-	async fn register_client(&self, _: Request<RegisterClientRequest>) -> Resp<ClientSession> {
+	async fn register_client(&self, r: Request<RegisterClientRequest>) -> Resp<ClientSession> {
+		self.registered
+			.lock()
+			.unwrap()
+			.push(r.into_inner().requested_capabilities);
 		let id = self.registry.register()?;
 		Ok(Response::new(ClientSession {
 			context: Some(ClientContext {
@@ -326,6 +332,10 @@ impl Engine for FakeEngine {
 	async fn get_avatar(&self, _: Request<GetAvatarRequest>) -> Resp<AvatarImage> {
 		unsupported()
 	}
+	async fn shutdown(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(Some(&r), "shutdown".into())
+	}
 	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
 		Ok(Response::new(ConnectionInfo {
 			local_addresses: vec!["192.168.1.20".into()],
@@ -366,6 +376,7 @@ impl EngineHarness {
 			log: Arc::default(),
 			snapshot: Arc::new(Mutex::new(fixtures::snapshot())),
 			fail_with: Arc::default(),
+			registered: Arc::default(),
 			secrets: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");

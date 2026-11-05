@@ -187,7 +187,8 @@ pub fn log_tail(path: &Path, from: u64) -> String {
 	lines[lines.len().saturating_sub(TAIL_LINES)..].join("\n")
 }
 
-fn endpoint_args(endpoint: &Endpoint) -> [OsString; 2] {
+/// The `relayd` arguments that make it serve `endpoint`.
+pub fn endpoint_args(endpoint: &Endpoint) -> [OsString; 2] {
 	match endpoint {
 		#[cfg(unix)]
 		Endpoint::Unix(path) => ["--socket".into(), path.clone().into_os_string()],

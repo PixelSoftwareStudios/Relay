@@ -17,7 +17,6 @@ path = "src/main.rs"
 relay-api.workspace = true
 relay-client.workspace = true
 relay-config.workspace = true
-relay-engine.workspace = true
 relay-net.workspace = true
 relay-platform.workspace = true
 clap.workspace = true
@@ -41,6 +40,7 @@ tracing.workspace = true
 tracing-subscriber.workspace = true
 
 [dev-dependencies]
+relay-engine.workspace = true
 relay-core.workspace = true
 tempfile.workspace = true
 

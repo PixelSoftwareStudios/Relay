@@ -42,7 +42,7 @@ pub async fn run(cli: Cli, w: &mut dyn Write) -> Result<(), CliError> {
 pub async fn run_with(cli: Cli, hotkeys: HotkeyFeed, w: &mut dyn Write) -> Result<(), CliError> {
 	let mut out = Out::new(cli.global.json, w);
 	match cli.command {
-		Command::Daemon(args) => daemon::run(&cli.global, &args).await,
+		Command::Daemon(args) => daemon::run(&cli.global, &args, &mut out).await,
 		Command::Doctor(args) => doctor::run(&cli.global, &args, &mut out).await,
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,

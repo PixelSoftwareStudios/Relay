@@ -12,8 +12,12 @@ fn parse(args: &[&str]) -> Result<Cli, clap::Error> {
 #[test]
 fn every_documented_command_parses() {
 	for args in [
-		&["daemon"][..],
-		&["daemon", "--tcp"],
+		&["daemon", "start"][..],
+		&["daemon", "stop"],
+		&["daemon", "restart", "--wait", "3"],
+		&["daemon", "status"],
+		&["daemon", "logs", "-n", "5"],
+		&["daemon", "run", "--", "--log-level", "debug"],
 		&["status"],
 		&["peers"],
 		&["call", "alice"],

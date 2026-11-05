@@ -33,12 +33,18 @@ pub enum TargetError {
 #[derive(Debug, thiserror::Error)]
 pub enum CliError {
 	/// Connecting or registering failed.
-	#[error("cannot reach the engine at {endpoint}: {source}")]
+	#[error("cannot reach the engine at {endpoint}: {source}; if the daemon is not running, try `relay daemon start`")]
 	Unreachable {
 		/// Human readable endpoint.
 		endpoint: String,
 		/// Underlying transport error.
 		source: ApiError,
+	},
+	/// Nothing serves the endpoint.
+	#[error("daemon not running at {endpoint}; try `relay daemon start`")]
+	NotRunning {
+		/// Human readable endpoint.
+		endpoint: String,
 	},
 	/// An RPC failed after connecting.
 	#[error("{0}")]
@@ -86,7 +92,7 @@ impl CliError {
 	/// Process exit code for this error.
 	pub fn exit_code(&self) -> u8 {
 		match self {
-			Self::Unreachable { .. } => exit::UNREACHABLE,
+			Self::Unreachable { .. } | Self::NotRunning { .. } => exit::UNREACHABLE,
 			Self::Api(ApiError::OperationTimeout) => exit::TIMEOUT,
 			Self::Api(ApiError::Status(status)) => match status.code() {
 				tonic::Code::Unavailable => exit::UNREACHABLE,
@@ -105,7 +111,7 @@ impl CliError {
 	/// Stable short code used in `--json` error bodies.
 	pub fn code(&self) -> &str {
 		match self {
-			Self::Unreachable { .. } => "engine_unreachable",
+			Self::Unreachable { .. } | Self::NotRunning { .. } => "engine_unreachable",
 			Self::Api(ApiError::OperationTimeout) => "timeout",
 			Self::Api(_) => "api_error",
 			Self::Rejected { code, .. } => code,

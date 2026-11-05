@@ -1,0 +1,161 @@
+//! `relay daemon` against the real `relayd` binary: start, status, stop.
+#![cfg(unix)]
+
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+use clap::Parser;
+use relay_cli::cli::{Cli, CliError, exit};
+
+/// Builds `relayd` once and returns where it is.
+fn relayd() -> &'static PathBuf {
+	static PATH: OnceLock<PathBuf> = OnceLock::new();
+	PATH.get_or_init(|| {
+		let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
+		let built = std::process::Command::new(cargo)
+			.args(["build", "--quiet", "-p", "relay-daemon"])
+			.status()
+			.expect("cargo runs");
+		assert!(built.success(), "relayd builds");
+		// target/<profile>/deps/<this test> -> target/<profile>/relayd
+		let exe = std::env::current_exe().expect("exe");
+		exe.parent()
+			.and_then(|deps| deps.parent())
+			.expect("target dir")
+			.join("relayd")
+	})
+}
+
+struct Setup {
+	dir: tempfile::TempDir,
+}
+
+impl Setup {
+	fn new() -> Self {
+		Self {
+			dir: tempfile::Builder::new()
+				.prefix("rlyd")
+				.tempdir_in("/tmp")
+				.expect("dir"),
+		}
+	}
+
+	fn path(&self, name: &str) -> PathBuf {
+		self.dir.path().join(name)
+	}
+
+	async fn relay(&self, args: &[&str]) -> Result<String, CliError> {
+		let socket = self.path("e.sock");
+		let mut argv = vec!["relay", "--socket", socket.to_str().expect("utf8")];
+		argv.extend_from_slice(args);
+		let cli = Cli::try_parse_from(argv).expect("valid arguments");
+		let mut out = Vec::new();
+		relay_cli::commands::run(cli, &mut out).await?;
+		Ok(String::from_utf8(out).expect("utf8"))
+	}
+
+	/// `relay daemon <verb>` with a throwaway home and no LAN.
+	async fn daemon(&self, verb: &str) -> Result<String, CliError> {
+		let binary = relayd().to_str().expect("utf8").to_owned();
+		let log = self.path("relayd.log");
+		let home = self.path("home");
+		let home = home.to_str().expect("utf8").to_owned();
+		let log = log.to_str().expect("utf8").to_owned();
+		match verb {
+			"start" | "restart" => {
+				self.relay(&[
+					"daemon",
+					verb,
+					"--binary",
+					&binary,
+					"--log-file",
+					&log,
+					"--",
+					"--home",
+					&home,
+					"--identity-store",
+					"memory",
+					"--listen-port",
+					"0",
+					"--no-discovery",
+				])
+				.await
+			}
+			"logs" => self.relay(&["daemon", "logs", "--file", &log]).await,
+			other => self.relay(&["daemon", other]).await,
+		}
+	}
+}
+
+#[tokio::test]
+async fn the_daemon_is_started_inspected_and_stopped_by_the_cli() {
+	let s = Setup::new();
+
+	// Nothing runs: every command says so and exits with the unreachable code.
+	let error = s.daemon("status").await.expect_err("not running");
+	assert_eq!(error.exit_code(), exit::UNREACHABLE);
+	assert!(error.to_string().contains("relay daemon start"), "{error}");
+	let error = s.relay(&["peers"]).await.expect_err("no implicit start");
+	assert_eq!(error.exit_code(), exit::UNREACHABLE);
+	assert!(error.to_string().contains("relay daemon start"), "{error}");
+	assert!(
+		!s.path("e.sock").exists(),
+		"nothing was started behind our back"
+	);
+	assert!(
+		s.daemon("stop")
+			.await
+			.expect("stop")
+			.contains("not running")
+	);
+
+	let started = s.daemon("start").await.expect("start");
+	assert!(started.contains("started"), "{started}");
+	assert!(
+		s.daemon("start")
+			.await
+			.expect("again")
+			.contains("already running")
+	);
+	let status = s.daemon("status").await.expect("status");
+	assert!(
+		status.contains("running") && status.contains("engine"),
+		"{status}"
+	);
+	// Ordinary commands now work against it.
+	s.relay(&["--json", "status"])
+		.await
+		.expect("status over the API");
+	assert!(
+		s.daemon("logs")
+			.await
+			.expect("logs")
+			.contains("engine listening")
+	);
+
+	// It outlives the command that started it: it is still there for the next one.
+	let restarted = s.daemon("restart").await.expect("restart");
+	assert!(restarted.contains("started"), "{restarted}");
+	s.daemon("status").await.expect("running after restart");
+
+	let stopped = s.daemon("stop").await.expect("stop");
+	assert!(stopped.contains("stopped"), "{stopped}");
+	assert!(!s.path("e.sock").exists(), "the endpoint is removed");
+	let error = s.daemon("status").await.expect_err("gone");
+	assert_eq!(error.exit_code(), exit::UNREACHABLE);
+}
+
+#[tokio::test]
+async fn a_missing_binary_is_explained() {
+	let s = Setup::new();
+	let missing = s.path("nope").to_str().expect("utf8").to_owned();
+	let error = s
+		.relay(&["daemon", "start", "--binary", &missing])
+		.await
+		.expect_err("no binary");
+	let text = error.to_string();
+	assert!(
+		text.contains("cannot find relayd") && text.contains("RELAY_DAEMON_BIN"),
+		"{text}"
+	);
+}

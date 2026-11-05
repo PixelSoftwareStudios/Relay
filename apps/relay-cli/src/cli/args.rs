@@ -39,7 +39,7 @@ pub struct GlobalArgs {
 /// Top-level commands.
 #[derive(Debug, Subcommand)]
 pub enum Command {
-	/// Run the engine in this terminal.
+	/// Start, stop and inspect the background engine (`relayd`).
 	Daemon(DaemonArgs),
 	/// Show engine, audio and call status.
 	Status,
@@ -309,9 +309,51 @@ pub enum AvatarCommand {
 /// Options of `relay daemon`.
 #[derive(Debug, Clone, Args)]
 pub struct DaemonArgs {
-	/// Serve on loopback TCP with a token profile instead of a Unix socket.
-	#[arg(long)]
-	pub tcp: bool,
+	#[command(subcommand)]
+	pub action: DaemonAction,
+}
+
+/// What to do with the daemon. The CLI never embeds the engine: it launches
+/// and talks to the separate `relayd` binary.
+#[derive(Debug, Clone, Subcommand)]
+pub enum DaemonAction {
+	/// Start `relayd` in the background (does nothing if it already runs).
+	Start(DaemonLaunch),
+	/// Ask the running daemon to stop: it ends calls, releases the microphone
+	/// and removes its endpoint.
+	Stop,
+	/// Stop the daemon if it runs, then start it again.
+	Restart(DaemonLaunch),
+	/// Show whether the daemon runs and which engine it is.
+	Status,
+	/// Print the end of the daemon's log file.
+	Logs {
+		/// Number of lines to show.
+		#[arg(short = 'n', long, default_value_t = 40)]
+		lines: usize,
+		/// Read this log file instead of the default one.
+		#[arg(long, value_name = "PATH")]
+		file: Option<PathBuf>,
+	},
+	/// Run `relayd` in this terminal until it stops (Ctrl-C).
+	Run(DaemonLaunch),
+}
+
+/// How to find and start `relayd`.
+#[derive(Debug, Clone, Args)]
+pub struct DaemonLaunch {
+	/// Path to `relayd` (default: `RELAY_DAEMON_BIN`, next to `relay`, then PATH).
+	#[arg(long, value_name = "PATH")]
+	pub binary: Option<PathBuf>,
+	/// Append the daemon's output to this file (default: the per-user log).
+	#[arg(long, value_name = "PATH")]
+	pub log_file: Option<PathBuf>,
+	/// Seconds to wait for the daemon to accept connections.
+	#[arg(long, default_value_t = 10, value_name = "SECONDS")]
+	pub wait: u64,
+	/// Further arguments for `relayd`, after `--`.
+	#[arg(last = true)]
+	pub relayd_args: Vec<String>,
 }
 
 /// Selects a call; omitted means the only active call.
