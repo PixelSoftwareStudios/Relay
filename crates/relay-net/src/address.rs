@@ -92,7 +92,7 @@ impl AddressPolicy {
 		}
 		self.check_ip(addr.ip())?;
 		if let SocketAddr::V6(v6) = addr
-			&& is_v6_link_local(v6.ip())
+			&& v6.ip().is_unicast_link_local()
 			&& v6.scope_id() == 0
 		{
 			return Err(AddressError::MissingScope);
@@ -122,7 +122,7 @@ impl AddressPolicy {
 					return Err(AddressError::Malformed);
 				}
 				SocketAddr::new(IpAddr::V4(v4), port)
-			} else if scope != 0 && !is_v6_link_local(&ip) {
+			} else if scope != 0 && !ip.is_unicast_link_local() {
 				return Err(AddressError::Malformed);
 			} else {
 				SocketAddr::V6(SocketAddrV6::new(ip, port, 0, scope))
@@ -171,7 +171,7 @@ impl AddressPolicy {
 			_ => return Err(AddressError::Malformed),
 		};
 		if let IpAddr::V6(v6) = canonical(ip)
-			&& is_v6_link_local(&v6)
+			&& v6.is_unicast_link_local()
 		{
 			return Err(AddressError::MissingScope);
 		}
@@ -222,7 +222,7 @@ pub fn endpoint_to_proto(addr: SocketAddr) -> Endpoint {
 pub fn is_lan_ip(ip: IpAddr) -> bool {
 	match canonical(ip) {
 		IpAddr::V4(v4) => v4.is_private() || v4.is_link_local(),
-		IpAddr::V6(v6) => is_v6_link_local(&v6) || (v6.segments()[0] & 0xfe00) == 0xfc00,
+		IpAddr::V6(v6) => v6.is_unicast_link_local() || v6.is_unique_local(),
 	}
 }
 
@@ -234,10 +234,6 @@ pub fn is_lan_ip(ip: IpAddr) -> bool {
 /// [`AddressPolicy::with_overlay_manual`], may use it.
 pub fn is_shared_address_space(ip: IpAddr) -> bool {
 	matches!(canonical(ip), IpAddr::V4(v4) if v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 0x40)
-}
-
-fn is_v6_link_local(ip: &Ipv6Addr) -> bool {
-	(ip.segments()[0] & 0xffc0) == 0xfe80
 }
 
 /// Unwraps IPv4-mapped IPv6 so a mapped public address cannot slip past the IPv4 checks.
