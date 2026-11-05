@@ -11,14 +11,15 @@
 //! daemon to stop ([`stop`]) is never allowed to restart it implicitly.
 
 use std::ffi::OsString;
-use std::fs::{self, File, OpenOptions};
-use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use relay_api::{ApiError, Endpoint, RelayClient};
+use relay_io::IoError;
+use relay_io::lock::ProcessLock;
+use relay_io::proc::{detached_command, open_rotating_log, read_tail, reap_in_background};
 use tokio::time::{Instant, sleep, timeout};
 
 /// Names an explicit `relayd` binary.
@@ -93,21 +94,7 @@ pub fn default_log_path() -> PathBuf {
 	if let Some(path) = std::env::var_os(LOG_ENV) {
 		return PathBuf::from(path);
 	}
-	let home = |relative: &str| {
-		std::env::var_os("HOME")
-			.map_or_else(std::env::temp_dir, PathBuf::from)
-			.join(relative)
-	};
-	if cfg!(windows) {
-		let base = std::env::var_os("LOCALAPPDATA").map_or_else(std::env::temp_dir, PathBuf::from);
-		base.join("Relay").join("relayd.log")
-	} else if cfg!(target_os = "macos") {
-		home("Library/Logs/Relay/relayd.log")
-	} else if let Some(state) = std::env::var_os("XDG_STATE_HOME") {
-		PathBuf::from(state).join("relay").join("relayd.log")
-	} else {
-		home(".local/state/relay/relayd.log")
-	}
+	relay_io::paths::log_dir().join("relayd.log")
 }
 
 /// How to start the daemon.
@@ -195,18 +182,7 @@ pub async fn reachable(endpoint: &Endpoint) -> bool {
 /// The tail of a log file: at most [`TAIL_LINES`] lines from the last
 /// [`TAIL_BYTES`], starting no earlier than byte `from`.
 pub fn log_tail(path: &Path, from: u64) -> String {
-	let Ok(mut file) = File::open(path) else {
-		return String::new();
-	};
-	let len = file.metadata().map_or(0, |meta| meta.len());
-	let start = len.saturating_sub(TAIL_BYTES).max(from.min(len));
-	let mut bytes = Vec::new();
-	if file.seek(SeekFrom::Start(start)).is_err() || file.read_to_end(&mut bytes).is_err() {
-		return String::new();
-	}
-	let text = String::from_utf8_lossy(&bytes);
-	let lines: Vec<&str> = text.lines().collect();
-	lines[lines.len().saturating_sub(TAIL_LINES)..].join("\n")
+	read_tail(path, from, TAIL_BYTES, TAIL_LINES)
 }
 
 /// The `relayd` arguments that make it serve `endpoint`.
@@ -219,40 +195,6 @@ pub fn endpoint_args(endpoint: &Endpoint) -> [OsString; 2] {
 			profile_path.clone().into_os_string(),
 		],
 	}
-}
-
-fn open_log(path: &Path) -> std::io::Result<File> {
-	if let Some(dir) = path.parent() {
-		fs::create_dir_all(dir)?;
-	}
-	if fs::metadata(path).is_ok_and(|meta| meta.len() > LOG_ROTATE_BYTES) {
-		let _ = fs::rename(path, path.with_extension("log.1"));
-	}
-	OpenOptions::new().create(true).append(true).open(path)
-}
-
-/// A command for the daemon that survives this process: its own session or
-/// process group, no terminal, no inherited standard input.
-fn detached(binary: &Path, args: &[OsString], log: &File) -> std::io::Result<Command> {
-	let mut command = Command::new(binary);
-	command
-		.args(args)
-		.stdin(Stdio::null())
-		.stdout(log.try_clone()?)
-		.stderr(log.try_clone()?);
-	#[cfg(unix)]
-	{
-		use std::os::unix::process::CommandExt;
-		command.process_group(0);
-	}
-	#[cfg(windows)]
-	{
-		use std::os::windows::process::CommandExt;
-		const DETACHED_PROCESS: u32 = 0x0000_0008;
-		const CREATE_NEW_PROCESS_GROUP: u32 = 0x0000_0200;
-		command.creation_flags(DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP);
-	}
-	Ok(command)
 }
 
 /// Set once this process has asked the daemon to stop; see [`ensure_running`].
@@ -278,7 +220,7 @@ async fn start_unguarded(launch: &Launch) -> Started {
 		log_tail: log_tail(&log, from),
 		reason,
 	};
-	let file = match open_log(&log) {
+	let file = match open_rotating_log(&log, LOG_ROTATE_BYTES) {
 		Ok(file) => file,
 		Err(error) => {
 			return failed(format!("cannot open the log {}: {error}", log.display()), 0);
@@ -291,7 +233,7 @@ async fn start_unguarded(launch: &Launch) -> Started {
 		args.push(idle.as_secs().to_string().into());
 	}
 	args.extend(launch.extra_args.iter().cloned());
-	let child = detached(&binary, &args, &file).and_then(|mut command| command.spawn());
+	let child = detached_command(&binary, &args, &file).and_then(|mut command| command.spawn());
 	let mut child = match child {
 		Ok(child) => child,
 		Err(error) => return failed(format!("cannot run {}: {error}", binary.display()), from),
@@ -300,9 +242,7 @@ async fn start_unguarded(launch: &Launch) -> Started {
 	match wait_ready(&mut child, &launch.endpoint, launch.timeout).await {
 		Ready::Yes => {
 			// Reap it when it eventually exits so a long-lived client leaves no zombie.
-			std::thread::spawn(move || {
-				let _ = child.wait();
-			});
+			reap_in_background(child);
 			Started::Launched { pid, binary, log }
 		}
 		Ready::Exited(status) if reachable(&launch.endpoint).await => {
@@ -553,26 +493,6 @@ pub fn lock_path(endpoint: &Endpoint) -> PathBuf {
 	base.with_file_name(format!("{name}.start.lock"))
 }
 
-fn open_lock(path: &Path) -> std::io::Result<File> {
-	if let Some(dir) = path.parent() {
-		#[cfg(unix)]
-		{
-			use std::os::unix::fs::DirBuilderExt;
-			fs::DirBuilder::new()
-				.recursive(true)
-				.mode(0o700)
-				.create(dir)?;
-		}
-		#[cfg(not(unix))]
-		fs::create_dir_all(dir)?;
-	}
-	OpenOptions::new()
-		.create(true)
-		.truncate(false)
-		.write(true)
-		.open(path)
-}
-
 /// Makes sure a daemon answers at `endpoint`, starting one if needed.
 ///
 /// Several clients may call this at once; they take a file lock, so exactly
@@ -589,12 +509,12 @@ pub async fn ensure_running(
 	if reachable(endpoint).await {
 		return Ok(Ensure::AlreadyRunning);
 	}
-	let lock = open_lock(&lock_path(endpoint)).map_err(|e| EnsureError::Lock(e.to_string()))?;
+	let lock_file = lock_path(endpoint);
 	let deadline = Instant::now() + options.lock_timeout;
-	loop {
-		match lock.try_lock() {
-			Ok(()) => break,
-			Err(fs::TryLockError::WouldBlock) => {
+	let lock = loop {
+		match ProcessLock::acquire_beside(&lock_file) {
+			Ok(lock) => break lock,
+			Err(IoError::Locked(_)) => {
 				// Whoever holds it is starting the daemon: its readiness is ours too.
 				if reachable(endpoint).await {
 					return Ok(Ensure::AlreadyRunning);
@@ -604,11 +524,9 @@ pub async fn ensure_running(
 				}
 				sleep(POLL).await;
 			}
-			Err(fs::TryLockError::Error(error)) => {
-				return Err(EnsureError::Lock(error.to_string()));
-			}
+			Err(error) => return Err(EnsureError::Lock(error.to_string())),
 		}
-	}
+	};
 	// The lock holder before us may have finished the job.
 	if reachable(endpoint).await {
 		return Ok(Ensure::AlreadyRunning);
