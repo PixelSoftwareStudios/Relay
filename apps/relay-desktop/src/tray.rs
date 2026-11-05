@@ -58,10 +58,31 @@ impl Tray {
 		if summary.icon != self.shown
 			&& let Some(icon) = icon_for(summary.icon)
 		{
-			let _ = self.icon.set_icon_templated(Some(icon));
+			let _ = set_tray_icon(&self.icon, icon);
 			self.shown = summary.icon;
 		}
 	}
+}
+
+/// macOS tints template images itself; other platforms take the glyph as is.
+#[cfg(target_os = "macos")]
+fn set_tray_icon(tray: &TrayIcon, icon: Icon) -> Result<(), tray_icon::Error> {
+	tray.set_icon_templated(Some(icon))
+}
+
+#[cfg(not(target_os = "macos"))]
+fn set_tray_icon(tray: &TrayIcon, icon: Icon) -> Result<(), tray_icon::Error> {
+	tray.set_icon(Some(icon))
+}
+
+#[cfg(target_os = "macos")]
+fn with_glyph(builder: TrayIconBuilder, icon: Icon) -> TrayIconBuilder {
+	builder.with_icon_templated(icon)
+}
+
+#[cfg(not(target_os = "macos"))]
+fn with_glyph(builder: TrayIconBuilder, icon: Icon) -> TrayIconBuilder {
+	builder.with_icon(icon)
 }
 
 /// Build the tray on the UI thread. Failure is non-fatal.
@@ -74,11 +95,11 @@ pub fn build(actions: &Actions) -> Option<Tray> {
 	let quit = MenuItem::with_id("quit", "Quit this app (daemon keeps running)", true, None);
 	let menu = Menu::new();
 	menu.append_items(&[&status, &show, &quit]).ok()?;
-	let icon = TrayIconBuilder::new()
+	let builder = TrayIconBuilder::new()
 		.with_tooltip("Relay")
 		.with_menu(Box::new(menu))
-		.with_menu_on_left_click(false)
-		.with_icon_templated(icon_for(TrayState::Idle)?)
+		.with_menu_on_left_click(false);
+	let icon = with_glyph(builder, icon_for(TrayState::Idle)?)
 		.build()
 		.ok()?;
 
