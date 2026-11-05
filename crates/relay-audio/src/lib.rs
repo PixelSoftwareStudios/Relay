@@ -3,9 +3,12 @@
 //! The internal domain is mono `f32` at 48 kHz in 10 ms (480 sample) frames.
 
 pub mod capture;
+pub mod codec;
 pub mod convert;
+pub mod device;
 pub mod error;
 pub mod format;
+pub mod mixer;
 pub mod playback;
 pub mod ring;
 
