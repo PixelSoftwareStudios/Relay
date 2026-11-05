@@ -1,0 +1,33 @@
+{
+	"schema_version": 1,
+	"backend_id": "gtcrn",
+	"status": "candidate",
+	"source": {
+		"url": "https://github.com/Xiaobin-Rong/gtcrn/raw/502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73/stream/onnx_models/gtcrn_simple.onnx",
+		"revision": "502ebfab64da7c4a9af78dcb9c6ceef1ebb01c73"
+	},
+	"model": {
+		"variant": "stream/onnx_models/gtcrn_simple.onnx (streaming, simplified; trained on DNS3 per repository README)",
+		"sha256": "b4718df6228e7bdf1a8a435cf98f838636eb2fd331acabf86ba87c5192ebcb87"
+	},
+	"runtime": {
+		"name": "tract-onnx",
+		"version": "0.23.10",
+		"threads": 1
+	},
+	"audio": {
+		"sample_rate_hz": 16000,
+		"hop_samples": 256,
+		"analysis_window_samples": 512,
+		"measured_total_delay_ms": null
+	},
+	"distribution": {
+		"code_license": "MIT",
+		"model_license": "MIT repository LICENSE only; weights carry no separate statement and training-data terms (DNS3) are unreviewed",
+		"approved": false
+	},
+	"qualification": {
+		"report": null,
+		"reviewer": null
+	}
+}

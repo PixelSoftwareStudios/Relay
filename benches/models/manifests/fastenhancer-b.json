@@ -1,0 +1,33 @@
+{
+	"schema_version": 1,
+	"backend_id": "fastenhancer-b",
+	"status": "candidate",
+	"source": {
+		"url": "https://github.com/aask1357/fastenhancer/releases/download/onnx-48khz-v1/fastenhancer_b_spec.onnx",
+		"revision": "85d98a689a85b956dec384f258b075859ca50263"
+	},
+	"model": {
+		"variant": "release onnx-48khz-v1 (tag object 8d2d419) fastenhancer_b_spec.onnx spec2spec, 48 kHz, n_fft 1024; the wav2wav export fastenhancer_b.onnx does not load in tract (no SplitToSequence); revision is the repository commit read at download time, the release asset is not tied to it",
+		"sha256": "8df7941f5c9c81fdb79ccfeeb427ef7277d68821c1077eb940cc9893c0bbcac7"
+	},
+	"runtime": {
+		"name": "tract-onnx",
+		"version": "0.23.10",
+		"threads": 1
+	},
+	"audio": {
+		"sample_rate_hz": 48000,
+		"hop_samples": 512,
+		"analysis_window_samples": 1024,
+		"measured_total_delay_ms": null
+	},
+	"distribution": {
+		"code_license": "MIT",
+		"model_license": "MIT repository LICENSE only; training data (README Table 3) includes DEMAND, VCTK and AI Hub corpora whose terms are unreviewed",
+		"approved": false
+	},
+	"qualification": {
+		"report": null,
+		"reviewer": null
+	}
+}

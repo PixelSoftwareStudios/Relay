@@ -18,7 +18,9 @@ use super::{BenchError, Result};
 
 /// Samples at the start excluded from quality metrics (model warm-up).
 const SKIP_SAMPLES: usize = 24_000;
-const MAX_LAG: usize = 960;
+/// Widest delay searched by cross-correlation (100 ms): neural candidates
+/// with 32 ms windows exceed the 20 ms used for the earlier candidates.
+const MAX_LAG: usize = 4_800;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct FrameTiming {
@@ -86,12 +88,12 @@ pub struct Report {
 }
 
 /// A candidate plus whether it needs a (silent) render reference each frame.
-pub(crate) struct Candidate {
+pub struct Candidate {
 	pub ns: Box<dyn NoiseSuppressor>,
 	pub feed_render: bool,
 }
 
-pub(crate) fn make_candidate(name: &str) -> Result<Candidate> {
+pub fn make_candidate(name: &str) -> Result<Candidate> {
 	let plain = |ns: Box<dyn NoiseSuppressor>| Candidate {
 		ns,
 		feed_render: false,
@@ -115,6 +117,8 @@ pub(crate) fn make_candidate(name: &str) -> Result<Candidate> {
 		"nnnoiseless" => Ok(plain(Box::new(
 			relay_audio::dsp::eval::NnnoiselessSuppressor::new(),
 		))),
+		#[cfg(feature = "neural")]
+		other if super::neural::is_neural(other) => Ok(plain(super::neural::make(other)?)),
 		other => Err(BenchError::BackendUnavailable(other.to_owned())),
 	}
 }
@@ -291,5 +295,7 @@ pub fn default_backends() -> Vec<String> {
 	if cfg!(feature = "nnnoiseless") {
 		names.push("nnnoiseless".to_owned());
 	}
+	#[cfg(feature = "neural")]
+	names.extend(super::neural::NAMES.map(str::to_owned));
 	names
 }

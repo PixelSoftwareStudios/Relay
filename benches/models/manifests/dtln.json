@@ -1,0 +1,33 @@
+{
+	"schema_version": 1,
+	"backend_id": "dtln",
+	"status": "candidate",
+	"source": {
+		"url": "https://github.com/breizhn/DTLN/tree/1de1f15a8b5b7e1c44905618ff2ef70ca8277fbc/pretrained_model",
+		"revision": "1de1f15a8b5b7e1c44905618ff2ef70ca8277fbc"
+	},
+	"model": {
+		"variant": "pretrained_model/model_1.onnx + model_2.onnx; sha256 is of model_1 bytes followed by model_2 bytes; model_1 22b91cae3855e5a0620e66a917ca6c82c58db0e842c770f58d86751c5e8d4ae3, model_2 e20c92f9233fccf29cddf86970d0d0161a03aebccc26d6f4d5639c4d5ec2e639; 500h DNS-Challenge training per README",
+		"sha256": "d0014f8ae26d245046967e83685cd89d583b818347507bd6145d69c395181ca8"
+	},
+	"runtime": {
+		"name": "tract-onnx",
+		"version": "0.23.10",
+		"threads": 1
+	},
+	"audio": {
+		"sample_rate_hz": 16000,
+		"hop_samples": 128,
+		"analysis_window_samples": 512,
+		"measured_total_delay_ms": null
+	},
+	"distribution": {
+		"code_license": "MIT",
+		"model_license": "MIT repository LICENSE only; weights carry no separate statement and DNS-Challenge training-data terms are unreviewed",
+		"approved": false
+	},
+	"qualification": {
+		"report": null,
+		"reviewer": null
+	}
+}

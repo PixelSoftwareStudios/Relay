@@ -8,7 +8,8 @@ use relay_benches::audio::runner::{default_backends, run};
 
 fn usage() -> ExitCode {
 	eprintln!(
-		"usage:\n  audio-corpus generate <dir>\n  audio-corpus build-real <corpus-root> <out-dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json] [--qos on]"
+		"usage:\n  audio-corpus generate <dir>\n  audio-corpus build-real <corpus-root> <out-dir>\n  audio-corpus run <dir> [--backends a,b,...] [--out file.json] [--qos on]\n{}",
+		relay_benches::listening::cli::USAGE
 	);
 	ExitCode::from(2)
 }
@@ -52,6 +53,13 @@ fn main() -> ExitCode {
 				Ok(())
 			})()
 		}
+		#[cfg(feature = "neural")]
+		Some("model-info") if args.len() == 2 => {
+			relay_benches::audio::neural::info::describe(&PathBuf::from(&args[1]))
+				.map(|text| print!("{text}"))
+		}
+		Some("listen") => relay_benches::listening::cli::run(&args[1..])
+			.map_err(|e| relay_benches::audio::BenchError::Corpus(e.to_string())),
 		Some("run") if args.len() >= 2 => run_command(&args[1..]),
 		_ => return usage(),
 	};

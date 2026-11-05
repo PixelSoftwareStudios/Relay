@@ -2,6 +2,8 @@
 
 pub mod corpus;
 pub mod metrics;
+#[cfg(feature = "neural")]
+pub mod neural;
 pub mod real;
 pub mod runner;
 pub mod stoi;
