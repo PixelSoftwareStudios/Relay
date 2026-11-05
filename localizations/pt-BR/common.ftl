@@ -1,4 +1,19 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Shared words and buttons.
-# Not translated yet. Add only ids that exist in localizations/en/common.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
+
+action-cancel = Cancelar
+nav-messages = Mensagens
+action-close = Fechar
+action-copy = Copiar
+action-hide = Ocultar
+action-create = Criar
+action-join = Entrar
+asking-daemon = Consultando o daemon…
+unit-ms = ms
+action-try-again = Tentar novamente
+action-save = Salvar
+action-revert = Reverter
+nav-people = Pessoas
+nav-settings = Configurações
+header-engine = engine { $version }
+action-dismiss = Dispensar

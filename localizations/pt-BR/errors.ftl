@@ -1,4 +1,46 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Errors the UI words itself.
-# Not translated yet. Add only ids that exist in localizations/en/errors.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
+
+err-not-connected = sem conexão com o daemon do Relay
+err-release-delay = o atraso de liberação deve ficar entre 0 e 2000 ms
+err-gain = o ganho deve ser um número finito entre 0 e 4
+err-bad-call-id = id de chamada malformado
+err-unknown-call = chamada desconhecida
+err-no-lease = o engine não retornou nenhuma concessão de controle
+err-bad-peer-id = id de pessoa malformado
+err-unknown-peer = pessoa desconhecida
+err-consent-required = a permissão do microfone é necessária para transmitir
+err-ring-volume = o volume do toque deve ficar entre 0 e 1
+err-unknown-device = dispositivo de áudio desconhecido ou indisponível
+err-display-name = o nome de exibição deve ter de 1 a 64 caracteres imprimíveis
+err-avatar-media-type = o avatar precisa de um tipo de mídia
+conn-scheme = Uma string de conexão começa com relay://
+err-invite-malformed = esse token de convite está malformado
+err-join-target = informe um token de convite ou um id de canal de 32 caracteres
+err-bad-channel-id = id de canal malformado
+err-unknown-channel = canal desconhecido
+err-channel-name = o nome do canal deve ter de 1 a 32 caracteres imprimíveis
+err-channel-needs-password = um canal protegido por senha precisa de uma senha
+err-enter-password = informe a senha do canal
+err-invite-admin-only = só o dono ou um administrador pode criar convites
+err-invite-range = a validade ou o número de usos do convite está fora do intervalo
+err-no-invite = o engine não retornou nenhum convite
+err-revoke-admin-only = só o dono ou um administrador pode revogar membros
+err-not-member = essa pessoa não é um membro comprovado do canal
+err-nothing-to-change = nada a alterar
+err-bad-avatar-hash = hash de avatar malformado
+conn-missing-fingerprint = A string de conexão não tem a parte #impressão digital.
+conn-bad-fingerprint = A impressão digital deve ter 64 caracteres hexadecimais.
+conn-bad-address = O endereço deve ser um ip:porta literal, não um nome.
+watch-resync = o engine pediu uma ressincronização: { $reason }
+watch-closed = o daemon encerrou a conexão
+err-unsupported = este engine não oferece suporte a essa solicitação
+err-daemon-unreachable = o daemon do Relay está inacessível: { $reason }
+err-engine-timeout = o engine não respondeu a tempo
+err-connection = problema de conexão: { $reason }
+err-unreadable-image = Esse arquivo não é uma imagem legível.
+err-engine-rejected = o engine rejeitou a solicitação
+err-no-paths = Este dispositivo não pode escolher arquivos ou pastas para o daemon do Relay.
+err-cannot-start-daemon = Este dispositivo não pode iniciar o daemon do Relay.
+err-cannot-stop-daemon = Este dispositivo não pode parar o daemon do Relay.
+err-read-file = Não foi possível ler o arquivo: { $error }

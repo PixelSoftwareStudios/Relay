@@ -1,4 +1,55 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
+
+phase-preparing = Preparando
+phase-ringing = Chamando
+phase-incoming = Chamada recebida
+phase-connecting = Conectando
+phase-connected = Conectada
+phase-interrupted = Interrompida
+phase-ending = Encerrando
+phase-ended = Encerrada
+phase-failed = Falhou
+phase-declined = Recusada
+phase-cancelled = Cancelada
+transmit-listening = Somente ouvindo
+transmit-listening-detail = Seu microfone não está sendo enviado.
+transmit-no-consent = Microfone não permitido
+transmit-no-consent-detail = A permissão de transmissão não foi concedida para esta chamada.
+transmit-releasing = Liberando
+transmit-releasing-detail = A tecla foi solta; o microfone continua ativo por um instante para não cortar o fim da frase.
+transmit-how-open = microfone aberto
+transmit-how-key = tecla de aperte para falar pressionada
+transmitting = Transmitindo
+transmit-live-detail = O microfone está ativo ({ $how }).
+transmit-open-armed = Microfone aberto pronto, sem transmitir
+transmit-open-armed-detail = O engine não está enviando áudio no momento.
+transmit-ptt-armed = Aperte para falar pronto
+transmit-ptt-armed-detail = Aguardando o pressionar de uma tecla de uma fonte de entrada do engine.
+engine-reason = Motivo do engine: { $reason }.
+trust-unknown = Desconhecido
+trust-tofu = Já visto, não verificado
+trust-verified = Verificado
+trust-key-changed = Chave alterada: não confie
+trust-blocked = Bloqueado
+call-speaking = falando
+mode-listen = Somente ouvir
+mode-ptt = Aperte para falar
+mode-open = Microfone aberto
+calls-heading = Chamadas
+calls-none = Nenhuma chamada ativa.
+meter-incoming = Nível recebido de { $name }
+call-accept = Aceitar
+call-decline = Recusar
+call-accept-note = Aceitar não liga o seu microfone.
+trust-line = { $trust }.
+trust-line-key = { $trust }. Chave do dispositivo { $fingerprint } (para distinguir dispositivos, não para verificar).
+call-end = Desligar
+call-messages-hover = Texto, imagens e arquivos desta chamada
+call-unmute = Reativar o som (chamada)
+call-undeafen = Ativar o áudio (chamada)
+call-their-volume = Volume dele(a): { $value }
+call-your-mic = Seu microfone nesta chamada
+call-consent = Permito que meu microfone seja enviado para { $name }
+call-mute = Silenciar (chamada)
+call-deafen = Desativar o áudio (chamada)

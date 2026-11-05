@@ -1,4 +1,55 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Channels, privacy and the connection string.
-# Not translated yet. Add only ids that exist in localizations/en/channels.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
+
+channels-heading = Canais
+channels-note = Um canal define quem pode ver e ligar para você. Ele nunca liga o seu microfone.
+channels-none = Você não está em nenhum canal.
+channel-listed = listado
+channel-password = senha
+channel-invite-only = só por convite
+channel-summary = { $role } · { $flags } · { $peers ->
+        [one] { $peers } pessoa em comum
+        [many] { $peers } de pessoas em comum
+       *[other] { $peers } pessoas em comum
+    }
+channel-invite = Convidar…
+channel-leave-yes = Sim, sair
+channel-leave-stay = Ficar
+channel-leave = Sair
+invite-uses = { $count ->
+        [one] { $count } uso
+        [many] { $count } de usos
+       *[other] { $count } usos
+    }
+invite-create = Criar convite
+invite-token-note = Token de convite (secreto). Quem o tiver pode entrar até ele expirar ou ser totalmente usado:
+channel-create-heading = Criar um canal
+channel-name-hint = Nome do canal
+channel-listed-label = Listado: mostrar o nome nos dispositivos dos membros
+channel-password-label = Exigir senha para entrar
+channel-invite-only-label = Só por convite
+password-hint = Senha
+channel-join-heading = Entrar em um canal
+channel-join-note = Cole um token de convite ou um id de canal com a senha.
+channel-join-hint = RLYI1… ou id do canal
+password-optional-hint = Senha (desnecessária com convite)
+privacy-heading = Privacidade
+privacy-none = As configurações de privacidade aparecem quando o daemon estiver conectado.
+privacy-inbound-anyone = Qualquer pessoa na rede
+privacy-inbound-shared = Só membros dos meus canais
+privacy-who-rings = Quem pode ligar para mim
+privacy-advert-visible = Visível para dispositivos por perto
+privacy-advert-hidden = Oculto (acessível só pela string de conexão)
+privacy-visibility = Visibilidade na rede
+invite-ttl-hour = 1 hora
+invite-ttl-day = 1 dia
+invite-ttl-week = 7 dias
+connection-heading = Conexão
+connection-none = O daemon não informou uma string de conexão.
+connection-share = Compartilhe esta string para receber chamadas de outro computador da sua rede:
+connection-addresses = Endereços: { $addresses } · porta { $port }
+connection-fingerprint = Impressão digital { $fingerprint }
+connection-warning = Qualquer pessoa com esta string pode ligar para você; ela não concede confiança nem acesso ao microfone.
+connection-qr-too-long = A string de conexão é longa demais para um QR code.
+connection-call = Ligar para uma string de conexão
+channel-hidden = oculto

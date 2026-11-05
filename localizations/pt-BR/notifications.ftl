@@ -1,4 +1,5 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Desktop notifications.
-# Not translated yet. Add only ids that exist in localizations/en/notifications.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
+
+notification-title = Chamada recebida no Relay
+notification-unknown-caller = Chamador desconhecido
