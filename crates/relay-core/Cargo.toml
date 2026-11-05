@@ -4,8 +4,14 @@ version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
+description = "Sans-IO domain model and single-owner state machine for Relay"
 
 [dependencies]
+blake3.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true
