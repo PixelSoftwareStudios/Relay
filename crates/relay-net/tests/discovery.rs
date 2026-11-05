@@ -133,31 +133,102 @@ fn malformed_txt_records_are_ignored() {
 	);
 }
 
-#[test]
-fn table_is_bounded_and_keyed_by_instance_not_name() {
-	let mk = |i: usize, name: &str| DiscoveredPeer {
+fn peer_at(i: usize, name: &str, ip: &str) -> DiscoveredPeer {
+	DiscoveredPeer {
 		fullname: format!("inst{i}"),
 		instance_id: [0; 16],
 		display_name: name.into(),
 		fingerprint_hint: None,
 		capabilities: String::new(),
-		addresses: vec!["192.168.1.1:1".parse().unwrap()],
+		addresses: vec![format!("{ip}:1").parse().unwrap()],
 		txt: Default::default(),
-	};
-	let mut table = DiscoveryTable::new();
-	table.upsert(mk(0, "Same")).unwrap();
-	table.upsert(mk(1, "Same")).unwrap();
-	assert_eq!(table.len(), 2, "duplicate names are permitted");
-	for i in 2..256 {
-		table.upsert(mk(i, "x")).unwrap();
 	}
-	assert!(table.upsert(mk(256, "x")).is_err());
-	table.upsert(mk(3, "renamed")).unwrap();
-	assert_eq!(table.len(), 256);
+}
+
+#[test]
+fn table_is_keyed_by_instance_not_name_and_bounded() {
+	let mut table = DiscoveryTable::new();
+	table.upsert(peer_at(0, "Same", "192.168.1.1")).unwrap();
+	table.upsert(peer_at(1, "Same", "192.168.1.2")).unwrap();
+	assert_eq!(table.len(), 2, "duplicate names are permitted");
+	for i in 2..400 {
+		table
+			.upsert(peer_at(
+				i,
+				"x",
+				&format!("10.1.{}.{}", i / 200, i % 200 + 1),
+			))
+			.unwrap();
+	}
+	assert!(table.len() <= 256);
+	table.upsert(peer_at(3, "renamed", "10.1.0.4")).unwrap();
 	assert!(table.remove("inst3").is_some());
-	table.upsert(mk(256, "x")).unwrap();
 	let names: HashSet<_> = table.iter().map(|p| p.fullname.clone()).collect();
 	assert_eq!(names.len(), table.len());
+}
+
+#[test]
+fn one_source_cannot_fill_the_table_and_silence_newcomers() {
+	// The review's scenario: 300 distinct instance names from one host.
+	let mut table = DiscoveryTable::new();
+	for i in 0..300 {
+		table.upsert(peer_at(i, "spam", "192.168.1.66")).unwrap();
+	}
+	assert!(table.len() <= 8, "per-source cap, got {}", table.len());
+	assert_eq!(table.take_evicted().len(), 292);
+	// A legitimate device still appears.
+	table
+		.upsert(peer_at(1000, "Kitchen", "192.168.1.20"))
+		.unwrap();
+	assert!(table.iter().any(|p| p.fullname == "inst1000"));
+}
+
+#[test]
+fn many_sources_evict_the_busiest_first_when_full() {
+	let mut table = DiscoveryTable::new();
+	// 248 hosts with one entry each, plus one chatty host with 8.
+	for i in 0..248 {
+		table
+			.upsert(peer_at(
+				i,
+				"h",
+				&format!("10.2.{}.{}", i / 200, i % 200 + 1),
+			))
+			.unwrap();
+	}
+	for i in 0..8 {
+		table.upsert(peer_at(500 + i, "c", "10.9.9.9")).unwrap();
+	}
+	assert_eq!(table.len(), 256);
+	table.upsert(peer_at(900, "new", "10.3.0.1")).unwrap();
+	assert_eq!(table.len(), 256);
+	assert!(table.iter().any(|p| p.fullname == "inst900"));
+	let chatty = table
+		.iter()
+		.filter(|p| p.addresses[0].ip().to_string() == "10.9.9.9")
+		.count();
+	assert_eq!(chatty, 7, "the busiest source paid for the newcomer");
+}
+
+#[test]
+fn stale_entries_expire_without_a_goodbye() {
+	let mut table = DiscoveryTable::new();
+	table.upsert(peer_at(1, "a", "10.0.0.1")).unwrap();
+	assert!(table.expire(std::time::Duration::from_secs(60)).is_empty());
+	std::thread::sleep(std::time::Duration::from_millis(30));
+	assert_eq!(
+		table.expire(std::time::Duration::from_millis(10)),
+		vec!["inst1"]
+	);
+	assert!(table.is_empty());
+	assert!(
+		table
+			.upsert(DiscoveredPeer {
+				addresses: vec![],
+				..peer_at(2, "b", "10.0.0.1")
+			})
+			.is_err()
+	);
 }
 
 /// Needs working multicast on loopback or a LAN interface, so it is opt-in:

@@ -19,6 +19,8 @@ pub const PREFACE_TIMEOUT: Duration = Duration::from_secs(1);
 /// Authenticated but untrusted links kept at once, and per source address.
 pub const UNTRUSTED_LINKS_MAX: usize = 16;
 pub const UNTRUSTED_LINKS_PER_SOURCE: usize = 2;
+/// Discovered entries one source address may hold.
+pub const DISCOVERY_PER_SOURCE_MAX: usize = 8;
 /// Maximum number of discovered entries retained.
 pub const DISCOVERY_ENTRIES_MAX: usize = 256;
 /// Size of the media replay window, in records.
