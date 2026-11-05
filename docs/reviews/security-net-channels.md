@@ -172,6 +172,7 @@ Top five, in the order I would fix them:
   `get`/`with_session` do not compare it), expire `early_ready` entries after a few seconds and
   bound them per peer, and rate-limit inbound `Invite` per peer before touching any table.
 
+- **Resolution** (engine, `peers/sessions.rs`, tests `peers_sessions.rs`): the call table records the owning peer, and `Accept`, `Reject`, `End` and `MediaReady` count only from it; an `Invite` replaying another peer's call id is ignored. Capacity is 32 calls per peer and a full table evicts from the peer holding the most, so one peer cannot push out other peers' calls; inbound `Invite` and `MediaReady` are limited to 16 per 10 s per peer before the table. `MediaReady` for a call the sender does not own never reaches media. Part (b) is bounded, not removed: the 16-entry `early_ready` table in `media/system_calls.rs` still has no aging or per-peer split (media code, left to the media owner), so a trusted peer with real invites can still park up to 16 entries at 16 per 10 s.
 ### F-06 Medium, CONFIRMED: display-name sanitization misses invisible and lookalike characters, which defeats key-change detection
 
 - Where: `crates/relay-net/src/discovery/advert.rs:170,186` (`sanitize_display_name`,
@@ -246,6 +247,7 @@ Top five, in the order I would fix them:
   `UnknownKey`. Annoyance and a targeted denial of pairing, not a bypass.
 - Fix: keep the key on the held `Established` link and pin from that, not from a global FIFO.
 
+- **Resolution** (engine, `peers/manager.rs`, test `peers_hardening.rs`): `pin` re-observes the key held on the live link immediately before writing, so the decision no longer depends on the store's 64-key FIFO. The `UntrustedLinks` cap (F-04) also bounds how many untrusted identities can exist at once.
 ### F-10 Low, CONFIRMED: no contributory-behaviour or canonical-encoding check on remote static keys
 
 - Where: `crates/relay-net/src/handshake/mod.rs:79-83` (`remote_key`), snow 0.10.0 default X25519
@@ -276,6 +278,7 @@ Top five, in the order I would fix them:
 - Fix: bind a listed name to the first id seen for that name and flag a conflict to the user,
   or require the id (join code) rather than the name.
 
+- **Resolution** (engine, `channels/advert.rs`, test `channels_hardening.rs`): a listed name binds to the first id seen; a different id for the same name marks the name ambiguous and joining by that name is refused (`ChannelHub::listed_id` is `None`), so the id is required. A first-seen attacker advertisement can still make a name ambiguous (a denial, not a misdirected join).
 ### F-12 Low, CONFIRMED: attempt limiter lets pinned attackers lock legitimate joiners out; scales with identities
 
 - Where: `crates/relay-net/src/channel/limiter.rs:110-131`, `join.rs:299-300` (charged at
@@ -305,6 +308,7 @@ Top five, in the order I would fix them:
 - Fix: store the proof's `expires_at` with the evidence and have the 1 s upkeep tick demote
   expired proofs; request a re-proof near expiry.
 
+- **Resolution** (engine, `channels/proofs.rs`, test `channels_hardening.rs`): the proof's `expires_at` is kept per peer and channel; the 1 s tick demotes a lapsed proof (the peer stops counting as shared and the view is republished) and asks the peer for a fresh proof 120 s before expiry (its certificate is sent again at most once per 60 s per channel and link).
 ### F-14 Low, CONFIRMED: media candidates from a trusted peer make the engine send UDP probes to arbitrary LAN hosts
 
 - Where: `crates/relay-net/src/address.rs:143-164` (`candidate_from_proto`),
@@ -330,6 +334,7 @@ Top five, in the order I would fix them:
 - Fix: wire `needs_rekey` into the link supervisor, or document the 24 h limit and rebuild
   `PeerMedia` when the session changes.
 
+- **Resolution** (not fixed, documented in `docs/engine.md`, Known gaps): the control session hard-stops at 24 h and the link redials, but `PeerMedia` in `media/system.rs` keeps the session it was created with and is not rebuilt, and `needs_rekey` is not wired. Both are media-side changes outside the peers/channels scope; until then a call that spans 24 h loses its media at the hard stop.
 ### F-16 Low, PLAUSIBLE: CPU and store amplification on channel messages from a trusted peer
 
 - Where: `crates/relay-engine/src/channels/proofs.rs:56-62` (`check_proof` runs while the state
@@ -353,6 +358,7 @@ Top five, in the order I would fix them:
   `channels/` and `relay-net` do not format secrets), so this is hygiene.
 - Fix: zeroize on expiry, hold it as `Zeroizing<String>` and give `Stored` a redacting `Debug`.
 
+- **Resolution** (engine, `channels/ledger.rs`, test `channels_hardening.rs`): the ledger holds the invite as `StoredInvite` (`Zeroizing<String>`, zeroized on expiry, eviction and drop) with a redacting `Debug`; `Stored` can no longer print it.
 ### F-18 Info: overlay (100.64.0.0/10) manual entries pass the parser and are then refused everywhere else
 
 - Where: `address.rs:68-84` (`check_ip` always refuses the range), `peers/manager.rs:100,121`
@@ -394,6 +400,7 @@ Top five, in the order I would fix them:
   `relay-protocol` one. Two implementations of a security primitive invite drift; delete the
   unused one or have one depend on the other.
 
+- **Resolution** (relay-protocol): the unused `packet_number` module (`PacketNumber`, `PacketNumberSpace`, `PacketReplay`, `PacketNumberError`) and its tests are deleted; `relay-net` is the single implementation of nonce construction and replay windows (`docs/protocol.md`). `relay_protocol::seq::ReplayWindow` stays: the jitter buffer uses it for RTP sequence numbers.
 ### F-22 Info: parser leniency in manual addresses
 
 - `192.168.1.1:+80` and `[fe80::1%+3]:80` are accepted (Rust integer parsing), a scope id is
@@ -420,6 +427,7 @@ Top five, in the order I would fix them:
   marked ready without a transfer, `profile.rs:136-144`). This is cosmetic duplication of
   display data and is the same class as F-06; the fingerprint remains the identity.
 
+- **Resolution** (engine, `peers/names.rs`, test `peers_hardening.rs`): a claimed name is shown with the claimant's short fingerprint appended when another key (a trusted record or a live link) carries a look-alike name (same `name_skeleton`), in trust prompts, profiles and snapshots. The fingerprint stays the identity. A claimed avatar hash that is already cached is still shown without a transfer; the bytes are content-addressed, so this only repeats an image.
 ## What I checked and found sound
 
 Handshake and session:
@@ -506,6 +514,8 @@ key or certificate (searched all `tracing` calls), and the operation print is a 
 
 ## Required engine changes (appendix)
 
+Status: A1 to A9 are implemented in `crates/relay-engine` (peers and channels); see the per-finding resolutions above and `docs/engine.md`, `docs/channels.md`.
+
 The relay-net fixes above change or add APIs that `crates/relay-engine` must adopt. relay-net
 does not compile against the old calls; these are the exact edits.
 
@@ -553,7 +563,12 @@ does not compile against the old calls; these are the exact edits.
   `check_proof` on a clone of the needed records outside the state lock.
 - **A9 (F-18), `peers/manager.rs:100,121`.** Use `policy.check_manual_socket(addr)` for
   `Command::Dial` and `Command::AddAddress` (user-typed), `check_socket` elsewhere.
-- **Not addressed here (outside relay-net / core channel):** F-05 (session table per-peer
-  ownership and bounds), F-09 (trust key cache), F-11 (listed name binding), F-13 (demote proofs
-  at `ProofOutcome::expires_at`; the field is now available), F-15 (rekey wiring), F-17 (zeroize
-  invite in the ledger), F-21 (duplicate primitives in relay-protocol), F-24 (cosmetic).
+- **Engine status.** A1 (two-step proof, `MemberRef` routing, per-link replied/ref sets), A2
+  (fingerprint-pinned dials, 4 per 10 s, per-fingerprint redial), A3 (`try_enter(ip)`,
+  `respond_gated`, `AcceptBackoff`, `UntrustedLinks` in `on_up`; `TRUST_REQUIRED` items are bounded
+  by that 16-link cap rather than coalesced), A4 (`ConfigTrust::find_by_name` on skeletons; the
+  SQLite channel store is not a trust store), A5 (`ClampedClock<SystemClock>`), A6 (`expire(120 s)`
+  on a 5 s manager tick), A7 (candidates limited to the link host or interface subnet, in
+  `peers/signaling.rs`), A8 (20 channel messages per second per link; proofs verified on a
+  stripped copy outside the state lock) and A9 (`check_manual_socket`) are done. F-05, F-09,
+  F-11, F-13, F-17, F-21 and F-24 are resolved above; F-15 is documented only.

@@ -198,8 +198,12 @@ decisions and the full behaviour table. Shape:
 - `rpc/channels.rs` serves the six RPCs; secret fields are moved out of the request into
   zeroizing buffers before anything else happens.
 - A 1 s upkeep task (`spawn_maintenance`, `ChannelHub::tick`) follows the privacy mode, rotates
-  the tag epoch, refreshes authority certificates, drops abandoned admissions and asks for
-  renewals.
+  the tag epoch, refreshes authority certificates, drops abandoned admissions, demotes proofs
+  whose certificate expired (re-asking shortly before) and asks for renewals.
+- Each link may send at most 20 channel messages per second; the rest are dropped before any
+  verification, hashing or store access. Membership proof is the two-step `MemberRef` then
+  `Proof` flow (`docs/channels.md`, D6). Channel time is a clamped wall clock (`Clock`).
+- The operation ledger holds an invite as `StoredInvite` (zeroized on drop, redacted `Debug`).
 - Engines that share a host also share a hostname, and trust is keyed by name: give each a
   distinct display name (the channel tests do) or the second pairing reports `PEER_KEY_CHANGED`.
 
@@ -230,7 +234,10 @@ trust gating, call, consent, audio both ways, withdrawal and hangup.
 telemetry stream and the microphone test (including release on client loss). The mic test during
 a connected call, and speaking indicators, are in `service_e2e`.
 `cargo test -p relay-cli --test real_engine` runs the CLI against the real service layer.
-`channels_e2e`, `channels_calls` and `channels_secrets` cover the channel driver on whole engines
+`peers_sessions` (call table ownership and bounds, candidate subnet), `peers_hardening`
+(untrusted-link cap, key cache churn, look-alike names) and `channels_hardening` (listed
+names, proof expiry, invite redaction) cover the review fixes. `channels_e2e`, `channels_calls`
+and `channels_secrets` cover the channel driver on whole engines
 (see `docs/channels.md`, test map).
 
 ## Media and peers
@@ -254,6 +261,25 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   the trust store. A different key under a pinned name yields `KeyChanged` and the link is
   closed; nothing is replaced. `ConfigTrust` adapts the persistent `relay-config` store to
   relay-net's `TrustStore`; it can only pin keys authenticated in the current process.
+- Inbound hardening: the accept loop uses `HandshakeGate::try_enter(source_ip)` (2 pending
+  handshakes per source, oldest of the busiest source evicted, `respond_gated` abandons an
+  evicted one), sleeps `AcceptBackoff` (20 ms to 2 s) on accept errors, and `UntrustedLinks`
+  caps held untrusted links at 16 (2 per source), closing the oldest when exceeded. Dial and
+  AddAddress apply `check_manual_socket` (overlay allowed only with the typed-address opt-in);
+  discovery uses `check_socket`. Discovery records expire after 120 s without a refresh (5 s
+  upkeep tick). `PeerConfig` is unchanged.
+- Call-to-session table (`sessions.rs`): each call records the peer that owns it. Accept, Reject,
+  End and MediaReady count only from that peer, an Invite replaying another peer's call id is
+  ignored, capacity is 32 calls per peer (a full table evicts from the peer holding most), and
+  inbound Invite and MediaReady are limited to 16 per 10 s per peer before touching the table.
+  MediaReady for a call no peer-owned entry exists for never reaches media. Media candidates
+  from `EndpointOffer` are kept only when equal to the link's remote IP or inside the subnet
+  of the local interface it arrived on (`subnet.rs`, from `if_addrs` netmasks; unknown
+  interface means remote IP only).
+- Trust decisions pin from the key held on the link, not from the store's 64-key cache, so
+  identity churn cannot make `DecidePeerTrust` fail. `ConfigTrust::find_by_name` compares
+  `name_skeleton`. Names are display data: when another key (trusted record or live link) claims
+  a look-alike name, the shown name gets the short fingerprint appended (`names.rs`).
 - Simultaneous dialling: `elect` keeps the link dialled by the lower fingerprint (then the
   higher epoch); both sides compute it independently. The loser is closed without `LinkDown`.
 - Reconnect: wanted peers (`ensure_link`) are redialled with jittered exponential backoff
@@ -322,6 +348,14 @@ microphone loss.
   (send) and the payload `Vec` (receive) per packet, and the UDP send is driven with
   `Handle::block_on` from the capture thread. Codec, jitter buffer, mixer and RTP
   packetization use preallocated buffers.
+- Session lifetime (review F-15): a control session hard-stops after 24 h (`SealError::Exhausted`),
+  which drops the link and redials with a new handshake. `PeerMedia` binds the session it was
+  created with and is not rebuilt, so a call that spans that reconnect keeps sealing with the
+  dead session; the media-side rebuild (and `needs_rekey` wiring) is not done and is a known
+  limit of 24 h calls.
+- `early_ready` in `media/system_calls.rs` is still a 16-entry table without aging; peers now
+  only forward MediaReady for calls the sender owns and at 16 per 10 s, which bounds but does
+  not remove the review F-05 (b) scenario.
 - A link replaced by election after media was bound keeps its media endpoint on the old
   session (no `switch_epoch` wiring); elections normally finish before any call starts.
 - `prepare_media` failures after admission (no link, socket bind, playback open) log and retire the

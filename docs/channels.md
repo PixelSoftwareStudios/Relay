@@ -255,7 +255,9 @@ sampled per decision (`channel::clock::{UnixClock, SystemClock, ClampedClock, Ma
 A process-start sample plus a monotonic offset is wrong after a suspend and after a late time
 sync (review F-07). Expiry is strict, `ClampedClock` never reports less than it already did so a
 rolled-back clock cannot resurrect an expired certificate, and tag epochs tolerate one hour
-either way. The monotonic clock remains the right source for lockout pacing only.
+either way. The monotonic clock remains the right source for lockout pacing only. The engine's
+`Clock` (`channels/clock.rs`) reads a `ClampedClock<SystemClock>` for `unix()` and `Instant`
+only for `mono()`; tests move both with `advance`.
 
 ## Known gaps and open review items
 
@@ -268,12 +270,13 @@ either way. The monotonic clock remains the right source for lockout pacing only
   come from maintained crates but the composition has not been reviewed.
 - Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
 - Owner key loss means the channel cannot admit or revoke any more (create a new one).
-- No rate limit on tag recognition work beyond the 256-entry discovery table.
+- Tag recognition work is bounded by the discovery table (per-source and total caps, 120 s expiry), the trust store size and the 4-dials-per-10-s pace.
 - Joining needs a trusted, already linked admitter (owner device). The driver does not dial
   for a join; pair first, then join. A join waits one second for a link that is coming up.
-- A recognised tag makes the engine dial the advertised address (at most 2 addresses per advert,
-  once per 30 s per advert instance). The resulting link still stops at the trust decision; the
-  channel proof starts only after the user (or an existing pin) has trusted the peer.
+- A recognised tag makes the engine dial the advertised address, pinned to the recognised
+  fingerprint (at most 2 addresses per advert, once per 30 s per fingerprint, 4 per 10 s overall).
+  The link was already trusted (only known fingerprints are recognised), so the channel proof
+  starts at once.
 - Listed channel names that are not ASCII are not advertised (mDNS TXT is ASCII only here);
   the channel is still joinable by id.
 - The driver keeps the decrypted records (owner signing key included) in process memory while
@@ -293,12 +296,12 @@ the channel RPCs stay `UNIMPLEMENTED`.
 | Concern | Where | Behaviour |
 |---|---|---|
 | Trust first | `peers/manager.rs` | `PeerOutput::Channel(LinkUp)` is emitted only for a link that passed `evaluate_peer` (trusted, canonical). `Body::Channel` is routed to the driver and never to `decode`, so channel traffic cannot reach call state. |
-| Proof | `channels/proofs.rs` | On `LinkUp` the driver sends `make_proof` for every certificate it holds; on a valid `Proof` it records `Evidence::Proven`, persists new revocations and answers once per channel and link. Gaining a channel announces proofs on all links. |
+| Proof | `channels/proofs.rs` | Two steps (D6). On `LinkUp`, and on gaining a channel, the driver sends `make_ref` for every channel it holds a certificate for. A matching `MemberRef` (`check_ref`) is answered with `make_proof` (certificate and revocations, at most once per 60 s per channel and link) and, for the first reference seen for that channel, with our own reference. A valid `Proof` records `Evidence::Proven` together with the certificate's `expires_at`; the 1 s tick demotes a proof whose certificate lapsed and, two minutes before that, asks the peer again (it answers with a renewed certificate if it has one). Signatures are checked on a stripped copy of the records (no authority keys, password credentials, issued certificates or invites), outside the state lock. |
 | Join (admitter) | `channels/inbound.rs` | `JoinStart`/`JoinConfirm` run through `AdmissionService` (limiter fed with a monotonic clock). One exchange per link; a new start replaces an abandoned one, which is dropped after 15 s so it cannot hold one of the four global slots. |
 | Join (joiner) | `channels/joining.rs` | Argon2 runs on a blocking thread. The joiner tries up to 8 linked devices (invite issuer first). Every failure is `CHANNEL_DENIED`; only the device's own pacing (5 failures, doubling lockout, `AttemptLimiter` keyed by local fingerprint) answers `CHANNEL_LOCKED_OUT`. |
 | Renewal | `channels/proofs.rs` | A member whose certificate has under 3.5 days left asks a peer that proved the channel to renew; the answer is applied with `apply_renewal`. Authority holders refresh their own certificate on the 1 s upkeep tick. |
 | Advertising | `channels/advert.rs` | `ChannelAdvert::build` per joined channel into `AdvertSpec::extra_txt`; hidden mode (from `SetPrivacy`) uses `hidden_instance_id` and rotates it per tag epoch. Rebuilt only when the epoch, mode or channel set changes. A device in no channel publishes no channel TXT at all. |
-| Hints | `channels/advert.rs` | `ChannelAdvert::recognise` yields `Evidence::Candidate`; that only triggers a dial. Nothing treats a candidate as shared. |
+| Hints | `channels/advert.rs` | `ChannelAdvert::recognise(.., known_fingerprints, ..)` is given the trusted fingerprints (`PeerHandle::trusted`) and returns the fingerprint to pin. The engine dials `Some(fp)` only, once per fingerprint per 30 s, at most 4 dials per 10 s over all adverts, and never dials a device it already has a link to. A copied advertisement can only produce a pinned dial that fails at message 2. A hit makes the peer a `Candidate`; nothing treats a candidate as shared. Listed names bind to the first id seen; a second id for the same name makes the name ambiguous and joining by that name is refused (use the id). |
 | Ringing | `channels/screen.rs` | `InboundPolicy::decide` runs before an invite reaches the control actor. A dropped invite is answered with a plain `Decline` (indistinguishable from the user's). Only `Proven` counts. |
 | Views | `service/directory.rs` | `Snapshot.channels`, `StateEvent.channel` (new), `Peer.shared_channel_ids` (proven only) and `Removed{kind: "channel"}`. |
 
@@ -373,14 +376,17 @@ after use, and appear in no event, snapshot, log or `Operation` result.
 ## Test map
 
 Engine: `cargo test -p relay-engine --test channels_e2e --test channels_calls --test
-channels_secrets`. Real daemons, loopback sockets, SQLite store, in-memory vault, fake audio:
+channels_secrets --test channels_hardening --test peers_sessions --test peers_hardening`. Real daemons, loopback sockets, SQLite store, in-memory vault, fake audio:
 invite plus password join with uniform denials, single-use invites, non-owner invite, joiner
 lockout, limits, idempotent operations, revocation, `SharedChannelOnly` screening by proof,
-a forged tag that dials but never counts as shared, a recognised tag that re-links a restarted
+a forged tag naming an unpinned device that causes no dial and never counts as shared, a recognised tag that re-links a restarted
 member, epoch and hidden-mode re-advertising, certificate renewal, three engines in one channel
 with simultaneous calls and canary tones (no cross-audio, no auto-accept, no consent), and a
 captured-tracing check that no password or invite appears in logs, events, snapshots or
-operation results.
+operation results. `channels_hardening` covers listed-name binding, demotion of an expired proof
+and invite redaction; `peers_sessions` and `peers_hardening` the per-peer call table, candidate
+subnet filter, untrusted-link cap, key cache churn and look-alike names (review F-05, F-09,
+F-11, F-13, F-14, F-17, F-24).
 
 `crates/relay-net/tests/channel_*.rs` plus unit tests in `relay-core::channel`: PAKE success,
 wrong password, lockout, transcript binding (other session, other keys, other channel), invite
