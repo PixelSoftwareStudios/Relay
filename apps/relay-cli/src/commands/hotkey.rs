@@ -9,7 +9,7 @@ use relay_platform::session::{LockDetection, lock_detection};
 use serde::Serialize;
 
 use super::Out;
-use super::config::Message;
+use super::config::{self, Message};
 use crate::cli::{CliError, GlobalArgs, HotkeyArgs, HotkeyCommand};
 use crate::client;
 use crate::hotkey::{
@@ -119,6 +119,13 @@ pub async fn run(
 			out.emit(&status_view(&configured_binding(args.binding.as_deref())))
 		}
 		Some(HotkeyCommand::Set { accelerator }) => {
+			validate_accelerator(accelerator).map_err(CliError::Usage)?;
+			// A running daemon takes the setting itself (saved for the next start of
+			// `relay hotkey` or the desktop app, which read it when they start).
+			if let Some(mut engine) = config::engine_running(global).await? {
+				let value = vec![("hotkeys.push_to_talk".to_owned(), accelerator.clone())];
+				return config::set_live(&mut engine, value, out).await;
+			}
 			let paths = Paths::platform().map_err(|e| CliError::Other(e.into()))?;
 			set(&paths, accelerator, out)
 		}

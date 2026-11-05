@@ -1,6 +1,6 @@
 //! A scripted `Control`/`Subscribe` that records what it was asked to do.
 
-use std::collections::VecDeque;
+use std::collections::{BTreeMap, VecDeque};
 
 use relay_api::pb::*;
 use relay_api::{ApiError, WatchItem};
@@ -38,6 +38,10 @@ pub struct FakeControl {
 	/// One entry per `open_session_watch`; an exhausted list opens a watch holding only the list.
 	pub on_watch_open: VecDeque<WatchSetup>,
 	pub session_watches: VecDeque<Vec<Result<relay_api::SessionItem, ApiError>>>,
+	/// What `get_settings` answers.
+	pub settings: BTreeMap<String, String>,
+	/// Scripted per-key answers of `set_settings` (default: applied live).
+	pub setting_results: BTreeMap<String, SettingResult>,
 }
 
 impl FakeControl {
@@ -63,6 +67,8 @@ impl FakeControl {
 			chat: super::chat::ChatState::new(),
 			on_watch_open: VecDeque::new(),
 			session_watches: VecDeque::new(),
+			settings: BTreeMap::new(),
+			setting_results: BTreeMap::new(),
 		}
 	}
 
@@ -268,6 +274,36 @@ impl Manage for FakeControl {
 		media_type: &str,
 	) -> Result<Operation, ApiError> {
 		self.record(format!("avatar {} {media_type}", bytes.len()))
+	}
+	async fn clear_avatar(&mut self) -> Result<Operation, ApiError> {
+		self.record("clear_avatar")
+	}
+	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError> {
+		self.record(format!("forget {} {query}", hex::encode(peer_id)))
+	}
+	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError> {
+		Ok(self.settings.clone())
+	}
+	async fn set_settings(
+		&mut self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, ApiError> {
+		self.log.push(format!("set_settings {values:?}"));
+		let mut results: Vec<SettingResult> = values
+			.into_iter()
+			.map(|(key, _)| {
+				self.setting_results
+					.get(&key)
+					.cloned()
+					.unwrap_or(SettingResult {
+						outcome: SettingOutcome::AppliedLive as i32,
+						reason: String::new(),
+						key,
+					})
+			})
+			.collect();
+		results.sort_by(|a, b| a.key.cmp(&b.key));
+		Ok(results)
 	}
 }
 

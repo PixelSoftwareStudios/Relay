@@ -8,7 +8,7 @@ use common::FakeControl;
 use common::engine::EngineHarness;
 use relay_cli::cli::{Cli, CliError, GlobalArgs, exit};
 use relay_cli::commands::Out;
-use relay_cli::commands::config::{LIVE_KEYS, run_in, set_live};
+use relay_cli::commands::config::{run_in, set_live};
 use relay_config::{Paths, Storage};
 
 fn global(socket: &std::path::Path) -> GlobalArgs {
@@ -140,23 +140,24 @@ async fn export_and_import_round_trip_through_a_file() {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn with_an_engine_running_live_settings_route_through_it() {
+async fn with_an_engine_running_every_key_goes_through_it_with_its_outcome() {
 	let s = setup();
 	let engine = EngineHarness::start().await;
 	let live = global(&engine.socket);
 	let out = config(&s, &live, &["set", "profile.display_name", "Kitchen"])
 		.await
 		.unwrap();
-	assert!(out.contains("applied"), "{out}");
-	config(&s, &live, &["set", "privacy.advert_mode", "hidden"])
+	assert_eq!(out.trim(), "profile.display_name: applied live");
+	let out = config(&s, &live, &["set", "network.transfer_port", "47900"])
 		.await
 		.unwrap();
-	let log = engine.log();
-	assert_eq!(log[0], "profile Kitchen");
 	assert!(
-		log[1].starts_with("privacy inbound=None advert=Some(2)"),
-		"{log:?}"
+		out.contains("network.transfer_port: saved, needs restart (read at the next start)"),
+		"{out}"
 	);
+	let err = config(&s, &live, &["set", "network.transfer_port", "x"]).await;
+	assert!(err.is_ok(), "the fake engine accepts any text");
+	assert_eq!(engine.log()[0], "set_settings profile.display_name=Kitchen");
 	assert!(
 		!s.paths.database_file().exists(),
 		"the engine owns the store; the CLI wrote nothing"
@@ -165,112 +166,115 @@ async fn with_an_engine_running_live_settings_route_through_it() {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn settings_the_engine_cannot_change_live_and_import_are_refused_while_it_runs() {
+async fn only_sensitive_keys_need_the_daemon_stopped() {
 	let s = setup();
 	let engine = EngineHarness::start().await;
 	let live = global(&engine.socket);
-	let err = config(&s, &live, &["set", "diagnostics.log_level", "debug"])
+	let err = config(&s, &live, &["set", "network.allow_wan", "true"])
 		.await
 		.unwrap_err();
-	assert_eq!(err.exit_code(), exit::USAGE);
-	for key in LIVE_KEYS {
-		assert!(err.to_string().contains(key), "{err}");
-	}
-	let file = s.dir.path().join("in.toml");
-	std::fs::write(&file, "[profile]\ndisplay_name = \"X\"\n").unwrap();
-	let err = config(&s, &live, &["import", file.to_str().unwrap()])
-		.await
-		.unwrap_err();
-	assert!(
-		err.to_string().contains("stop it before importing"),
-		"{err}"
-	);
-	assert!(engine.log().is_empty());
-}
-
-#[tokio::test]
-async fn live_values_are_validated_before_the_engine_sees_them() {
-	let mut c = FakeControl::new();
-	let mut buffer = Vec::new();
-	let mut out = Out::new(false, &mut buffer);
-	for (key, value) in [
-		("audio.microphone_gain", "loud"),
-		("audio.playback_gain", "5"),
-		("ptt.release_delay_ms", "2001"),
-		("ptt.release_delay_ms", "-5"),
-		("ptt.release_delay_ms", "fast"),
-		("privacy.inbound_policy", "nobody"),
-		("privacy.advert_mode", "shy"),
-		("audio.ringtone_volume", "1.5"),
-		("audio.ringtone_volume", "-0.1"),
-		("audio.ringtone_enabled", "maybe"),
-	] {
-		let err = set_live(&mut c, key, value, &mut out).await.unwrap_err();
-		assert_eq!(err.exit_code(), exit::USAGE, "{key}");
-	}
-	assert!(c.log.is_empty());
-	set_live(
-		&mut c,
-		"privacy.inbound_policy",
-		"shared_channel_only",
-		&mut out,
+	assert_eq!(err.exit_code(), exit::REJECTED);
+	assert_eq!(err.code(), "SETTING_REJECTED");
+	// Setting a restricted key to its current value is a no-op, not a refusal.
+	let same = config(
+		&s,
+		&live,
+		&["set", "identity.key_storage", "os_credential_store"],
 	)
 	.await
 	.unwrap();
-	assert_eq!(c.log[0], "privacy Some(SharedChannelOnly) None");
-}
-
-#[tokio::test]
-async fn release_delay_is_a_live_setting_sent_as_a_global_control() {
-	assert!(LIVE_KEYS.contains(&"ptt.release_delay_ms"));
-	let mut c = FakeControl::new();
-	let mut buffer = Vec::new();
-	let mut out = Out::new(false, &mut buffer);
-	set_live(&mut c, "ptt.release_delay_ms", "350", &mut out)
-		.await
-		.unwrap();
-	set_live(&mut c, "ptt.release_delay_ms", "0", &mut out)
-		.await
-		.unwrap();
 	assert!(
-		c.log[0].contains("ptt_release_delay_ms: Some(350)"),
-		"{:?}",
-		c.log
-	);
-	assert!(
-		c.log[1].contains("ptt_release_delay_ms: Some(0)"),
-		"{:?}",
-		c.log
+		same.contains("identity.key_storage: applied live"),
+		"{same}"
 	);
 }
 
+#[cfg(unix)]
 #[tokio::test]
-async fn ring_settings_are_live_global_controls() {
-	for key in [
-		"audio.ringtone_enabled",
-		"audio.ringtone_volume",
-		"audio.ringback_enabled",
-		"audio.call_sounds_enabled",
-	] {
-		assert!(LIVE_KEYS.contains(&key));
-	}
+async fn import_reports_each_key_and_sets_restricted_ones_aside() {
+	let s = setup();
+	let engine = EngineHarness::start().await;
+	let live = global(&engine.socket);
+	let file = s.dir.path().join("in.toml");
+	std::fs::write(
+		&file,
+		"[profile]\ndisplay_name = \"X\"\n[network]\nallow_wan = true\n",
+	)
+	.unwrap();
+	let mut out = Vec::new();
+	let mut o = Out::new(false, &mut out);
+	let cmd = relay_cli::cli::ConfigCommand::Import { file: file.clone() };
+	let err = run_in(&live, &s.paths, cmd, &mut o).await.unwrap_err();
+	let text = String::from_utf8(out).unwrap();
+	assert_eq!(err.exit_code(), exit::REJECTED);
+	assert!(
+		text.contains("profile.display_name: applied live"),
+		"{text}"
+	);
+	assert!(
+		text.contains("network.allow_wan: rejected: security-sensitive"),
+		"{text}"
+	);
+	let log = engine.log();
+	assert_eq!(log.len(), 2, "{log:?}");
+	assert!(log[0].contains("network.allow_wan=true"), "{log:?}");
+	assert_eq!(
+		log[1], "set_settings profile.display_name=X",
+		"only the changed keys, minus the refused one"
+	);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn get_and_export_read_the_running_daemon() {
+	let s = setup();
+	let engine = EngineHarness::start().await;
+	let live = global(&engine.socket);
+	let name = config(&s, &live, &["get", "profile.display_name"])
+		.await
+		.unwrap();
+	assert_eq!(name.trim(), "Desk");
+	let all = config(&s, &live, &["get"]).await.unwrap();
+	assert!(
+		all.contains("identity.key_storage = os_credential_store"),
+		"{all}"
+	);
+	let err = config(&s, &live, &["get", "audio.nope"]).await.unwrap_err();
+	assert_eq!(err.exit_code(), exit::USAGE);
+	assert!(
+		!s.paths.database_file().exists(),
+		"nothing read from the database"
+	);
+}
+
+#[tokio::test]
+async fn set_live_prints_the_scripted_outcomes_and_fails_on_a_rejection() {
+	use relay_api::pb::{SettingOutcome, SettingResult};
 	let mut c = FakeControl::new();
+	c.setting_results.insert(
+		"network.transfer_port".into(),
+		SettingResult {
+			key: "network.transfer_port".into(),
+			outcome: SettingOutcome::Rejected as i32,
+			reason: "must be 1024 to 65535".into(),
+		},
+	);
 	let mut buffer = Vec::new();
-	let mut out = Out::new(false, &mut buffer);
-	set_live(&mut c, "audio.ringtone_volume", "0.5", &mut out)
-		.await
-		.unwrap();
-	set_live(&mut c, "audio.ringtone_enabled", "false", &mut out)
-		.await
-		.unwrap();
-	assert!(
-		c.log[0].contains("ringtone_volume: Some(0.5)"),
-		"{:?}",
-		c.log
-	);
-	assert!(
-		c.log[1].contains("ringtone_enabled: Some(false)"),
-		"{:?}",
-		c.log
-	);
+	let mut out = Out::new(true, &mut buffer);
+	let err = set_live(
+		&mut c,
+		vec![
+			("network.transfer_port".into(), "1".into()),
+			("audio.playback_gain".into(), "2".into()),
+		],
+		&mut out,
+	)
+	.await
+	.unwrap_err();
+	assert_eq!(err.exit_code(), exit::REJECTED);
+	let json: serde_json::Value = serde_json::from_slice(&buffer).unwrap();
+	assert_eq!(json[0]["key"], "audio.playback_gain");
+	assert_eq!(json[0]["outcome"], "applied_live");
+	assert_eq!(json[1]["outcome"], "rejected");
+	assert_eq!(json[1]["reason"], "must be 1024 to 65535");
 }

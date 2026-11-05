@@ -3,12 +3,14 @@
 //! These go straight to the generated RPCs: they are specific to this app's
 //! commands and not part of the wire vocabulary shared with other clients.
 
+use std::collections::BTreeMap;
+
 use relay_api::ApiError;
 use relay_api::pb::{
 	AdvertMode, ChannelInfo, ChannelPolicy, ConnectionInfo, CreateChannelRequest,
 	CreateInviteRequest, CreateInviteResponse, InboundPolicy, JoinChannelRequest,
 	LeaveChannelRequest, ListChannelsRequest, Operation, RevokeChannelMemberRequest,
-	SetPrivacyRequest, StartCallRequest, start_call_request,
+	SetPrivacyRequest, SettingResult, StartCallRequest, start_call_request,
 };
 use relay_client::operation::settle;
 use relay_client::wire::mutation;
@@ -85,6 +87,17 @@ pub trait Manage {
 		bytes: Vec<u8>,
 		media_type: &str,
 	) -> Result<Operation, ApiError>;
+	/// Remove the stored avatar.
+	async fn clear_avatar(&mut self) -> Result<Operation, ApiError>;
+	/// Forget a stored trust decision by peer id or by `query` (fingerprint prefix or name).
+	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError>;
+	/// Every preference as flat `section.key` text.
+	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError>;
+	/// Change preferences by key; one result per key, sorted by key.
+	async fn set_settings(
+		&mut self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, ApiError>;
 }
 
 impl RealClient {
@@ -268,5 +281,28 @@ impl Manage for RealClient {
 			media_type: media_type.to_owned(),
 		})
 		.await
+	}
+
+	async fn clear_avatar(&mut self) -> Result<Operation, ApiError> {
+		self.run_command(relay_client::Command::ClearAvatar).await
+	}
+
+	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError> {
+		self.run_command(relay_client::Command::ForgetPeer {
+			peer_id: peer_id.to_vec(),
+			query: query.to_owned(),
+		})
+		.await
+	}
+
+	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError> {
+		self.client_mut().get_settings().await
+	}
+
+	async fn set_settings(
+		&mut self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, ApiError> {
+		Ok(self.client_mut().set_settings(values).await?.results)
 	}
 }

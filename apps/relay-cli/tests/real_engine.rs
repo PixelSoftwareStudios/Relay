@@ -126,14 +126,28 @@ async fn config_set_goes_through_the_running_engine_not_the_settings_file() {
 		.run(&["config", "set", "profile.display_name", "Hallway"])
 		.await
 		.unwrap();
-	assert!(out.contains("applied"), "{out}");
-	let refused = engine
+	assert_eq!(out.trim(), "profile.display_name: applied live");
+	let later = engine
 		.run(&["config", "set", "diagnostics.log_level", "debug"])
-		.await;
+		.await
+		.unwrap();
 	assert!(
-		refused.is_err(),
-		"settings the engine cannot change live are refused"
+		later.starts_with("diagnostics.log_level: saved, needs restart"),
+		"{later}"
 	);
+	let refused = engine
+		.run(&["config", "set", "network.allow_wan", "true"])
+		.await
+		.unwrap_err();
+	assert!(
+		refused.to_string().contains("SETTING_REJECTED") || refused.code() == "SETTING_REJECTED",
+		"security-sensitive keys need the daemon stopped: {refused}"
+	);
+	let got = engine
+		.run(&["config", "get", "profile.display_name"])
+		.await
+		.unwrap();
+	assert_eq!(got.trim(), "Hallway");
 	engine.daemon.shutdown().await.unwrap();
 }
 

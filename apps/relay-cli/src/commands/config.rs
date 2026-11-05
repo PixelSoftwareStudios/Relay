@@ -1,42 +1,28 @@
 //! `relay config get|set|export|import`.
 //!
-//! Reading never needs the settings lock (`PreferenceStore::read_only`). Writing
-//! does, and a running engine holds it: `set` is then routed through the engine
-//! for the settings it can change live, and everything else says so plainly.
-//! `import` replaces every setting, so it needs the engine stopped.
+//! With a daemon running every key goes through `SetSettings` and each key's outcome is
+//! printed (applied live, saved for the next start, or rejected with the reason); only the
+//! security-sensitive keys (`identity.*`, `network.allow_*`, `diagnostics.record_raw_audio`)
+//! need the daemon stopped, and the daemon says which. With none running the settings
+//! database is written directly under the writer lock. `get` and `export` read the live
+//! values from a running daemon (`GetSettings`) and otherwise the database without a lock.
 
 use std::collections::BTreeMap;
 use std::fmt::{self, Display, Formatter};
 use std::path::Path;
 
-use relay_api::pb::{AdvertMode, InboundPolicy};
-use relay_config::prefs::{PreferenceStore, Preferences, export_toml, flat};
+use relay_api::ApiError;
+use relay_api::pb::SettingOutcome;
+use relay_config::prefs::{PreferenceStore, Preferences, export_toml, flat, import_toml};
 use relay_config::{ConfigError, Paths, Storage};
 use serde::Serialize;
 
-use super::{Out, report};
+use super::Out;
 use crate::cli::{CliError, ConfigCommand, GlobalArgs};
-use crate::client::{self, Control, GlobalControls, Manage};
+use crate::client::{self, Manage};
 
 /// Largest settings file accepted by `import`.
 const IMPORT_MAX_BYTES: u64 = 1024 * 1024;
-
-/// Longest push-to-talk release delay the engine accepts.
-const MAX_RELEASE_DELAY_MS: u32 = relay_config::prefs::MAX_RELEASE_DELAY_MS;
-
-/// Settings the engine can change while it runs.
-pub const LIVE_KEYS: [&str; 10] = [
-	"profile.display_name",
-	"audio.microphone_gain",
-	"audio.playback_gain",
-	"ptt.release_delay_ms",
-	"privacy.inbound_policy",
-	"privacy.advert_mode",
-	"audio.ringtone_enabled",
-	"audio.ringtone_volume",
-	"audio.ringback_enabled",
-	"audio.call_sounds_enabled",
-];
 
 /// One setting.
 #[derive(Debug, Serialize)]
@@ -104,9 +90,9 @@ pub async fn run_in(
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
 	match cmd {
-		ConfigCommand::Get { key } => get(paths, key, out),
-		ConfigCommand::Export { file } => export(paths, file.as_deref(), out),
-		ConfigCommand::Set { key, value } => set(global, paths, &key, &value, out).await,
+		ConfigCommand::Get { key } => get(global, paths, key, out).await,
+		ConfigCommand::Export { file } => export(global, paths, file.as_deref(), out).await,
+		ConfigCommand::Set { key, value } => set(global, paths, key, value, out).await,
 		ConfigCommand::Import { file } => import(global, paths, &file, out).await,
 	}
 }
@@ -114,7 +100,7 @@ pub async fn run_in(
 fn config_error(err: ConfigError) -> CliError {
 	match err {
 		ConfigError::Locked(path) => CliError::Other(anyhow::anyhow!(
-			"the settings are locked by another process ({}); stop the engine or use the live settings with it running",
+			"the settings are locked by another process ({}); stop it, or start the daemon so changes go through it",
 			path.display()
 		)),
 		ConfigError::InvalidPreference(message) => CliError::Usage(message),
@@ -128,26 +114,54 @@ fn load(paths: &Paths) -> Result<Preferences, CliError> {
 		.unwrap_or_default())
 }
 
-fn get(paths: &Paths, key: Option<String>, out: &mut Out<'_>) -> Result<(), CliError> {
-	let prefs = load(paths)?;
-	match key {
-		Some(key) => {
-			let value = flat::get(&prefs, &key).map_err(config_error)?;
-			out.emit(&Setting { key, value })
-		}
-		None => {
-			let mut all = BTreeMap::new();
-			for key in flat::keys() {
-				let value = flat::get(&prefs, &key).map_err(config_error)?;
-				all.insert(key, value);
-			}
-			out.emit(&Settings(all))
-		}
+pub(super) async fn engine_running(
+	global: &GlobalArgs,
+) -> Result<Option<client::RealClient>, CliError> {
+	match client::connect_existing(global).await {
+		Ok(client) => Ok(Some(client)),
+		Err(CliError::Unreachable { .. }) => Ok(None),
+		Err(other) => Err(other),
 	}
 }
 
-fn export(paths: &Paths, file: Option<&Path>, out: &mut Out<'_>) -> Result<(), CliError> {
-	let text = export_toml(&load(paths)?).map_err(config_error)?;
+/// All settings as flat text: from the running daemon, else the database.
+async fn current(global: &GlobalArgs, paths: &Paths) -> Result<BTreeMap<String, String>, CliError> {
+	if let Some(mut engine) = engine_running(global).await? {
+		return Ok(engine.get_settings().await?);
+	}
+	flat::all(&load(paths)?).map_err(config_error)
+}
+
+async fn get(
+	global: &GlobalArgs,
+	paths: &Paths,
+	key: Option<String>,
+	out: &mut Out<'_>,
+) -> Result<(), CliError> {
+	let all = current(global, paths).await?;
+	match key {
+		Some(key) => match all.get(&key) {
+			Some(value) => out.emit(&Setting {
+				value: value.clone(),
+				key,
+			}),
+			None => Err(CliError::Usage(format!("unknown setting `{key}`"))),
+		},
+		None => out.emit(&Settings(all)),
+	}
+}
+
+async fn export(
+	global: &GlobalArgs,
+	paths: &Paths,
+	file: Option<&Path>,
+	out: &mut Out<'_>,
+) -> Result<(), CliError> {
+	let mut prefs = Preferences::default();
+	for (key, value) in current(global, paths).await? {
+		prefs = flat::set(&prefs, &key, &value).map_err(config_error)?;
+	}
+	let text = export_toml(&prefs).map_err(config_error)?;
 	match file {
 		Some(file) => {
 			std::fs::write(file, text)?;
@@ -159,148 +173,90 @@ fn export(paths: &Paths, file: Option<&Path>, out: &mut Out<'_>) -> Result<(), C
 	}
 }
 
-async fn engine_running(global: &GlobalArgs) -> Result<Option<client::RealClient>, CliError> {
-	match client::connect_existing(global).await {
-		Ok(client) => Ok(Some(client)),
-		Err(CliError::Unreachable { .. }) => Ok(None),
-		Err(other) => Err(other),
-	}
-}
-
 async fn set(
 	global: &GlobalArgs,
 	paths: &Paths,
-	key: &str,
-	value: &str,
+	key: String,
+	value: String,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	if !flat::keys().iter().any(|k| k == key) {
+	if !flat::keys().iter().any(|k| *k == key) {
 		return Err(CliError::Usage(format!("unknown setting `{key}`")));
 	}
 	if let Some(mut engine) = engine_running(global).await? {
-		return set_live(&mut engine, key, value, out).await;
+		return set_live(&mut engine, vec![(key, value)], out).await;
 	}
 	let storage = Storage::open(paths).map_err(config_error)?;
 	let store = PreferenceStore::open(&storage.database).map_err(config_error)?;
-	store.set(key, value).map_err(config_error)?;
+	store.set(&key, &value).map_err(config_error)?;
 	out.emit(&Setting {
-		key: key.to_owned(),
-		value: store.get(key).map_err(config_error)?,
+		value: store.get(&key).map_err(config_error)?,
+		key,
 	})
 }
 
-/// Change a setting through the running engine.
-pub async fn set_live<C: Control + Manage>(
+/// Send `values` through the running daemon and print each key's outcome. Any rejected key
+/// makes the command fail (exit 4) after the full report is printed.
+pub async fn set_live<C: Manage>(
 	client: &mut C,
-	key: &str,
-	value: &str,
+	values: Vec<(String, String)>,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	let gain = |text: &str| {
-		text.parse::<f32>()
-			.ok()
-			.filter(|g| g.is_finite() && (0.0..=4.0).contains(g))
-			.ok_or_else(|| CliError::Usage("gain must be a number from 0.0 to 4.0".into()))
+	let outcomes = apply(client, values).await?;
+	let rejected = outcomes.iter().filter(|o| o.outcome == "rejected").count();
+	out.emit(&Outcomes(outcomes))?;
+	if rejected > 0 {
+		return Err(CliError::Rejected {
+			code: "SETTING_REJECTED".into(),
+			message: format!("{rejected} setting(s) were not saved"),
+			retryable: false,
+		});
+	}
+	Ok(())
+}
+
+/// The key a `SETTING_RESTRICTED` refusal names.
+fn restricted_key(err: &ApiError) -> Option<String> {
+	let ApiError::Status(status) = err else {
+		return None;
 	};
-	let switch = |text: &str| {
-		text.parse::<bool>()
-			.map_err(|_| CliError::Usage("use `true` or `false`".into()))
-	};
-	let op = match key {
-		"profile.display_name" => client.set_profile(value).await?,
-		"audio.microphone_gain" => {
-			let controls = GlobalControls {
-				microphone_gain: Some(gain(value)?),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"audio.playback_gain" => {
-			let controls = GlobalControls {
-				playback_gain: Some(gain(value)?),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"ptt.release_delay_ms" => {
-			let delay = value
-				.parse::<u32>()
-				.ok()
-				.filter(|ms| *ms <= MAX_RELEASE_DELAY_MS)
-				.ok_or_else(|| {
-					CliError::Usage(
-						"release delay must be whole milliseconds from 0 to 2000".into(),
-					)
-				})?;
-			let controls = GlobalControls {
-				ptt_release_delay_ms: Some(delay),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"audio.ringtone_enabled" => {
-			let controls = GlobalControls {
-				ringtone_enabled: Some(switch(value)?),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"audio.ringback_enabled" => {
-			let controls = GlobalControls {
-				ringback_enabled: Some(switch(value)?),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"audio.call_sounds_enabled" => {
-			let controls = GlobalControls {
-				call_sounds_enabled: Some(switch(value)?),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"audio.ringtone_volume" => {
-			let volume = value
-				.parse::<f32>()
-				.ok()
-				.filter(|v| v.is_finite() && (0.0..=1.0).contains(v))
-				.ok_or_else(|| {
-					CliError::Usage("ringtone volume must be a number from 0.0 to 1.0".into())
-				})?;
-			let controls = GlobalControls {
-				ringtone_volume: Some(volume),
-				..GlobalControls::default()
-			};
-			client.set_global_controls(controls).await?
-		}
-		"privacy.inbound_policy" => {
-			let policy = match value {
-				"anyone" => InboundPolicy::Anyone,
-				"shared_channel_only" => InboundPolicy::SharedChannelOnly,
-				_ => {
-					return Err(CliError::Usage(
-						"use `anyone` or `shared_channel_only`".into(),
-					));
+	if status.code() != tonic::Code::PermissionDenied {
+		return None;
+	}
+	let rest = status.message().strip_prefix("SETTING_RESTRICTED:")?;
+	let mut parts = rest.split('`');
+	parts.next()?;
+	parts.next().map(str::to_owned).filter(|k| !k.is_empty())
+}
+
+/// `SetSettings`, setting aside the keys the daemon refuses to change over the API (it
+/// refuses the whole request naming one; the others are sent again without it).
+async fn apply<C: Manage>(
+	client: &mut C,
+	mut pending: Vec<(String, String)>,
+) -> Result<Vec<KeyOutcome>, CliError> {
+	let mut outcomes = Vec::new();
+	while !pending.is_empty() {
+		match client.set_settings(pending.clone()).await {
+			Ok(results) => {
+				outcomes.extend(results.iter().map(KeyOutcome::from));
+				break;
+			}
+			Err(err) => {
+				let Some(key) = restricted_key(&err) else {
+					return Err(err.into());
+				};
+				let before = pending.len();
+				pending.retain(|(k, _)| *k != key);
+				if pending.len() == before {
+					return Err(err.into());
 				}
-			};
-			client.set_privacy(Some(policy), None).await?
+				outcomes.push(KeyOutcome::restricted(key));
+			}
 		}
-		"privacy.advert_mode" => {
-			let mode = match value {
-				"visible" => AdvertMode::Visible,
-				"hidden" => AdvertMode::Hidden,
-				_ => return Err(CliError::Usage("use `visible` or `hidden`".into())),
-			};
-			client.set_privacy(None, Some(mode)).await?
-		}
-		_ => {
-			return Err(CliError::Usage(format!(
-				"the engine is running and owns the settings; it can change {} live. Stop it to change `{key}`",
-				LIVE_KEYS.join(", ")
-			)));
-		}
-	};
-	report(&op, out)
+	}
+	outcomes.sort_by(|a, b| a.key.cmp(&b.key));
+	Ok(outcomes)
 }
 
 async fn import(
@@ -315,10 +271,19 @@ async fn import(
 		));
 	}
 	let text = std::fs::read_to_string(file)?;
-	if engine_running(global).await?.is_some() {
-		return Err(CliError::Usage(
-			"the engine is running and holds the settings; stop it before importing".into(),
-		));
+	if let Some(mut engine) = engine_running(global).await? {
+		let wanted = flat::all(&import_toml(&text).map_err(config_error)?).map_err(config_error)?;
+		let live = engine.get_settings().await?;
+		let changes: Vec<(String, String)> = wanted
+			.into_iter()
+			.filter(|(key, value)| live.get(key) != Some(value))
+			.collect();
+		if changes.is_empty() {
+			return out.emit(&Message {
+				message: "nothing to change: the daemon already has these settings".into(),
+			});
+		}
+		return set_live(&mut engine, changes, out).await;
 	}
 	let storage = Storage::open(paths).map_err(config_error)?;
 	let store = PreferenceStore::open(&storage.database).map_err(config_error)?;
@@ -326,4 +291,68 @@ async fn import(
 	out.emit(&Message {
 		message: "settings imported".into(),
 	})
+}
+
+/// What happened to one key.
+#[derive(Debug, Serialize)]
+pub struct KeyOutcome {
+	pub key: String,
+	/// `applied_live`, `saved_needs_restart` or `rejected`.
+	pub outcome: &'static str,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub reason: Option<String>,
+}
+
+impl KeyOutcome {
+	fn restricted(key: String) -> Self {
+		Self {
+			key,
+			outcome: "rejected",
+			reason: Some(
+				"security-sensitive: change it with the daemon stopped (`relay daemon stop`, then `relay config set`)"
+					.into(),
+			),
+		}
+	}
+}
+
+impl From<&relay_api::pb::SettingResult> for KeyOutcome {
+	fn from(r: &relay_api::pb::SettingResult) -> Self {
+		let outcome = match SettingOutcome::try_from(r.outcome) {
+			Ok(SettingOutcome::AppliedLive) => "applied_live",
+			Ok(SettingOutcome::SavedNeedsRestart) => "saved_needs_restart",
+			_ => "rejected",
+		};
+		Self {
+			key: r.key.clone(),
+			outcome,
+			reason: Some(r.reason.clone()).filter(|t| !t.is_empty()),
+		}
+	}
+}
+
+impl Display for KeyOutcome {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let reason = self.reason.as_deref().unwrap_or_default();
+		match self.outcome {
+			"applied_live" => write!(f, "{}: applied live", self.key),
+			"saved_needs_restart" if reason.is_empty() => {
+				write!(f, "{}: saved, needs restart", self.key)
+			}
+			"saved_needs_restart" => write!(f, "{}: saved, needs restart ({reason})", self.key),
+			_ => write!(f, "{}: rejected: {reason}", self.key),
+		}
+	}
+}
+
+/// The per-key report of a live `set` or `import`.
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+pub struct Outcomes(pub Vec<KeyOutcome>);
+
+impl Display for Outcomes {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		let lines: Vec<String> = self.0.iter().map(ToString::to_string).collect();
+		f.write_str(&lines.join("\n"))
+	}
 }

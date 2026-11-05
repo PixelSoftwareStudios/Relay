@@ -1,89 +1,16 @@
-//! An in-process engine speaking the real API over a Unix socket.
-//!
-//! It serves a fixed snapshot and records mutations as text, which is enough
-//! to prove the CLI's wire behavior end to end.
+//! The `Engine` service of the test engine: records mutations, serves fixed state.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use relay_api::pb::engine_server::Engine;
 use relay_api::pb::state_envelope::Body;
 use relay_api::pb::*;
-use relay_api::{ApiLimits, ClientRegistry, Endpoint, UdsListener, serve_unix};
-use tempfile::TempDir;
-use tokio::sync::{mpsc, oneshot};
+use tokio::sync::mpsc;
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
-use super::chat::ChatState;
-use super::chat_watch;
-use super::fixtures;
-
-type Resp<T> = Result<Response<T>, Status>;
-
-#[derive(Clone)]
-pub struct FakeEngine {
-	registry: Arc<ClientRegistry>,
-	pub log: Arc<Mutex<Vec<String>>>,
-	pub snapshot: Arc<Mutex<Snapshot>>,
-	pub fail_with: Arc<Mutex<Option<Problem>>>,
-	/// The capabilities each client asked for when it registered.
-	pub registered: Arc<Mutex<Vec<Vec<String>>>>,
-	/// Every secret the engine received, to prove they arrive and never leak.
-	pub secrets: Arc<Mutex<Vec<String>>>,
-	/// Sessions, transcripts and events; clients need the `messages` capability.
-	pub chat: Arc<Mutex<ChatState>>,
-	messaging_clients: Arc<Mutex<Vec<Vec<u8>>>>,
-}
-
-fn ctx_client(c: &Option<MutationContext>) -> Option<&ClientContext> {
-	c.as_ref().and_then(|c| c.client.as_ref())
-}
-
-impl FakeEngine {
-	fn chat_resp<R>(
-		&self,
-		client: Option<&ClientContext>,
-		f: impl FnOnce(&mut ChatState) -> R,
-	) -> Resp<R> {
-		self.chat(client, f).map(Response::new)
-	}
-
-	/// Run `f` on the chat state for a client that registered with `messages`.
-	fn chat<R>(
-		&self,
-		client: Option<&ClientContext>,
-		f: impl FnOnce(&mut ChatState) -> R,
-	) -> Result<R, Status> {
-		let id = client.map(|c| c.client_id.clone()).unwrap_or_default();
-		if !self.messaging_clients.lock().unwrap().contains(&id) {
-			return Err(Status::permission_denied(
-				"the messages capability is required",
-			));
-		}
-		Ok(f(&mut self.chat.lock().unwrap()))
-	}
-
-	fn op(&self, ctx: Option<&MutationContext>, what: String) -> Resp<Operation> {
-		self.log.lock().unwrap().push(what);
-		let operation_id = ctx.map(|c| c.operation_id.clone()).unwrap_or_default();
-		let problem = self.fail_with.lock().unwrap().clone();
-		Ok(Response::new(Operation {
-			operation_id,
-			state: if problem.is_some() {
-				OperationState::Failed as i32
-			} else {
-				OperationState::Applied as i32
-			},
-			revision: 11,
-			call_id: fixtures::CALL.to_vec(),
-			problem,
-		}))
-	}
-}
-
-fn unsupported<T>() -> Resp<T> {
-	Err(Status::unimplemented("not in the test engine"))
-}
+use super::{FakeEngine, Resp, ctx_client, unsupported};
+use crate::common::{chat_watch, fixtures};
 
 #[tonic::async_trait]
 impl Engine for FakeEngine {
@@ -527,17 +454,68 @@ impl Engine for FakeEngine {
 		unsupported()
 	}
 
-	async fn clear_avatar(&self, _: Request<MutationContext>) -> Resp<Operation> {
-		unsupported()
+	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		self.op(Some(&r.into_inner()), "clear_avatar".into())
 	}
-	async fn forget_peer(&self, _: Request<ForgetPeerRequest>) -> Resp<Operation> {
-		unsupported()
+	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let what = format!("forget {} {}", hex::encode(&r.peer_id), r.query);
+		self.op(r.context.as_ref(), what)
 	}
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
-		unsupported()
+		let values = self.settings.lock().unwrap().clone();
+		Ok(Response::new(SettingsDump {
+			values: values.into_iter().collect(),
+		}))
 	}
-	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
-		unsupported()
+	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
+		let r = r.into_inner();
+		let mut current = self.settings.lock().unwrap();
+		let mut keys: Vec<_> = r.values.iter().collect();
+		keys.sort();
+		let line: Vec<String> = keys.iter().map(|(k, v)| format!("{k}={v}")).collect();
+		self.log
+			.lock()
+			.unwrap()
+			.push(format!("set_settings {}", line.join(",")));
+		if let Some((key, _)) = keys
+			.iter()
+			.find(|(k, v)| super::is_restricted(k) && current.get(*k) != Some(*v))
+		{
+			return Err(Status::permission_denied(format!(
+				"SETTING_RESTRICTED: `{key}` cannot be changed over the API"
+			)));
+		}
+		let results = keys
+			.iter()
+			.map(|(key, value)| {
+				let (outcome, reason) = if !current.contains_key(*key) {
+					(SettingOutcome::Rejected, "unknown setting".to_owned())
+				} else if key.starts_with("network.") {
+					(
+						SettingOutcome::SavedNeedsRestart,
+						"read at the next start".to_owned(),
+					)
+				} else {
+					(SettingOutcome::AppliedLive, String::new())
+				};
+				if outcome != SettingOutcome::Rejected {
+					current.insert((*key).clone(), (*value).clone());
+				}
+				SettingResult {
+					key: (*key).clone(),
+					outcome: outcome as i32,
+					reason,
+				}
+			})
+			.collect();
+		Ok(Response::new(SetSettingsResponse {
+			operation: Some(Operation {
+				state: OperationState::Applied as i32,
+				..Operation::default()
+			}),
+			results,
+		}))
 	}
 
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;
@@ -546,78 +524,5 @@ impl Engine for FakeEngine {
 		_: Request<tonic::Streaming<InputControlMessage>>,
 	) -> Resp<Self::InputControlStream> {
 		unsupported()
-	}
-}
-
-/// A running engine plus the endpoint to reach it.
-pub struct EngineHarness {
-	pub dir: TempDir,
-	pub socket: std::path::PathBuf,
-	pub engine: FakeEngine,
-	shutdown: Option<oneshot::Sender<()>>,
-}
-
-impl EngineHarness {
-	pub async fn start() -> Self {
-		let dir = tempfile::Builder::new()
-			.prefix("rlycli")
-			.tempdir()
-			.expect("tempdir");
-		let socket = dir.path().join("run").join("engine.sock");
-		let limits = ApiLimits::DEFAULT;
-		let registry = Arc::new(ClientRegistry::new(limits.max_clients));
-		let engine = FakeEngine {
-			registry: Arc::clone(&registry),
-			log: Arc::default(),
-			snapshot: Arc::new(Mutex::new(fixtures::snapshot())),
-			fail_with: Arc::default(),
-			registered: Arc::default(),
-			secrets: Arc::default(),
-			chat: Arc::default(),
-			messaging_clients: Arc::default(),
-		};
-		let listener = UdsListener::bind(&socket).await.expect("bind");
-		let (tx, rx) = oneshot::channel();
-		let served = engine.clone();
-		tokio::spawn(async move {
-			let _ = serve_unix(served, listener, registry, limits, async {
-				let _ = rx.await;
-			})
-			.await;
-		});
-		Self {
-			dir,
-			socket,
-			engine,
-			shutdown: Some(tx),
-		}
-	}
-
-	pub fn endpoint(&self) -> Endpoint {
-		Endpoint::Unix(self.socket.clone())
-	}
-
-	pub fn log(&self) -> Vec<String> {
-		self.engine.log.lock().unwrap().clone()
-	}
-
-	/// Run `relay <args>` in-process against this engine and capture stdout.
-	pub async fn run(&self, args: &[&str]) -> Result<String, relay_cli::cli::CliError> {
-		use clap::Parser;
-		let socket = self.socket.to_str().expect("utf8 path");
-		let mut argv = vec!["relay", "--socket", socket];
-		argv.extend_from_slice(args);
-		let cli = relay_cli::cli::Cli::try_parse_from(argv).expect("valid arguments");
-		let mut buffer = Vec::new();
-		relay_cli::commands::run(cli, &mut buffer).await?;
-		Ok(String::from_utf8(buffer).expect("utf8 output"))
-	}
-}
-
-impl Drop for EngineHarness {
-	fn drop(&mut self) {
-		if let Some(tx) = self.shutdown.take() {
-			let _ = tx.send(());
-		}
 	}
 }
