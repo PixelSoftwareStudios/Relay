@@ -12,7 +12,7 @@ use serde::Serialize;
 use super::resolve::resolve_channel;
 use super::table::{self, Layout};
 use super::trust::parse_fingerprint;
-use super::{Out, names, report};
+use super::{Out, names, outcome, report};
 use crate::cli::{ChannelCommand, ChannelCreate, ChannelJoin, CliError};
 use crate::client::{ChannelRef, Credential, Manage};
 use crate::secret::SecretInput;
@@ -126,6 +126,17 @@ pub async fn run<C: Manage>(
 		} => {
 			let id = channel_id(client, &channel).await?;
 			let invite = client.create_invite(&id, ttl_seconds, uses).await?;
+			// A refused invite is a FAILED operation with an empty token.
+			if let Some(op) = &invite.operation {
+				outcome(op)?;
+			}
+			if invite.invite.is_empty() {
+				return Err(CliError::Rejected {
+					code: "no_invite".into(),
+					message: "the engine did not mint an invite".into(),
+					retryable: false,
+				});
+			}
 			out.emit(&InviteView {
 				invite: invite.invite,
 				expires_unix: invite.expires_unix,

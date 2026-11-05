@@ -296,6 +296,7 @@ impl Engine for FakeEngine {
 		Ok(Response::new(CreateInviteResponse {
 			invite: "RLYI1-test-token".into(),
 			expires_unix: 1_900_000_000,
+			operation: None,
 		}))
 	}
 	async fn revoke_channel_member(

@@ -28,6 +28,8 @@ pub struct FakeControl {
 	pub telemetry: Vec<TelemetrySnapshot>,
 	/// Secrets that reached the engine side (never part of `log`).
 	pub secrets: Vec<String>,
+	/// When set, `create_invite` answers with a FAILED operation and no token.
+	pub invite_failure: Option<Problem>,
 }
 
 impl FakeControl {
@@ -49,6 +51,7 @@ impl FakeControl {
 			watches: VecDeque::new(),
 			telemetry: Vec::new(),
 			secrets: Vec::new(),
+			invite_failure: None,
 		}
 	}
 
@@ -220,9 +223,21 @@ impl Manage for FakeControl {
 	) -> Result<CreateInviteResponse, ApiError> {
 		self.log
 			.push(format!("create_invite {} {ttl} {uses}", hex::encode(id)));
+		if let Some(problem) = self.invite_failure.clone() {
+			return Ok(CreateInviteResponse {
+				invite: String::new(),
+				expires_unix: 0,
+				operation: Some(Operation {
+					state: OperationState::Failed as i32,
+					problem: Some(problem),
+					..Operation::default()
+				}),
+			});
+		}
 		Ok(CreateInviteResponse {
 			invite: "RLYI1-test-token".into(),
 			expires_unix: 1_900_000_000,
+			operation: None,
 		})
 	}
 	async fn revoke_member(

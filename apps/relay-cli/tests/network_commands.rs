@@ -365,3 +365,18 @@ async fn avatar_set_checks_the_file_and_clear_is_honestly_unsupported() {
 	assert_eq!(err.code(), "unsupported");
 	assert_eq!(err.exit_code(), exit::REJECTED);
 }
+
+#[tokio::test]
+async fn a_refused_invite_is_a_rejection_not_an_empty_token() {
+	let mut c = FakeControl::new();
+	c.invite_failure = Some(relay_api::pb::Problem {
+		code: "CHANNEL_DENIED".into(),
+		message: "not allowed".into(),
+		..Default::default()
+	});
+	let err = run_with(&mut c, &["channel", "invite", "Dorm"], false)
+		.await
+		.unwrap_err();
+	assert_eq!(err.code(), "CHANNEL_DENIED");
+	assert_eq!(err.exit_code(), exit::REJECTED);
+}
