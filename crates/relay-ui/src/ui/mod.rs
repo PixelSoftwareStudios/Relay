@@ -47,8 +47,8 @@ impl RelayApp {
 			size: [1, 1],
 			rgba: vec![0; 4],
 		});
-		Self {
 		let zone = actions.shell.time_zone();
+		Self {
 			textures: Textures::new(ctx),
 			logo: upload(ctx, "relay-logo", &logo),
 			actions,
@@ -101,11 +101,11 @@ impl RelayApp {
 			.set_visible(self.actions.shell.window_visible());
 		let class = LayoutClass::for_width(ctx.content_rect().width());
 		if self.class != Some(class) {
-			theme::install(ctx, class);
-			self.class = Some(class);
 			if self.class.is_none() {
 				crate::fonts::install(ctx);
 			}
+			theme::install(ctx, class);
+			self.class = Some(class);
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
