@@ -1,11 +1,11 @@
 //! Connection panel: how others reach this device (string, addresses, QR) and
 //! a field to call a pasted `relay://` string.
 
-use eframe::egui::{self, RichText, Ui};
+use egui::{self, RichText, Ui};
 use relay_client::connection;
 
+use crate::actions::Actions;
 use crate::qr;
-use crate::shell::Actions;
 
 use super::local::Local;
 use super::textures::upload;
@@ -37,7 +37,7 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		}
 		Some(Err(message)) => banner(ui, &message, true),
 		Some(Ok(info)) => {
-			show_info(ui, &info);
+			show_info(ui, actions, &info);
 			qr_code(ui, local, &info.connection_string);
 		}
 	}
@@ -45,7 +45,7 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	paste_field(ui, actions, local);
 }
 
-fn show_info(ui: &mut Ui, info: &crate::model::ConnectionView) {
+fn show_info(ui: &mut Ui, actions: &Actions, info: &crate::model::ConnectionView) {
 	if info.connection_string.is_empty() {
 		ui.label("The daemon did not report a connection string.");
 		return;
@@ -56,7 +56,7 @@ fn show_info(ui: &mut Ui, info: &crate::model::ConnectionView) {
 			egui::Label::new(RichText::new(&info.connection_string).monospace()).selectable(true),
 		);
 		if ui.button("Copy").clicked() {
-			ui.ctx().copy_text(info.connection_string.clone());
+			actions.copy_text(&info.connection_string);
 		}
 	});
 	if !info.addresses.is_empty() {

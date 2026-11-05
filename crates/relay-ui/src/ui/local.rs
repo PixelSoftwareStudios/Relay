@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use eframe::egui::TextureHandle;
+use egui::TextureHandle;
 
 use crate::inbox::Invite;
 use crate::model::ConnectionView;

@@ -3,10 +3,10 @@
 
 use std::mem;
 
-use eframe::egui::{self, RichText, Ui};
+use egui::{self, RichText, Ui};
 
+use crate::actions::Actions;
 use crate::model::AppState;
-use crate::shell::Actions;
 use crate::viewmodel::local_avatar;
 
 use super::local::Local;

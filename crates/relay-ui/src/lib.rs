@@ -3,6 +3,7 @@
 //! ownership. A shell (the desktop app, a future Android activity) supplies
 //! a tokio `Handle` and implements [`shell::Shell`].
 
+pub mod actions;
 pub mod apply;
 pub mod avatar;
 pub mod channels;
@@ -21,5 +22,7 @@ pub mod qr;
 pub mod relay_link;
 pub mod shell;
 pub mod supervisor;
+pub mod tasks;
 pub mod theme;
+pub mod ui;
 pub mod viewmodel;

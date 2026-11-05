@@ -5,9 +5,9 @@
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
-use crate::emitter::{TrayState, TraySummary};
-use crate::imaging::decode_for_texture;
-use crate::shell::Actions;
+use relay_ui::actions::Actions;
+use relay_ui::emitter::{TrayState, TraySummary};
+use relay_ui::imaging::decode_for_texture;
 
 /// Monochrome template glyphs. macOS draws the `@2x` pair on Retina screens
 /// and tints template images itself; other platforms use the 1x glyphs.

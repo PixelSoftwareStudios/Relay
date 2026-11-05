@@ -1,20 +1,20 @@
 //! Background jobs started from the UI: avatar fetch, connection info, the
-//! native file dialog and invite creation. Each runs on the tokio runtime,
+//! shell's file picker and invite creation. Each runs on the tokio runtime,
 //! drops its result into the [`Inbox`](crate::inbox::Inbox) and wakes the UI.
 
-use crate::controller::AVATAR_MAX_BYTES;
+use crate::actions::Actions;
 use crate::format::{avatar_problem, media_type_for};
 use crate::imaging::decode_for_texture;
 use crate::inbox::{Invite, Picked};
-use crate::shell::Actions;
+use crate::shell::PickedFile;
 
 impl Actions {
 	/// Fetch and decode an avatar once; the UI caches the texture by hash.
 	pub fn fetch_avatar(&self, hash: String) {
-		let (controller, shared, ctx) = (
+		let (controller, shared, shell) = (
 			self.controller.clone(),
 			self.shared.clone(),
-			self.ctx.clone(),
+			self.shell.clone(),
 		);
 		self.runtime.spawn(async move {
 			let image = match controller.avatar_png(&hash).await {
@@ -25,16 +25,16 @@ impl Actions {
 				Err(_) => None,
 			};
 			shared.inbox.push_avatar(hash, image);
-			ctx.request_repaint();
+			shell.request_repaint();
 		});
 	}
 
 	/// Ask the engine for the connection string and addresses.
 	pub fn fetch_connection(&self) {
-		let (controller, shared, ctx) = (
+		let (controller, shared, shell) = (
 			self.controller.clone(),
 			self.shared.clone(),
-			self.ctx.clone(),
+			self.shell.clone(),
 		);
 		self.runtime.spawn(async move {
 			let result = controller
@@ -42,35 +42,32 @@ impl Actions {
 				.await
 				.map_err(|e| e.to_string());
 			shared.inbox.set_connection(result);
-			ctx.request_repaint();
+			shell.request_repaint();
 		});
 	}
 
-	/// Native file dialog, then a size check, read and bounded preview decode.
+	/// The shell's picker, then a size check and bounded preview decode.
 	pub fn pick_avatar(&self) {
-		let (shared, ctx) = (self.shared.clone(), self.ctx.clone());
+		let (shared, shell) = (self.shared.clone(), self.shell.clone());
 		self.runtime.spawn(async move {
-			let dialog = rfd::AsyncFileDialog::new()
-				.set_title("Choose a profile image")
-				.add_filter("PNG or JPEG image", &["png", "jpg", "jpeg"])
-				.pick_file()
-				.await;
-			if let Some(file) = dialog {
-				match load_picked(file.path()).await {
+			match shell.pick_image().await {
+				Ok(Some(file)) => match load_picked(file).await {
 					Ok(picked) => shared.inbox.set_picked(picked),
 					Err(message) => shared.set_error(message),
-				}
-				ctx.request_repaint();
+				},
+				Ok(None) => return,
+				Err(message) => shared.set_error(message),
 			}
+			shell.request_repaint();
 		});
 	}
 
 	/// Create an invite; the token goes to the inbox, never to logs.
 	pub fn create_invite(&self, channel_id: String, ttl_seconds: u32, uses: u32) {
-		let (controller, shared, ctx) = (
+		let (controller, shared, shell) = (
 			self.controller.clone(),
 			self.shared.clone(),
-			self.ctx.clone(),
+			self.shell.clone(),
 		);
 		self.runtime.spawn(async move {
 			shared.clear_error();
@@ -81,27 +78,17 @@ impl Actions {
 				Ok(token) => shared.inbox.set_invite(Invite { channel_id, token }),
 				Err(e) => shared.set_error(e.to_string()),
 			}
-			ctx.request_repaint();
+			shell.request_repaint();
 		});
 	}
 }
 
-async fn load_picked(path: &std::path::Path) -> Result<Picked, String> {
-	let media_type = media_type_for(&path.to_string_lossy());
-	// Check the size before reading so a huge file is never loaded.
-	let size = tokio::fs::metadata(path)
-		.await
-		.map_err(|e| format!("Cannot read the file: {e}"))?
-		.len();
-	let size = usize::try_from(size)
-		.unwrap_or(usize::MAX)
-		.min(AVATAR_MAX_BYTES + 1);
-	if let Some(problem) = avatar_problem(size, media_type) {
+async fn load_picked(file: PickedFile) -> Result<Picked, String> {
+	let media_type = media_type_for(&file.name);
+	if let Some(problem) = avatar_problem(file.bytes.len(), media_type) {
 		return Err(problem.to_owned());
 	}
-	let bytes = tokio::fs::read(path)
-		.await
-		.map_err(|e| format!("Cannot read the file: {e}"))?;
+	let bytes = file.bytes;
 	let for_preview = bytes.clone();
 	let preview = tokio::task::spawn_blocking(move || decode_for_texture(&for_preview))
 		.await

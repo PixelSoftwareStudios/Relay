@@ -1,11 +1,11 @@
 //! Avatar textures: the default image plus a bounded lazily filled cache.
 
-use eframe::egui::{self, ColorImage, TextureHandle, TextureOptions};
+use egui::{self, ColorImage, TextureHandle, TextureOptions};
 
+use crate::actions::Actions;
 use crate::avatar::{Avatar, CACHE_CAPACITY, DEFAULT_PNG, Lookup, TextureCache};
 use crate::imaging::{Decoded, decode_for_texture};
 use crate::inbox::Inbox;
-use crate::shell::Actions;
 
 pub fn upload(ctx: &egui::Context, name: &str, image: &Decoded) -> TextureHandle {
 	let pixels = ColorImage::from_rgba_unmultiplied(image.size, &image.rgba);

@@ -1,13 +1,14 @@
 //! Small drawing helpers.
 
-use eframe::egui::{self, Color32, Response, RichText, Ui};
+use egui::{self, Color32, Response, RichText, Ui};
 
 use crate::format::{Tone, format_dbfs};
+use crate::theme;
 
 pub fn tone_color(tone: Tone, ui: &Ui) -> Color32 {
 	match tone {
-		Tone::Live => Color32::from_rgb(63, 185, 80),
-		Tone::Warn => Color32::from_rgb(210, 153, 34),
+		Tone::Live => theme::LIVE,
+		Tone::Warn => theme::WARN,
 		Tone::Idle => ui.visuals().text_color(),
 	}
 }
@@ -31,11 +32,7 @@ pub fn meter(ui: &mut Ui, dbfs: Option<f32>, label: &str) -> Response {
 }
 
 pub fn banner(ui: &mut Ui, text: &str, error: bool) {
-	let color = if error {
-		Color32::from_rgb(248, 81, 73)
-	} else {
-		Color32::from_rgb(210, 153, 34)
-	};
+	let color = if error { theme::ERROR } else { theme::WARN };
 	egui::Frame::group(ui.style())
 		.stroke(egui::Stroke::new(1.0, color))
 		.show(ui, |ui| {

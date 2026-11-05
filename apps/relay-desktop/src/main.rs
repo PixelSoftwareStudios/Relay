@@ -1,17 +1,20 @@
 use std::sync::Arc;
 
-use eframe::egui;
-use relay_desktop::controller::{Controller, SessionSlot};
-use relay_desktop::emitter::{self, Cadence};
-use relay_desktop::hub::Hub;
-use relay_desktop::relay_link::{RelayLink, resolve_endpoint};
-use relay_desktop::shell::{Actions, EguiSink, Shared};
-use relay_desktop::ui::{self, RelayApp};
-use relay_desktop::{mock, supervisor, tray};
+use relay_desktop::app::DesktopApp;
+use relay_desktop::host::DesktopShell;
+use relay_desktop::tray;
+use relay_ui::actions::{Actions, Shared, ShellSink};
+use relay_ui::controller::{Controller, SessionSlot};
+use relay_ui::emitter::{self, Cadence};
+use relay_ui::hub::Hub;
+use relay_ui::imaging::decode_for_texture;
+use relay_ui::relay_link::{RelayLink, resolve_endpoint};
+use relay_ui::shell::Shell;
+use relay_ui::ui::RelayApp;
+use relay_ui::{mock, supervisor};
 
 /// Embedded from the repo-root assets folder.
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-256.png");
-const HEADER_LOGO_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-64.png");
 
 fn main() -> eframe::Result {
 	tracing_subscriber::fmt()
@@ -25,8 +28,7 @@ fn main() -> eframe::Result {
 		.enable_all()
 		.build()
 		.expect("tokio runtime");
-	let window_icon = ui::decode_logo(WINDOW_ICON_PNG);
-	let logo = ui::decode_logo(HEADER_LOGO_PNG);
+	let window_icon = decode_for_texture(WINDOW_ICON_PNG).expect("embedded window icon decodes");
 
 	let viewport = egui::ViewportBuilder::default()
 		.with_title("Relay")
@@ -34,8 +36,8 @@ fn main() -> eframe::Result {
 		.with_min_inner_size([380.0, 480.0])
 		.with_icon(egui::IconData {
 			rgba: window_icon.rgba,
-			width: window_icon.size,
-			height: window_icon.size,
+			width: window_icon.size[0] as u32,
+			height: window_icon.size[1] as u32,
 		});
 	let options = eframe::NativeOptions {
 		viewport,
@@ -47,6 +49,8 @@ fn main() -> eframe::Result {
 		options,
 		Box::new(move |cc| {
 			let ctx = cc.egui_ctx.clone();
+			let host = Arc::new(DesktopShell::new(ctx.clone()));
+			let shell: Arc<dyn Shell> = host.clone();
 			let hub = Arc::new(Hub::default());
 			let slot = Arc::new(SessionSlot::default());
 			let shared = Arc::new(Shared::default());
@@ -56,11 +60,11 @@ fn main() -> eframe::Result {
 				hub: hub.clone(),
 				shared: shared.clone(),
 				runtime: runtime.handle().clone(),
-				ctx: ctx.clone(),
+				shell: shell.clone(),
 			};
-			let sink = Arc::new(EguiSink {
+			let sink = Arc::new(ShellSink {
 				shared: shared.clone(),
-				ctx,
+				shell,
 			});
 			runtime.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			if mock_mode {
@@ -70,7 +74,9 @@ fn main() -> eframe::Result {
 				runtime.spawn(supervisor::supervise(engine, hub, slot));
 			}
 			let tray = tray::build(&actions);
-			Ok(Box::new(RelayApp::new(actions, tray, runtime, &logo)))
+			host.set_tray(tray.is_some());
+			let app = RelayApp::new(actions.clone(), &ctx);
+			Ok(Box::new(DesktopApp::new(app, actions, tray, runtime)))
 		}),
 	)
 }

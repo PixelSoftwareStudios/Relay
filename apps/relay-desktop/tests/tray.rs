@@ -1,5 +1,5 @@
-use relay_desktop::emitter::TrayState;
 use relay_desktop::tray::glyph;
+use relay_ui::emitter::TrayState;
 use relay_ui::imaging::decode_for_texture;
 
 #[test]

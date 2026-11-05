@@ -2,11 +2,11 @@
 
 use std::mem;
 
-use eframe::egui::{self, RichText, Ui};
+use egui::{self, RichText, Ui};
 use relay_client::ChannelOptions;
 
+use crate::actions::Actions;
 use crate::model::{Advert, AppState, Channel, Inbound};
-use crate::shell::Actions;
 
 use super::local::{INVITE_TTLS, INVITE_USES, Local};
 
@@ -27,7 +27,7 @@ pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Lo
 			channel_row(ui, channel, actions, local);
 		});
 	}
-	invite_box(ui, local);
+	invite_box(ui, actions, local);
 	create_form(ui, actions, local);
 	join_form(ui, actions, local);
 }
@@ -117,7 +117,7 @@ fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 
 /// The minted token, shown until dismissed. It is a secret: it appears only
 /// here and in the clipboard, never in logs or state.
-fn invite_box(ui: &mut Ui, local: &mut Local) {
+fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	let Some(invite) = &local.invite else { return };
 	let token = invite.token.expose().to_owned();
 	egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -132,7 +132,7 @@ fn invite_box(ui: &mut Ui, local: &mut Local) {
 		);
 		ui.horizontal(|ui| {
 			if ui.button("Copy").clicked() {
-				ui.ctx().copy_text(token.clone());
+				actions.copy_text(&token);
 			}
 			if ui.button("Hide").clicked() {
 				local.invite = None;

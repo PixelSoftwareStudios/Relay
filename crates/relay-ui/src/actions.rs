@@ -1,11 +1,11 @@
-//! Glue between the tokio side and the egui side: the latest published
-//! state, user-visible action errors, and repaint requests.
+//! Glue between the runtime side and the UI side: the latest published
+//! state, user-visible action errors, and repaint requests through the
+//! [`Shell`]. The shell owns the tokio runtime; this crate only holds a `Handle`.
 
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
-use eframe::egui;
 use tokio::runtime::Handle;
 
 use crate::controller::{ControlError, Controller};
@@ -13,6 +13,7 @@ use crate::emitter::{Sink, TraySummary};
 use crate::hub::Hub;
 use crate::inbox::Inbox;
 use crate::model::{AppState, Meters};
+use crate::shell::Shell;
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
 	m.lock().unwrap_or_else(|e| e.into_inner())
@@ -70,25 +71,25 @@ impl Shared {
 }
 
 /// Emitter sink that stores the newest values and wakes the UI.
-pub struct EguiSink {
+pub struct ShellSink {
 	pub shared: Arc<Shared>,
-	pub ctx: egui::Context,
+	pub shell: Arc<dyn Shell>,
 }
 
-impl Sink for EguiSink {
+impl Sink for ShellSink {
 	fn state(&self, state: &AppState) {
 		*lock(&self.shared.state) = Arc::new(state.clone());
-		self.ctx.request_repaint();
+		self.shell.request_repaint();
 	}
 
 	fn meters(&self, meters: &Meters) {
 		*lock(&self.shared.meters) = Arc::new(meters.clone());
-		self.ctx.request_repaint();
+		self.shell.request_repaint();
 	}
 
 	fn tray(&self, summary: &TraySummary) {
 		*lock(&self.shared.tray) = Some(summary.clone());
-		self.ctx.request_repaint();
+		self.shell.request_repaint();
 	}
 }
 
@@ -99,7 +100,7 @@ pub struct Actions {
 	pub hub: Arc<Hub>,
 	pub shared: Arc<Shared>,
 	pub runtime: Handle,
-	pub ctx: egui::Context,
+	pub shell: Arc<dyn Shell>,
 }
 
 impl Actions {
@@ -107,33 +108,34 @@ impl Actions {
 	where
 		F: Future<Output = Result<(), ControlError>> + Send + 'static,
 	{
-		let (shared, ctx) = (self.shared.clone(), self.ctx.clone());
+		let (shared, shell) = (self.shared.clone(), self.shell.clone());
 		let future = action(self.controller.clone());
 		self.runtime.spawn(async move {
 			shared.clear_error();
 			if let Err(e) = future.await {
 				shared.set_error(e.to_string());
 			}
-			ctx.request_repaint();
+			shell.request_repaint();
 		});
 	}
 
 	pub fn show_window(&self) {
 		self.hub.set_visible(true);
-		self.ctx
-			.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-		self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
+		self.shell.show_window();
 	}
 
 	pub fn hide_window(&self) {
 		self.hub.set_visible(false);
-		self.ctx
-			.send_viewport_cmd(egui::ViewportCommand::Visible(false));
+		self.shell.hide_window();
 	}
 
 	/// Quit this app only; the daemon is a separate process.
 	pub fn quit_app(&self) {
 		self.shared.quitting.store(true, Ordering::Release);
-		self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+		self.shell.quit();
+	}
+
+	pub fn copy_text(&self, text: &str) {
+		self.shell.copy_text(text);
 	}
 }

@@ -1,10 +1,10 @@
 //! Section drawing. Reads view models, emits [`Actions`]; holds no logic.
 
-use eframe::egui::{self, RichText, Ui};
+use egui::{self, RichText, Ui};
 
+use crate::actions::Actions;
 use crate::format::{HOTKEY_NOTE, gain_percent, link_label};
 use crate::model::{AppState, Direction, Link, Meters, Mode};
-use crate::shell::Actions;
 use crate::viewmodel::{CallCard, MODES, PeerRow, mode_enabled};
 
 use super::local::Local;
