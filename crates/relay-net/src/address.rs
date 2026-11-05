@@ -14,6 +14,11 @@ pub enum AddressError {
 	NotLan,
 	#[error("shared-address-space (CGNAT / overlay VPN) addresses are not LAN addresses")]
 	OverlayNetwork,
+	#[error(
+		"100.64.0.0/10 (Tailscale / CGNAT) is refused unless manual overlay entry is enabled in the \
+		 address settings; it is never accepted from discovery or from a peer"
+	)]
+	OverlayManualDisabled,
 	#[error("loopback addresses are not permitted by this policy")]
 	Loopback,
 	#[error("malformed endpoint")]
@@ -30,6 +35,7 @@ pub enum AddressError {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct AddressPolicy {
 	allow_loopback: bool,
+	allow_overlay_manual: bool,
 }
 
 impl AddressPolicy {
@@ -37,6 +43,7 @@ impl AddressPolicy {
 	pub const fn lan_only() -> Self {
 		Self {
 			allow_loopback: false,
+			allow_overlay_manual: false,
 		}
 	}
 
@@ -44,7 +51,17 @@ impl AddressPolicy {
 	pub const fn lan_and_loopback() -> Self {
 		Self {
 			allow_loopback: true,
+			allow_overlay_manual: false,
 		}
+	}
+
+	/// Opt-in: let [`Self::parse_manual`] (and so `ConnectionString::parse`) accept an address in
+	/// 100.64.0.0/10 that the user typed or pasted. Nothing else changes: discovery,
+	/// remote-offered candidates, media destinations and `encode` keep refusing it, whatever
+	/// this flag says, because those inputs come from the network, not from the user.
+	pub const fn with_overlay_manual(mut self, allow: bool) -> Self {
+		self.allow_overlay_manual = allow;
+		self
 	}
 
 	/// Checks a single IP address against the policy.
@@ -106,6 +123,16 @@ impl AddressPolicy {
 			let port: u16 = port.parse().map_err(|_| AddressError::Malformed)?;
 			SocketAddr::new(IpAddr::V4(ip), port)
 		};
+		if is_shared_address_space(addr.ip()) {
+			if addr.port() == 0 {
+				return Err(AddressError::ZeroPort);
+			}
+			return if self.allow_overlay_manual {
+				Ok(addr)
+			} else {
+				Err(AddressError::OverlayManualDisabled)
+			};
+		}
 		self.check_socket(addr)?;
 		Ok(addr)
 	}
@@ -163,11 +190,11 @@ pub fn is_lan_ip(ip: IpAddr) -> bool {
 }
 
 /// RFC 6598 shared address space, 100.64.0.0/10. Carrier-grade NAT uses it, and so do overlay
-/// VPNs such as Tailscale. It is **deliberately not a LAN address**: such a path may cross the
-/// internet through a coordination service, which contradicts the LAN-only boundary, and
-/// `Ipv4Addr::is_private` does not include it either. It is refused with a distinct error so
-/// the UI can explain why. Someone who really wants to call over an overlay needs an explicit,
-/// separate policy that does not exist yet.
+/// VPNs such as Tailscale. It is **not a LAN address**: such a path may cross the internet
+/// through a coordination service, and `Ipv4Addr::is_private` does not include it either.
+/// Every network-sourced path (discovery, remote candidates, media destinations, `encode`)
+/// refuses it with [`AddressError::OverlayNetwork`]. Only a user-typed address, and only with
+/// [`AddressPolicy::with_overlay_manual`], may use it.
 pub fn is_shared_address_space(ip: IpAddr) -> bool {
 	matches!(canonical(ip), IpAddr::V4(v4) if v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 0x40)
 }

@@ -111,27 +111,74 @@ fn scoped_link_local_is_accepted_when_typed_by_hand() {
 }
 
 #[test]
-fn shared_address_space_is_deliberately_not_lan() {
-	// Tailscale and CGNAT use 100.64.0.0/10. They are refused with their own error.
-	let p = AddressPolicy::lan_only();
+fn overlay_space_is_manual_only_and_opt_in() {
+	use relay_net::AddressError;
+	let off = AddressPolicy::lan_only();
+	let on = AddressPolicy::lan_only().with_overlay_manual(true);
+	let h = hex(&fp(1));
+	// Typed addresses: refused with an actionable error unless the flag is on.
 	for ip in ["100.64.0.1", "100.127.255.254", "100.100.100.100"] {
 		assert_eq!(
-			p.check_ip(ip.parse().unwrap()),
-			Err(relay_net::AddressError::OverlayNetwork),
+			off.parse_manual(&format!("{ip}:7000")),
+			Err(AddressError::OverlayManualDisabled),
+			"{ip}"
+		);
+		assert!(on.parse_manual(&format!("{ip}:7000")).is_ok(), "{ip}");
+		let text = format!("relay://{ip}:7000#{h}");
+		assert!(ConnectionString::parse(&text, &off).is_err());
+		assert_eq!(
+			ConnectionString::parse(&text, &on)
+				.unwrap()
+				.addr
+				.ip()
+				.to_string(),
+			ip
+		);
+	}
+	assert_eq!(on.parse_manual("100.64.0.1:0"), Err(AddressError::ZeroPort));
+	assert!(on.parse_manual("[::ffff:100.64.0.1]:7000").is_ok());
+	// The flag does not widen anything else, and the block's neighbours stay refused.
+	for ip in ["100.63.255.255", "100.128.0.1", "8.8.8.8"] {
+		assert_eq!(
+			on.parse_manual(&format!("{ip}:7000")),
+			Err(AddressError::NotLan),
 			"{ip}"
 		);
 	}
-	// The block's edges are ordinary public space.
-	for ip in ["100.63.255.255", "100.128.0.1"] {
+	// Network-sourced checks never honour the flag.
+	for ip in ["100.64.0.1", "100.100.100.100"] {
+		let addr: SocketAddr = format!("{ip}:7000").parse().unwrap();
+		assert_eq!(on.check_ip(addr.ip()), Err(AddressError::OverlayNetwork));
+		assert_eq!(on.check_socket(addr), Err(AddressError::OverlayNetwork));
+		let endpoint = relay_net::endpoint_to_proto(addr);
 		assert_eq!(
-			p.check_ip(ip.parse().unwrap()),
-			Err(relay_net::AddressError::NotLan),
-			"{ip}"
+			on.candidate_from_proto(&endpoint),
+			Err(AddressError::OverlayNetwork)
 		);
 	}
 	assert!(relay_net::is_shared_address_space(
 		"100.64.0.1".parse().unwrap()
 	));
+	assert!(!relay_net::is_shared_address_space(
+		"100.63.255.255".parse().unwrap()
+	));
+	assert!(!relay_net::is_shared_address_space(
+		"100.128.0.1".parse().unwrap()
+	));
+}
+
+#[test]
+fn encode_and_discovery_never_include_overlay_even_with_the_flag() {
+	let on = AddressPolicy::lan_only().with_overlay_manual(true);
+	let out = encode(
+		7000,
+		&fp(5),
+		&[local("en5", "100.101.1.1"), local("en0", "192.168.1.20")],
+		&on,
+		&InterfacePolicy::default(),
+	);
+	assert_eq!(out.len(), 1);
+	assert_eq!(out[0].addr.ip().to_string(), "192.168.1.20");
 }
 
 #[test]
@@ -237,6 +284,24 @@ proptest! {
 	fn roundtrip(ip in lan_ip(), port in 1u16.., bytes in any::<[u8; 32]>()) {
 		let c = ConnectionString::new(SocketAddr::new(ip, port), Fingerprint::from_bytes(bytes));
 		prop_assert_eq!(parse(&c.to_string()).unwrap(), c);
+	}
+
+	#[test]
+	fn no_network_path_yields_overlay_space(a in any::<u8>(), b in 64u8..=127, c in any::<u8>(), d in any::<u8>(), port in 1u16..) {
+		let ip = IpAddr::V4(Ipv4Addr::new(100, b, c, d));
+		let _ = a;
+		let on = AddressPolicy::lan_only().with_overlay_manual(true);
+		let addr = SocketAddr::new(ip, port);
+		prop_assert!(on.check_ip(ip).is_err());
+		prop_assert!(on.check_socket(addr).is_err());
+		prop_assert!(on.candidate_from_proto(&relay_net::endpoint_to_proto(addr)).is_err());
+		let mapped = IpAddr::V6(Ipv4Addr::new(100, b, c, d).to_ipv6_mapped());
+		prop_assert!(on.check_ip(mapped).is_err());
+		let out = encode(port, &fp(1), &[LocalAddress { interface: "en0".into(), ip }], &on, &InterfacePolicy::default());
+		prop_assert!(out.is_empty());
+		// Only the user-typed path may accept it, and only with the flag.
+		prop_assert!(AddressPolicy::lan_only().parse_manual(&addr.to_string()).is_err());
+		prop_assert!(on.parse_manual(&addr.to_string()).is_ok());
 	}
 
 	#[test]

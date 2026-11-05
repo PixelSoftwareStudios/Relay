@@ -42,10 +42,17 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
 
 ## Integration notes
 
-- Address policy and 100.64.0.0/10: shared address space (CGNAT, Tailscale and similar overlays) is
-  **deliberately refused** with `AddressError::OverlayNetwork`. Such a path can leave the LAN
-  through a coordination service, contradicting the LAN-only boundary, and it is not "private" in
-  the RFC 1918 sense. Supporting overlays would need an explicit, separate opt-in policy.
+- Address policy and 100.64.0.0/10 (RFC 6598 shared space: CGNAT, Tailscale and similar
+  overlays). It is not a LAN address, since the path may cross the internet through a
+  coordination service. Boundary: **user-typed only, opt-in**. `AddressPolicy::with_overlay_manual(true)`
+  (default off) makes `parse_manual` and `ConnectionString::parse` accept an address the user typed
+  or pasted. Discovery (`parse_resolved`), remote-offered candidates (`candidate_from_proto`),
+  `check_ip`/`check_socket` (media destinations) and `connect::encode` always refuse it with
+  `AddressError::OverlayNetwork`, whatever the flag, and are never advertised. With the flag off a
+  manual entry fails with `AddressError::OverlayManualDisabled`, whose message tells the user how
+  to enable it. A call over an overlay is still Noise-authenticated and fingerprint-pinned; the
+  flag only widens where a person may point the dialer. Proptests cover that no network path
+  yields such an address.
 - `SecureSession::handshake_hash()` exposes the Noise `h` (commits to prologue, epoch, both
   static keys and all handshake messages). Upper layers bind proofs to it; it is not a key.
 - Discovery: `Advertisement.mode` (`Open` or `Hidden`: no name, no fingerprint hint),
