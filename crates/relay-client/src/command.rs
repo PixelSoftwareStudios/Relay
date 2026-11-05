@@ -109,6 +109,8 @@ pub enum Command {
 		microphone_gain: Option<f32>,
 		/// Playback gain.
 		playback_gain: Option<f32>,
+		/// Push-to-talk release delay in milliseconds (0 to 2000).
+		ptt_release_delay_ms: Option<u32>,
 	},
 	/// Select input and output devices.
 	SelectDevices {

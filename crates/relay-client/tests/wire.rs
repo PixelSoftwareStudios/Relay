@@ -87,6 +87,7 @@ async fn every_other_command_reaches_its_rpc() {
 			deafened: Some(false),
 			microphone_gain: Some(2.0),
 			playback_gain: None,
+			ptt_release_delay_ms: Some(150),
 		},
 		Command::SelectDevices {
 			input_id: "mic".into(),

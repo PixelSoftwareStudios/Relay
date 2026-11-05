@@ -149,6 +149,7 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			deafened,
 			microphone_gain,
 			playback_gain,
+			ptt_release_delay_ms,
 		} => {
 			rpc.set_global_controls(SetGlobalControlsRequest {
 				context: Some(context),
@@ -156,6 +157,7 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				deafened,
 				microphone_gain,
 				playback_gain,
+				ptt_release_delay_ms,
 			})
 			.await
 		}

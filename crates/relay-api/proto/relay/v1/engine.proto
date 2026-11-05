@@ -163,6 +163,7 @@ message TransmitRoute {
   string blocked_reason = 4;
   uint64 generation = 5;
   bool authorized_background_open_mic = 6;
+  bool releasing = 7; // key already up; the gate stays open until the release delay ends
 }
 message Call {
   bytes call_id = 1;
@@ -190,6 +191,7 @@ message Settings {
   bytes avatar_sha256 = 10; // empty when no avatar is set
   InboundPolicy inbound_policy = 11;
   AdvertMode advert_mode = 12;
+  uint32 ptt_release_delay_ms = 13; // 0..=2000; gate hold after an ordinary key-up
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -266,6 +268,7 @@ message SetGlobalControlsRequest {
   optional bool deafened = 3;
   optional float microphone_gain = 4;
   optional float playback_gain = 5;
+  optional uint32 ptt_release_delay_ms = 6; // 0..=2000, applies live and is persisted
 }
 message SelectDevicesRequest { MutationContext context = 1; string input_device_id = 2; string output_device_id = 3; }
 message SetNoiseSuppressionRequest { MutationContext context = 1; string qualified_backend_id = 2; }

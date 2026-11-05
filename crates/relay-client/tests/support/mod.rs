@@ -150,6 +150,9 @@ impl Engine for FakeEngine {
 	async fn get_avatar(&self, _: Request<GetAvatarRequest>) -> Resp<AvatarImage> {
 		unsupported()
 	}
+	async fn shutdown(&self, _: Request<MutationContext>) -> Resp<Operation> {
+		unsupported()
+	}
 	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
 		unsupported()
 	}
@@ -217,7 +220,10 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(
 			r.context.as_ref(),
-			format!("global muted={:?} mic={:?}", r.muted, r.microphone_gain),
+			format!(
+				"global muted={:?} mic={:?} ptt_delay={:?}",
+				r.muted, r.microphone_gain, r.ptt_release_delay_ms
+			),
 		)
 	}
 	async fn select_devices(&self, r: Request<SelectDevicesRequest>) -> Resp<Operation> {
