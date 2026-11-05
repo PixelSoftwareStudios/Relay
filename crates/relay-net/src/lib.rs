@@ -2,6 +2,7 @@
 
 mod address;
 pub mod control;
+pub mod discovery;
 pub mod handshake;
 pub mod identity;
 pub mod limits;
