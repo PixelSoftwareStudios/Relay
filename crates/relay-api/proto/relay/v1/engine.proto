@@ -37,6 +37,9 @@ service Engine {
   rpc SetPrivacy(SetPrivacyRequest) returns (Operation);
   rpc GetAvatar(GetAvatarRequest) returns (AvatarImage);
   rpc GetConnectionInfo(ClientContext) returns (ConnectionInfo);
+  // Graceful stop of the whole engine: ends calls, releases the microphone, removes the
+  // endpoint. Needs the explicit `admin` capability (never granted by default). Idempotent.
+  rpc Shutdown(MutationContext) returns (Operation);
   rpc InputControl(stream InputControlMessage) returns (stream InputControlAck);
 }
 
