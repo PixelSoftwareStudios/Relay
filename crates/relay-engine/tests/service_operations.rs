@@ -25,6 +25,7 @@ async fn duplicate_operation_returns_the_stored_outcome_without_reexecuting() {
 	let rig = Rig::start().await;
 	let mut cli = rig.full_client("relay-cli").await;
 
+	let before = rig.fakes.peers.profiles().len();
 	let request = profile(&cli, 1, "Kitchen");
 	let first = cli
 		.raw()
