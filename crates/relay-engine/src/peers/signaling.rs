@@ -60,13 +60,13 @@ pub enum Inbound {
 /// Call-to-session table, bounded with FIFO eviction.
 #[derive(Debug, Default)]
 pub struct SessionTable {
-	map: HashMap<CallId, SessionId>,
+	map: HashMap<CallId, (SessionId, PeerId)>,
 	order: VecDeque<CallId>,
 }
 
 impl SessionTable {
-	fn remember(&mut self, call: CallId, session: SessionId) {
-		if self.map.insert(call, session).is_none() {
+	fn remember(&mut self, call: CallId, session: SessionId, peer: PeerId) {
+		if self.map.insert(call, (session, peer)).is_none() {
 			self.order.push_back(call);
 			if self.order.len() > SESSIONS_MAX
 				&& let Some(oldest) = self.order.pop_front()
@@ -78,7 +78,12 @@ impl SessionTable {
 
 	/// The session recorded for a call.
 	pub fn get(&self, call: CallId) -> Option<SessionId> {
-		self.map.get(&call).copied()
+		self.map.get(&call).map(|(session, _)| *session)
+	}
+
+	/// The peer a call was exchanged with.
+	pub fn peer_of(&self, call: CallId) -> Option<PeerId> {
+		self.map.get(&call).map(|(_, peer)| *peer)
 	}
 }
 
@@ -100,14 +105,14 @@ fn parse_call(bytes: &[u8]) -> Option<CallId> {
 }
 
 /// Encodes a domain message, recording the session for outbound invitations.
-pub fn encode(message: &PeerMessage, table: &mut SessionTable) -> Envelope {
+pub fn encode(message: &PeerMessage, peer: PeerId, table: &mut SessionTable) -> Envelope {
 	let body = match *message {
 		PeerMessage::Invite {
 			call,
 			session,
 			allow_parallel_same_peer,
 		} => {
-			table.remember(call, session);
+			table.remember(call, session, peer);
 			Body::Invite(Invite {
 				call_id: call_bytes(call),
 				offered_profiles: vec![PROFILE.to_owned()],
@@ -116,7 +121,7 @@ pub fn encode(message: &PeerMessage, table: &mut SessionTable) -> Envelope {
 			})
 		}
 		PeerMessage::Accept { call, session } => {
-			table.remember(call, session);
+			table.remember(call, session, peer);
 			Body::Accept(Accept {
 				call_id: call_bytes(call),
 				selected_profile: PROFILE.to_owned(),
@@ -177,7 +182,7 @@ pub fn decode(
 				return Inbound::Ignored;
 			};
 			let session = derived_session(call);
-			table.remember(call, session);
+			table.remember(call, session, peer);
 			Inbound::Event(PeerEvent::Invite {
 				call,
 				session,

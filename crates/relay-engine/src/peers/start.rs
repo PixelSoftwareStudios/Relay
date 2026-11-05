@@ -10,11 +10,12 @@ use relay_net::handshake::HandshakeGate;
 use relay_net::identity::{Fingerprint, Identity};
 use relay_net::session::Role;
 use tokio::net::TcpListener;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 
 use super::handle::{Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
 use super::link::{LinkEvent, LinkParams, establish};
 use super::manager::Actor;
+use super::profile::{LocalProfile, Profiles};
 use super::signaling::SessionTable;
 use super::trust::SharedTrust;
 
@@ -40,7 +41,7 @@ pub async fn spawn(
 	let local = identity.fingerprint();
 	let params = Arc::new(LinkParams {
 		identity: Arc::clone(&identity),
-		display_name: config.display_name.clone(),
+		display_name: arc_swap::ArcSwap::from_pointee(config.display_name.clone()),
 		incarnation,
 		timing: config.timing,
 	});
@@ -52,8 +53,21 @@ pub async fn spawn(
 		Arc::clone(&ids),
 		link_tx.clone(),
 	));
+	let initial = LocalProfile {
+		display_name: config.display_name.clone(),
+		avatar: config.avatar,
+	};
+	let profiles = Profiles::new(initial, config.avatars.clone());
+	let (profile_tx, profile_rx) = watch::channel(profiles.local().clone());
 	if let Some(setup) = &config.discovery {
-		spawn_discovery(setup, &config, local, local_addr.port(), commands.clone())?;
+		spawn_discovery(
+			setup,
+			&config,
+			local,
+			local_addr.port(),
+			commands.clone(),
+			profile_rx,
+		)?;
 	}
 	let actor = Actor {
 		config,
@@ -75,6 +89,9 @@ pub async fn spawn(
 		commands: commands.clone(),
 		snapshot: Arc::clone(&snapshot),
 		accept: accept.abort_handle(),
+		profiles,
+		remote_profiles: HashMap::new(),
+		profile_tx,
 	};
 	tokio::spawn(actor.run(command_rx, link_rx));
 	let handle = PeerHandle {
@@ -93,28 +110,49 @@ fn spawn_discovery(
 	local: Fingerprint,
 	port: u16,
 	commands: mpsc::Sender<Command>,
+	mut profile: watch::Receiver<LocalProfile>,
 ) -> Result<(), PeerError> {
 	let mut discovery = Discovery::start(&setup.interfaces, config.policy)
 		.map_err(|e| PeerError::Discovery(e.to_string()))?;
-	if setup.advertise {
+	let advertise = setup.advertise;
+	let instance_id = rand::random();
+	let announce = move |discovery: &mut Discovery, profile: &LocalProfile| {
+		if !advertise {
+			return Ok(());
+		}
+		// The name goes out sanitized and truncated by relay-net; it is a hint.
+		let _ = discovery.withdraw();
 		discovery
 			.advertise(&Advertisement {
-				instance_id: rand::random(),
-				display_name: config.display_name.clone(),
+				instance_id,
+				display_name: profile.display_name.clone(),
 				port,
 				fingerprint: local,
 				capabilities: String::new(),
 			})
-			.map_err(|e| PeerError::Discovery(e.to_string()))?;
-	}
+			.map_err(|e| PeerError::Discovery(e.to_string()))
+	};
+	announce(&mut discovery, &profile.borrow().clone())?;
 	tokio::spawn(async move {
-		while let Some(event) = discovery.next_event().await {
-			let command = match event {
-				DiscoveryEvent::Found(peer) => Command::Discovered(peer),
-				DiscoveryEvent::Removed(name) => Command::Removed(name),
-			};
-			if commands.send(command).await.is_err() {
-				break;
+		loop {
+			tokio::select! {
+				event = discovery.next_event() => {
+					let Some(event) = event else { break };
+					let command = match event {
+						DiscoveryEvent::Found(peer) => Command::Discovered(peer),
+						DiscoveryEvent::Removed(name) => Command::Removed(name),
+					};
+					if commands.send(command).await.is_err() {
+						break;
+					}
+				}
+				changed = profile.changed() => {
+					if changed.is_err() {
+						break;
+					}
+					let current = profile.borrow_and_update().clone();
+					let _ = announce(&mut discovery, &current);
+				}
 			}
 		}
 		discovery.shutdown();

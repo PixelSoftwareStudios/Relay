@@ -62,6 +62,11 @@ pub struct PeerConfig {
 	pub backoff: BackoffConfig,
 	/// mDNS setup; `None` disables discovery (manual addresses only).
 	pub discovery: Option<DiscoverySetup>,
+	/// Local avatar cache used to serve and store avatars; `None` disables
+	/// avatar exchange (names are still exchanged).
+	pub avatars: Option<Arc<relay_config::avatar::AvatarCache>>,
+	/// Initial local avatar hash (must be in the cache).
+	pub avatar: Option<[u8; 32]>,
 }
 
 impl PeerConfig {
@@ -74,6 +79,8 @@ impl PeerConfig {
 			timing: LinkTiming::default(),
 			backoff: BackoffConfig::default(),
 			discovery: Some(DiscoverySetup::default()),
+			avatars: None,
+			avatar: None,
 		}
 	}
 }
@@ -100,6 +107,32 @@ pub enum PeerOutput {
 		/// The classification (always `New` today).
 		trust: PeerTrust,
 	},
+	/// A trusted peer's display profile (untrusted text; display only).
+	Profile {
+		/// The peer.
+		peer: PeerId,
+		/// Sanitized display name.
+		name: String,
+		/// Announced avatar hash, if a plausible one was announced.
+		avatar: Option<[u8; 32]>,
+	},
+	/// A peer's avatar is in the local cache (fetched, validated, hashed).
+	AvatarReady {
+		/// The peer.
+		peer: PeerId,
+		/// Content hash of the cached avatar.
+		hash: [u8; 32],
+	},
+	/// A peer's avatar was refused (bad chunk order, oversize, wrong hash,
+	/// not a valid canonical image).
+	AvatarRejected {
+		/// The peer.
+		peer: PeerId,
+		/// The hash the peer announced.
+		hash: [u8; 32],
+		/// Why.
+		reason: String,
+	},
 	/// A key other than the pinned one presented a trusted name. The link
 	/// was refused and nothing was replaced.
 	KeyChanged {
@@ -115,8 +148,13 @@ pub enum PeerOutput {
 /// A point-in-time view of a known peer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PeerSnapshot {
-	/// Key digest.
-	pub id: PeerId,
+	/// Key digest; `None` for a discovered device whose key is not yet known
+	/// (discovery only carries a short hint).
+	pub id: Option<PeerId>,
+	/// Short discovery hint, when seen through discovery.
+	pub hint: Option<relay_net::discovery::FingerprintHint>,
+	/// Announced avatar hash, once a profile arrived.
+	pub avatar: Option<[u8; 32]>,
 	/// Display name (discovery or `Hello`; untrusted).
 	pub name: String,
 	/// Known addresses.
@@ -125,6 +163,16 @@ pub struct PeerSnapshot {
 	pub linked: bool,
 	/// Trust state if pinned.
 	pub trust: Option<TrustState>,
+}
+
+/// What media needs to know about a trusted link.
+#[derive(Clone)]
+pub struct LinkInfo {
+	/// The secure session shared by control and media.
+	pub session: Arc<SecureSession>,
+	/// The local address of the control connection: the interface address
+	/// a peer can reach this engine on.
+	pub local_ip: std::net::IpAddr,
 }
 
 pub(super) type Reply<T> = oneshot::Sender<Result<T, PeerError>>;
@@ -143,12 +191,19 @@ pub(super) enum Command {
 		state: TrustState,
 		reply: Reply<()>,
 	},
-	Session {
+	Link {
 		peer: Fingerprint,
-		reply: oneshot::Sender<Option<Arc<SecureSession>>>,
+		reply: oneshot::Sender<Option<LinkInfo>>,
 	},
 	AddAddress(Fingerprint, SocketAddr),
 	Redial(Fingerprint),
+	SetProfile(super::profile::LocalProfile),
+	AvatarValidated {
+		peer: Fingerprint,
+		expected: [u8; 32],
+		stored: Result<[u8; 32], String>,
+	},
+	AvatarServed(Fingerprint),
 	Discovered(Box<relay_net::discovery::DiscoveredPeer>),
 	Removed(String),
 	Shutdown,
@@ -213,7 +268,7 @@ impl PeerHandle {
 	pub fn send(&self, peer: PeerId, message: PeerMessage) -> Result<(), PeerError> {
 		let envelope = {
 			let mut table = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
-			super::signaling::encode(&message, &mut table)
+			super::signaling::encode(&message, peer, &mut table)
 		};
 		self.try_send(Command::Send(fingerprint(peer), envelope))
 	}
@@ -259,17 +314,39 @@ impl PeerHandle {
 		.await
 	}
 
-	/// The secure session of the current trusted link, for media binding.
-	pub async fn session(&self, peer: PeerId) -> Option<Arc<SecureSession>> {
+	/// The current trusted link, for media binding.
+	pub async fn link(&self, peer: PeerId) -> Option<LinkInfo> {
 		let (reply, answer) = oneshot::channel();
 		self.commands
-			.send(Command::Session {
+			.send(Command::Link {
 				peer: fingerprint(peer),
 				reply,
 			})
 			.await
 			.ok()?;
 		answer.await.ok()?
+	}
+
+	/// The peer a call was exchanged with, once an invitation was sent or received.
+	pub fn peer_of(&self, call: relay_core::CallId) -> Option<PeerId> {
+		self.sessions
+			.lock()
+			.unwrap_or_else(|p| p.into_inner())
+			.peer_of(call)
+	}
+
+	/// Changes the local display name and avatar: re-advertised on mDNS and
+	/// sent to every trusted link.
+	pub fn set_profile(&self, profile: super::profile::LocalProfile) -> Result<(), PeerError> {
+		self.try_send(Command::SetProfile(profile))
+	}
+
+	/// Feeds a discovery record from another source (tests, manual entry).
+	pub fn note_discovered(
+		&self,
+		peer: relay_net::discovery::DiscoveredPeer,
+	) -> Result<(), PeerError> {
+		self.try_send(Command::Discovered(Box::new(peer)))
 	}
 
 	/// Stops the manager and closes every link.

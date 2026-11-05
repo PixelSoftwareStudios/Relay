@@ -6,6 +6,8 @@ mod election;
 mod handle;
 mod link;
 mod manager;
+mod profile;
+mod profiling;
 mod signaling;
 mod start;
 mod trust;
@@ -13,10 +15,11 @@ mod trust;
 pub use backoff::BackoffConfig;
 pub use election::{LinkFacts, Verdict, elect};
 pub use handle::{
-	DiscoverySetup, PeerConfig, PeerError, PeerHandle, PeerOutput, PeerSnapshot, fingerprint,
-	peer_id,
+	DiscoverySetup, LinkInfo, PeerConfig, PeerError, PeerHandle, PeerOutput, PeerSnapshot,
+	fingerprint, peer_id,
 };
 pub use link::{LinkError, LinkTiming};
+pub use profile::{CHUNK_BYTES, LocalProfile};
 pub use signaling::{
 	Inbound, MediaSignal, PROFILE, SessionTable, decode, derived_session, encode, encode_media,
 };

@@ -19,6 +19,9 @@ use tokio::time::{MissedTickBehavior, interval, timeout};
 pub type LinkId = u64;
 
 const OUTBOX_DEPTH: usize = 64;
+/// Bulk (avatar) frames in flight per link. Small on purpose: signaling waits
+/// behind at most one bulk frame.
+const BULK_DEPTH: usize = 2;
 
 /// Link timers. Keepalives are control traffic; a muted call stays alive.
 #[derive(Debug, Clone, Copy)]
@@ -46,7 +49,7 @@ pub struct LinkParams {
 	/// Device identity.
 	pub identity: Arc<Identity>,
 	/// Advertised display name.
-	pub display_name: String,
+	pub display_name: arc_swap::ArcSwap<String>,
 	/// Random per-process value that tells a restart from a reconnect.
 	pub incarnation: [u8; 16],
 	/// Timers.
@@ -84,10 +87,14 @@ pub struct Established {
 	pub dialled_locally: bool,
 	/// Epoch of the secure session.
 	pub epoch: [u8; 16],
+	/// Local address of the control connection.
+	pub local_ip: std::net::IpAddr,
 	/// The session, shared with the media endpoint.
 	pub session: Arc<SecureSession>,
 	/// Outbound control queue.
 	pub outbox: mpsc::Sender<Envelope>,
+	/// Low-priority queue (avatar chunks); drained only when `outbox` is empty.
+	pub bulk: mpsc::Sender<Envelope>,
 	tasks: [AbortHandle; 2],
 }
 
@@ -119,6 +126,7 @@ pub async fn establish(
 	events: mpsc::Sender<LinkEvent>,
 ) -> Result<(), LinkError> {
 	stream.set_nodelay(true)?;
+	let local_ip = stream.local_addr()?.ip();
 	let session = Arc::new(match role {
 		Role::Initiator => initiate(&mut stream, &params.identity, expected.as_ref()).await?,
 		Role::Responder => respond(&mut stream, &params.identity).await?,
@@ -126,7 +134,7 @@ pub async fn establish(
 	let (mut sender, mut receiver) = control_channel(stream, Arc::clone(&session));
 	let hello = new_hello(
 		&params.identity.fingerprint(),
-		&params.display_name,
+		&params.display_name.load(),
 		params.incarnation,
 	);
 	sender.send(&new_envelope(Body::Hello(hello))).await?;
@@ -138,11 +146,12 @@ pub async fn establish(
 	};
 
 	let (outbox, queue) = mpsc::channel::<Envelope>(OUTBOX_DEPTH);
+	let (bulk, bulk_queue) = mpsc::channel::<Envelope>(BULK_DEPTH);
 	let timing = params.timing;
 	let writer = tokio::spawn({
 		let events = events.clone();
 		async move {
-			write_loop(sender, queue, timing.keepalive).await;
+			write_loop(sender, queue, bulk_queue, timing.keepalive).await;
 			let _ = events.send(LinkEvent::Down { link: id }).await;
 		}
 	});
@@ -160,8 +169,10 @@ pub async fn establish(
 		name: relay_net::discovery::sanitize_display_name(&peer_hello.display_name),
 		dialled_locally: role == Role::Initiator,
 		epoch: epoch_bytes(session.epoch()),
+		local_ip,
 		session,
 		outbox,
+		bulk,
 		tasks: [writer.abort_handle(), reader.abort_handle()],
 	};
 	events
@@ -178,6 +189,7 @@ pub fn epoch_bytes(epoch: &LinkEpoch) -> [u8; 16] {
 async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 	mut sender: relay_net::control::ControlSender<W>,
 	mut queue: mpsc::Receiver<Envelope>,
+	mut bulk: mpsc::Receiver<Envelope>,
 	keepalive: Duration,
 ) {
 	let mut tick = interval(keepalive);
@@ -185,7 +197,9 @@ async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 	tick.tick().await;
 	let mut nonce = 0u64;
 	loop {
+		// Biased: signaling and keepalives always go before bulk frames.
 		let envelope = tokio::select! {
+			biased;
 			queued = queue.recv() => match queued {
 				Some(envelope) => envelope,
 				None => break,
@@ -194,6 +208,7 @@ async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 				nonce += 1;
 				new_envelope(Body::Keepalive(Keepalive { nonce, reply: false }))
 			}
+			Some(envelope) = bulk.recv() => envelope,
 		};
 		if sender.send(&envelope).await.is_err() {
 			break;

@@ -108,3 +108,62 @@ pub async fn linked_pair() -> (TestPeer, TestPeer) {
 	.await;
 	(a, b)
 }
+
+/// A hand-driven remote peer for protocol-abuse tests.
+pub struct Raw {
+	pub identity: Identity,
+	pub sender: relay_net::control::ControlSender<tokio::io::WriteHalf<tokio::net::TcpStream>>,
+	pub receiver: relay_net::control::ControlReceiver<tokio::io::ReadHalf<tokio::net::TcpStream>>,
+}
+
+impl Raw {
+	/// Handshakes with `addr` and exchanges `Hello`.
+	pub async fn connect(addr: std::net::SocketAddr, name: &str) -> Self {
+		use relay_net::control::{control_channel, new_envelope, new_hello};
+		use relay_net::handshake::initiate;
+		use relay_net::proto::envelope::Body;
+		let identity = Identity::generate().unwrap();
+		let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
+		let session = Arc::new(initiate(&mut stream, &identity, None).await.unwrap());
+		let (mut sender, mut receiver) = control_channel(stream, session);
+		let hello = new_hello(&identity.fingerprint(), name, [9; 16]);
+		sender
+			.send(&new_envelope(Body::Hello(hello)))
+			.await
+			.unwrap();
+		receiver.recv().await.unwrap();
+		Self {
+			identity,
+			sender,
+			receiver,
+		}
+	}
+
+	pub fn id(&self) -> PeerId {
+		peer_id(&self.identity.fingerprint())
+	}
+
+	pub async fn send(&mut self, body: relay_net::proto::envelope::Body) {
+		self.sender
+			.send(&relay_net::control::new_envelope(body))
+			.await
+			.unwrap();
+	}
+
+	/// The next body that is neither a keepalive nor a profile, if one arrives within `wait`.
+	pub async fn next_body(&mut self, wait: Duration) -> Option<relay_net::proto::envelope::Body> {
+		use relay_net::proto::envelope::Body;
+		timeout(wait, async {
+			loop {
+				let env = self.receiver.recv().await.ok()?;
+				match env.body? {
+					Body::Keepalive(_) | Body::Profile(_) => continue,
+					other => return Some(other),
+				}
+			}
+		})
+		.await
+		.ok()
+		.flatten()
+	}
+}

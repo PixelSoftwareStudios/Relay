@@ -18,7 +18,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio::time::timeout;
 
 use super::election::{LinkFacts, Verdict, elect};
-use super::handle::{Command, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id};
+use super::handle::{Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id};
 use super::link::{Established, LinkEvent, LinkId, LinkParams, establish};
 use super::signaling::{Inbound, SessionTable, decode};
 use super::trust::{SharedTrust, now};
@@ -33,8 +33,8 @@ enum Outbox {
 }
 
 pub(super) struct Entry {
-	link: Established,
-	trusted: bool,
+	pub(super) link: Established,
+	pub(super) trusted: bool,
 }
 
 #[derive(Default)]
@@ -64,6 +64,9 @@ pub(super) struct Actor {
 	pub(super) commands: mpsc::Sender<Command>,
 	pub(super) snapshot: Arc<ArcSwap<Vec<PeerSnapshot>>>,
 	pub(super) accept: tokio::task::AbortHandle,
+	pub(super) profiles: super::profile::Profiles,
+	pub(super) remote_profiles: HashMap<Fingerprint, (String, Option<[u8; 32]>)>,
+	pub(super) profile_tx: tokio::sync::watch::Sender<super::profile::LocalProfile>,
 }
 
 impl Actor {
@@ -86,7 +89,7 @@ impl Actor {
 		self.accept.abort();
 	}
 
-	async fn emit(&self, output: PeerOutput) {
+	pub(super) async fn emit(&self, output: PeerOutput) {
 		let _ = self.output.send(output).await;
 	}
 
@@ -114,11 +117,12 @@ impl Actor {
 				let result = self.pin(peer, state).await;
 				let _ = reply.send(result);
 			}
-			Command::Session { peer, reply } => {
-				let session = self
-					.trusted_link(&peer)
-					.map(|entry| Arc::clone(&entry.link.session));
-				let _ = reply.send(session);
+			Command::Link { peer, reply } => {
+				let info = self.trusted_link(&peer).map(|entry| LinkInfo {
+					session: Arc::clone(&entry.link.session),
+					local_ip: entry.link.local_ip,
+				});
+				let _ = reply.send(info);
 			}
 			Command::AddAddress(peer, addr) => {
 				if self.config.policy.check_socket(addr).is_ok() {
@@ -126,6 +130,13 @@ impl Actor {
 					self.try_dial(peer);
 				}
 			}
+			Command::SetProfile(profile) => self.set_profile(profile).await,
+			Command::AvatarValidated {
+				peer,
+				expected,
+				stored,
+			} => self.avatar_validated(peer, expected, stored).await,
+			Command::AvatarServed(peer) => self.profiles.finish_serving(&peer),
 			Command::Redial(peer) => {
 				if let Some(want) = self.wanted.get_mut(&peer) {
 					want.retry_scheduled = false;
@@ -147,7 +158,8 @@ impl Actor {
 		}
 	}
 
-	fn on_discovered(&mut self, found: relay_net::discovery::DiscoveredPeer) {
+	fn on_discovered(&mut self, mut found: relay_net::discovery::DiscoveredPeer) {
+		found.display_name = relay_net::discovery::sanitize_display_name(&found.display_name);
 		let matches: Vec<Fingerprint> = self
 			.wanted
 			.keys()
@@ -174,7 +186,7 @@ impl Actor {
 		out
 	}
 
-	fn trusted_link(&self, peer: &Fingerprint) -> Option<&Entry> {
+	pub(super) fn trusted_link(&self, peer: &Fingerprint) -> Option<&Entry> {
 		let entry = self.links.get(self.canonical.get(peer)?)?;
 		entry.trusted.then_some(entry)
 	}
@@ -245,7 +257,7 @@ impl Actor {
 		id
 	}
 
-	async fn send(&mut self, peer: Fingerprint, envelope: Envelope) {
+	pub(super) async fn send(&mut self, peer: Fingerprint, envelope: Envelope) {
 		let outcome = self.trusted_link(&peer).map(|entry| {
 			match entry.link.outbox.try_send(envelope.clone()) {
 				Ok(()) => Outbox::Sent,
@@ -308,6 +320,7 @@ impl Actor {
 			self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
 				.await;
 			self.flush_pending(peer).await;
+			self.announce_profile(peer).await;
 		}
 		Ok(())
 	}
@@ -405,6 +418,7 @@ impl Actor {
 					.await;
 			}
 			self.flush_pending(peer).await;
+			self.announce_profile(peer).await;
 		} else {
 			self.emit(PeerOutput::TrustRequired {
 				peer: peer_id(&peer),
@@ -423,7 +437,15 @@ impl Actor {
 		if !entry.trusted || self.canonical.get(&entry.link.fingerprint) != Some(&link) {
 			return;
 		}
-		let peer = peer_id(&entry.link.fingerprint);
+		let fingerprint = entry.link.fingerprint;
+		if matches!(
+			body,
+			Body::Profile(_) | Body::AvatarRequest(_) | Body::AvatarChunk(_)
+		) {
+			self.on_profile_body(fingerprint, body).await;
+			return;
+		}
+		let peer = peer_id(&fingerprint);
 		let inbound = {
 			let mut table = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
 			decode(peer, body, &mut table, &self.config.policy)
@@ -445,6 +467,7 @@ impl Actor {
 			return;
 		}
 		self.canonical.remove(&peer);
+		self.profiles.forget(&peer);
 		if entry.trusted {
 			self.emit(PeerOutput::Core(PeerEvent::LinkDown(peer_id(&peer))))
 				.await;
@@ -453,20 +476,41 @@ impl Actor {
 	}
 
 	fn publish_snapshot(&self) {
-		let mut seen: HashMap<Fingerprint, PeerSnapshot> = HashMap::new();
+		let mut list: Vec<PeerSnapshot> = Vec::new();
 		for (peer, id) in &self.canonical {
 			let entry = &self.links[id];
-			seen.insert(
-				*peer,
-				PeerSnapshot {
-					id: peer_id(peer),
-					name: entry.link.name.clone(),
-					addresses: self.addresses.get(peer).cloned().unwrap_or_default(),
-					linked: entry.trusted,
-					trust: self.trust.lock().get(peer).map(|r| r.state),
-				},
-			);
+			let (name, avatar) = self
+				.remote_profiles
+				.get(peer)
+				.cloned()
+				.unwrap_or_else(|| (entry.link.name.clone(), None));
+			list.push(PeerSnapshot {
+				id: Some(peer_id(peer)),
+				hint: None,
+				avatar,
+				name,
+				addresses: self.addresses.get(peer).cloned().unwrap_or_default(),
+				linked: entry.trusted,
+				trust: self.trust.lock().get(peer).map(|r| r.state),
+			});
 		}
-		self.snapshot.store(Arc::new(seen.into_values().collect()));
+		// Discovered devices without a link: name and hint only, never trusted.
+		for found in self.table.iter() {
+			let linked = found
+				.fingerprint_hint
+				.is_some_and(|hint| self.canonical.keys().any(|fp| hint.matches(fp)));
+			if !linked {
+				list.push(PeerSnapshot {
+					id: None,
+					hint: found.fingerprint_hint,
+					avatar: None,
+					name: found.display_name.clone(),
+					addresses: found.addresses.clone(),
+					linked: false,
+					trust: None,
+				});
+			}
+		}
+		self.snapshot.store(Arc::new(list));
 	}
 }
