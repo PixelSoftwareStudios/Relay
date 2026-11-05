@@ -67,7 +67,7 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 - `avatar set` accepts `.png`, `.jpg`, `.jpeg` up to 1 MiB (the engine decodes and validates). `avatar clear` exits 4 with code `unsupported`: the API has no clear operation.
 
 ### Settings (`relay config`)
-`get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `ptt.release_delay_ms`, `privacy.inbound_policy`, `privacy.advert_mode`); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
+`get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `ptt.release_delay_ms`, `privacy.inbound_policy`, `privacy.advert_mode`, `audio.ringtone_enabled`, `audio.ringtone_volume`, `audio.ringback_enabled`, `audio.call_sounds_enabled`; for example `relay config set audio.ringtone_volume 0.5` changes a ring that is playing); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
 
 ## Output
 

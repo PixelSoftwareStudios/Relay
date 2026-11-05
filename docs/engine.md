@@ -178,6 +178,25 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   is using it. The test opens the microphone under a reserved capture generation that the domain
   never sees; if a call opens capture meanwhile the test shares that stream.
 
+## Tones
+
+Ring, ringback and call blips are played by the daemon, so they work for any
+client. `service/tones.rs` holds `ToneDriver`: the actor calls it after each
+message and tick (only when the domain revision, the attached flag or the ring
+preferences changed, or a preview runs) and sends the resulting `ToneCommand`s to
+`MediaControl::tone`; the real media system forwards them to the render worker's
+`TonePlayer` (see `docs/audio.md`, Tones). `StoredSettings.ring` /
+`SettingsChange::Ring` / `Aux.ring` carry `audio.ringtone_enabled`,
+`audio.ringtone_volume`, `audio.ringback_enabled` and `audio.call_sounds_enabled`;
+`SetGlobalControls` changes them (`ServiceOp::Controls.ring`), persists, publishes
+`Settings` and the next sync applies the change to a playing tone. `PreviewTone`
+(`ServiceOp::PreviewTone`) arms a 2 s test ring; the actor wakes at its deadline.
+The actor stops any tone at shutdown. Tests: `tone_driver`, `service_tones` (fake
+media records tone commands: no ring unattended, ring with a client, stop on
+remote cancel, deafen, live volume and disable, ringback, preview),
+`media_tone_playback` (fake audio backend: tone only while ringing, no call
+needed, deafen, zero packets, peer hears silence).
+
 ## Channels
 
 `src/channels/` is the live driver for named channels; `docs/channels.md` has the design,
