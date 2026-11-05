@@ -1,14 +1,15 @@
 //! Rename that never replaces an existing destination.
 //!
 //! Strategy, strongest first:
-//! 1. `renameat2(RENAME_NOREPLACE)` on Linux, `renamex_np(RENAME_EXCL)` on macOS:
-//!    one atomic syscall, and an existing destination (including a symlink, which is
-//!    never followed) yields `AlreadyExists`.
-//! 2. Hard link `from` to `to` then unlink `from`: `link` fails if `to` exists, so
-//!    it is race-free for creation. Between link and unlink both names exist, so a
-//!    crash leaves a duplicate, never a lost or overwritten file.
-//! 3. Where hard links are unsupported (FAT/exFAT volumes): exclusively create `to`
-//!    as a placeholder, then rename over our own placeholder. Another process that
+//! 1. Linux/Android: `renameat2(RENAME_NOREPLACE)` (through `rustix`): one atomic
+//!    syscall; an existing destination, including a symlink (never followed), yields
+//!    `AlreadyExists`. Kernels or filesystems without support fall through.
+//! 2. Everywhere else: hard link `from` to `to`, then unlink `from`. `link` fails if
+//!    `to` exists, so creation is race-free. Between link and unlink both names exist,
+//!    so a crash leaves a duplicate, never a lost or overwritten file. macOS takes
+//!    this path (its `renamex_np` has no safe wrapper).
+//! 3. Where hard links are unsupported (FAT/exFAT volumes): exclusively create `to` as
+//!    a placeholder, then rename over our own placeholder. Another process that
 //!    deletes the placeholder inside that window could be overwritten; this is the
 //!    only non-atomic path and only used when 1 and 2 are impossible.
 
@@ -34,69 +35,23 @@ pub fn rename_noreplace(from: &Path, to: &Path) -> io::Result<()> {
 }
 
 fn is_unsupported(e: &io::Error) -> bool {
-	matches!(e.kind(), io::ErrorKind::Unsupported)
-		|| matches!(
-			e.raw_os_error(),
-			Some(code) if code == 22 /* EINVAL */ || code == 38 /* ENOSYS (linux) */ || code == 45 /* ENOTSUP (mac) */ || code == 95 /* EOPNOTSUPP (linux) */
-		)
+	e.kind() == io::ErrorKind::Unsupported
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "android"))]
 fn native(from: &Path, to: &Path) -> io::Result<()> {
-	use std::ffi::CString;
-	use std::os::unix::ffi::OsStrExt;
-	const RENAME_NOREPLACE: libc::c_uint = 1;
-	let cstr = |p: &Path| {
-		CString::new(p.as_os_str().as_bytes())
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "NUL in path"))
-	};
-	let (from, to) = (cstr(from)?, cstr(to)?);
-	// SAFETY: both paths are valid NUL-terminated strings that outlive the call.
-	let rc = unsafe {
-		libc::syscall(
-			libc::SYS_renameat2,
-			libc::AT_FDCWD,
-			from.as_ptr(),
-			libc::AT_FDCWD,
-			to.as_ptr(),
-			RENAME_NOREPLACE,
-		)
-	};
-	if rc == 0 {
-		Ok(())
-	} else {
-		Err(io::Error::last_os_error())
+	use rustix::fs::{CWD, RenameFlags, renameat_with};
+	use rustix::io::Errno;
+	match renameat_with(CWD, from, CWD, to, RenameFlags::NOREPLACE) {
+		Ok(()) => Ok(()),
+		Err(Errno::INVAL | Errno::NOSYS | Errno::OPNOTSUPP) => {
+			Err(io::Error::from(io::ErrorKind::Unsupported))
+		}
+		Err(e) => Err(e.into()),
 	}
 }
 
-#[cfg(target_os = "macos")]
-fn native(from: &Path, to: &Path) -> io::Result<()> {
-	use std::ffi::CString;
-	use std::os::unix::ffi::OsStrExt;
-	const RENAME_EXCL: libc::c_uint = 0x0000_0004;
-	unsafe extern "C" {
-		fn renamex_np(
-			from: *const libc::c_char,
-			to: *const libc::c_char,
-			flags: libc::c_uint,
-		) -> libc::c_int;
-	}
-	let cstr = |p: &Path| {
-		CString::new(p.as_os_str().as_bytes())
-			.map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "NUL in path"))
-	};
-	let (from, to) = (cstr(from)?, cstr(to)?);
-	// SAFETY: both paths are valid NUL-terminated strings that outlive the call, and
-	// `renamex_np` has this signature in libSystem.
-	let rc = unsafe { renamex_np(from.as_ptr(), to.as_ptr(), RENAME_EXCL) };
-	if rc == 0 {
-		Ok(())
-	} else {
-		Err(io::Error::last_os_error())
-	}
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "macos")))]
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
 fn native(_from: &Path, _to: &Path) -> io::Result<()> {
 	Err(io::Error::from(io::ErrorKind::Unsupported))
 }

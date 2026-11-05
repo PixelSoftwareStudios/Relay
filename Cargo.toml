@@ -57,12 +57,16 @@ relay-client = { path = "crates/relay-client" }
 relay-ui = { path = "crates/relay-ui" }
 relay-messages = { path = "crates/relay-messages" }
 relay-io = { path = "crates/relay-io" }
+relay-io = { path = "crates/relay-io" }
 
 # Audio devices, buffering, resampling and codec
 cpal = { version = "0.18.2", features = ["realtime"] }
 # Real-time thread promotion for the media workers (rtkit/SCHED_FIFO, MMCSS); same crate cpal uses
 audio_thread_priority = { version = "0.35", default-features = false }
 libc = "0.2"
+# Safe wrappers over syscalls (uid, no-replace rename) and cross-platform free space
+rustix = { version = "1.1.6", default-features = false, features = ["std", "fs", "process"] }
+fs4 = { version = "1.1.0", default-features = false, features = ["sync"] }
 opus = "0.4.0"
 rtrb = "0.4.1"
 rubato = "5.0.1"

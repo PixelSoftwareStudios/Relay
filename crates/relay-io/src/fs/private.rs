@@ -15,8 +15,7 @@ use crate::error::{IoError, Result};
 /// The effective uid of this process.
 #[cfg(unix)]
 pub fn current_uid() -> u32 {
-	// SAFETY: `geteuid` takes no arguments, touches no memory and cannot fail.
-	unsafe { libc::geteuid() }
+	rustix::process::geteuid().as_raw()
 }
 
 /// Creates `dir` (and missing parents) and makes sure group and others have no access.

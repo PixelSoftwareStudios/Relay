@@ -15,6 +15,8 @@
 //! files with an explicit owner-only DACL is an unmet hardening gate, see
 //! `docs/portability.md`.
 
+#![forbid(unsafe_code)]
+
 pub mod clock;
 pub mod entropy;
 mod error;
