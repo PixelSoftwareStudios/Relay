@@ -50,9 +50,14 @@ impl Paths {
 		&self.data_dir
 	}
 
-	/// The per-user SQLite database holding preferences, trust and the avatar cache.
+	/// The per-user SQLite database holding preferences, trust and channel metadata.
 	pub fn database_file(&self) -> PathBuf {
 		self.data_dir.join("relay.db")
+	}
+
+	/// The disposable avatar cache; never backed up, safe to delete.
+	pub fn avatar_cache_file(&self) -> PathBuf {
+		self.data_dir.join("avatars.db")
 	}
 
 	pub fn identity_file(&self) -> PathBuf {

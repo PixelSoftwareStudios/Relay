@@ -2,9 +2,7 @@ use std::io::Cursor;
 
 use image::{DynamicImage, ImageFormat, Rgba, RgbaImage};
 use relay_config::avatar::limits::{ENCODED_MAX_BYTES, OUTPUT_DIMENSION};
-use relay_config::avatar::{
-	AvatarCache, parse_hash, process_avatar, read_avatar_file, validate_canonical,
-};
+use relay_config::avatar::{parse_hash, process_avatar, read_avatar_file, validate_canonical};
 use relay_config::{AvatarError, ConfigError};
 
 fn encode(img: DynamicImage, fmt: ImageFormat) -> Vec<u8> {
@@ -28,7 +26,7 @@ fn avatar_err(r: Result<impl std::fmt::Debug, ConfigError>) -> AvatarError {
 }
 
 #[test]
-fn valid_png_becomes_canonical_128_square() {
+fn valid_png_becomes_canonical_256_square() {
 	let a = process_avatar(&flat(300, 200)).unwrap();
 	let img = image::load_from_memory(&a.png).unwrap();
 	assert_eq!(
@@ -105,8 +103,9 @@ fn lying_header_dimensions_are_rejected() {
 
 #[test]
 fn remote_canonical_rejects_large_images() {
-	assert!(validate_canonical(&flat(129, 129)).is_err());
-	assert!(validate_canonical(&flat(128, 128)).is_ok());
+	assert!(validate_canonical(&flat(257, 257)).is_err());
+	assert!(validate_canonical(&flat(255, 255)).is_err());
+	assert!(validate_canonical(&flat(256, 256)).is_ok());
 }
 
 #[test]
@@ -154,87 +153,120 @@ fn path_validation() {
 	}
 }
 
+/// A noisy gradient: close to the worst case for PNG, so sizes stay well under the cap.
+fn busy(w: u32, h: u32) -> Vec<u8> {
+	let img = RgbaImage::from_fn(w, h, |x, y| {
+		let n = x.wrapping_mul(2_654_435_761) ^ y.wrapping_mul(40_503);
+		Rgba([(n >> 3) as u8, (n >> 11) as u8, (x + y) as u8, 255])
+	});
+	encode(DynamicImage::ImageRgba8(img), ImageFormat::Png)
+}
+
 #[test]
-fn cache_stores_verifies_and_rejects_untrusted() {
-	let dir = tempfile::tempdir().unwrap();
-	let cache = AvatarCache::open(dir.path().join("av")).unwrap();
-	let a = process_avatar(&flat(50, 50)).unwrap();
-	cache.put(&a).unwrap();
-	assert_eq!(
-		cache.get(&a.hash).unwrap().as_deref(),
-		Some(a.png.as_slice())
+fn compression_is_deterministic_and_shrinks() {
+	let src = busy(512, 400);
+	let a = process_avatar(&src).unwrap();
+	let b = process_avatar(&src).unwrap();
+	assert_eq!(a.png, b.png);
+	assert_eq!(a.hash, b.hash);
+	let plain = {
+		let img = image::load_from_memory(&src).unwrap().to_rgba8();
+		let small = image::imageops::resize(&img, 256, 256, image::imageops::FilterType::Lanczos3);
+		encode(DynamicImage::ImageRgba8(small), ImageFormat::Png)
+	};
+	assert!(a.png.len() <= plain.len());
+	assert!(a.png.len() <= ENCODED_MAX_BYTES);
+	let flat = process_avatar(&flat(300, 300)).unwrap();
+	assert!(
+		flat.png.len() < 2048,
+		"flat avatar is {} bytes",
+		flat.png.len()
 	);
-	assert_eq!(cache.get(&[0; 32]).unwrap(), None);
-	assert!(cache.put_untrusted(b"junk").is_err());
-	assert_eq!(cache.put_untrusted(&a.png).unwrap(), a.hash);
 }
 
-#[test]
-fn cache_detects_tampering() {
-	let dir = tempfile::tempdir().unwrap();
-	let cache = AvatarCache::open(dir.path().join("av")).unwrap();
-	let a = process_avatar(&flat(50, 50)).unwrap();
-	cache.put(&a).unwrap();
-	let db = rusqlite::Connection::open(dir.path().join("av").join("avatars.db")).unwrap();
-	db.execute("UPDATE avatars SET data = x'6576696c'", [])
-		.unwrap();
-	drop(db);
-	assert_eq!(cache.get(&a.hash).unwrap(), None);
-	assert_eq!(cache.size().unwrap(), 0);
-}
-
-#[test]
-fn cache_evicts_oldest_within_bound() {
-	let dir = tempfile::tempdir().unwrap();
-	let mk = |shade: u8| {
-		let img = RgbaImage::from_fn(64, 64, |x, y| {
-			Rgba([shade, (x * 4) as u8, (y * 4) as u8, 255])
-		});
-		process_avatar(&encode(DynamicImage::ImageRgba8(img), ImageFormat::Png)).unwrap()
-	};
-	let (a, b, c) = (mk(1), mk(2), mk(3));
-	let bound = (a.png.len() + b.png.len() + c.png.len()) as u64 - 1;
-	let cache = AvatarCache::with_limit(dir.path().join("av"), bound).unwrap();
-	cache.put(&a).unwrap();
-	std::thread::sleep(std::time::Duration::from_millis(20));
-	cache.put(&b).unwrap();
-	std::thread::sleep(std::time::Duration::from_millis(20));
-	cache.put(&c).unwrap();
-	assert!(cache.size().unwrap() <= bound);
-	assert_eq!(cache.get(&a.hash).unwrap(), None);
-	assert!(cache.get(&c.hash).unwrap().is_some());
-}
-
-#[test]
-fn local_avatar_hash_persists_and_is_never_evicted() {
-	let dir = tempfile::tempdir().unwrap();
-	let mk = |shade: u8| {
-		let img = RgbaImage::from_fn(64, 64, |x, y| {
-			Rgba([shade, (x * 4) as u8, (y * 4) as u8, 255])
-		});
-		process_avatar(&encode(DynamicImage::ImageRgba8(img), ImageFormat::Png)).unwrap()
-	};
-	let (local, b, c) = (mk(1), mk(2), mk(3));
-	let bound = (local.png.len() + b.png.len() + c.png.len()) as u64 - 1;
-	{
-		let cache = AvatarCache::with_limit(dir.path(), bound).unwrap();
-		assert_eq!(cache.local().unwrap(), None);
-		cache.put(&local).unwrap();
-		cache.set_local(&local.hash).unwrap();
-		cache.put(&b).unwrap();
-		cache.put(&c).unwrap();
-		assert!(cache.size().unwrap() <= bound);
-		assert_eq!(cache.get(&b.hash).unwrap(), None);
+/// Splits a PNG into (type, whole chunk bytes).
+fn chunks(png: &[u8]) -> Vec<([u8; 4], Vec<u8>)> {
+	let mut out = Vec::new();
+	let mut at = 8;
+	while at < png.len() {
+		let len = u32::from_be_bytes(png[at..at + 4].try_into().unwrap()) as usize;
+		out.push((
+			png[at + 4..at + 8].try_into().unwrap(),
+			png[at..at + 12 + len].to_vec(),
+		));
+		at += 12 + len;
 	}
-	let cache = AvatarCache::with_limit(dir.path(), bound).unwrap();
-	assert_eq!(cache.local().unwrap(), Some(local.hash));
-	assert!(cache.get(&local.hash).unwrap().is_some());
+	out
 }
 
 #[test]
-fn oversized_entries_are_skipped_not_stored() {
-	let dir = tempfile::tempdir().unwrap();
-	let cache = AvatarCache::with_limit(dir.path(), 10).unwrap();
-	cache.put(&process_avatar(&flat(50, 50)).unwrap()).unwrap();
-	assert_eq!(cache.size().unwrap(), 0);
+fn canonical_output_has_only_critical_chunks_and_no_metadata() {
+	let a = process_avatar(&busy(300, 300)).unwrap();
+	let names: Vec<_> = chunks(&a.png).iter().map(|c| c.0).collect();
+	assert_eq!(names.first(), Some(b"IHDR"));
+	assert_eq!(names.last(), Some(b"IEND"));
+	assert!(names[1..names.len() - 1].iter().all(|n| n == b"IDAT"));
+	// RGBA8 non-interlaced.
+	assert_eq!(a.png[24..29], [8, 6, 0, 0, 0]);
+}
+
+#[test]
+fn receivers_reject_non_canonical_forms_without_reencoding() {
+	let good = process_avatar(&busy(300, 300)).unwrap().png;
+	let parts = chunks(&good);
+	let rebuild = |extra: Option<Vec<u8>>, tail: &[u8]| {
+		let mut out = good[..8].to_vec();
+		for (name, bytes) in &parts {
+			if name == b"IEND"
+				&& let Some(e) = &extra
+			{
+				out.extend_from_slice(e);
+			}
+			out.extend_from_slice(bytes);
+		}
+		out.extend_from_slice(tail);
+		out
+	};
+	assert!(validate_canonical(&rebuild(None, &[])).is_ok());
+	// Trailing bytes.
+	assert!(validate_canonical(&rebuild(None, b"x")).is_err());
+	// An ancillary chunk (tEXt with a valid CRC).
+	let mut text = Vec::new();
+	let body = b"tEXtk\0v";
+	text.extend_from_slice(&3u32.to_be_bytes());
+	text.extend_from_slice(body);
+	text.extend_from_slice(&crc32(body).to_be_bytes());
+	assert!(validate_canonical(&rebuild(Some(text), &[])).is_err());
+	// Wrong colour type (RGB, 256x256), JPEG, flipped checksum bit.
+	let rgb = encode(
+		DynamicImage::ImageRgb8(image::RgbImage::from_pixel(256, 256, image::Rgb([1, 2, 3]))),
+		ImageFormat::Png,
+	);
+	assert!(validate_canonical(&rgb).is_err());
+	let jpeg = encode(
+		DynamicImage::ImageRgb8(image::RgbImage::from_pixel(256, 256, image::Rgb([1, 2, 3]))),
+		ImageFormat::Jpeg,
+	);
+	assert!(validate_canonical(&jpeg).is_err());
+	let mut broken = good.clone();
+	let last = broken.len() - 20;
+	broken[last] ^= 1;
+	assert!(validate_canonical(&broken).is_err());
+	// Size cap applies to what is received.
+	assert!(matches!(
+		avatar_err(validate_canonical(&vec![0u8; ENCODED_MAX_BYTES + 1])),
+		AvatarError::TooLarge { .. }
+	));
+}
+
+/// CRC-32 for the hand-built chunk above (bitwise, test only).
+fn crc32(data: &[u8]) -> u32 {
+	let mut crc = !0u32;
+	for &b in data {
+		crc ^= u32::from(b);
+		for _ in 0..8 {
+			crc = (crc >> 1) ^ (0xedb8_8320 & 0u32.wrapping_sub(crc & 1));
+		}
+	}
+	!crc
 }

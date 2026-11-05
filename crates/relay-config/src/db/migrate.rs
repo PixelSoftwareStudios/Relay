@@ -22,14 +22,6 @@ CREATE TABLE trust (
 	first_seen INTEGER NOT NULL
 ) WITHOUT ROWID;
 
-CREATE TABLE avatars (
-	hash BLOB PRIMARY KEY NOT NULL CHECK (length(hash) = 32),
-	data BLOB NOT NULL,
-	size INTEGER NOT NULL,
-	last_used INTEGER NOT NULL
-) WITHOUT ROWID;
-CREATE INDEX avatars_by_use ON avatars (last_used);
-
 -- Channel metadata only. Secrets (signing keys, password and invite credentials)
 -- live in the SecretVault; channel_secrets lists which vault entries exist.
 CREATE TABLE channels (

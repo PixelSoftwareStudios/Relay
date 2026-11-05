@@ -8,9 +8,10 @@ All persistent settings are in **one SQLite database per OS user**. Secrets are 
 
 | File | Dir | Contents |
 |---|---|---|
-| `relay.db` | data | Preferences, trust entries, avatar cache, local avatar hash (+ `-wal`, `-shm`) |
+| `relay.db` | data | Preferences, trust entries, channel metadata, local avatar hash (+ `-wal`, `-shm`) |
 | `relay.db.bak` | data | Consistent snapshot used for recovery (`VACUUM INTO`, atomic rename) |
 | `relay.db.corrupt` | data | A damaged database, kept for inspection after recovery |
+| `avatars.db` | data | Disposable avatar cache (bytes only); no backup, wiped and recreated if damaged |
 | `writer.lock` | config | OS advisory lock; one writer process at a time |
 | `identity.insecure.key` | data | Identity key, only if the user chose `identity.key_storage = "insecure_file"` |
 
@@ -49,8 +50,7 @@ left untouched.
 |---|---|
 | `prefs(key, value)` | One row per setting, dotted key (`audio.microphone_gain`), TOML-encoded typed value |
 | `trust(public_key, display_name, level, first_seen)` | TOFU / Verified peers; `CHECK` on key length and level |
-| `avatars(hash, data, size, last_used)` | Content-addressed avatar blobs, LRU evicted |
-| `state(key, value)` | Small internal flags: local avatar hash |
+| `state(key, value)` | Small internal flags: local avatar hash (the pinned entry of the avatar cache) |
 | `channels`, `channel_*` | Channel metadata (see below) |
 
 `Preferences::config_version` (currently 1) is the data-model version stored in `prefs`; it is
@@ -133,13 +133,34 @@ file store is built only when the setting is `insecure_file`, and `describe()` s
 
 ## Avatar pipeline
 
-Encoded <= 256 KiB, PNG/JPEG only, input <= 2048x2048, decoder allocation capped, then
-center-crop, resize to 128x128, re-encode PNG, blake3 hash. Peer-supplied bytes use
-`validate_canonical` (<= 128x128) before caching. The cache table is bounded to 32 MiB with
-least-recently-used eviction; entries larger than the bound are skipped, reads re-verify the hash
-and drop tampered rows. The local user's avatar hash (`AvatarCache::set_local`/`local`) is
-persisted, restored on start if its bytes are still cached, and never evicted.
-`AvatarCache::open(dir)` makes a standalone cache database in `dir` (tools, tests); the daemon uses
+Upload: encoded <= 1 MiB (`ENCODED_MAX_BYTES`, also the cap for what is stored, served or
+accepted from a peer), PNG/JPEG only, input <= 2048x2048, decoder allocation capped
+(2048x2048 RGBA), then center-crop, resize to 256x256 and encode as RGBA8 PNG. The PNG is
+recompressed losslessly with `oxipng` (libdeflate level 12, preset-2 filter set, metadata
+stripped, colour/bit-depth/palette reduction off so the output is always RGBA8, no timeout, no
+threads): same input, same bytes, same blake3 hash. This runs at upload only. Typical results:
+a flat avatar ~0.7 KB, a smooth gradient ~0.8 KB, a vector-style picture ~19 KB, incompressible
+noise ~218 KB (worst case about 262 KB, far under the cap); ~30 to 150 ms in release builds.
+
+Receive: `validate_canonical` checks the canonical form without re-encoding: size <= 1 MiB,
+PNG signature, chunks exactly `IHDR`, `IDAT`+ and `IEND` with valid CRCs (any other chunk,
+ancillary or not, or trailing bytes is refused), 256x256, 8-bit RGBA, non-interlaced; the
+image must also decode under the same limits. JPEG is not canonical. The hash is blake3 of the
+received bytes.
+
+### Avatar cache
+
+`AvatarCache` keeps bytes in `avatars.db` (own SQLite file next to `relay.db`, created
+`0600` in a `0700` directory, `synchronous=OFF`, no WAL, never backed up) so the frequently
+backed-up settings database does not carry them. It is bounded to 128 MiB per user
+(`CACHE_MAX_BYTES`) with least-recently-used eviction: room is made before the insert, so the
+bound is never exceeded, even briefly. Entries larger than the bound are skipped; reads
+re-verify the hash and drop tampered rows. A file that is not a database or reports
+corruption is deleted and recreated empty (logged at debug, no notice): it is only a cache.
+The local user's avatar hash lives in the settings `state` table (`set_local`/`local`); that
+entry is pinned and never evicted, and `local()` reports `None` if its bytes are gone from a
+wiped cache, so the avatar must be uploaded again. `AvatarCache::open(dir)` makes a standalone
+cache plus a small settings database in `dir` (tools, tests); the daemon uses
 `AvatarCache::new(&storage.database)`.
 
 ## Diagnostics

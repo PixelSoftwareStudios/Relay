@@ -70,6 +70,8 @@ pub enum AvatarError {
 	DecodeBudget { needed: u64, limit: u64 },
 	#[error("avatar could not be decoded: {0}")]
 	Decode(String),
+	#[error("avatar is not in the canonical form: {0}")]
+	NotCanonical(&'static str),
 	#[error("avatar path is not acceptable: {0}")]
 	BadPath(&'static str),
 	#[error("avatar hash is not valid hex of the expected length")]

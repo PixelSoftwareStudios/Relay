@@ -8,6 +8,7 @@ use image::imageops::FilterType;
 use image::{ImageFormat, ImageReader, Limits};
 
 use super::limits::{DECODE_ALLOC_MAX, ENCODED_MAX_BYTES, INPUT_DIMENSION_MAX, OUTPUT_DIMENSION};
+use super::png::{check_canonical, encode_canonical};
 use crate::error::{AvatarError, ConfigError, Result};
 
 /// A canonical avatar: small PNG plus its blake3 content hash.
@@ -82,8 +83,9 @@ fn check_dimensions(bytes: &[u8], limit: u32) -> std::result::Result<(), AvatarE
 
 /// Validates untrusted upload bytes and returns the canonical avatar.
 ///
-/// The image is center-cropped to a square, resized to 128x128 and re-encoded as
-/// PNG, which discards metadata and any trailing or hidden data.
+/// The image is center-cropped to a square, resized to 256x256 and re-encoded as a
+/// losslessly compressed RGBA PNG, which discards metadata and any trailing or hidden
+/// data. Compression is deterministic, so equal input gives equal bytes and hash.
 pub fn process_avatar(bytes: &[u8]) -> Result<Avatar> {
 	check_size(bytes)?;
 	check_dimensions(bytes, INPUT_DIMENSION_MAX)?;
@@ -94,21 +96,16 @@ pub fn process_avatar(bytes: &[u8]) -> Result<Avatar> {
 	let side = w.min(h);
 	let square = decoded.crop_imm((w - side) / 2, (h - side) / 2, side, side);
 	let small = square.resize_exact(OUTPUT_DIMENSION, OUTPUT_DIMENSION, FilterType::Lanczos3);
-	let mut png = Vec::new();
-	small
-		.to_rgba8()
-		.write_to(&mut Cursor::new(&mut png), ImageFormat::Png)
-		.map_err(|e| AvatarError::Decode(e.to_string()))?;
+	let png = encode_canonical(&small.to_rgba8())?;
 	let hash = *blake3::hash(&png).as_bytes();
 	Ok(Avatar { png, hash })
 }
 
-/// Validates bytes received from a peer as an already-canonical avatar:
-/// a decodable PNG or JPEG no larger than 128x128 pixels within the size limit.
-/// Returns the blake3 hash of the received bytes.
+/// Validates bytes received from a peer as an already-canonical avatar: a 256x256
+/// 8-bit RGBA PNG with only `IHDR`, `IDAT` and `IEND` chunks within the size limit.
+/// Nothing is re-encoded. Returns the blake3 hash of the received bytes.
 pub fn validate_canonical(bytes: &[u8]) -> Result<[u8; 32]> {
-	check_size(bytes)?;
-	check_dimensions(bytes, OUTPUT_DIMENSION)?;
+	check_canonical(bytes)?;
 	reader(bytes, OUTPUT_DIMENSION)?
 		.decode()
 		.map_err(|e| AvatarError::Decode(e.to_string()))?;
