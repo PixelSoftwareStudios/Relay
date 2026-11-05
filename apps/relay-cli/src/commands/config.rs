@@ -180,7 +180,7 @@ async fn set(
 	value: String,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	if !flat::keys().iter().any(|k| *k == key) {
+	if !flat::keys().contains(&key) {
 		return Err(CliError::Usage(format!("unknown setting `{key}`")));
 	}
 	if let Some(mut engine) = engine_running(global).await? {
