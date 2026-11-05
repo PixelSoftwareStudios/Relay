@@ -24,6 +24,7 @@ use super::ports::Ports;
 use super::presence::{Presence, PresenceLink};
 use super::rpc::{EngineService, Shared};
 use crate::channels::ChannelHub;
+use crate::messaging::MessagingHandle;
 
 /// Everything configurable about the service.
 pub struct ServiceConfig {
@@ -78,6 +79,7 @@ pub struct ServiceBuilder {
 	gates: GatePublisher,
 	registry: Arc<ClientRegistry>,
 	channels: Option<ChannelHub>,
+	messaging: Option<MessagingHandle>,
 }
 
 impl ServiceBuilder {
@@ -103,12 +105,20 @@ impl ServiceBuilder {
 			gates,
 			registry,
 			channels: None,
+			messaging: None,
 		})
 	}
 
 	/// Serves the channel RPCs from this driver (without one they are unimplemented).
 	pub fn with_channels(mut self, channels: ChannelHub) -> Self {
 		self.channels = Some(channels);
+		self
+	}
+
+	/// Serves the session messaging RPCs from this actor and feeds it the calls the control
+	/// actor knows (without one they are unimplemented).
+	pub fn with_messaging(mut self, messaging: MessagingHandle) -> Self {
+		self.messaging = Some(messaging);
 		self
 	}
 
@@ -139,6 +149,7 @@ impl ServiceBuilder {
 			gates,
 			registry,
 			channels,
+			messaging,
 		} = self;
 		let incarnation = registry.incarnation();
 		// The stored push-to-talk release delay seeds the domain; later changes
@@ -190,6 +201,7 @@ impl ServiceBuilder {
 				),
 				shutdown: Arc::clone(&shutdown),
 			},
+			messaging.clone(),
 		);
 		let api = EngineService::new(Shared {
 			handle: handle.clone(),
@@ -207,6 +219,7 @@ impl ServiceBuilder {
 			limits: config.limits,
 			next_source: AtomicU64::new(1),
 			channels,
+			messaging,
 		});
 		let sweeper = tokio::spawn(sweep(
 			handle.clone(),

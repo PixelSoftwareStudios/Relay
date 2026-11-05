@@ -3,5 +3,6 @@
 pub mod channels;
 pub mod daemon;
 pub mod media;
+pub mod messaging;
 pub mod peers;
 pub mod service;

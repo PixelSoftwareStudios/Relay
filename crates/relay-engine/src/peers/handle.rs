@@ -174,6 +174,42 @@ pub enum ChannelEvent {
 	Advert(Box<relay_net::discovery::DiscoveredPeer>),
 }
 
+/// Session messaging traffic and link facts. These never reach call state: the host hands
+/// them to the messaging actor only, and only from the live trusted link of `peer`.
+#[derive(Clone, PartialEq)]
+pub enum SessionEvent {
+	/// A trusted link is the live one for `peer`.
+	LinkUp {
+		/// The peer.
+		peer: PeerId,
+		/// The control connection's remote address: where a data link is dialled.
+		remote_ip: std::net::IpAddr,
+	},
+	/// The trusted link to `peer` ended.
+	LinkDown {
+		/// The peer.
+		peer: PeerId,
+	},
+	/// A session message from the peer's live trusted link (structurally validated).
+	Message {
+		/// The authenticated sender.
+		peer: PeerId,
+		/// The message.
+		message: Box<relay_net::proto::SessionMessage>,
+	},
+}
+
+/// Message content must never reach a log line, so `Debug` names the kind only.
+impl std::fmt::Debug for SessionEvent {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::LinkUp { peer, .. } => write!(f, "SessionEvent::LinkUp({peer})"),
+			Self::LinkDown { peer } => write!(f, "SessionEvent::LinkDown({peer})"),
+			Self::Message { peer, .. } => write!(f, "SessionEvent::Message({peer}, <redacted>)"),
+		}
+	}
+}
+
 /// Everything the peer manager reports upward.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PeerOutput {
@@ -181,6 +217,8 @@ pub enum PeerOutput {
 	Core(PeerEvent),
 	/// Channel protocol traffic; routed to the channel driver, never to the domain.
 	Channel(ChannelEvent),
+	/// Session messaging traffic; routed to the messaging actor, never to the domain.
+	Session(SessionEvent),
 	/// Media negotiation for the media module.
 	Media {
 		/// The sender.
@@ -278,6 +316,7 @@ pub(super) enum Command {
 	},
 	Send(Fingerprint, relay_net::proto::Envelope),
 	Channel(Fingerprint, Box<ChannelMessage>),
+	Session(Fingerprint, Box<relay_net::proto::SessionMessage>),
 	Pin {
 		peer: Fingerprint,
 		state: TrustState,
@@ -370,6 +409,16 @@ impl PeerHandle {
 	/// (channel exchanges are bound to one session and are never queued).
 	pub fn send_channel(&self, peer: PeerId, message: ChannelMessage) -> Result<(), PeerError> {
 		self.try_send(Command::Channel(fingerprint(peer), Box::new(message)))
+	}
+
+	/// Sends a session message over the live trusted link; dropped if there is none or the
+	/// control queue is full (the messaging layer retries unacked messages itself).
+	pub fn send_session(
+		&self,
+		peer: PeerId,
+		message: relay_net::proto::SessionMessage,
+	) -> Result<(), PeerError> {
+		self.try_send(Command::Session(fingerprint(peer), Box::new(message)))
 	}
 
 	/// Sends media negotiation traffic.

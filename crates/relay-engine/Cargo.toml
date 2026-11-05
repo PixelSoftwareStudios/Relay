@@ -13,6 +13,7 @@ relay-net.workspace = true
 relay-config.workspace = true
 relay-api.workspace = true
 relay-io.workspace = true
+relay-messages.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true

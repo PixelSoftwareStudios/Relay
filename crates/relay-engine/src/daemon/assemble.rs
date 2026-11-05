@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use relay_audio::device::DeviceSelection;
 use relay_net::discovery::sanitize_display_name;
+use relay_net::transfer::{HubConfig, TransferHub};
 use tokio::runtime::Handle;
 use tokio::sync::watch;
 use tokio::task::JoinHandle;
@@ -14,6 +15,9 @@ use super::options::{AudioSetup, NetworkOptions};
 use super::{Environment, glue};
 use crate::channels::{ChannelHub, Clock, HubParts};
 use crate::media::{MediaConfig, MediaSystem, Selection};
+use crate::messaging::{
+	self, HubParts as MessagingParts, MessagingConfig, MessagingHandle, MessagingOptions,
+};
 use crate::peers::{AdvertSpec, PeerAdapter, PeerConfig, PeerHandle, spawn};
 use crate::service::Ports;
 use crate::service::ports::{AdvertMode, DeviceControl, SettingsStore};
@@ -26,6 +30,7 @@ const LISTING_WAIT: Duration = Duration::from_secs(2);
 pub(super) struct Adapters {
 	peers: PeerHandle,
 	channels: ChannelHub,
+	messaging: MessagingHandle,
 	tasks: Vec<JoinHandle<()>>,
 }
 
@@ -38,7 +43,12 @@ impl Adapters {
 		self.channels.clone()
 	}
 
-	pub(super) fn shutdown(self) {
+	pub(super) fn messaging(&self) -> MessagingHandle {
+		self.messaging.clone()
+	}
+
+	pub(super) async fn shutdown(self) {
+		self.messaging.stop().await;
 		self.peers.shutdown();
 		for task in self.tasks {
 			task.abort();
@@ -52,6 +62,7 @@ pub(super) async fn assemble(
 	audio: AudioSetup,
 	mic_test_max: std::time::Duration,
 	clock: Clock,
+	messaging: MessagingOptions,
 ) -> Result<(Ports, Adapters), DaemonError> {
 	let stored = env.settings.load();
 	let mut config = PeerConfig::new(&sanitize_display_name(&stored.display_name));
@@ -91,6 +102,7 @@ pub(super) async fn assemble(
 		advert: Arc::clone(&advert),
 	})
 	.map_err(|e| DaemonError::Channels(e.to_string()))?;
+	let messaging = start_messaging(env, &peers, network.policy, messaging).await;
 	let runtime = Handle::current();
 	let (sink, events) = glue::media_events(env.handle.clone());
 	let mut media_config = MediaConfig::new(Selection {
@@ -125,6 +137,7 @@ pub(super) async fn assemble(
 			media.clone(),
 			adapter.clone(),
 			channels.clone(),
+			messaging.clone(),
 		),
 		channels.spawn_maintenance(),
 		glue::device_watch(media.clone(), env.handle.clone()),
@@ -141,9 +154,46 @@ pub(super) async fn assemble(
 		Adapters {
 			peers,
 			channels,
+			messaging,
 			tasks,
 		},
 	))
+}
+
+/// Binds the data-link listener and starts the messaging actor. A listener that cannot be
+/// bound only turns file transfers off; text and images keep working.
+async fn start_messaging(
+	env: &Environment,
+	peers: &PeerHandle,
+	policy: relay_net::AddressPolicy,
+	options: MessagingOptions,
+) -> MessagingHandle {
+	let config = MessagingConfig::from_prefs(&env.preferences);
+	let listen = peers.local_addr();
+	let bind = std::net::SocketAddr::new(listen.ip(), env.preferences.network.transfer_port);
+	let hub_config = HubConfig {
+		rate_per_link: config.rate_bytes_per_sec(),
+		address_policy: policy,
+		..HubConfig::default()
+	};
+	let transfers = match TransferHub::bind(bind, Arc::clone(&env.transport_identity), hub_config)
+		.await
+	{
+		Ok(hub) => Some(Arc::new(hub)),
+		Err(error) => {
+			tracing::warn!(%error, "file transfers are unavailable: the data-link listener could not be bound");
+			None
+		}
+	};
+	messaging::spawn(MessagingParts {
+		peers: peers.clone(),
+		transfers,
+		local: peers.fingerprint(),
+		config: Arc::new(arc_swap::ArcSwap::from_pointee(config)),
+		store: env.settings.clone(),
+		sinks: options.sinks,
+		limits: options.limits,
+	})
 }
 
 /// Re-applies the saved device choice once the device thread has listed

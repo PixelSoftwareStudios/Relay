@@ -6,6 +6,7 @@ mod commands;
 mod connection;
 mod input;
 mod messages;
+mod messages_watch;
 mod ops;
 mod privacy;
 mod session;
@@ -16,21 +17,22 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use relay_api::pb::{
-	AcquireControllerRequest, ApprovePreviewRequest, ClearSessionRequest, ExportSessionRequest,
-	ExportSessionResponse, GetTranscriptRequest, ListSessionsResponse, OfferFileRequest,
-	OfferRequest, PinMessageRequest, RespondOfferRequest, RetrySessionMessageRequest,
-	SearchSessionRequest, SearchSessionResponse, SendSessionImageRequest,
-	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetMessagingSettingsRequest,
-	SetSessionPermissionsRequest, Transcript, WatchSessionRequest, AvatarImage, CallMutation, ClientContext, ClientSession,
-	ConnectionInfo, ControllerLease, CreateChannelRequest, CreateInviteRequest,
-	CreateInviteResponse, DecidePeerTrustRequest, Empty, EngineInfo, GetAvatarRequest,
-	GetOperationRequest, InputControlAck, InputControlMessage, JoinChannelRequest,
-	LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse, MutationContext, Operation,
-	OperationState, RegisterClientRequest, ReleaseControllerRequest, RevokeChannelMemberRequest,
-	SelectDevicesRequest, SetCallControlsRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetTransmitRouteRequest,
+	AcquireControllerRequest, ApprovePreviewRequest, AvatarImage, CallMutation,
+	ClearSessionRequest, ClientContext, ClientSession, ConnectionInfo, ControllerLease,
+	CreateChannelRequest, CreateInviteRequest, CreateInviteResponse, DecidePeerTrustRequest, Empty,
+	EngineInfo, ExportSessionRequest, ExportSessionResponse, GetAvatarRequest, GetOperationRequest,
+	GetTranscriptRequest, InputControlAck, InputControlMessage, JoinChannelRequest,
+	LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse, ListSessionsResponse,
+	MutationContext, OfferFileRequest, OfferRequest, Operation, OperationState, PinMessageRequest,
+	RegisterClientRequest, ReleaseControllerRequest, RespondOfferRequest,
+	RetrySessionMessageRequest, RevokeChannelMemberRequest, SearchSessionRequest,
+	SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
+	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
+	SetGlobalControlsRequest, SetMessagingSettingsRequest, SetNoiseSuppressionRequest,
+	SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest, SetTransmitRouteRequest,
 	Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
-	TelemetrySnapshot, UploadAvatarRequest, WatchStateRequest, engine_server::Engine,
+	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
+	engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -67,6 +69,8 @@ pub(crate) struct Shared {
 	pub next_source: AtomicU64,
 	/// The channel driver, when the engine runs real adapters.
 	pub channels: Option<crate::channels::ChannelHub>,
+	/// The session messaging actor, when the engine runs real adapters.
+	pub messaging: Option<crate::messaging::MessagingHandle>,
 }
 
 /// The `relay.v1.Engine` implementation. Cheap to clone.
@@ -491,7 +495,7 @@ impl Engine for EngineService {
 		&self,
 		request: Request<WatchSessionRequest>,
 	) -> Result<Response<Self::WatchSessionStream>, Status> {
-		messages::watch_session(self, request).await
+		messages_watch::watch_session(self, request).await
 	}
 
 	async fn send_session_message(

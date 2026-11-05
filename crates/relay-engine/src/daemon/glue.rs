@@ -10,6 +10,7 @@ use tokio::task::JoinHandle;
 
 use crate::channels::ChannelHub;
 use crate::media::{EventSink, MediaEvent, MediaSystem};
+use crate::messaging::MessagingHandle;
 use crate::peers::{PeerAdapter, PeerOutput, fingerprint};
 use crate::service::ControlHandle;
 use crate::service::ports::{DeviceControl, PeerControl, PeerInfo, PeerTrust};
@@ -100,6 +101,7 @@ pub(super) fn peer_output(
 	media: MediaSystem,
 	adapter: Arc<PeerAdapter>,
 	channels: ChannelHub,
+	messaging: MessagingHandle,
 ) -> JoinHandle<()> {
 	tokio::spawn(async move {
 		while let Some(item) = output.recv().await {
@@ -162,6 +164,11 @@ pub(super) fn peer_output(
 				// Channel traffic goes to the channel driver and nowhere else.
 				PeerOutput::Channel(event) => {
 					channels.on_event(event).await;
+					Ok(())
+				}
+				// Session traffic goes to the messaging actor and nowhere else.
+				PeerOutput::Session(event) => {
+					messaging.peer_event(event).await;
 					Ok(())
 				}
 				PeerOutput::Profile { .. } | PeerOutput::AvatarReady { .. } => Ok(()),

@@ -164,3 +164,15 @@ impl SettingsStore for FileSettings {
 			.map_err(|e| PortError::Unavailable(e.to_string()))
 	}
 }
+
+impl crate::messaging::ConfigStore for FileSettings {
+	fn save(&self, config: crate::messaging::MessagingConfig) -> Result<(), String> {
+		let mut next = lock(&self.current).clone();
+		next.messages.enabled = config.enabled;
+		next.messages.max_offer_size_mib = config.max_offer_size_mib;
+		next.messages.transfer_rate_limit_mbps = config.transfer_rate_limit_mbps;
+		self.store.save(&next).map_err(|e| e.to_string())?;
+		*lock(&self.current) = next;
+		Ok(())
+	}
+}

@@ -70,6 +70,7 @@ impl DaemonHandle {
 			idle_exit,
 			channel_vault,
 			channel_clock,
+			messaging,
 		} = options;
 		let loaded = env::load(paths, identity_store, channel_vault)?;
 		let mut config = ServiceConfig::new(loaded.local);
@@ -113,14 +114,23 @@ impl DaemonHandle {
 			Some(factory) => (factory(&environment), None, None),
 			None => {
 				let clock = channel_clock.unwrap_or_else(crate::channels::Clock::system);
-				let (ports, adapters) =
-					assemble::assemble(&environment, network, audio, mic_test_max, clock).await?;
+				let (ports, adapters) = assemble::assemble(
+					&environment,
+					network,
+					audio,
+					mic_test_max,
+					clock,
+					messaging,
+				)
+				.await?;
 				let listen = Some(adapters.listen_addr());
 				(ports, Some(adapters), listen)
 			}
 		};
 		let builder = match adapters.as_ref() {
-			Some(adapters) => builder.with_channels(adapters.channels()),
+			Some(adapters) => builder
+				.with_channels(adapters.channels())
+				.with_messaging(adapters.messaging()),
 			None => builder,
 		};
 		let service = builder.start(ports)?;
@@ -205,7 +215,7 @@ impl DaemonHandle {
 		service.stop().await;
 		if let Some(adapters) = adapters {
 			tokio::time::sleep(SIGNAL_FLUSH).await;
-			adapters.shutdown();
+			adapters.shutdown().await;
 		}
 		let _ = shutdown.send(());
 		match tokio::time::timeout(SERVER_DRAIN, &mut server).await {

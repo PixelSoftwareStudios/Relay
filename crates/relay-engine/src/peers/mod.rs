@@ -22,7 +22,7 @@ pub use control::{InterfaceSource, PeerAdapter, system_interfaces};
 pub use election::{LinkFacts, Verdict, elect};
 pub use handle::{
 	AdvertSink, AdvertSpec, ChannelEvent, DiscoverySetup, LinkInfo, PeerConfig, PeerError,
-	PeerHandle, PeerOutput, PeerSnapshot, SinkHandle, fingerprint, peer_id,
+	PeerHandle, PeerOutput, PeerSnapshot, SessionEvent, SinkHandle, fingerprint, peer_id,
 };
 pub use link::{LinkError, LinkTiming};
 pub use names::disambiguated;

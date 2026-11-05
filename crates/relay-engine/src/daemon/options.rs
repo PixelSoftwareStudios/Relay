@@ -128,6 +128,9 @@ pub struct RunOptions {
 	pub channel_vault: Option<Arc<dyn relay_config::vault::SecretVault>>,
 	/// Time source of the channel driver; `None` is the system clock.
 	pub channel_clock: Option<crate::channels::Clock>,
+	/// Messaging beyond the stored preferences: where received files are written (tests
+	/// plug in fake sinks) and the transcript budgets.
+	pub messaging: crate::messaging::MessagingOptions,
 }
 
 impl RunOptions {
@@ -149,6 +152,7 @@ impl RunOptions {
 			idle_exit: None,
 			channel_vault: None,
 			channel_clock: None,
+			messaging: crate::messaging::MessagingOptions::default(),
 		}
 	}
 }

@@ -18,7 +18,8 @@ use tokio::sync::{mpsc, oneshot};
 use super::dialing::Want;
 use super::election::{LinkFacts, Verdict, elect};
 use super::handle::{
-	ChannelEvent, Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id,
+	ChannelEvent, Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, SessionEvent,
+	peer_id,
 };
 use super::link::{Established, LinkEvent, LinkId, LinkParams};
 use super::sessions::SessionTable;
@@ -123,6 +124,7 @@ impl Actor {
 			}
 			Command::Send(peer, envelope) => self.send(peer, envelope).await,
 			Command::Channel(peer, message) => self.send_channel(peer, *message),
+			Command::Session(peer, message) => self.send_session(peer, *message),
 			Command::Pin { peer, state, reply } => {
 				let result = self.pin(peer, state).await;
 				let _ = reply.send(result);
@@ -171,6 +173,15 @@ impl Actor {
 	fn send_channel(&mut self, peer: Fingerprint, message: relay_net::proto::ChannelMessage) {
 		if let Some(entry) = self.trusted_link(&peer) {
 			let envelope = relay_net::control::new_envelope(Body::Channel(message));
+			let _ = entry.link.outbox.try_send(envelope);
+		}
+	}
+
+	/// Session messages go on the live trusted link or nowhere; a full queue drops the
+	/// message (it is retried by its owner) instead of tearing the link down.
+	fn send_session(&mut self, peer: Fingerprint, message: relay_net::proto::SessionMessage) {
+		if let Some(entry) = self.trusted_link(&peer) {
+			let envelope = relay_net::control::new_envelope(Body::SessionMessage(message));
 			let _ = entry.link.outbox.try_send(envelope);
 		}
 	}
@@ -286,6 +297,7 @@ impl Actor {
 			self.flush_pending(peer).await;
 			self.announce_profile(peer).await;
 			self.announce_channel_link(peer).await;
+			self.announce_session_link(peer).await;
 		}
 		Ok(())
 	}
@@ -363,6 +375,7 @@ impl Actor {
 			self.flush_pending(peer).await;
 			self.announce_profile(peer).await;
 			self.announce_channel_link(peer).await;
+			self.announce_session_link(peer).await;
 		} else {
 			self.emit(PeerOutput::TrustRequired {
 				peer: peer_id(&peer),
@@ -386,6 +399,18 @@ impl Actor {
 		self.emit(PeerOutput::Channel(event)).await;
 	}
 
+	/// Tells the messaging actor where a trusted link comes from.
+	async fn announce_session_link(&self, peer: Fingerprint) {
+		let Some(entry) = self.trusted_link(&peer) else {
+			return;
+		};
+		let event = SessionEvent::LinkUp {
+			peer: peer_id(&peer),
+			remote_ip: entry.link.remote_ip,
+		};
+		self.emit(PeerOutput::Session(event)).await;
+	}
+
 	async fn on_message(&mut self, link: LinkId, body: Body) {
 		let Some(entry) = self.links.get(&link) else {
 			return;
@@ -402,6 +427,15 @@ impl Actor {
 				message: Box::new(message),
 			};
 			self.emit(PeerOutput::Channel(event)).await;
+			return;
+		}
+		if let Body::SessionMessage(message) = body {
+			// The sender is the authenticated owner of this link, never a field of the message.
+			let event = SessionEvent::Message {
+				peer: peer_id(&fingerprint),
+				message: Box::new(message),
+			};
+			self.emit(PeerOutput::Session(event)).await;
 			return;
 		}
 		if matches!(
@@ -446,6 +480,10 @@ impl Actor {
 				peer: peer_id(&peer),
 			};
 			self.emit(PeerOutput::Channel(down)).await;
+			let down = SessionEvent::LinkDown {
+				peer: peer_id(&peer),
+			};
+			self.emit(PeerOutput::Session(down)).await;
 		}
 		self.schedule_redial(peer);
 	}
