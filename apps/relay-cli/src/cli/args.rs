@@ -321,7 +321,11 @@ pub enum DaemonAction {
 	Start(DaemonLaunch),
 	/// Ask the running daemon to stop: it ends calls, releases the microphone
 	/// and removes its endpoint.
-	Stop,
+	Stop {
+		/// Seconds to wait for the endpoint to disappear.
+		#[arg(long, default_value_t = 10, value_name = "SECONDS")]
+		wait: u64,
+	},
 	/// Stop the daemon if it runs, then start it again.
 	Restart(DaemonLaunch),
 	/// Show whether the daemon runs and which engine it is.

@@ -68,9 +68,9 @@ pub async fn run(
 	let endpoint = endpoint::resolve(global)?;
 	match &args.action {
 		DaemonAction::Start(launch) => start(&endpoint, launch, out).await,
-		DaemonAction::Stop => stop(&endpoint, out).await,
+		DaemonAction::Stop { wait } => stop(&endpoint, Duration::from_secs(*wait), out).await,
 		DaemonAction::Restart(launch) => {
-			stop(&endpoint, out).await?;
+			stop(&endpoint, STOP_WAIT, out).await?;
 			start(&endpoint, launch, out).await
 		}
 		DaemonAction::Status => status(&endpoint, out).await,
@@ -123,8 +123,8 @@ async fn start(
 	}
 }
 
-async fn stop(endpoint: &Endpoint, out: &mut Out<'_>) -> Result<(), CliError> {
-	match daemon::stop(endpoint, CLIENT_NAME, STOP_WAIT).await? {
+async fn stop(endpoint: &Endpoint, wait: Duration, out: &mut Out<'_>) -> Result<(), CliError> {
+	match daemon::stop(endpoint, CLIENT_NAME, wait).await? {
 		Stopped::Stopped => out.emit(&Report::new("stopped", endpoint)),
 		Stopped::NotRunning => out.emit(&Report::new("not running", endpoint)),
 	}
