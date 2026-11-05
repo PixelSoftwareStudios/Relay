@@ -136,7 +136,7 @@ async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliEr
 		return Ok(());
 	}
 	eprintln!(
-		"relay: starting relayd... (it opens no microphone and shows this device on the LAN only while a client such as this one is attached)"
+		"relay: starting relayd... (it opens no microphone; while a client such as this one is attached, this device advertises on the LAN, by default with its name; `relay privacy` can hide that)"
 	);
 	let mut options = StartOptions::autostart();
 	options.binary.clone_from(&global.daemon_bin);
