@@ -21,6 +21,7 @@ pub mod clock;
 pub mod entropy;
 mod error;
 pub mod fs;
+pub mod localtime;
 pub mod lock;
 pub mod paths;
 pub mod proc;

@@ -58,6 +58,22 @@ Still out of scope: screen sharing and video (the traffic class is reserved but 
 persistent chat history, group rooms, link previews and anything that auto-downloads, auto-opens
 or executes received content. Details in `docs/session-messages.md`.
 
+## Local message times use `jiff`
+
+Status: accepted.
+
+Message times were rendered in UTC because the app had no time-zone data. They are now shown in the
+viewer's local zone with `jiff` (`relay_io::localtime::LocalZone`), a small, maintained, pure-Rust
+crate. The data stays UTC Unix milliseconds on the wire, in `--json` and in the hover text.
+
+Why `jiff` and not the alternatives: `time` can only read the local offset when the process is
+single-threaded on Unix (`local-offset` refuses otherwise, and it applies one offset to every
+instant, so daylight saving is wrong for old messages); both Relay apps are multi-threaded.
+`chrono` needs `chrono-tz` or `iana-time-zone` pieces to match. `jiff` reads the system zone
+(`TZ`, `/etc/localtime`, the Windows registry), applies the rules per instant, bundles the zone
+database only on platforms that have none, and takes an explicit zone value, so tests inject a
+fixed offset or a named zone instead of depending on the host.
+
 ## Noto Sans is the UI font, with subset fallbacks
 
 Status: accepted.

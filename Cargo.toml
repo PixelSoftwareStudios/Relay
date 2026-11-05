@@ -132,6 +132,9 @@ pulldown-cmark = { version = "0.13.6", default-features = false }
 linkify = "0.11.0"
 idna = "1.1.0"
 
+# Local time zone for message timestamps (system zone lookup, DST-correct, injectable zone)
+jiff = { version = "0.2.39", default-features = false, features = ["std", "tz-system", "tzdb-zoneinfo", "tzdb-concatenated", "tzdb-bundle-platform"] }
+
 # Storage (settings, trust and avatar cache in one per-user SQLite database)
 rusqlite = { version = "0.41.1", features = ["bundled"] }
 
