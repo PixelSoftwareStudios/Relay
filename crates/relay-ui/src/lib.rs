@@ -18,6 +18,7 @@ pub mod format;
 pub mod host_options;
 pub mod hotkey_settings;
 pub mod hub;
+pub mod i18n;
 pub mod imaging;
 pub mod inbox;
 pub mod layout;

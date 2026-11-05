@@ -1,6 +1,7 @@
 //! The bundled fonts parse and cover every UI language.
 
 use relay_ui::fonts::{self, FACES};
+use relay_ui::i18n::Language;
 use skrifa::{FontRef, MetadataProvider};
 
 /// Representative strings per UI language: app name, a few UI words and a
@@ -74,28 +75,50 @@ fn every_sample_character_has_a_glyph() {
 	}
 }
 
-#[test]
-fn noto_sans_leads_and_cjk_follows() {
-	let defs = fonts::definitions();
-	let proportional = &defs.families[&egui::FontFamily::Proportional];
-	let names: Vec<&str> = FACES.iter().map(|f| f.name).collect();
-	assert_eq!(proportional[..names.len()], names[..]);
-	let monospace = &defs.families[&egui::FontFamily::Monospace];
-	let stock = egui::FontDefinitions::default().families[&egui::FontFamily::Monospace].clone();
-	assert_eq!(
-		monospace[..stock.len()],
-		stock[..],
-		"egui monospace stays first"
-	);
-	assert!(names.iter().all(|n| monospace.iter().any(|m| m == n)));
+fn proportional(language: Language) -> Vec<String> {
+	fonts::definitions(language).families[&egui::FontFamily::Proportional].clone()
 }
 
 #[test]
-fn install_accepts_the_definitions() {
-	let ctx = egui::Context::default();
-	fonts::install(&ctx);
-	let mut out = ctx.run_ui(Default::default(), |ui| {
-		ui.label("Relay 設定 설정 सेटिंग्स Настройки");
-	});
-	out.textures_delta.clear();
+fn noto_sans_leads_every_language_and_the_cjk_face_follows_the_language() {
+	let first_cjk = |language| {
+		proportional(language)
+			.into_iter()
+			.find(|n| n.contains("SC") || n.contains("JP") || n.contains("KR"))
+			.unwrap()
+	};
+	for language in Language::ALL {
+		assert_eq!(proportional(language)[0], fonts::NOTO_SANS.name);
+		let defs = fonts::definitions(language);
+		let monospace = &defs.families[&egui::FontFamily::Monospace];
+		let stock = egui::FontDefinitions::default().families[&egui::FontFamily::Monospace].clone();
+		assert_eq!(
+			monospace[..stock.len()],
+			stock[..],
+			"egui monospace stays first"
+		);
+		for face in FACES {
+			assert!(monospace.iter().any(|m| m == face.name));
+		}
+	}
+	assert_eq!(first_cjk(Language::ZhCn), fonts::NOTO_SANS_SC.name);
+	assert_eq!(first_cjk(Language::Ja), fonts::NOTO_SANS_JP.name);
+	assert_eq!(first_cjk(Language::Ko), fonts::NOTO_SANS_KR.name);
+	assert_eq!(first_cjk(Language::En), fonts::NOTO_SANS_JP.name);
+	assert_eq!(
+		proportional(Language::Hi)[1],
+		fonts::NOTO_SANS_DEVANAGARI.name
+	);
+}
+
+#[test]
+fn install_accepts_the_definitions_of_every_language() {
+	for language in Language::ALL {
+		let ctx = egui::Context::default();
+		fonts::install(&ctx, language);
+		let mut out = ctx.run_ui(Default::default(), |ui| {
+			ui.label("Relay 設定 설정 सेटिंग्स Настройки");
+		});
+		out.textures_delta.clear();
+	}
 }
