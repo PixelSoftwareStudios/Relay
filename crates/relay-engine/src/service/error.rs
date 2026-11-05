@@ -70,7 +70,7 @@ impl From<PortError> for ServiceError {
 			PortError::Unsupported(what) => Self::Unimplemented(what),
 			PortError::Invalid(why) => Self::InvalidArgument(why),
 			PortError::NotFound(what) => Self::Precondition(format!("not found: {what}")),
-			PortError::Unavailable(why) => Self::Precondition(why),
+			PortError::Ambiguous(why) | PortError::Unavailable(why) => Self::Precondition(why),
 		}
 	}
 }

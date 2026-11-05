@@ -5,6 +5,7 @@ mod backoff;
 mod control;
 mod dialing;
 mod election;
+mod forgetting;
 mod handle;
 mod link;
 mod manager;

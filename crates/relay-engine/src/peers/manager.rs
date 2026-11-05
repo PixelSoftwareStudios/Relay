@@ -106,6 +106,7 @@ impl Actor {
 	async fn on_command(&mut self, command: Command) {
 		match command {
 			Command::Ensure(peer) => self.ensure(peer).await,
+			Command::Forgotten(peer) => self.forgotten(peer).await,
 			Command::Release(peer) => {
 				self.wanted.remove(&peer);
 				self.pending.remove(&peer);
@@ -462,7 +463,7 @@ impl Actor {
 	}
 
 	/// Removes a link; reports the peer down only if it was the live one.
-	async fn drop_link(&mut self, id: LinkId) {
+	pub(super) async fn drop_link(&mut self, id: LinkId) {
 		self.untrusted.release(&id);
 		let Some(entry) = self.links.remove(&id) else {
 			return;

@@ -4,6 +4,7 @@ mod avatar;
 mod channels;
 mod commands;
 mod connection;
+mod forget;
 mod input;
 mod messages;
 mod messages_watch;
@@ -402,9 +403,10 @@ impl Engine for EngineService {
 
 	async fn forget_peer(
 		&self,
-		_: Request<ForgetPeerRequest>,
+		request: Request<ForgetPeerRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(Status::unimplemented("ForgetPeer"))
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		forget::forget(self, &mutation, &body).await
 	}
 
 	async fn get_settings(

@@ -27,6 +27,9 @@ pub enum PortError {
 	/// The named object does not exist.
 	#[error("not found: {0}")]
 	NotFound(String),
+	/// More than one object matches; the request must be narrower.
+	#[error("ambiguous: {0}")]
+	Ambiguous(String),
 	/// The adapter is temporarily unable to act.
 	#[error("unavailable: {0}")]
 	Unavailable(String),
@@ -101,6 +104,24 @@ pub struct TrustRequest {
 	pub requested: PeerTrust,
 	/// The user compared the safety code out of band.
 	pub out_of_band_verified: bool,
+}
+
+/// How a request names a stored peer when it has no key to match.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PeerSelector {
+	/// The peer id (the key digest).
+	Id(PeerId),
+	/// A hex fingerprint prefix (8 digits or more) or an exact display name.
+	Query(String),
+}
+
+/// A peer whose stored trust was removed.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ForgottenPeer {
+	/// The peer.
+	pub id: PeerId,
+	/// The name it was known by.
+	pub name: String,
 }
 
 /// The local identity advertised to peers.
@@ -289,6 +310,11 @@ pub trait PeerControl: Send + Sync {
 	fn peers(&self) -> Vec<PeerInfo>;
 	/// Applies a trust decision; the adapter owns the trust store.
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError>;
+	/// Removes the stored trust decision of the one peer `selector` names, cuts its link and
+	/// stops reconnecting.
+	fn forget_peer(&self, _selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
+		Err(PortError::Unsupported("forgetting peers"))
+	}
 	/// The advertised local profile changed.
 	fn profile_changed(&self, profile: &LocalProfile);
 	/// Somebody is (or is no longer) attached: advertise only while true.

@@ -239,6 +239,14 @@ impl Directory {
 		events
 	}
 
+	/// A peer's stored trust was removed: it leaves the list now (it comes back as an unknown
+	/// device if it reaches us again).
+	pub fn forget_peer(&mut self, id: PeerId) -> Vec<StateEvent> {
+		self.peers.remove(&id);
+		self.flagged.remove(&id);
+		vec![removed(id.as_bytes().to_vec(), "peer")]
+	}
+
 	/// Replaces the device list and reports what changed.
 	pub fn set_devices(&mut self, devices: Vec<DeviceInfo>) -> Vec<StateEvent> {
 		let next: BTreeMap<String, DeviceInfo> =

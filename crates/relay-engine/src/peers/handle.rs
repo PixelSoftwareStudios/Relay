@@ -309,6 +309,8 @@ pub(super) type Reply<T> = oneshot::Sender<Result<T, PeerError>>;
 pub(super) enum Command {
 	Ensure(Fingerprint),
 	Release(Fingerprint),
+	/// The stored trust decision was removed; drop the link.
+	Forgotten(Fingerprint),
 	Dial {
 		addr: SocketAddr,
 		expected: Option<Fingerprint>,
@@ -353,7 +355,7 @@ pub struct PeerHandle {
 }
 
 impl PeerHandle {
-	fn try_send(&self, command: Command) -> Result<(), PeerError> {
+	pub(super) fn try_send(&self, command: Command) -> Result<(), PeerError> {
 		self.commands
 			.try_send(command)
 			.map_err(|error| match error {

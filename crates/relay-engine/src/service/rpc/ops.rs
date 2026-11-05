@@ -215,6 +215,9 @@ pub(super) async fn trust(
 	mutation: &Mutation,
 	body: &DecidePeerTrustRequest,
 ) -> Result<Response<Operation>, Status> {
+	if body.requested_trust == TrustState::Unknown as i32 {
+		return super::forget::forget_by_decision(service, mutation, body).await;
+	}
 	let requested = match TrustState::try_from(body.requested_trust) {
 		Ok(TrustState::TofuUnverified) => PeerTrust::TofuUnverified,
 		Ok(TrustState::Verified) => PeerTrust::Verified,

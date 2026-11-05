@@ -27,7 +27,7 @@ pub use handle::{ControlHandle, ServiceOp};
 pub use ids::{CounterEntropy, Entropy, Ids, OsEntropy};
 pub use ports::{
 	AdvertMode, CallMeter, ConnectionDetails, DeviceControl, DeviceDirection, DeviceInfo,
-	InboundPolicy, LocalProfile, MediaControl, MediaTelemetry, PeerControl, PeerInfo, PeerTrust,
+	ForgottenPeer, InboundPolicy, PeerSelector, LocalProfile, MediaControl, MediaTelemetry, PeerControl, PeerInfo, PeerTrust,
 	PortError, Ports, SettingsChange, SettingsStore, StoredSettings, TrustRequest,
 };
 pub use rpc::EngineService;

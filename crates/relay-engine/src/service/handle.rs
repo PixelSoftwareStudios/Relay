@@ -41,6 +41,8 @@ pub enum ServiceOp {
 	Avatar(Vec<u8>),
 	/// Remove the avatar.
 	ClearAvatar,
+	/// Forget a stored trust decision.
+	ForgetPeer(super::ports::PeerSelector),
 	/// Decide a peer's trust.
 	Trust(TrustRequest),
 	/// Apply the non-domain parts of a global-controls change.

@@ -146,6 +146,12 @@ impl Actor {
 				self.directory.aux.avatar = None;
 				self.advertise_profile();
 			}
+			ServiceOp::ForgetPeer(selector) => {
+				let gone = self.ports.peers.forget_peer(&selector)?;
+				let mut events = self.directory.forget_peer(gone.id);
+				events.extend(self.directory.set_peers(self.ports.peers.peers()));
+				self.publish(events);
+			}
 			ServiceOp::Trust(request) => {
 				self.ports.peers.decide_trust(request)?;
 				let events = self.directory.set_peers(self.ports.peers.peers());

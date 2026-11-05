@@ -5,9 +5,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use relay_core::{AudioGeneration, CallId, PeerId, PeerMessage, ReceiveMix, SessionId};
 
 use super::ports::{
-	ConnectionDetails, DeviceControl, DeviceInfo, LocalProfile, MediaControl, MediaTelemetry,
-	PeerControl, PeerInfo, PortError, Ports, SettingsChange, SettingsStore, StoredSettings,
-	TrustRequest,
+	ConnectionDetails, DeviceControl, DeviceInfo, ForgottenPeer, LocalProfile, MediaControl,
+	MediaTelemetry, PeerControl, PeerInfo, PeerSelector, PortError, Ports, SettingsChange,
+	SettingsStore, StoredSettings, TrustRequest,
 };
 use super::tones::ToneCommand;
 
@@ -109,6 +109,7 @@ pub struct FakePeers {
 	known: Mutex<Vec<PeerInfo>>,
 	addresses: Mutex<Vec<(String, PeerId)>>,
 	connection: Mutex<Option<ConnectionDetails>>,
+	forgotten: Mutex<Vec<PeerSelector>>,
 }
 
 impl FakePeers {
@@ -142,6 +143,11 @@ impl FakePeers {
 		lock(&self.trust).clone()
 	}
 
+	/// Selectors `forget_peer` received.
+	pub fn forgotten(&self) -> Vec<PeerSelector> {
+		lock(&self.forgotten).clone()
+	}
+
 	/// Advertised profiles pushed so far.
 	pub fn profiles(&self) -> Vec<LocalProfile> {
 		lock(&self.profiles).clone()
@@ -170,6 +176,22 @@ impl PeerControl for FakePeers {
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError> {
 		lock(&self.trust).push(request);
 		Ok(())
+	}
+	fn forget_peer(&self, selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
+		let mut known = lock(&self.known);
+		let at = known
+			.iter()
+			.position(|p| match selector {
+				PeerSelector::Id(id) => p.id == *id,
+				PeerSelector::Query(name) => p.display_name.eq_ignore_ascii_case(name),
+			})
+			.ok_or_else(|| PortError::NotFound("no such peer".to_owned()))?;
+		let gone = known.remove(at);
+		lock(&self.forgotten).push(selector.clone());
+		Ok(ForgottenPeer {
+			id: gone.id,
+			name: gone.display_name,
+		})
 	}
 	fn profile_changed(&self, profile: &LocalProfile) {
 		lock(&self.profiles).push(profile.clone());

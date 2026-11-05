@@ -14,7 +14,7 @@ impl RelayClient {
 
 	/// Forget a stored trust decision. `peer_id` (32 bytes) wins when given; otherwise `query`
 	/// is a hex fingerprint prefix (at least 8 digits) or an exact display name. An ambiguous
-	/// or unknown query fails with `PEER_AMBIGUOUS` or `PEER_UNKNOWN`.
+	/// or unknown query fails with `PEER_AMBIGUOUS` or `NOT_FOUND`.
 	pub async fn forget_peer(
 		&mut self,
 		peer_id: Option<&[u8]>,

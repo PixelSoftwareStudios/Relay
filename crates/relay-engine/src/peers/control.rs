@@ -11,8 +11,8 @@ use tokio::sync::watch;
 use super::handle::AdvertSpec;
 use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ports::{
-	ConnectionDetails, LocalProfile as PortProfile, PeerControl, PeerInfo, PeerTrust, PortError,
-	TrustRequest,
+	ConnectionDetails, ForgottenPeer, LocalProfile as PortProfile, PeerControl, PeerInfo, PeerSelector,
+	PeerTrust, PortError, TrustRequest,
 };
 use relay_net::connect::ConnectionString;
 
@@ -167,6 +167,10 @@ impl PeerControl for PeerAdapter {
 			}
 		});
 		Ok(())
+	}
+
+	fn forget_peer(&self, selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
+		self.handle.forget(selector)
 	}
 
 	fn connection_info(&self) -> Result<ConnectionDetails, PortError> {
