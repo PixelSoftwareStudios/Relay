@@ -8,18 +8,14 @@ use relay_client::ChannelOptions;
 use crate::actions::Actions;
 use crate::model::{Advert, AppState, Channel, Inbound};
 
-use super::local::{INVITE_TTLS, INVITE_USES, Local};
+use super::local::{INVITE_USES, Local, invite_ttls};
+use crate::tr;
 
 pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
-	ui.heading("Channels");
-	ui.label(
-		RichText::new(
-			"A channel decides who can see and call you. It never turns your microphone on.",
-		)
-		.weak(),
-	);
+	ui.heading(tr!("channels-heading"));
+	ui.label(RichText::new(tr!("channels-note")).weak());
 	if state.channels.is_empty() {
-		ui.label(RichText::new("You are not in any channel.").weak());
+		ui.label(RichText::new(tr!("channels-none")).weak());
 	}
 	for channel in &state.channels {
 		egui::Frame::group(ui.style()).show(ui, |ui| {
@@ -33,12 +29,16 @@ pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Lo
 }
 
 fn flags(channel: &Channel) -> String {
-	let mut parts = vec![if channel.listed { "listed" } else { "hidden" }];
+	let mut parts = vec![if channel.listed {
+		tr!("channel-listed")
+	} else {
+		tr!("channel-hidden")
+	}];
 	if channel.password {
-		parts.push("password");
+		parts.push(tr!("channel-password"));
 	}
 	if channel.invite_only {
-		parts.push("invite only");
+		parts.push(tr!("channel-invite-only"));
 	}
 	parts.join(", ")
 }
@@ -48,18 +48,18 @@ fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 		ui.vertical(|ui| {
 			ui.label(RichText::new(&channel.name).strong());
 			ui.label(
-				RichText::new(format!(
-					"{} · {} · {} shared peer(s)",
-					channel.role,
-					flags(channel),
-					channel.shared_peers
+				RichText::new(tr!(
+					"channel-summary",
+					role = channel.role.as_str(),
+					flags = flags(channel),
+					peers = channel.shared_peers
 				))
 				.weak(),
 			);
 		});
 		ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 			leave_button(ui, channel, actions, local);
-			if channel.can_admin() && ui.button("Invite…").clicked() {
+			if channel.can_admin() && ui.button(tr!("channel-invite")).clicked() {
 				local.invite_channel = Some(channel.channel_id.clone());
 				local.invite = None;
 			}
@@ -72,15 +72,15 @@ fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 
 fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
 	if local.leave_confirm.as_deref() == Some(&channel.channel_id) {
-		if ui.button("Yes, leave").clicked() {
+		if ui.button(tr!("channel-leave-yes")).clicked() {
 			let id = channel.channel_id.clone();
 			actions.run(|c| async move { c.leave_channel(&id).await });
 			local.leave_confirm = None;
 		}
-		if ui.button("Stay").clicked() {
+		if ui.button(tr!("channel-leave-stay")).clicked() {
 			local.leave_confirm = None;
 		}
-	} else if ui.button("Leave").clicked() {
+	} else if ui.button(tr!("channel-leave")).clicked() {
 		local.leave_confirm = Some(channel.channel_id.clone());
 	}
 }
@@ -88,27 +88,27 @@ fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut L
 fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
 	ui.horizontal(|ui| {
 		egui::ComboBox::from_id_salt("invite-ttl")
-			.selected_text(INVITE_TTLS[local.invite_ttl].0)
+			.selected_text(invite_ttls()[local.invite_ttl].0)
 			.show_ui(ui, |ui| {
-				for (i, (label, _)) in INVITE_TTLS.iter().enumerate() {
+				for (i, (label, _)) in invite_ttls().iter().enumerate() {
 					ui.selectable_value(&mut local.invite_ttl, i, *label);
 				}
 			});
 		egui::ComboBox::from_id_salt("invite-uses")
-			.selected_text(format!("{} use(s)", INVITE_USES[local.invite_uses]))
+			.selected_text(tr!("invite-uses", count = INVITE_USES[local.invite_uses]))
 			.show_ui(ui, |ui| {
 				for (i, n) in INVITE_USES.iter().enumerate() {
-					ui.selectable_value(&mut local.invite_uses, i, format!("{n} use(s)"));
+					ui.selectable_value(&mut local.invite_uses, i, tr!("invite-uses", count = *n));
 				}
 			});
-		if ui.button("Create invite").clicked() {
+		if ui.button(tr!("invite-create")).clicked() {
 			actions.create_invite(
 				channel.channel_id.clone(),
-				INVITE_TTLS[local.invite_ttl].1,
+				invite_ttls()[local.invite_ttl].1,
 				INVITE_USES[local.invite_uses],
 			);
 		}
-		if ui.button("Close").clicked() {
+		if ui.button(tr!("action-close")).clicked() {
 			local.invite_channel = None;
 			local.invite = None;
 		}
@@ -122,19 +122,17 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	let token = invite.token.expose().to_owned();
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
-		ui.label(
-			"Invite token (secret). Anyone who has it can join until it expires or is used up:",
-		);
+		ui.label(tr!("invite-token-note"));
 		ui.add(
 			egui::Label::new(RichText::new(&token).monospace())
 				.selectable(true)
 				.wrap(),
 		);
 		ui.horizontal(|ui| {
-			if ui.button("Copy").clicked() {
+			if ui.button(tr!("action-copy")).clicked() {
 				actions.copy_text(&token);
 			}
-			if ui.button("Hide").clicked() {
+			if ui.button(tr!("action-hide")).clicked() {
 				local.invite = None;
 			}
 		});
@@ -142,75 +140,84 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 }
 
 fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	egui::CollapsingHeader::new("Create a channel").show(ui, |ui| {
-		let f = &mut local.new_channel;
-		ui.add(
-			egui::TextEdit::singleline(&mut f.name)
-				.hint_text("Channel name")
-				.char_limit(32),
-		);
-		ui.checkbox(&mut f.listed, "Listed: show the name to members' devices");
-		ui.checkbox(&mut f.password_required, "Require a password to join");
-		ui.checkbox(&mut f.invite_only, "Invite only");
-		if f.password_required {
+	egui::CollapsingHeader::new(tr!("channel-create-heading"))
+		.id_salt("channel-create")
+		.show(ui, |ui| {
+			let f = &mut local.new_channel;
 			ui.add(
-				egui::TextEdit::singleline(&mut f.password)
-					.password(true)
-					.hint_text("Password"),
+				egui::TextEdit::singleline(&mut f.name)
+					.hint_text(tr!("channel-name-hint"))
+					.char_limit(32),
 			);
-		}
-		let ready = !f.name.trim().is_empty() && (!f.password_required || !f.password.is_empty());
-		if ui.add_enabled(ready, egui::Button::new("Create")).clicked() {
-			let options = ChannelOptions {
-				listed: f.listed,
-				password: f.password_required,
-				invite_only: f.invite_only,
-			};
-			let (name, password) = (mem::take(&mut f.name), mem::take(&mut f.password));
-			actions.run(|c| async move { c.create_channel(&name, options, &password).await });
-		}
-	});
+			ui.checkbox(&mut f.listed, tr!("channel-listed-label"));
+			ui.checkbox(&mut f.password_required, tr!("channel-password-label"));
+			ui.checkbox(&mut f.invite_only, tr!("channel-invite-only-label"));
+			if f.password_required {
+				ui.add(
+					egui::TextEdit::singleline(&mut f.password)
+						.password(true)
+						.hint_text(tr!("password-hint")),
+				);
+			}
+			let ready =
+				!f.name.trim().is_empty() && (!f.password_required || !f.password.is_empty());
+			if ui
+				.add_enabled(ready, egui::Button::new(tr!("action-create")))
+				.clicked()
+			{
+				let options = ChannelOptions {
+					listed: f.listed,
+					password: f.password_required,
+					invite_only: f.invite_only,
+				};
+				let (name, password) = (mem::take(&mut f.name), mem::take(&mut f.password));
+				actions.run(|c| async move { c.create_channel(&name, options, &password).await });
+			}
+		});
 }
 
 fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	egui::CollapsingHeader::new("Join a channel").show(ui, |ui| {
-		ui.label("Paste an invite token, or a channel id with its password.");
-		ui.add(
-			egui::TextEdit::singleline(&mut local.join_target).hint_text("RLYI1… or channel id"),
-		);
-		ui.add(
-			egui::TextEdit::singleline(&mut local.join_password)
-				.password(true)
-				.hint_text("Password (not needed for an invite)"),
-		);
-		if ui
-			.add_enabled(
-				!local.join_target.trim().is_empty(),
-				egui::Button::new("Join"),
-			)
-			.clicked()
-		{
-			let target = mem::take(&mut local.join_target);
-			let password = mem::take(&mut local.join_password);
-			actions.run(|c| async move { c.join_channel(&target, &password).await });
-		}
-	});
+	egui::CollapsingHeader::new(tr!("channel-join-heading"))
+		.id_salt("channel-join")
+		.show(ui, |ui| {
+			ui.label(tr!("channel-join-note"));
+			ui.add(
+				egui::TextEdit::singleline(&mut local.join_target)
+					.hint_text(tr!("channel-join-hint")),
+			);
+			ui.add(
+				egui::TextEdit::singleline(&mut local.join_password)
+					.password(true)
+					.hint_text(tr!("password-optional-hint")),
+			);
+			if ui
+				.add_enabled(
+					!local.join_target.trim().is_empty(),
+					egui::Button::new(tr!("action-join")),
+				)
+				.clicked()
+			{
+				let target = mem::take(&mut local.join_target);
+				let password = mem::take(&mut local.join_password);
+				actions.run(|c| async move { c.join_channel(&target, &password).await });
+			}
+		});
 }
 
 pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
-	ui.heading("Privacy");
+	ui.heading(tr!("privacy-heading"));
 	let Some(settings) = &state.settings else {
-		ui.label(RichText::new("Privacy settings appear once the daemon is connected.").weak());
+		ui.label(RichText::new(tr!("privacy-none")).weak());
 		return;
 	};
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
 		let inbound_label = |v: Inbound| match v {
-			Inbound::Anyone => "Anyone on the network",
-			Inbound::SharedChannelOnly => "Only members of my channels",
+			Inbound::Anyone => tr!("privacy-inbound-anyone"),
+			Inbound::SharedChannelOnly => tr!("privacy-inbound-shared"),
 		};
 		let mut inbound = settings.inbound;
-		egui::ComboBox::from_label("Who can ring me")
+		egui::ComboBox::from_label(tr!("privacy-who-rings"))
 			.selected_text(inbound_label(inbound))
 			.show_ui(ui, |ui| {
 				for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
@@ -221,11 +228,11 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 			actions.run(|c| async move { c.set_privacy(Some(inbound), None).await });
 		}
 		let advert_label = |v: Advert| match v {
-			Advert::Visible => "Visible to nearby devices",
-			Advert::Hidden => "Hidden (only reachable by connection string)",
+			Advert::Visible => tr!("privacy-advert-visible"),
+			Advert::Hidden => tr!("privacy-advert-hidden"),
 		};
 		let mut advert = settings.advert;
-		egui::ComboBox::from_label("Network visibility")
+		egui::ComboBox::from_label(tr!("privacy-visibility"))
 			.selected_text(advert_label(advert))
 			.show_ui(ui, |ui| {
 				for v in [Advert::Visible, Advert::Hidden] {

@@ -13,6 +13,7 @@ use crate::viewmodel::local_avatar;
 use super::local::Local;
 use super::textures::Textures;
 use super::widgets::avatar;
+use crate::tr;
 
 pub fn profile(
 	ui: &mut Ui,
@@ -27,7 +28,7 @@ pub fn profile(
 		local.name_input = settings.display_name.clone();
 		local.name_seeded = true;
 	}
-	ui.heading("Your profile");
+	ui.heading(tr!("profile-heading"));
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
 		ui.horizontal(|ui| {
@@ -42,7 +43,7 @@ pub fn profile(
 				ui.horizontal(|ui| {
 					ui.add(
 						egui::TextEdit::singleline(&mut local.name_input)
-							.hint_text("Display name")
+							.hint_text(tr!("profile-name-hint"))
 							.char_limit(64),
 					);
 					let unchanged = state
@@ -51,7 +52,7 @@ pub fn profile(
 						.is_some_and(|s| s.display_name == local.name_input.trim());
 					let ready = !local.name_input.trim().is_empty() && !unchanged;
 					if ui
-						.add_enabled(ready, egui::Button::new("Save name"))
+						.add_enabled(ready, egui::Button::new(tr!("profile-save-name")))
 						.clicked()
 					{
 						let name = local.name_input.clone();
@@ -62,33 +63,27 @@ pub fn profile(
 				image_buttons(ui, actions, local, stored);
 			});
 		});
-		ui.label(
-			RichText::new(
-				"PNG, JPEG, WebP, GIF, BMP or TIFF, up to 1 MiB and 2048 x 2048. The engine scales \
-				 it and shares it with your trusted peers. Removing it tells them to stop showing it.",
-			)
-			.weak(),
-		);
+		ui.label(RichText::new(tr!("profile-image-note")).weak());
 	});
 }
 
 fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local, stored: bool) {
 	ui.horizontal(|ui| {
-		if ui.button("Choose image…").clicked() {
+		if ui.button(tr!("profile-choose-image")).clicked() {
 			actions.pick_avatar();
 		}
 		if local.picked.is_some() {
-			if ui.button("Upload").clicked()
+			if ui.button(tr!("profile-upload")).clicked()
 				&& let Some(picked) = local.picked.take()
 			{
 				let (bytes, media) = (picked.bytes, picked.media_type);
 				actions.run(|c| async move { c.upload_avatar(bytes, media).await });
 			}
 			// Only drops the pending choice; the stored image is untouched.
-			if ui.button("Discard").clicked() {
+			if ui.button(tr!("profile-discard")).clicked() {
 				mem::take(&mut local.picked);
 			}
-		} else if stored && ui.button("Remove picture").clicked() {
+		} else if stored && ui.button(tr!("profile-remove")).clicked() {
 			actions.run(|c| async move { c.clear_avatar().await });
 		}
 	});

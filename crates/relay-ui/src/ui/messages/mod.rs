@@ -26,6 +26,7 @@ use crate::messaging::model::SessionKey;
 use crate::messaging::rules::{choose_session, compose_blocked};
 use crate::messaging::state::{Feed, MessagesState};
 use crate::theme;
+use crate::tr;
 use relay_io::localtime::LocalZone;
 
 pub use dialogs::ClipFlow;
@@ -129,15 +130,15 @@ impl MessagesUi {
 	) -> bool {
 		let mut closed = false;
 		ui.horizontal(|ui| {
-			ui.heading("Messages");
-			if closable && ui.button("Close").clicked() {
+			ui.heading(tr!("nav-messages"));
+			if closable && ui.button(tr!("action-close")).clicked() {
 				closed = true;
 			}
 		});
 		if let Some(notice) = &state.notice {
 			ui.horizontal_wrapped(|ui| {
 				ui.label(RichText::new(notice).color(theme::ERROR));
-				if ui.small_button("Dismiss").clicked() {
+				if ui.small_button(tr!("action-dismiss")).clicked() {
 					intents.push(Intent::DismissNotice);
 				}
 			});
@@ -159,7 +160,7 @@ impl MessagesUi {
 		}
 		self.selected = chosen;
 		let Some(key) = self.selected.clone() else {
-			ui.label(RichText::new("No call sessions yet. A session starts with a call and its transcript stays readable after the call ends.").weak());
+			ui.label(RichText::new(tr!("msg-no-sessions")).weak());
 			return;
 		};
 		if let Some(picked) = panels::picker(ui, state, &key) {
@@ -168,7 +169,7 @@ impl MessagesUi {
 			return;
 		}
 		if self.missing_call.is_some() {
-			ui.label(RichText::new("That call has no messaging session. The other side may not support messages, or messaging is off for it.").color(theme::WARN));
+			ui.label(RichText::new(tr!("msg-no-session")).color(theme::WARN));
 		}
 		let Some(session) = state.session(&key) else {
 			return;
@@ -177,14 +178,14 @@ impl MessagesUi {
 		ui.horizontal(|ui| {
 			ui.add(
 				egui::TextEdit::singleline(&mut self.search)
-					.hint_text("Search this call")
+					.hint_text(tr!("msg-search-hint"))
 					.desired_width(ui.available_width().min(220.0)),
 			);
-			ui.checkbox(&mut self.pinned_only, "Pinned");
-			if ui.small_button("Export…").clicked() {
+			ui.checkbox(&mut self.pinned_only, tr!("msg-pinned-filter"));
+			if ui.small_button(tr!("msg-export")).clicked() {
 				intents.push(compose::export_intent(session));
 			}
-			if ui.small_button("Clear…").clicked() {
+			if ui.small_button(tr!("msg-clear")).clicked() {
 				self.confirm_clear = Some(key.clone());
 			}
 		});
@@ -202,7 +203,7 @@ impl MessagesUi {
 				None => compose::editor(ui, draft, session, &mut self.clip, intents),
 			});
 		let Some(t) = state.transcript(&key) else {
-			ui.label(RichText::new("Loading the transcript…").weak());
+			ui.label(RichText::new(tr!("msg-loading")).weak());
 			return;
 		};
 		let needle = self.search.trim().to_lowercase();

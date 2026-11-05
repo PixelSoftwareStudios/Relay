@@ -8,6 +8,7 @@ use std::collections::BTreeMap;
 
 use crate::controller::{ControlError, Controller, RELEASE_DELAY_MAX_MS};
 use crate::engine::{SettingOutcome, SettingResult};
+use crate::tr;
 
 /// Global push-to-talk accelerator (read when the hotkey backend starts).
 pub const KEY_ACCELERATOR: &str = "hotkeys.push_to_talk";
@@ -30,14 +31,18 @@ impl HotkeyValues {
 	pub fn from_dump(dump: &BTreeMap<String, String>) -> Result<Self, String> {
 		let get = |key: &str| {
 			dump.get(key)
-				.ok_or_else(|| format!("the daemon did not report {key}"))
+				.ok_or_else(|| tr!("hotkey-missing-key", key = key))
 		};
 		let delay = get(KEY_RELEASE_DELAY)?;
 		Ok(Self {
 			accelerator: get(KEY_ACCELERATOR)?.clone(),
-			release_delay_ms: delay
-				.parse()
-				.map_err(|_| format!("the daemon reported a bad {KEY_RELEASE_DELAY}: {delay}"))?,
+			release_delay_ms: delay.parse().map_err(|_| {
+				tr!(
+					"hotkey-bad-value",
+					key = KEY_RELEASE_DELAY,
+					value = delay.as_str()
+				)
+			})?,
 		})
 	}
 
@@ -45,10 +50,10 @@ impl HotkeyValues {
 	pub fn check(&self) -> Result<(), &'static str> {
 		let text = &self.accelerator;
 		if text.chars().count() > ACCELERATOR_MAX_CHARS || text.chars().any(char::is_control) {
-			return Err("the hotkey must be at most 64 printable characters");
+			return Err(tr!("hotkey-check-accelerator"));
 		}
 		if self.release_delay_ms > RELEASE_DELAY_MAX_MS {
-			return Err("release delay must be between 0 and 2000 ms");
+			return Err(tr!("hotkey-check-delay"));
 		}
 		Ok(())
 	}
@@ -72,8 +77,8 @@ impl HotkeyValues {
 /// Plain-words name of a key, for the outcome list.
 pub fn key_label(key: &str) -> &str {
 	match key {
-		KEY_ACCELERATOR => "Push-to-talk hotkey",
-		KEY_RELEASE_DELAY => "Release delay",
+		KEY_ACCELERATOR => tr!("hotkey-label-accelerator"),
+		KEY_RELEASE_DELAY => tr!("hotkey-label-delay"),
 		other => other,
 	}
 }
@@ -83,15 +88,15 @@ pub fn outcome_text(result: &SettingResult) -> String {
 	let label = key_label(&result.key);
 	let reason = result.reason.trim();
 	match (result.outcome, reason.is_empty()) {
-		(SettingOutcome::AppliedLive, _) => format!("{label}: applied now"),
-		(SettingOutcome::SavedNeedsRestart, true) => {
-			format!("{label}: saved, takes effect after a restart")
-		}
+		(SettingOutcome::AppliedLive, _) => tr!("hotkey-applied", label = label),
+		(SettingOutcome::SavedNeedsRestart, true) => tr!("hotkey-saved", label = label),
 		(SettingOutcome::SavedNeedsRestart, false) => {
-			format!("{label}: saved, takes effect after a restart ({reason})")
+			tr!("hotkey-saved-reason", label = label, reason = reason)
 		}
-		(SettingOutcome::Rejected, true) => format!("{label}: rejected"),
-		(SettingOutcome::Rejected, false) => format!("{label}: rejected ({reason})"),
+		(SettingOutcome::Rejected, true) => tr!("hotkey-rejected", label = label),
+		(SettingOutcome::Rejected, false) => {
+			tr!("hotkey-rejected-reason", label = label, reason = reason)
+		}
 	}
 }
 

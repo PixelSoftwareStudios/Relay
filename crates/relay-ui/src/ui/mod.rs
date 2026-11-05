@@ -21,6 +21,7 @@ use crate::layout::{LayoutClass, Page};
 use crate::theme;
 use crate::viewmodel::{call_cards, peer_rows};
 
+use crate::tr;
 use local::{Local, PickedImage};
 use messages::MessagesUi;
 use textures::{Textures, upload};
@@ -39,6 +40,8 @@ pub struct RelayApp {
 	messages: MessagesUi,
 	/// The Messages side panel of the regular layout is showing.
 	messages_open: bool,
+	/// The language the installed fonts were built for; `None` before the first frame.
+	font_language: Option<crate::i18n::Language>,
 }
 
 impl RelayApp {
@@ -57,6 +60,7 @@ impl RelayApp {
 			page: Page::default(),
 			messages: MessagesUi::new(zone),
 			messages_open: false,
+			font_language: None,
 		}
 	}
 
@@ -99,16 +103,32 @@ impl RelayApp {
 		self.actions
 			.hub
 			.set_visible(self.actions.shell.window_visible());
+		self.sync_language(ctx);
 		let class = LayoutClass::for_width(ctx.content_rect().width());
 		if self.class != Some(class) {
-			if self.class.is_none() {
-				crate::fonts::install(ctx);
-			}
 			theme::install(ctx, class);
 			self.class = Some(class);
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
+	}
+
+	/// Follow the shell's language: switch the catalogs and reinstall the
+	/// fonts (their order depends on the language) the frame it changes, and on
+	/// the first frame.
+	fn sync_language(&mut self, ctx: &egui::Context) {
+		if let Some(options) = self.actions.shell.host_options() {
+			let wanted = options.language();
+			if wanted != crate::i18n::active() {
+				crate::i18n::set_active(wanted);
+			}
+		}
+		let active = crate::i18n::active();
+		if self.font_language != Some(active) {
+			crate::fonts::install(ctx, active);
+			self.font_language = Some(active);
+			ctx.request_repaint();
+		}
 	}
 
 	/// Move finished background results into UI-owned state and textures.
@@ -189,12 +209,15 @@ impl RelayApp {
 			ui.image((self.logo.id(), egui::vec2(32.0, 32.0)));
 			ui.heading("Relay");
 			if let Some(info) = &state.engine {
-				ui.label(egui::RichText::new(format!("engine {}", info.version)).weak());
+				ui.label(
+					egui::RichText::new(tr!("header-engine", version = info.version.as_str()))
+						.weak(),
+				);
 			}
 			if !class.is_compact() {
 				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 					if ui
-						.selectable_label(self.messages_open, "Messages")
+						.selectable_label(self.messages_open, tr!("nav-messages"))
 						.clicked()
 					{
 						self.messages_open = !self.messages_open;

@@ -1,6 +1,7 @@
 //! Two confirmation rules that must never be bypassed: sending the clipboard
 //! to a call, and opening a link.
 
+use crate::tr;
 use relay_messages::markdown::{HostWarning, Link, parse_http};
 
 /// A live call that could receive the clipboard.
@@ -35,15 +36,11 @@ pub fn clipboard_target(live: &[Destination], picked: Option<usize>) -> Target {
 /// Why clipboard text cannot be sent at all (never truncated silently).
 pub fn clipboard_problem(text: &str) -> Option<String> {
 	if text.trim().is_empty() {
-		return Some("The clipboard has no text.".to_owned());
+		return Some(tr!("clipboard-empty").to_owned());
 	}
 	let n = text.len();
 	let limit = relay_messages::limits::MAX_TEXT_BYTES;
-	(n > limit).then(|| {
-		format!(
-			"The clipboard text is {n} bytes; one message holds at most {limit}. Nothing was sent."
-		)
-	})
+	(n > limit).then(|| tr!("clipboard-too-long", size = n, limit = limit))
 }
 
 /// A link waiting for the user's decision.
@@ -69,11 +66,11 @@ impl LinkPrompt {
 
 	pub fn warning_text(&self) -> Option<&'static str> {
 		self.warning.map(|w| match w {
-			HostWarning::Idn => "International domain name: it may imitate another site.",
+			HostWarning::Idn => tr!("link-warn-idn"),
 			HostWarning::MixedScript => {
-				"Mixed scripts in one name: a strong sign of an imitation of another site."
+				tr!("link-warn-mixed")
 			}
-			HostWarning::InvalidPunycode => "The host name is malformed.",
+			HostWarning::InvalidPunycode => tr!("link-warn-punycode"),
 		})
 	}
 }

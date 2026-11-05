@@ -8,6 +8,7 @@ use egui::TextureHandle;
 use crate::hotkey_settings::HotkeyPanel;
 use crate::inbox::Invite;
 use crate::model::ConnectionView;
+use crate::tr;
 
 #[derive(Default)]
 pub struct NewChannel {
@@ -64,7 +65,12 @@ pub struct Local {
 }
 
 /// Invite lifetimes offered in the UI: label and seconds.
-pub const INVITE_TTLS: [(&str, u32); 3] =
-	[("1 hour", 3600), ("1 day", 86_400), ("7 days", 604_800)];
+pub fn invite_ttls() -> [(&'static str, u32); 3] {
+	[
+		(tr!("invite-ttl-hour"), 3600),
+		(tr!("invite-ttl-day"), 86_400),
+		(tr!("invite-ttl-week"), 604_800),
+	]
+}
 /// Invite use counts offered in the UI.
 pub const INVITE_USES: [u32; 3] = [1, 5, 25];

@@ -1,6 +1,8 @@
 //! Responsive layout choice. Pure functions of the available width so it is
 //! tested without a window.
 
+use crate::tr;
+
 /// Below this width (egui points) the single-column phone layout is used.
 pub const COMPACT_MAX_WIDTH: f32 = 600.0;
 
@@ -61,11 +63,11 @@ impl Page {
 
 	pub fn label(self) -> &'static str {
 		match self {
-			Self::Calls => "Calls",
-			Self::People => "People",
-			Self::Channels => "Channels",
-			Self::Messages => "Messages",
-			Self::Settings => "Settings",
+			Self::Calls => tr!("calls-heading"),
+			Self::People => tr!("nav-people"),
+			Self::Channels => tr!("channels-heading"),
+			Self::Messages => tr!("nav-messages"),
+			Self::Settings => tr!("nav-settings"),
 		}
 	}
 }

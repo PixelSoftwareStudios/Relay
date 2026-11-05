@@ -11,6 +11,7 @@ use super::model::SessionKey;
 use super::rules::problem_text;
 use crate::actions::Actions;
 use crate::engine::EngineError;
+use crate::tr;
 
 #[derive(Clone, PartialEq)]
 pub enum Intent {
@@ -93,9 +94,9 @@ fn failure_text(error: &EngineError) -> String {
 	match error {
 		EngineError::Rejected { code, .. } => problem_text(code),
 		EngineError::Unavailable(_) | EngineError::Broken(_) => {
-			"Lost the connection to the daemon.".to_owned()
+			tr!("msg-connection-lost").to_owned()
 		}
-		EngineError::Timeout => "The daemon did not answer in time.".to_owned(),
+		EngineError::Timeout => tr!("msg-daemon-timeout").to_owned(),
 	}
 }
 
@@ -136,7 +137,7 @@ impl Actions {
 		let Some(session) = session_id(&key) else {
 			self.shared
 				.messages
-				.set_notice(Some("That session id is not valid.".to_owned()));
+				.set_notice(Some(tr!("msg-bad-session").to_owned()));
 			return;
 		};
 		match intent {
@@ -213,7 +214,7 @@ impl Actions {
 		self.runtime.spawn(async move {
 			let result = match hub.ops() {
 				Some(ops) => ops.run(command).await,
-				None => Err(EngineError::Unavailable("not connected".into())),
+				None => Err(EngineError::Unavailable(tr!("msg-not-connected").into())),
 			};
 			finish(&hub, result, draft);
 			shell.request_repaint();
@@ -222,14 +223,14 @@ impl Actions {
 
 	fn pick_and_offer(&self, session: Vec<u8>) {
 		self.picked_path(
-			|shell| async move { shell.pick_file("Offer a file").await },
+			|shell| async move { shell.pick_file(tr!("msg-pick-file-title")).await },
 			move |path| Some(MsgCommand::OfferFile { session, path }),
 		);
 	}
 
 	fn pick_and_download(&self, session: Vec<u8>, offer: Vec<u8>) {
 		self.picked_path(
-			|shell| async move { shell.pick_directory("Save the file in").await },
+			|shell| async move { shell.pick_directory(tr!("msg-pick-folder-title")).await },
 			move |destination_dir| {
 				Some(MsgCommand::Respond {
 					session,
@@ -292,7 +293,7 @@ impl Actions {
 		self.runtime.spawn(async move {
 			let result = tokio::task::spawn_blocking(move || decode_inline(&data))
 				.await
-				.map_err(|_| "The image could not be decoded.".to_owned())
+				.map_err(|_| tr!("image-failed").to_owned())
 				.and_then(|r| r.map_err(|e| e.to_string()));
 			hub.push_image(key, result);
 			shell.request_repaint();
@@ -303,11 +304,11 @@ impl Actions {
 /// The daemon needs a real absolute path; reject anything else here.
 fn absolute_text(path: &std::path::Path) -> Result<String, String> {
 	if !path.is_absolute() {
-		return Err("The chosen location is not an absolute path.".to_owned());
+		return Err(tr!("msg-not-absolute").to_owned());
 	}
 	path.to_str()
 		.map(str::to_owned)
-		.ok_or_else(|| "That path cannot be sent to the daemon (it is not valid text).".to_owned())
+		.ok_or_else(|| tr!("msg-path-not-text").to_owned())
 }
 
 fn finish(

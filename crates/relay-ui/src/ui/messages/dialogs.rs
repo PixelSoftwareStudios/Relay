@@ -7,6 +7,7 @@ use crate::messaging::actions::Intent;
 use crate::messaging::gates::{Destination, LinkGate, Target, clipboard_problem, clipboard_target};
 use crate::messaging::state::MessagesState;
 use crate::theme;
+use crate::tr;
 
 /// Where the "Send clipboard to call" flow stands.
 #[derive(Debug, Default)]
@@ -45,26 +46,23 @@ pub fn link(ui: &mut Ui, gate: &mut LinkGate, intents: &mut Vec<Intent>) {
 		return;
 	};
 	let (mut open, mut cancel) = (false, false);
-	window("Open this link?").show(ui.ctx(), |ui| {
-		ui.label("Your browser will connect to:");
+	window(tr!("dlg-link-title")).show(ui.ctx(), |ui| {
+		ui.label(tr!("dlg-link-connect"));
 		ui.label(RichText::new(&prompt.host).strong().monospace().size(18.0));
 		if prompt.display != prompt.host {
 			ui.label(
-				RichText::new(format!("It displays as: {}", prompt.display)).color(theme::WARN),
+				RichText::new(tr!("dlg-link-display", display = prompt.display.as_str()))
+					.color(theme::WARN),
 			);
 		}
 		if let Some(w) = prompt.warning_text() {
 			ui.label(RichText::new(w).color(theme::ERROR).strong());
 		}
 		ui.add(egui::Label::new(RichText::new(&prompt.url).monospace().small()).selectable(true));
-		ui.label(
-			RichText::new("Relay never opens links by itself and never fetches them.")
-				.small()
-				.weak(),
-		);
+		ui.label(RichText::new(tr!("dlg-link-note")).small().weak());
 		ui.horizontal(|ui| {
-			open = ui.button("Open in browser").clicked();
-			cancel = ui.button("Cancel").clicked();
+			open = ui.button(tr!("dlg-link-open")).clicked();
+			cancel = ui.button(tr!("action-cancel")).clicked();
 		});
 	});
 	if open {
@@ -86,9 +84,9 @@ pub fn clipboard(
 		ClipFlow::Idle => {}
 		ClipFlow::Awaiting => {
 			let mut cancel = false;
-			window("Send clipboard to call").show(ui.ctx(), |ui| {
-				ui.label("Reading the clipboard…");
-				cancel = ui.button("Cancel").clicked();
+			window(tr!("dlg-clip-title")).show(ui.ctx(), |ui| {
+				ui.label(tr!("dlg-clip-reading"));
+				cancel = ui.button(tr!("action-cancel")).clicked();
 			});
 			if cancel {
 				*flow = ClipFlow::Idle;
@@ -105,34 +103,35 @@ pub fn clipboard(
 			let problem = clipboard_problem(text);
 			let target = clipboard_target(&live, *picked);
 			let (mut send, mut cancel) = (None, false);
-			window("Send clipboard to call").show(ui.ctx(), |ui| {
+			window(tr!("dlg-clip-title")).show(ui.ctx(), |ui| {
 				match (&problem, &target) {
 					(Some(p), _) => {
 						ui.label(RichText::new(p).color(theme::ERROR));
 					}
 					(None, Target::NoCall) => {
-						ui.label("There is no live call to send this to.");
+						ui.label(tr!("dlg-clip-no-call"));
 					}
 					(None, _) => preview(ui, text),
 				}
 				if problem.is_none() && live.len() > 1 {
-					ui.label(
-						RichText::new("More than one call is live. Choose where this goes:")
-							.strong(),
-					);
+					ui.label(RichText::new(tr!("dlg-clip-choose")).strong());
 					for (i, d) in live.iter().enumerate() {
 						let tag = &d.session[..d.session.len().min(8)];
-						ui.radio_value(picked, Some(i), format!("{} (call {tag})", d.peer_name));
+						ui.radio_value(
+							picked,
+							Some(i),
+							tr!("dlg-clip-call", name = d.peer_name.as_str(), tag = tag),
+						);
 					}
 				}
 				ui.horizontal(|ui| {
 					if let (None, Target::Confirm(d)) = (&problem, &target) {
-						let label = format!("Send to {}", d.peer_name);
+						let label = tr!("dlg-clip-send-to", name = d.peer_name.as_str());
 						if ui.button(label).clicked() {
 							send = Some(d.session.clone());
 						}
 					}
-					cancel = ui.button("Cancel").clicked();
+					cancel = ui.button(tr!("action-cancel")).clicked();
 				});
 			});
 			if let Some(session) = send {
@@ -149,14 +148,10 @@ pub fn clipboard(
 
 fn preview(ui: &mut Ui, text: &str) {
 	let head: String = text.chars().take(160).collect();
-	ui.label(format!("{} bytes from the clipboard:", text.len()));
+	ui.label(tr!("dlg-clip-bytes", size = text.len()));
 	ui.add(egui::Label::new(RichText::new(head).monospace().small()));
 	if text.chars().count() > 160 {
-		ui.label(
-			RichText::new("(shortened here; the whole text is sent)")
-				.small()
-				.weak(),
-		);
+		ui.label(RichText::new(tr!("dlg-clip-shortened")).small().weak());
 	}
 }
 
@@ -172,17 +167,17 @@ pub fn clear(
 		return;
 	};
 	let (mut yes, mut no) = (false, false);
-	window("Clear this transcript?").show(ui.ctx(), |ui| {
+	window(tr!("dlg-clear-title")).show(ui.ctx(), |ui| {
 		let what = if session.is_live() {
-			"This empties the messages of the running call on this device."
+			tr!("dlg-clear-live")
 		} else {
-			"This removes the ended call's transcript from this device."
+			tr!("dlg-clear-ended")
 		};
 		ui.label(what);
-		ui.label("The other side keeps its own copy. Export first if you want to keep it.");
+		ui.label(tr!("dlg-clear-note"));
 		ui.horizontal(|ui| {
-			yes = ui.button("Clear").clicked();
-			no = ui.button("Keep").clicked();
+			yes = ui.button(tr!("dlg-clear-yes")).clicked();
+			no = ui.button(tr!("revoke-keep")).clicked();
 		});
 	});
 	if yes {

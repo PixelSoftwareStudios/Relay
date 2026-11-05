@@ -6,7 +6,9 @@ use std::time::Duration;
 use tokio::time::{Instant, MissedTickBehavior};
 
 use crate::hub::Hub;
+use crate::i18n::Language;
 use crate::model::{AppState, Link, Meters, Phase};
+use crate::tr;
 
 /// Receiver of throttled updates (Tauri events and the tray in production).
 pub trait Sink: Send + Sync + 'static {
@@ -45,6 +47,9 @@ pub enum TrayState {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraySummary {
 	pub tooltip: String,
+	/// The language the tooltip and the tray menu are worded in; a change
+	/// of language makes the summary differ so the tray is redrawn.
+	pub language: Language,
 	pub incoming: usize,
 	pub icon: TrayState,
 }
@@ -62,14 +67,14 @@ pub fn tray_summary(state: &AppState) -> TraySummary {
 		.filter(|c| !c.phase.is_terminal() && c.phase != Phase::IncomingRinging)
 		.count();
 	let tooltip = match state.link {
-		_ if state.mock => "Relay (mock data)".to_owned(),
-		Link::Starting => "Relay: starting daemon".to_owned(),
-		Link::Connecting => "Relay: connecting to daemon".to_owned(),
-		Link::Reconnecting => "Relay: daemon connection lost, reconnecting".to_owned(),
-		Link::Offline => "Relay: daemon not running".to_owned(),
-		Link::Connected if incoming > 0 => format!("Relay: {incoming} incoming call(s)"),
-		Link::Connected if active > 0 => format!("Relay: {active} active call(s)"),
-		Link::Connected => "Relay: idle".to_owned(),
+		_ if state.mock => tr!("tray-mock").to_owned(),
+		Link::Starting => tr!("tray-starting").to_owned(),
+		Link::Connecting => tr!("tray-connecting").to_owned(),
+		Link::Reconnecting => tr!("tray-reconnecting").to_owned(),
+		Link::Offline => tr!("tray-offline").to_owned(),
+		Link::Connected if incoming > 0 => tr!("tray-incoming", count = incoming),
+		Link::Connected if active > 0 => tr!("tray-active", count = active),
+		Link::Connected => tr!("tray-idle").to_owned(),
 	};
 	let muted = state.settings.as_ref().is_some_and(|s| s.global_muted);
 	let icon = if state.link == Link::Connected && muted {
@@ -81,6 +86,7 @@ pub fn tray_summary(state: &AppState) -> TraySummary {
 	};
 	TraySummary {
 		tooltip,
+		language: crate::i18n::active(),
 		incoming,
 		icon,
 	}

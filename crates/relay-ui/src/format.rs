@@ -1,64 +1,69 @@
 //! Display text and small pure helpers shared by the views.
 
 use crate::model::{Call, Link, Phase};
+use crate::tr;
 
 pub const MAX_AVATAR_BYTES: usize = 1024 * 1024;
 
 /// Slider text for the push-to-talk release delay.
 pub fn release_delay_label(millis: u32) -> String {
 	if millis == 0 {
-		"Off (closes at once)".to_owned()
+		tr!("release-delay-off").to_owned()
 	} else {
-		format!("{millis} ms")
+		tr!("duration-ms", millis = millis)
 	}
 }
 
 pub fn format_dbfs(dbfs: Option<f32>) -> String {
 	match dbfs {
-		Some(v) if v.is_finite() => format!("{v:.0} dBFS"),
-		_ => "no signal data".to_owned(),
+		Some(v) if v.is_finite() => tr!("level-dbfs", value = format!("{v:.0}")),
+		_ => tr!("level-no-data").to_owned(),
 	}
 }
 
 pub fn phase_label(phase: Phase) -> &'static str {
 	match phase {
-		Phase::Preparing => "Preparing",
-		Phase::OutgoingRinging => "Ringing",
-		Phase::IncomingRinging => "Incoming call",
-		Phase::Negotiating => "Connecting",
-		Phase::Connected => "Connected",
-		Phase::Interrupted => "Interrupted",
-		Phase::Ending => "Ending",
-		Phase::Ended => "Ended",
-		Phase::Failed => "Failed",
-		Phase::Declined => "Declined",
-		Phase::Cancelled => "Cancelled",
+		Phase::Preparing => tr!("phase-preparing"),
+		Phase::OutgoingRinging => tr!("phase-ringing"),
+		Phase::IncomingRinging => tr!("phase-incoming"),
+		Phase::Negotiating => tr!("phase-connecting"),
+		Phase::Connected => tr!("phase-connected"),
+		Phase::Interrupted => tr!("phase-interrupted"),
+		Phase::Ending => tr!("phase-ending"),
+		Phase::Ended => tr!("phase-ended"),
+		Phase::Failed => tr!("phase-failed"),
+		Phase::Declined => tr!("phase-declined"),
+		Phase::Cancelled => tr!("phase-cancelled"),
 	}
 }
 
 pub fn link_label(link: Link) -> &'static str {
 	match link {
-		Link::Starting => "Starting the Relay daemon",
-		Link::Connecting => "Connecting to the Relay daemon",
-		Link::Connected => "Connected",
-		Link::Reconnecting => "Daemon connection lost, reconnecting",
-		Link::Offline => "Daemon not running",
+		Link::Starting => tr!("link-starting"),
+		Link::Connecting => tr!("link-connecting"),
+		Link::Connected => tr!("link-connected"),
+		Link::Reconnecting => tr!("link-reconnecting"),
+		Link::Offline => tr!("link-offline"),
 	}
 }
 
 pub fn gain_percent(gain: f32) -> String {
-	format!("{}%", (gain * 100.0).round())
+	tr!(
+		"gain-percent",
+		value = format!("{}", (gain * 100.0).round())
+	)
 }
 
-/// The engine's own text for an empty or oversized avatar body.
-pub const AVATAR_SIZE_REFUSAL: &str =
-	"avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)";
+/// The UI's own wording of the avatar size rule, shown before the engine is asked.
+pub fn avatar_size_refusal() -> &'static str {
+	tr!("avatar-size-refusal")
+}
 
 /// Size gate, cheap enough to run before the file is read. The content check
 /// ([`crate::imaging::avatar_check`]) follows once the bytes are in memory; the engine stays
 /// the authority.
 pub fn avatar_problem(size: usize) -> Option<&'static str> {
-	(size == 0 || size > MAX_AVATAR_BYTES).then_some(AVATAR_SIZE_REFUSAL)
+	(size == 0 || size > MAX_AVATAR_BYTES).then(avatar_size_refusal)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,19 +81,16 @@ pub struct TransmitStatus {
 }
 
 /// What this client can and cannot do about push-to-talk.
-pub const HOTKEY_NOTE: &str = "This app registers no global hotkey and has no on-screen talk button yet. \
-Push-to-talk only transmits while an engine-side input source (for example the CLI) holds the key.";
+pub fn hotkey_note() -> &'static str {
+	tr!("hotkey-note")
+}
 
 /// Honest transmit text. Only the engine's `effective_transmitting` ever
 /// claims the microphone is live; a requested mode alone never does.
 pub fn describe_transmit(call: &Call) -> TransmitStatus {
 	use crate::model::Mode;
 	let t = &call.transmit;
-	let blocked = if t.blocked_reason.is_empty() {
-		String::new()
-	} else {
-		format!(" Engine reason: {}.", t.blocked_reason)
-	};
+	let reason = t.blocked_reason.as_str();
 	let status = |label, detail: String, tone| TransmitStatus {
 		label,
 		detail,
@@ -96,50 +98,60 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 	};
 	if t.mode == Mode::ReceiveOnly {
 		return status(
-			"Listening only",
-			"Your microphone is not sent.".into(),
+			tr!("transmit-listening"),
+			tr!("transmit-listening-detail").to_owned(),
 			Tone::Idle,
 		);
 	}
 	if !t.consent_granted {
 		return status(
-			"Microphone not allowed",
-			format!("Transmit consent has not been given for this call.{blocked}"),
+			tr!("transmit-no-consent"),
+			blocked("transmit-no-consent-detail", reason),
 			Tone::Warn,
 		);
 	}
 	if t.effective_transmitting && t.releasing {
 		return status(
-			"Releasing",
-			"The key is up; the microphone stays live briefly so the end of a sentence is not cut."
-				.into(),
+			tr!("transmit-releasing"),
+			tr!("transmit-releasing-detail").to_owned(),
 			Tone::Live,
 		);
 	}
 	if t.effective_transmitting {
 		let how = if t.mode == Mode::OpenMic {
-			"open microphone"
+			tr!("transmit-how-open")
 		} else {
-			"push-to-talk key held"
+			tr!("transmit-how-key")
 		};
 		return status(
-			"Transmitting",
-			format!("Microphone is live ({how})."),
+			tr!("transmitting"),
+			tr!("transmit-live-detail", how = how),
 			Tone::Live,
 		);
 	}
 	if t.mode == Mode::OpenMic {
 		return status(
-			"Open mic armed, not transmitting",
-			format!("The engine is not sending audio right now.{blocked}"),
+			tr!("transmit-open-armed"),
+			blocked("transmit-open-armed-detail", reason),
 			Tone::Warn,
 		);
 	}
 	status(
-		"Push-to-talk armed",
-		format!("Waiting for a key press from an engine-side input source.{blocked}"),
+		tr!("transmit-ptt-armed"),
+		blocked("transmit-ptt-armed-detail", reason),
 		Tone::Idle,
 	)
+}
+
+/// A detail line with the engine's reason appended when it gave one. The
+/// reason stays as the engine worded it.
+fn blocked(id: &'static str, reason: &str) -> String {
+	let detail = crate::i18n::t(id);
+	if reason.is_empty() {
+		detail.to_owned()
+	} else {
+		format!("{detail} {}", tr!("engine-reason", reason = reason))
+	}
 }
 
 /// Ids of the calls this app owns that are still live. Quitting the app hangs
@@ -161,24 +173,24 @@ pub fn own_live_calls(calls: &[Call]) -> Vec<String> {
 /// What closing the window does, and what quitting the app does to calls.
 pub fn close_note(has_tray: bool, own_calls: usize) -> String {
 	let close = if has_tray {
-		"Closing the window hides it to the tray; calls keep going."
+		tr!("close-tray")
 	} else {
-		"There is no tray icon on this platform, so closing the window quits this app."
+		tr!("close-no-tray")
 	};
-	let quit = "Quitting this app hangs up the calls it started or accepted and leaves the Relay daemon running. This app cannot stop the daemon.";
-	let live = match own_calls {
-		0 => String::new(),
-		1 => " One call is active.".to_owned(),
-		n => format!(" {n} calls are active."),
+	let quit = tr!("quit-note");
+	let live = if own_calls == 0 {
+		String::new()
+	} else {
+		tr!("calls-active", count = own_calls)
 	};
-	format!("{close} {quit}{live}")
+	format!("{close} {quit} {live}").trim_end().to_owned()
 }
 
 /// The confirmation shown before quitting while calls are live.
 pub fn quit_prompt(own_calls: usize) -> String {
-	match own_calls {
-		0 => "Quit this app?".to_owned(),
-		1 => "Quit this app? Your active call will be hung up.".to_owned(),
-		n => format!("Quit this app? Your {n} active calls will be hung up."),
+	if own_calls == 0 {
+		tr!("quit-prompt").to_owned()
+	} else {
+		tr!("quit-prompt-calls", count = own_calls)
 	}
 }

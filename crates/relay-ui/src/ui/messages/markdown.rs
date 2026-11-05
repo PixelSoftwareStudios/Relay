@@ -8,6 +8,7 @@ use relay_messages::markdown::{Block, CodeBlock, Document, Inline, Link};
 use crate::messaging::actions::Intent;
 use crate::messaging::gates::LinkGate;
 use crate::theme;
+use crate::tr;
 
 #[derive(Clone, Copy, Default)]
 struct Style {
@@ -113,15 +114,12 @@ fn link_widget(ui: &mut Ui, link: &Link, gate: &mut LinkGate) {
 			)
 			.sense(egui::Sense::click()),
 		)
-		.on_hover_text(format!(
-			"Host: {}\nNothing opens until you confirm.",
-			link.host.ascii
-		));
+		.on_hover_text(tr!("md-link-hover", host = link.host.ascii.as_str()));
 	if let Some(w) = link.host.warning {
 		let text = match w {
-			relay_messages::markdown::HostWarning::Idn => " [IDN] ",
-			relay_messages::markdown::HostWarning::MixedScript => " [MIXED SCRIPTS] ",
-			relay_messages::markdown::HostWarning::InvalidPunycode => " [BAD HOST] ",
+			relay_messages::markdown::HostWarning::Idn => tr!("md-badge-idn"),
+			relay_messages::markdown::HostWarning::MixedScript => tr!("md-badge-mixed"),
+			relay_messages::markdown::HostWarning::InvalidPunycode => tr!("md-badge-bad-host"),
 		};
 		ui.label(
 			RichText::new(text)
@@ -144,12 +142,12 @@ fn code_block(ui: &mut Ui, code: &CodeBlock, intents: &mut Vec<Intent>) {
 				let label = code.language.as_deref().unwrap_or("code");
 				ui.label(RichText::new(label).small().weak());
 				if !code.closed {
-					ui.label(RichText::new("(not closed)").small().weak());
+					ui.label(RichText::new(tr!("md-code-unclosed")).small().weak());
 				}
 				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 					if ui
-						.small_button("Copy")
-						.on_hover_text("Copies the code exactly as sent")
+						.small_button(tr!("action-copy"))
+						.on_hover_text(tr!("md-code-copy-hover"))
 						.clicked()
 					{
 						intents.push(Intent::Copy(code.copy_text().to_owned()));

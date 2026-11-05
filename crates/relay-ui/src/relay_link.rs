@@ -19,6 +19,7 @@ use crate::engine::{
 	SettingResult, TelemetrySource,
 };
 use crate::model::ConnectionView;
+use crate::tr;
 
 const CLIENT_NAME: &str = "relay-desktop";
 const CAPABILITIES: &[&str] = &["observe", "call-control"];
@@ -77,7 +78,7 @@ fn status(s: tonic::Status) -> EngineError {
 fn problem_error(problem: Option<pb::Problem>) -> EngineError {
 	let p = problem.unwrap_or_default();
 	let message = if p.message.is_empty() {
-		"the engine rejected the request".to_owned()
+		tr!("err-engine-rejected").to_owned()
 	} else {
 		p.message
 	};

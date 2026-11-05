@@ -11,6 +11,7 @@ use serde::{Serialize, Serializer};
 use crate::engine::{Command, EngineError, Operations};
 use crate::hub::Hub;
 use crate::model::{Call, Mode};
+use crate::tr;
 
 pub const AVATAR_MAX_BYTES: usize = 1024 * 1024;
 const NAME_MAX_CHARS: usize = 64;
@@ -19,15 +20,27 @@ const CALL_ID_LEN: usize = 16;
 const PEER_ID_LEN: usize = 32;
 
 /// A user-facing failure. Serializes as a plain string for the webview.
-#[derive(Debug, thiserror::Error, PartialEq)]
+/// The text of `Invalid` and `NotConnected` is the UI's own and is worded in
+/// the language active when the error was made; `Engine` text is the
+/// engine's, shown as received.
+#[derive(Debug, PartialEq)]
 pub enum ControlError {
-	#[error("not connected to the Relay daemon")]
 	NotConnected,
-	#[error("{0}")]
 	Invalid(&'static str),
-	#[error("{0}")]
 	Engine(String),
 }
+
+impl std::fmt::Display for ControlError {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::NotConnected => f.write_str(tr!("err-not-connected")),
+			Self::Invalid(text) => f.write_str(text),
+			Self::Engine(text) => f.write_str(text),
+		}
+	}
+}
+
+impl std::error::Error for ControlError {}
 
 impl From<EngineError> for ControlError {
 	fn from(error: EngineError) -> Self {
@@ -90,18 +103,16 @@ pub const RELEASE_DELAY_MAX_MS: u32 = 2000;
 
 fn check_release_delay(millis: u32) -> Result<(), ControlError> {
 	if millis > RELEASE_DELAY_MAX_MS {
-		return Err(ControlError::Invalid(
-			"release delay must be between 0 and 2000 ms",
-		));
+		return Err(ControlError::Invalid(tr!("err-release-delay")));
 	}
 	Ok(())
 }
 
 fn check_gain(gain: Option<f32>) -> Result<(), ControlError> {
 	match gain {
-		Some(g) if !g.is_finite() || !(0.0..=GAIN_MAX).contains(&g) => Err(ControlError::Invalid(
-			"gain must be a finite number between 0 and 4",
-		)),
+		Some(g) if !g.is_finite() || !(0.0..=GAIN_MAX).contains(&g) => {
+			Err(ControlError::Invalid(tr!("err-gain")))
+		}
 		_ => Ok(()),
 	}
 }
@@ -120,11 +131,11 @@ impl Controller {
 	}
 
 	fn call(&self, hex_id: &str) -> Result<(Vec<u8>, Call), ControlError> {
-		let id = decode_id(hex_id, CALL_ID_LEN, "malformed call id")?;
+		let id = decode_id(hex_id, CALL_ID_LEN, tr!("err-bad-call-id"))?;
 		let call = self
 			.hub
 			.read(|s| s.calls.iter().find(|c| c.call_id == hex_id).cloned())
-			.ok_or(ControlError::Invalid("unknown call"))?;
+			.ok_or(ControlError::Invalid(tr!("err-unknown-call")))?;
 		Ok((id, call))
 	}
 
@@ -139,18 +150,18 @@ impl Controller {
 				call_id: call_id.to_vec(),
 			})
 			.await?;
-		outcome.generation.ok_or(ControlError::Engine(
-			"the engine returned no control lease".into(),
-		))
+		outcome
+			.generation
+			.ok_or(ControlError::Engine(tr!("err-no-lease").into()))
 	}
 
 	pub async fn start_call(&self, peer_id: &str) -> Result<(), ControlError> {
-		let id = decode_id(peer_id, PEER_ID_LEN, "malformed peer id")?;
+		let id = decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
 		if !self
 			.hub
 			.read(|s| s.peers.iter().any(|p| p.peer_id == peer_id))
 		{
-			return Err(ControlError::Invalid("unknown peer"));
+			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
 		}
 		self.run(Command::StartCall { peer_id: id }).await.map(drop)
 	}
@@ -196,9 +207,7 @@ impl Controller {
 		consent: bool,
 	) -> Result<(), ControlError> {
 		if mode != Mode::ReceiveOnly && !consent {
-			return Err(ControlError::Invalid(
-				"microphone consent is required to transmit",
-			));
+			return Err(ControlError::Invalid(tr!("err-consent-required")));
 		}
 		let (id, call) = self.call(call_id)?;
 		let generation = self.generation(&id, &call).await?;
@@ -277,9 +286,7 @@ impl Controller {
 		call_sounds_enabled: Option<bool>,
 	) -> Result<(), ControlError> {
 		if ringtone_volume.is_some_and(|v| !v.is_finite() || !(0.0..=1.0).contains(&v)) {
-			return Err(ControlError::Invalid(
-				"ringtone volume must be between 0 and 1",
-			));
+			return Err(ControlError::Invalid(tr!("err-ring-volume")));
 		}
 		self.run(Command::SetRingPreferences {
 			ringtone_enabled,
@@ -311,7 +318,7 @@ impl Controller {
 				.read(|s| s.devices.iter().any(|d| d.device_id == id && d.available))
 		};
 		if !known(input_id) || !known(output_id) {
-			return Err(ControlError::Invalid("unknown or unavailable audio device"));
+			return Err(ControlError::Invalid(tr!("err-unknown-device")));
 		}
 		self.run(Command::SelectDevices {
 			input_id: input_id.into(),
@@ -327,9 +334,7 @@ impl Controller {
 			|| name.chars().count() > NAME_MAX_CHARS
 			|| name.chars().any(char::is_control)
 		{
-			return Err(ControlError::Invalid(
-				"display name must be 1 to 64 printable characters",
-			));
+			return Err(ControlError::Invalid(tr!("err-display-name")));
 		}
 		self.run(Command::SetProfile {
 			display_name: name.to_owned(),
@@ -350,10 +355,10 @@ impl Controller {
 		media_type: &str,
 	) -> Result<(), ControlError> {
 		if media_type.is_empty() {
-			return Err(ControlError::Invalid("avatar needs a media type"));
+			return Err(ControlError::Invalid(tr!("err-avatar-media-type")));
 		}
 		if bytes.is_empty() || bytes.len() > AVATAR_MAX_BYTES {
-			return Err(ControlError::Invalid(crate::format::AVATAR_SIZE_REFUSAL));
+			return Err(ControlError::Invalid(crate::format::avatar_size_refusal()));
 		}
 		self.run(Command::UploadAvatar {
 			bytes,

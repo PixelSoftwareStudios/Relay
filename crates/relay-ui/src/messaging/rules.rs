@@ -7,6 +7,7 @@ use relay_messages::limits::{FREE_MARGIN_PERCENT, MAX_TEXT_BYTES, MIN_FREE_MARGI
 
 use super::model::{OfferStatus, OfferView, SessionView};
 use super::state::Feed;
+use crate::tr;
 
 /// An inline image the daemon accepts: its control record is 16 KiB.
 pub const INLINE_IMAGE_MAX_BYTES: usize = 15 * 1024;
@@ -33,7 +34,7 @@ pub fn format_size(bytes: u64) -> String {
 /// First 8 hex characters of the BLAKE3 hash, enough to compare by eye.
 pub fn hash_short(hash: &[u8]) -> String {
 	if hash.is_empty() {
-		return "none".to_owned();
+		return tr!("hash-none").to_owned();
 	}
 	let hex = hex::encode(hash);
 	format!("{}…", &hex[..hex.len().min(8)])
@@ -52,10 +53,10 @@ pub struct RowTimes {
 pub fn row_times(zone: &LocalZone, received_ms: u64, sent_ms: u64) -> RowTimes {
 	RowTimes {
 		label: zone.clock(received_ms),
-		hover: format!(
-			"{}, when this device received or sent it.\nThe sender's own clock claims {}.",
-			zone.hover(received_ms),
-			zone.hover(sent_ms)
+		hover: tr!(
+			"row-time-hover",
+			local = zone.hover(received_ms),
+			claimed = zone.hover(sent_ms)
 		),
 	}
 }
@@ -63,22 +64,24 @@ pub fn row_times(zone: &LocalZone, received_ms: u64, sent_ms: u64) -> RowTimes {
 /// A short, honest guess of what a file is, from its name and advisory type.
 pub fn type_guess(name: &str, media_type: &str, executable_warning: bool) -> &'static str {
 	if executable_warning {
-		return "Program or script (runs code)";
+		return tr!("type-program");
 	}
 	let ext = name
 		.rsplit_once('.')
 		.map_or("", |(_, e)| e)
 		.to_ascii_lowercase();
 	match (media_type.split('/').next().unwrap_or(""), ext.as_str()) {
-		("image", _) => "Image",
-		("audio", _) => "Audio",
-		("video", _) => "Video",
+		("image", _) => tr!("type-image"),
+		("audio", _) => tr!("type-audio"),
+		("video", _) => tr!("type-video"),
 		("text", _) | (_, "txt" | "md" | "log" | "json" | "csv" | "toml" | "yaml" | "yml") => {
-			"Text"
+			tr!("type-text")
 		}
-		(_, "zip" | "tar" | "gz" | "7z" | "rar" | "xz" | "zst") => "Archive",
-		(_, "pdf" | "doc" | "docx" | "odt" | "xls" | "xlsx" | "ppt" | "pptx") => "Document",
-		_ => "Unknown type",
+		(_, "zip" | "tar" | "gz" | "7z" | "rar" | "xz" | "zst") => tr!("type-archive"),
+		(_, "pdf" | "doc" | "docx" | "odt" | "xls" | "xlsx" | "ppt" | "pptx") => {
+			tr!("type-document")
+		}
+		_ => tr!("type-unknown"),
 	}
 }
 
@@ -91,23 +94,23 @@ pub fn required_space(size: u64) -> u64 {
 pub fn offer_warnings(offer: &OfferView, max_offer_mib: Option<u32>) -> Vec<String> {
 	let mut out = Vec::new();
 	if offer.executable_warning {
-		out.push("The name looks like a program or script. Relay never runs files; do not open it unless you trust the sender.".to_owned());
+		out.push(tr!("offer-warn-executable").to_owned());
 	}
 	if offer.size >= LARGE_FILE_BYTES {
-		out.push(format!(
-			"Large file: downloading needs about {} of free space.",
-			format_size(required_space(offer.size))
+		out.push(tr!(
+			"offer-warn-large",
+			size = format_size(required_space(offer.size))
 		));
 	} else if !offer.outgoing && offer.status == OfferStatus::Offered {
-		out.push(format!(
-			"Needs about {} free in the folder you choose.",
-			format_size(required_space(offer.size))
+		out.push(tr!(
+			"offer-warn-space",
+			size = format_size(required_space(offer.size))
 		));
 	}
 	if let Some(cap) = max_offer_mib.filter(|c| *c > 0)
 		&& offer.size > u64::from(cap) * 1024 * 1024
 	{
-		out.push(format!("Over this daemon's {cap} MiB offer limit."));
+		out.push(tr!("offer-warn-cap", cap = cap));
 	}
 	out
 }
@@ -137,7 +140,7 @@ impl Counter {
 	}
 
 	pub fn label(self) -> String {
-		format!("{} / {} bytes", self.used, self.limit)
+		tr!("counter-bytes", used = self.used, limit = self.limit)
 	}
 }
 
@@ -162,31 +165,19 @@ pub fn compose_blocked(
 		})
 	};
 	if *feed != Feed::Live {
-		return blocked(
-			"Not connected to the daemon, so nothing can be sent.",
-			false,
-		);
+		return blocked(tr!("blocked-not-connected"), false);
 	}
 	if !daemon_enabled {
-		return blocked(
-			"Messaging is turned off in the daemon (messages.enabled = false).",
-			false,
-		);
+		return blocked(tr!("blocked-daemon-off"), false);
 	}
 	if !session.is_live() {
-		return blocked("This call has ended. The transcript is read-only.", true);
+		return blocked(tr!("blocked-call-ended"), true);
 	}
 	if !session.perms.allow_messages {
-		return blocked(
-			"Messages are turned off for this call. Both sides enforce this: turn it on below, and the other side must allow it too.",
-			false,
-		);
+		return blocked(tr!("blocked-messages-off"), false);
 	}
 	if session.history_full() {
-		return blocked(
-			"This call's message history is full. Nothing is deleted automatically: export it and clear it to continue.",
-			true,
-		);
+		return blocked(tr!("blocked-history-full"), true);
 	}
 	None
 }
@@ -194,9 +185,9 @@ pub fn compose_blocked(
 /// Whether a file or image may be sent now.
 pub fn files_blocked(session: &SessionView) -> Option<&'static str> {
 	if !session.is_live() {
-		Some("The call has ended.")
+		Some(tr!("files-blocked-ended"))
 	} else if !session.perms.allow_files {
-		Some("Files are turned off for this call.")
+		Some(tr!("files-blocked-off"))
 	} else {
 		None
 	}
@@ -244,25 +235,28 @@ pub fn progress(offer: &OfferView) -> f32 {
 
 pub fn status_label(offer: &OfferView) -> String {
 	let who = if offer.outgoing {
-		"You offered"
+		tr!("offer-you-offered")
 	} else {
-		"Offered to you"
+		tr!("offer-offered-to-you")
 	};
 	match offer.status {
 		OfferStatus::Offered => who.to_owned(),
-		OfferStatus::InProgress => format!("Transferring {:.0}%", progress(offer) * 100.0),
-		OfferStatus::Completed if offer.outgoing => "Sent".to_owned(),
-		OfferStatus::Completed => "Saved".to_owned(),
-		OfferStatus::Rejected => "Declined".to_owned(),
-		OfferStatus::Failed => format!("Failed ({})", reason_word(&offer.failure)),
-		OfferStatus::Cancelled => "Cancelled".to_owned(),
-		OfferStatus::Expired => "Expired: the call ended, the file is gone from here".to_owned(),
+		OfferStatus::InProgress => tr!(
+			"offer-transferring",
+			percent = format!("{:.0}", progress(offer) * 100.0)
+		),
+		OfferStatus::Completed if offer.outgoing => tr!("offer-sent").to_owned(),
+		OfferStatus::Completed => tr!("offer-saved").to_owned(),
+		OfferStatus::Rejected => tr!("offer-declined").to_owned(),
+		OfferStatus::Failed => tr!("offer-failed", reason = reason_word(&offer.failure)),
+		OfferStatus::Cancelled => tr!("offer-cancelled").to_owned(),
+		OfferStatus::Expired => tr!("offer-expired").to_owned(),
 	}
 }
 
 fn reason_word(failure: &str) -> &str {
 	if failure.is_empty() {
-		"unknown reason"
+		tr!("offer-unknown-reason")
 	} else {
 		failure
 	}
@@ -271,49 +265,47 @@ fn reason_word(failure: &str) -> &str {
 /// Text for a failed message delivery.
 pub fn delivery_failure(reason: &str) -> String {
 	match reason {
-		"timeout" => "Not delivered: the other side did not answer.".to_owned(),
-		"disabled" => "Refused: the other side has messages turned off.".to_owned(),
-		"too_large" => "Refused: too large.".to_owned(),
-		"invalid" => "Refused: not valid text.".to_owned(),
-		"rate_limited" => "Refused: sent too fast.".to_owned(),
-		"history_full" => "Refused: the other side's history is full.".to_owned(),
-		"unsupported" => "Refused: the other side does not support this.".to_owned(),
-		"ended" => "Not delivered: the call ended.".to_owned(),
-		_ => "Not delivered.".to_owned(),
+		"timeout" => tr!("delivery-timeout").to_owned(),
+		"disabled" => tr!("delivery-disabled").to_owned(),
+		"too_large" => tr!("delivery-too-large").to_owned(),
+		"invalid" => tr!("delivery-invalid").to_owned(),
+		"rate_limited" => tr!("delivery-rate-limited").to_owned(),
+		"history_full" => tr!("delivery-history-full").to_owned(),
+		"unsupported" => tr!("delivery-unsupported").to_owned(),
+		"ended" => tr!("delivery-ended").to_owned(),
+		_ => tr!("delivery-default").to_owned(),
 	}
 }
 
 /// What to tell the user for a daemon problem code. Never includes content.
 pub fn problem_text(code: &str) -> String {
 	let text = match code {
-		"MESSAGES_DISABLED" => "Messaging is turned off in the daemon.",
-		"SESSION_NOT_FOUND" => "That call has no messaging session (any more).",
-		"SESSION_ENDED" => "The call has ended; the transcript is read-only.",
-		"SESSION_PERMISSION_OFF" => "That is turned off for this call (both sides must allow it).",
-		"PEER_UNAVAILABLE" => "The other side cannot be reached right now.",
-		"TEXT_INVALID" => "That text cannot be sent (control or invisible characters).",
-		"TEXT_TOO_LONG" => "That message is longer than 4096 bytes.",
-		"IMAGE_INVALID" | "IMAGE_UNSUPPORTED" => "That image cannot be sent.",
-		"IMAGE_TOO_LARGE" => "That image is too large to send inline; offer it as a file.",
-		"HISTORY_FULL" => "The message history of this call is full. Export it and clear it.",
-		"RATE_LIMITED" => "Slow down: too many messages.",
-		"TOO_MANY_OFFERS" => "Too many file offers in this call.",
-		"MESSAGE_NOT_FOUND" | "MESSAGE_STATE" => "That message cannot be changed now.",
-		"OFFER_NOT_FOUND" | "OFFER_STATE" => "That file offer cannot be changed now.",
-		"FILE_REFUSED" => "The daemon refused that file (it must be a regular file, not a link).",
-		"FILE_TOO_LARGE" => "That file is over the daemon's offer size limit.",
-		"FILE_CHANGED" => "The file changed while it was being read; offer it again.",
-		"TOO_MANY_TRANSFERS" => "Two transfers are already running; wait for one to finish.",
-		"NO_SPACE" => "Not enough free space in that folder.",
-		"DESTINATION_INVALID" => "That folder or file name cannot be used.",
-		"PREVIEW_UNAVAILABLE" => "No text preview is possible for that file.",
-		"EXPORT_TOO_LARGE" => "The export is too large to return; choose a file.",
-		"EXPORT_WRITE_FAILED" => "The daemon could not write the export file.",
-		"INVALID_SETTING" => "The daemon refused that setting.",
-		"PermissionDenied" | "PERMISSION_DENIED" => {
-			"The daemon did not grant this app the messages capability."
-		}
-		_ => "The daemon refused the request.",
+		"MESSAGES_DISABLED" => tr!("problem-messages-disabled"),
+		"SESSION_NOT_FOUND" => tr!("problem-session-not-found"),
+		"SESSION_ENDED" => tr!("problem-session-ended"),
+		"SESSION_PERMISSION_OFF" => tr!("problem-session-permission-off"),
+		"PEER_UNAVAILABLE" => tr!("problem-peer-unavailable"),
+		"TEXT_INVALID" => tr!("problem-text-invalid"),
+		"TEXT_TOO_LONG" => tr!("problem-text-too-long"),
+		"IMAGE_INVALID" | "IMAGE_UNSUPPORTED" => tr!("problem-image-invalid"),
+		"IMAGE_TOO_LARGE" => tr!("problem-image-too-large"),
+		"HISTORY_FULL" => tr!("problem-history-full"),
+		"RATE_LIMITED" => tr!("problem-rate-limited"),
+		"TOO_MANY_OFFERS" => tr!("problem-too-many-offers"),
+		"MESSAGE_NOT_FOUND" | "MESSAGE_STATE" => tr!("problem-message-not-found"),
+		"OFFER_NOT_FOUND" | "OFFER_STATE" => tr!("problem-offer-not-found"),
+		"FILE_REFUSED" => tr!("problem-file-refused"),
+		"FILE_TOO_LARGE" => tr!("problem-file-too-large"),
+		"FILE_CHANGED" => tr!("problem-file-changed"),
+		"TOO_MANY_TRANSFERS" => tr!("problem-too-many-transfers"),
+		"NO_SPACE" => tr!("problem-no-space"),
+		"DESTINATION_INVALID" => tr!("problem-destination-invalid"),
+		"PREVIEW_UNAVAILABLE" => tr!("problem-preview-unavailable"),
+		"EXPORT_TOO_LARGE" => tr!("problem-export-too-large"),
+		"EXPORT_WRITE_FAILED" => tr!("problem-export-write-failed"),
+		"INVALID_SETTING" => tr!("problem-invalid-setting"),
+		"PermissionDenied" | "PERMISSION_DENIED" => tr!("problem-permission-denied"),
+		_ => tr!("problem-default"),
 	};
 	text.to_owned()
 }
@@ -345,10 +337,10 @@ pub fn choose_session(
 
 /// Used history as text, `1.2 MiB of 64.0 MiB`.
 pub fn usage_label(session: &SessionView) -> String {
-	format!(
-		"History {} of {}",
-		format_size(session.used_bytes),
-		format_size(session.limit_bytes)
+	tr!(
+		"history-usage",
+		used = format_size(session.used_bytes),
+		limit = format_size(session.limit_bytes)
 	)
 }
 

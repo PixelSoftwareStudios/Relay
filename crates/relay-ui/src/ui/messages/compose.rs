@@ -9,6 +9,7 @@ use crate::messaging::actions::Intent;
 use crate::messaging::model::SessionView;
 use crate::messaging::rules::{Blocked, Counter, files_blocked};
 use crate::theme;
+use crate::tr;
 
 /// Remove an Enter press without Shift from this frame's input and say
 /// whether there was one. egui's own shortcut matching ignores extra Shift,
@@ -35,10 +36,10 @@ pub fn blocked(
 		ui.label(RichText::new(&why.reason).color(theme::WARN));
 		if why.export_clear {
 			ui.horizontal(|ui| {
-				if ui.button("Export JSON…").clicked() {
+				if ui.button(tr!("msg-export-json")).clicked() {
 					intents.push(export_intent(session));
 				}
-				if ui.button("Clear…").clicked() {
+				if ui.button(tr!("msg-clear")).clicked() {
 					*confirm_clear = Some(session.key.clone());
 				}
 			});
@@ -75,7 +76,7 @@ pub fn editor(
 			.id(id)
 			.desired_rows(2)
 			.desired_width(f32::INFINITY)
-			.hint_text("Message (Enter sends, Shift+Enter adds a line)"),
+			.hint_text(tr!("msg-compose-hint")),
 	);
 	let counter = Counter::of(draft);
 	ui.horizontal_wrapped(|ui| {
@@ -87,7 +88,7 @@ pub fn editor(
 		});
 		if counter.over() {
 			ui.label(
-				RichText::new("Too long: shorten it or offer it as a file.")
+				RichText::new(tr!("msg-too-long"))
 					.small()
 					.color(theme::ERROR),
 			);
@@ -95,7 +96,7 @@ pub fn editor(
 	});
 	let send = enter
 		|| ui
-			.add_enabled(counter.sendable(draft), egui::Button::new("Send"))
+			.add_enabled(counter.sendable(draft), egui::Button::new(tr!("msg-send")))
 			.clicked();
 	if send && counter.sendable(draft) {
 		intents.push(Intent::Send {
@@ -105,10 +106,8 @@ pub fn editor(
 	}
 	ui.horizontal_wrapped(|ui| {
 		if ui
-			.button("Send clipboard to call…")
-			.on_hover_text(
-				"Reads the clipboard, then shows where it would go and asks you to confirm",
-			)
+			.button(tr!("msg-send-clipboard"))
+			.on_hover_text(tr!("msg-send-clipboard-hover"))
 			.clicked()
 		{
 			ui.memory_mut(|m| m.surrender_focus(id));
@@ -117,7 +116,7 @@ pub fn editor(
 			*clip = ClipFlow::Awaiting;
 		}
 		let blocked = files_blocked(session);
-		let offer = ui.add_enabled(blocked.is_none(), egui::Button::new("Offer file…"));
+		let offer = ui.add_enabled(blocked.is_none(), egui::Button::new(tr!("msg-offer-file")));
 		if let Some(why) = blocked {
 			offer.clone().on_disabled_hover_text(why);
 		}

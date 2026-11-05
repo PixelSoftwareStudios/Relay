@@ -15,6 +15,7 @@ use crate::messaging::rules::{INLINE_IMAGE_MAX_BYTES, delivery_failure, format_s
 use crate::messaging::state::Transcript;
 use crate::messaging::virtual_list::VirtualList;
 use crate::theme;
+use crate::tr;
 use relay_io::localtime::LocalZone;
 
 /// First guess for an unmeasured row (points).
@@ -82,19 +83,13 @@ pub fn show(
 		cache.key = key;
 	}
 	if t.truncated {
-		ui.label(
-			RichText::new(
-				"Older messages are not shown here. Export the call for the complete history.",
-			)
-			.small()
-			.weak(),
-		);
+		ui.label(RichText::new(tr!("msg-older-hidden")).small().weak());
 	}
 	if cache.rows.is_empty() {
 		let text = if t.entries.is_empty() {
-			"No messages yet."
+			tr!("msg-none")
 		} else {
-			"Nothing matches."
+			tr!("msg-no-match")
 		};
 		ui.label(RichText::new(text).weak());
 		return;
@@ -162,7 +157,7 @@ fn draw_row(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 fn header(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 	ui.horizontal_wrapped(|ui| {
 		let who = if entry.outgoing {
-			"You"
+			tr!("msg-you")
 		} else {
 			rcx.session.peer_name.as_str()
 		};
@@ -171,15 +166,15 @@ fn header(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 		ui.label(RichText::new(times.label).small().weak())
 			.on_hover_text(times.hover);
 		if entry.pinned {
-			ui.label(RichText::new("pinned").small().color(theme::WARN));
+			ui.label(RichText::new(tr!("msg-pinned")).small().color(theme::WARN));
 		}
 		if entry.outgoing {
 			match entry.delivery {
 				Delivery::Sending => {
-					ui.label(RichText::new("sending…").small().weak());
+					ui.label(RichText::new(tr!("msg-sending")).small().weak());
 				}
 				Delivery::Delivered => {
-					ui.label(RichText::new("delivered").small().weak());
+					ui.label(RichText::new(tr!("msg-delivered")).small().weak());
 				}
 				Delivery::Failed => {
 					ui.label(
@@ -196,14 +191,18 @@ fn header(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 fn footer(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 	ui.horizontal_wrapped(|ui| {
 		if let Some(text) = entry.text()
-			&& ui.small_button("Copy").clicked()
+			&& ui.small_button(tr!("action-copy")).clicked()
 		{
 			rcx.intents.push(Intent::Copy(text.to_owned()));
 		}
-		let label = if entry.pinned { "Unpin" } else { "Pin" };
+		let label = if entry.pinned {
+			tr!("msg-unpin")
+		} else {
+			tr!("msg-pin")
+		};
 		if ui
 			.small_button(label)
-			.on_hover_text("Pins stay on this device only")
+			.on_hover_text(tr!("msg-pin-hover"))
 			.clicked()
 		{
 			rcx.intents.push(Intent::Pin {
@@ -216,7 +215,7 @@ fn footer(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 		if entry.outgoing
 			&& entry.delivery == Delivery::Failed
 			&& rcx.session.is_live()
-			&& ui.small_button("Retry").clicked()
+			&& ui.small_button(tr!("msg-retry")).clicked()
 		{
 			rcx.intents.push(Intent::Retry {
 				session: rcx.session.key.clone(),
@@ -235,12 +234,7 @@ fn image(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView, img: &ImageView) {
 		format_size(img.data.len() as u64)
 	);
 	if img.data.len() > INLINE_IMAGE_MAX_BYTES {
-		ui.label(
-			RichText::new(
-				"This image is over the inline limit and is not shown. Ask for it as a file.",
-			)
-			.color(theme::WARN),
-		);
+		ui.label(RichText::new(tr!("msg-image-over-limit")).color(theme::WARN));
 		return;
 	}
 	let key = format!("{}:{}", rcx.session.key, entry.ordinal);
@@ -252,13 +246,10 @@ fn image(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView, img: &ImageView) {
 			ui.add(egui::Image::new(tex).fit_to_exact_size(size * scale));
 		}
 		Lookup::Missing => {
-			ui.label(
-				RichText::new("This image cannot be shown (it is not a valid or safe picture).")
-					.color(theme::WARN),
-			);
+			ui.label(RichText::new(tr!("msg-image-unsafe")).color(theme::WARN));
 		}
 		Lookup::Pending => {
-			ui.label(RichText::new("Loading image…").weak());
+			ui.label(RichText::new(tr!("msg-image-loading")).weak());
 		}
 		Lookup::Unknown => {
 			if rcx.textures.request(&key) {

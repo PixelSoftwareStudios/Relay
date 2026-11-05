@@ -7,6 +7,7 @@ use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::{avatar_check, decode_for_texture};
 use crate::inbox::{Invite, Picked};
 use crate::shell::PickedFile;
+use crate::tr;
 
 impl Actions {
 	/// Start the standalone daemon (only when the user clicks). The window
@@ -36,7 +37,7 @@ impl Actions {
 				shell
 					.stop_daemon()
 					.await
-					.map(|()| "The Relay daemon stopped.".to_owned())
+					.map(|()| tr!("daemon-stopped").to_owned())
 			} else {
 				shell.start_daemon().await
 			};
@@ -172,7 +173,7 @@ async fn load_picked(file: PickedFile) -> Result<Picked, String> {
 		.await
 		.ok()
 		.flatten()
-		.ok_or_else(|| "That file is not a readable image.".to_owned())?;
+		.ok_or_else(|| tr!("err-unreadable-image").to_owned())?;
 	Ok(Picked {
 		bytes,
 		media_type,

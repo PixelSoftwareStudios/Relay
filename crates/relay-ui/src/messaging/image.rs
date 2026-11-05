@@ -1,5 +1,6 @@
 //! Inline image decoding with hard limits, run off the UI thread.
 
+use crate::tr;
 use std::io::Cursor;
 
 use image::{ImageReader, Limits};
@@ -14,17 +15,26 @@ const MAX_ALLOC: u64 = 80 * 1024 * 1024;
 pub const THUMB_SIDE: u32 = 384;
 
 /// Why an image is not shown. The text is safe to display.
-#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageProblem {
-	#[error("The image is larger than the {INLINE_IMAGE_MAX_BYTES} byte inline limit.")]
 	TooLarge,
-	#[error("The image is not a valid PNG, JPEG, WebP or GIF.")]
 	Invalid,
-	#[error("The image would need more than 16 megapixels; it is not decoded.")]
 	TooManyPixels,
-	#[error("The image could not be decoded.")]
 	Failed,
 }
+
+impl std::fmt::Display for ImageProblem {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		match self {
+			Self::TooLarge => f.write_str(&tr!("image-too-large", limit = INLINE_IMAGE_MAX_BYTES)),
+			Self::Invalid => f.write_str(tr!("image-invalid")),
+			Self::TooManyPixels => f.write_str(tr!("image-too-many-pixels")),
+			Self::Failed => f.write_str(tr!("image-failed")),
+		}
+	}
+}
+
+impl std::error::Error for ImageProblem {}
 
 /// Header check first (nothing is allocated for a refused picture), then a
 /// decode under an allocation limit, scaled to a thumbnail.

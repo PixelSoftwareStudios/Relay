@@ -7,6 +7,7 @@ use relay_client::{ChannelOptions, Secret};
 use crate::controller::{ControlError, Controller, decode_id};
 use crate::engine::Command;
 use crate::model::{Advert, Channel, ConnectionView, Inbound};
+use crate::tr;
 
 const CHANNEL_ID_LEN: usize = 16;
 const PEER_ID_LEN: usize = 32;
@@ -20,7 +21,12 @@ pub const INVITE_USES_MAX: u32 = 100;
 
 impl From<ConnectionStringProblem> for ControlError {
 	fn from(problem: ConnectionStringProblem) -> Self {
-		Self::Invalid(problem.message())
+		Self::Invalid(match problem {
+			ConnectionStringProblem::Scheme => tr!("conn-scheme"),
+			ConnectionStringProblem::MissingFingerprint => tr!("conn-missing-fingerprint"),
+			ConnectionStringProblem::BadFingerprint => tr!("conn-bad-fingerprint"),
+			ConnectionStringProblem::BadAddress => tr!("conn-bad-address"),
+		})
 	}
 }
 
@@ -39,15 +45,10 @@ pub fn parse_join_target(text: &str) -> Result<JoinTarget, ControlError> {
 		{
 			Ok(JoinTarget::Invite(text.to_owned()))
 		} else {
-			Err(ControlError::Invalid("that invite token is malformed"))
+			Err(ControlError::Invalid(tr!("err-invite-malformed")))
 		};
 	}
-	decode_id(
-		text,
-		CHANNEL_ID_LEN,
-		"enter an invite token or a 32-character channel id",
-	)
-	.map(JoinTarget::ChannelId)
+	decode_id(text, CHANNEL_ID_LEN, tr!("err-join-target")).map(JoinTarget::ChannelId)
 }
 
 fn valid_text(text: &str, max: usize) -> bool {
@@ -56,11 +57,11 @@ fn valid_text(text: &str, max: usize) -> bool {
 
 impl Controller {
 	fn channel(&self, id: &str) -> Result<(Vec<u8>, Channel), ControlError> {
-		let bytes = decode_id(id, CHANNEL_ID_LEN, "malformed channel id")?;
+		let bytes = decode_id(id, CHANNEL_ID_LEN, tr!("err-bad-channel-id"))?;
 		let channel = self
 			.hub
 			.read(|s| s.channels.iter().find(|c| c.channel_id == id).cloned())
-			.ok_or(ControlError::Invalid("unknown channel"))?;
+			.ok_or(ControlError::Invalid(tr!("err-unknown-channel")))?;
 		Ok((bytes, channel))
 	}
 
@@ -72,14 +73,10 @@ impl Controller {
 	) -> Result<(), ControlError> {
 		let name = name.trim();
 		if !valid_text(name, NAME_MAX_CHARS) {
-			return Err(ControlError::Invalid(
-				"channel name must be 1 to 32 printable characters",
-			));
+			return Err(ControlError::Invalid(tr!("err-channel-name")));
 		}
 		if options.password && !valid_text(password, SECRET_MAX_CHARS) {
-			return Err(ControlError::Invalid(
-				"a password-protected channel needs a password",
-			));
+			return Err(ControlError::Invalid(tr!("err-channel-needs-password")));
 		}
 		let password = if options.password {
 			Secret::new(password)
@@ -106,7 +103,7 @@ impl Controller {
 			},
 			JoinTarget::ChannelId(channel_id) => {
 				if !valid_text(password, SECRET_MAX_CHARS) {
-					return Err(ControlError::Invalid("enter the channel password"));
+					return Err(ControlError::Invalid(tr!("err-enter-password")));
 				}
 				Command::JoinChannel {
 					channel_id,
@@ -134,16 +131,12 @@ impl Controller {
 	) -> Result<Secret, ControlError> {
 		let (id, channel) = self.channel(channel_id)?;
 		if !channel.can_admin() {
-			return Err(ControlError::Invalid(
-				"only an owner or admin can create invites",
-			));
+			return Err(ControlError::Invalid(tr!("err-invite-admin-only")));
 		}
 		if !(INVITE_TTL_MIN..=INVITE_TTL_MAX).contains(&ttl_seconds)
 			|| !(1..=INVITE_USES_MAX).contains(&uses)
 		{
-			return Err(ControlError::Invalid(
-				"invite lifetime or use count is out of range",
-			));
+			return Err(ControlError::Invalid(tr!("err-invite-range")));
 		}
 		let outcome = self
 			.run(Command::CreateInvite {
@@ -154,7 +147,7 @@ impl Controller {
 			.await?;
 		outcome
 			.invite
-			.ok_or_else(|| ControlError::Engine("the engine returned no invite".into()))
+			.ok_or_else(|| ControlError::Engine(tr!("err-no-invite").into()))
 	}
 
 	/// Revoke a peer that proved membership of the channel. The peer id is the
@@ -162,9 +155,7 @@ impl Controller {
 	pub async fn revoke_member(&self, channel_id: &str, peer_id: &str) -> Result<(), ControlError> {
 		let (id, channel) = self.channel(channel_id)?;
 		if !channel.can_admin() {
-			return Err(ControlError::Invalid(
-				"only an owner or admin can revoke members",
-			));
+			return Err(ControlError::Invalid(tr!("err-revoke-admin-only")));
 		}
 		let fingerprint = decode_id(peer_id, PEER_ID_LEN, "malformed peer id")?;
 		let member = self.hub.read(|s| {
@@ -173,9 +164,7 @@ impl Controller {
 				.any(|p| p.peer_id == peer_id && p.shared_channels.iter().any(|c| c == channel_id))
 		});
 		if !member {
-			return Err(ControlError::Invalid(
-				"that peer is not a proven member of the channel",
-			));
+			return Err(ControlError::Invalid(tr!("err-not-member")));
 		}
 		self.run(Command::RevokeMember {
 			channel_id: id,
@@ -191,7 +180,7 @@ impl Controller {
 		advert: Option<Advert>,
 	) -> Result<(), ControlError> {
 		if inbound.is_none() && advert.is_none() {
-			return Err(ControlError::Invalid("nothing to change"));
+			return Err(ControlError::Invalid(tr!("err-nothing-to-change")));
 		}
 		self.run(Command::SetPrivacy { inbound, advert })
 			.await
@@ -218,7 +207,7 @@ impl Controller {
 		let bytes = hex::decode(hash)
 			.ok()
 			.filter(|b| b.len() == 32)
-			.ok_or(ControlError::Invalid("malformed avatar hash"))?;
+			.ok_or(ControlError::Invalid(tr!("err-bad-avatar-hash")))?;
 		let session = self.slot.get().ok_or(ControlError::NotConnected)?;
 		Ok(session.ops.avatar(bytes).await?)
 	}

@@ -13,9 +13,11 @@ use crate::theme;
 
 use super::local::Local;
 use super::widgets::banner;
+use crate::tr;
 
 pub fn hotkey(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	let header = egui::CollapsingHeader::new(RichText::new("Push-to-talk hotkey").heading())
+	let header = egui::CollapsingHeader::new(RichText::new(tr!("hotkey-heading")).heading())
+		.id_salt("hotkey")
 		.default_open(false)
 		.show(ui, |ui| body(ui, actions, local));
 	if header.body_returned.is_none() {
@@ -31,12 +33,12 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	}
 	let stored = match &panel.stored {
 		None => {
-			ui.label(RichText::new("Asking the daemon…").weak());
+			ui.label(RichText::new(tr!("asking-daemon")).weak());
 			return;
 		}
 		Some(Err(message)) => {
 			banner(ui, message, true);
-			if ui.button("Try again").clicked() {
+			if ui.button(tr!("action-try-again")).clicked() {
 				panel.requested = false;
 				panel.stored = None;
 			}
@@ -44,24 +46,24 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		}
 		Some(Ok(values)) => values.clone(),
 	};
-	ui.label("Hold this key anywhere to talk while a call is in push-to-talk mode.");
+	ui.label(tr!("hotkey-intro"));
 	ui.horizontal(|ui| {
-		ui.label("Hotkey");
+		ui.label(tr!("hotkey-field"));
 		ui.add(
 			egui::TextEdit::singleline(&mut panel.draft.accelerator)
 				.char_limit(ACCELERATOR_MAX_CHARS)
-				.hint_text("Ctrl+Alt+Space (empty turns it off)"),
+				.hint_text(tr!("hotkey-hint")),
 		);
 	});
 	ui.horizontal(|ui| {
-		ui.label("Release delay");
+		ui.label(tr!("hotkey-delay"));
 		ui.add(
 			egui::DragValue::new(&mut panel.draft.release_delay_ms)
 				.range(0..=RELEASE_DELAY_MAX_MS)
 				.speed(10)
-				.suffix(" ms"),
+				.suffix(format!(" {}", tr!("unit-ms"))),
 		)
-		.on_hover_text("How long the microphone stays open after you let go of the key.");
+		.on_hover_text(tr!("hotkey-delay-hover"));
 	});
 	let problem = panel.draft.check().err();
 	if let Some(text) = problem {
@@ -69,13 +71,16 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	}
 	ui.horizontal(|ui| {
 		let ready = panel.dirty() && problem.is_none() && !panel.saving;
-		if ui.add_enabled(ready, egui::Button::new("Save")).clicked() {
+		if ui
+			.add_enabled(ready, egui::Button::new(tr!("action-save")))
+			.clicked()
+		{
 			panel.saving = true;
 			panel.report = None;
 			actions.save_hotkey_settings(stored, panel.draft.clone());
 		}
 		if ui
-			.add_enabled(panel.dirty(), egui::Button::new("Revert"))
+			.add_enabled(panel.dirty(), egui::Button::new(tr!("action-revert")))
 			.clicked()
 		{
 			panel.revert();
@@ -85,7 +90,7 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		None => {}
 		Some(Err(message)) => banner(ui, message, true),
 		Some(Ok(results)) if results.is_empty() => {
-			ui.label(RichText::new("Nothing to change.").weak());
+			ui.label(RichText::new(tr!("hotkey-nothing")).weak());
 		}
 		Some(Ok(results)) => {
 			for result in results {

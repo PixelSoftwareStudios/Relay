@@ -5,13 +5,14 @@ use egui::Ui;
 use super::local::Local;
 use crate::actions::Actions;
 use crate::model::Settings;
+use crate::tr;
 
 /// Volume slider whose drag value lives in `edit` until released.
 fn volume_slider(ui: &mut Ui, edit: &mut Option<f32>, current: f32) -> Option<f32> {
 	let mut value = edit.unwrap_or(current);
 	let response = ui.add(
 		egui::Slider::new(&mut value, 0.0..=1.0)
-			.text("Ringtone volume")
+			.text(tr!("ring-volume"))
 			.fixed_decimals(2),
 	);
 	if response.dragged() || (response.changed() && edit.is_some()) {
@@ -27,30 +28,21 @@ fn volume_slider(ui: &mut Ui, edit: &mut Option<f32>, current: f32) -> Option<f3
 /// Checkboxes for the ring preferences, the volume slider and "Test ring".
 pub fn ring_controls(ui: &mut Ui, settings: &Settings, actions: &Actions, local: &mut Local) {
 	let mut ringtone = settings.ringtone_enabled;
-	if ui
-		.checkbox(&mut ringtone, "Ring for incoming calls")
-		.changed()
-	{
+	if ui.checkbox(&mut ringtone, tr!("ring-incoming")).changed() {
 		actions.run(|c| async move {
 			c.set_ring_preferences(Some(ringtone), None, None, None)
 				.await
 		});
 	}
 	let mut ringback = settings.ringback_enabled;
-	if ui
-		.checkbox(&mut ringback, "Ringback while calling")
-		.changed()
-	{
+	if ui.checkbox(&mut ringback, tr!("ring-back")).changed() {
 		actions.run(|c| async move {
 			c.set_ring_preferences(None, None, Some(ringback), None)
 				.await
 		});
 	}
 	let mut sounds = settings.call_sounds_enabled;
-	if ui
-		.checkbox(&mut sounds, "Connect and hang-up sounds")
-		.changed()
-	{
+	if ui.checkbox(&mut sounds, tr!("ring-sounds")).changed() {
 		actions
 			.run(|c| async move { c.set_ring_preferences(None, None, None, Some(sounds)).await });
 	}
@@ -63,8 +55,8 @@ pub fn ring_controls(ui: &mut Ui, settings: &Settings, actions: &Actions, local:
 			);
 		}
 		if ui
-			.button("Test ring")
-			.on_hover_text("Plays the ring on this computer for two seconds.")
+			.button(tr!("ring-test"))
+			.on_hover_text(tr!("ring-test-hover"))
 			.clicked()
 		{
 			actions.run(|c| async move { c.preview_tone().await });

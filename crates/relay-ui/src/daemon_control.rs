@@ -4,6 +4,7 @@
 
 use std::time::Duration;
 
+use crate::tr;
 use relay_api::Endpoint;
 use relay_client::daemon::{self, Launch, Started, Stopped};
 
@@ -13,22 +14,19 @@ const STOP_WAIT: Duration = Duration::from_secs(10);
 /// The text for a finished start attempt: a note to show, or why it failed.
 pub fn start_message(outcome: Started) -> Result<String, String> {
 	match outcome {
-		Started::Launched { .. } => Ok("The Relay daemon started.".to_owned()),
-		Started::AlreadyRunning => Ok("The Relay daemon is already running.".to_owned()),
-		Started::BinaryNotFound { .. } => Err(format!(
-			"Cannot find the Relay daemon ({}). Install it next to this app or on your PATH, \
-			 or set {} to its location.",
-			daemon::binary_name(),
-			daemon::BINARY_ENV
+		Started::Launched { .. } => Ok(tr!("daemon-started").to_owned()),
+		Started::AlreadyRunning => Ok(tr!("daemon-already-running").to_owned()),
+		Started::BinaryNotFound { .. } => Err(tr!(
+			"daemon-not-found",
+			binary = daemon::binary_name(),
+			env = daemon::BINARY_ENV
 		)),
 		Started::FailedToStart { reason, log_tail } => {
 			let last = log_tail.lines().last().unwrap_or("").trim();
 			if last.is_empty() {
-				Err(format!("The Relay daemon did not start: {reason}."))
+				Err(tr!("daemon-start-failed", reason = reason))
 			} else {
-				Err(format!(
-					"The Relay daemon did not start: {reason}. Last log line: {last}"
-				))
+				Err(tr!("daemon-start-failed-log", reason = reason, last = last))
 			}
 		}
 	}
@@ -44,6 +42,6 @@ pub async fn start(endpoint: &Endpoint) -> Result<String, String> {
 pub async fn stop(endpoint: &Endpoint) -> Result<(), String> {
 	match daemon::stop(endpoint, CLIENT_NAME, STOP_WAIT).await {
 		Ok(Stopped::Stopped | Stopped::NotRunning) => Ok(()),
-		Err(error) => Err(format!("The Relay daemon did not stop: {error}")),
+		Err(error) => Err(tr!("daemon-stop-failed", error = error.to_string())),
 	}
 }

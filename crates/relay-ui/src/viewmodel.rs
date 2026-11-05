@@ -4,6 +4,7 @@
 use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
 use crate::model::{AppState, Call, CallMeter, Channel, Meters, Mode, Peer, Phase, Trust};
+use crate::tr;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallCard {
@@ -43,11 +44,11 @@ pub struct PeerRow {
 
 pub fn trust_label(trust: Trust) -> &'static str {
 	match trust {
-		Trust::Unknown => "Unknown",
-		Trust::TofuUnverified => "Seen before, not verified",
-		Trust::Verified => "Verified",
-		Trust::KeyChanged => "Key changed: do not trust",
-		Trust::Blocked => "Blocked",
+		Trust::Unknown => tr!("trust-unknown"),
+		Trust::TofuUnverified => tr!("trust-tofu"),
+		Trust::Verified => tr!("trust-verified"),
+		Trust::KeyChanged => tr!("trust-key-changed"),
+		Trust::Blocked => tr!("trust-blocked"),
 	}
 }
 
@@ -62,14 +63,18 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 		.filter(|c| !c.phase.is_terminal())
 		.map(|call| {
 			let peer = state.peers.iter().find(|p| p.peer_id == call.peer_id);
-			let name = peer.map_or_else(|| "Unknown peer".to_owned(), |p| p.display_name.clone());
+			let name = peer.map_or_else(
+				|| tr!("peer-unknown").to_owned(),
+				|p| p.display_name.clone(),
+			);
 			let avatar = Avatar::resolve(peer.map_or("", |p| p.avatar_hash.as_str()));
 			let meter = meter_for(meters, &call.call_id);
 			let connected = call.phase == Phase::Connected;
 			let speaking = connected && meter.is_some_and(|m| m.speaking);
 			let mut subtitle = phase_label(call.phase).to_owned();
 			if speaking {
-				subtitle.push_str(" · speaking");
+				subtitle.push_str(" · ");
+				subtitle.push_str(tr!("call-speaking"));
 			}
 			if !call.profile.is_empty() {
 				subtitle.push_str(&format!(" · {}", call.profile));
@@ -81,7 +86,9 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 				avatar,
 				phase: call.phase,
 				subtitle,
-				trust: peer.map_or("Unknown", |p| trust_label(p.trust)).to_owned(),
+				trust: peer
+					.map_or(tr!("trust-unknown"), |p| trust_label(p.trust))
+					.to_owned(),
 				fingerprint: peer.map_or_else(String::new, |p| p.fingerprint_short.clone()),
 				incoming: call.phase == Phase::IncomingRinging,
 				controllable: call.phase != Phase::IncomingRinging,
@@ -129,9 +136,9 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			subtitle: format!(
 				"{} · {}",
 				if p.reachable {
-					"Online"
+					tr!("peer-online")
 				} else {
-					"Not reachable"
+					tr!("peer-unreachable")
 				},
 				trust_label(p.trust)
 			),
@@ -147,11 +154,13 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 }
 
 /// Mode buttons: label, mode, and whether it needs consent first.
-pub const MODES: [(&str, Mode); 3] = [
-	("Listen only", Mode::ReceiveOnly),
-	("Push-to-talk", Mode::PushToTalk),
-	("Open mic", Mode::OpenMic),
-];
+pub fn modes() -> [(&'static str, Mode); 3] {
+	[
+		(tr!("mode-listen"), Mode::ReceiveOnly),
+		(tr!("mode-ptt"), Mode::PushToTalk),
+		(tr!("mode-open"), Mode::OpenMic),
+	]
+}
 
 /// A mode button is enabled when it needs no consent or consent is ticked.
 pub fn mode_enabled(mode: Mode, consent_checked: bool) -> bool {

@@ -13,6 +13,7 @@ use crate::engine::{Connection, Engine, EngineError};
 use crate::hub::Hub;
 use crate::model::Link;
 use crate::shell::Shell;
+use crate::tr;
 
 const BACKOFF_BASE: Duration = Duration::from_millis(250);
 const BACKOFF_MAX: Duration = Duration::from_secs(5);
@@ -80,10 +81,8 @@ fn now() -> std::time::Instant {
 fn gave_up(hub: &Hub, autostart: &AutoStart) -> Started {
 	let why = autostart
 		.last_failure()
-		.unwrap_or_else(|| "It stopped again right after starting.".to_owned());
-	let text = format!(
-		"The Relay daemon keeps stopping, so it is not restarted again automatically. {why}"
-	);
+		.unwrap_or_else(|| tr!("daemon-stopped-again").to_owned());
+	let text = tr!("daemon-keeps-stopping", why = why);
 	hub.update(|s| s.set_link_down(Link::Offline, Some(text)));
 	Started::Shown
 }
@@ -152,8 +151,8 @@ async fn mirror(
 			item = conn.watch.next() => match item {
 				Ok(Some(WatchItem::Snapshot(snapshot))) => hub.update(|s| s.load_snapshot(&snapshot)),
 				Ok(Some(WatchItem::Event { revision, event })) => hub.update(|s| s.apply_event(revision, &event)),
-				Ok(Some(WatchItem::Resync(r))) => return format!("engine asked for a resync: {}", r.reason),
-				Ok(None) => return "the daemon closed the connection".into(),
+				Ok(Some(WatchItem::Resync(r))) => return tr!("watch-resync", reason = r.reason),
+				Ok(None) => return tr!("watch-closed").into(),
 				Err(e) => return e.to_string(),
 			},
 			sample = next_telemetry(&mut conn.telemetry) => match sample {

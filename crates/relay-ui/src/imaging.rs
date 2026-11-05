@@ -2,6 +2,7 @@
 
 use std::io::Cursor;
 
+use crate::tr;
 use image::{DynamicImage, ImageFormat, ImageReader, Limits};
 
 /// Largest source dimension accepted for decoding.
@@ -53,8 +54,6 @@ pub fn decode_for_texture(bytes: &[u8]) -> Option<Decoded> {
 /// Largest width or height of an uploaded avatar, as the engine enforces it.
 pub const AVATAR_MAX_DIM: u32 = 2048;
 
-const FORMATS: &str = "use PNG, JPEG, WebP, GIF, BMP or TIFF";
-
 /// Client-side mirror of the engine's avatar checks, with its wording (`docs/api.md`,
 /// "Avatar refusal texts"): the format is sniffed from the bytes (the file name and media
 /// type are ignored), then the header is read for the dimensions without decoding pixels.
@@ -65,7 +64,7 @@ pub fn avatar_check(bytes: &[u8]) -> Result<&'static str, String> {
 	}
 	let reader = ImageReader::new(Cursor::new(bytes))
 		.with_guessed_format()
-		.map_err(|e| format!("avatar rejected: avatar could not be decoded: {e}"))?;
+		.map_err(|e| tr!("avatar-undecodable", error = e.to_string()))?;
 	let media = match reader.format() {
 		Some(ImageFormat::Png) => "image/png",
 		Some(ImageFormat::Jpeg) => "image/jpeg",
@@ -74,20 +73,21 @@ pub fn avatar_check(bytes: &[u8]) -> Result<&'static str, String> {
 		Some(ImageFormat::Bmp) => "image/bmp",
 		Some(ImageFormat::Tiff) => "image/tiff",
 		_ => {
-			return Err(format!(
-				"avatar rejected: unsupported or unrecognised image format ({FORMATS})"
-			));
+			return Err(tr!("avatar-bad-format").to_owned());
 		}
 	};
 	let (width, height) = reader
 		.into_dimensions()
-		.map_err(|e| format!("avatar rejected: avatar could not be decoded: {e}"))?;
+		.map_err(|e| tr!("avatar-undecodable", error = e.to_string()))?;
 	if width == 0 || height == 0 {
-		return Err("avatar rejected: avatar has zero width or height".to_owned());
+		return Err(tr!("avatar-zero-size").to_owned());
 	}
 	if width > AVATAR_MAX_DIM || height > AVATAR_MAX_DIM {
-		return Err(format!(
-			"avatar rejected: avatar dimensions {width}x{height} exceed the {AVATAR_MAX_DIM} pixel limit"
+		return Err(tr!(
+			"avatar-too-large",
+			width = width,
+			height = height,
+			limit = AVATAR_MAX_DIM
 		));
 	}
 	Ok(media)

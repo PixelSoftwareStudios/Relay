@@ -15,6 +15,7 @@ use super::state::{Feed, MAX_LOCAL_ENTRIES};
 use crate::engine::EngineError;
 use crate::shell::Shell;
 use crate::supervisor::backoff;
+use crate::tr;
 
 /// Repaints caused by incoming events are coalesced to this spacing.
 pub const FLUSH: Duration = Duration::from_millis(40);
@@ -99,7 +100,7 @@ async fn mirror(conn: MsgConnection, hub: &MsgHub, shell: &dyn Shell, epoch: u64
 			}
 		}
 		if hub.epoch() != epoch {
-			return "messages turned off".into();
+			return tr!("msg-turned-off").into();
 		}
 		hub.update(|s| {
 			s.load_list(&list.sessions, list.settings.as_ref());
@@ -132,7 +133,7 @@ async fn mirror(conn: MsgConnection, hub: &MsgHub, shell: &dyn Shell, epoch: u64
 						flush_at.get_or_insert_with(|| Instant::now() + FLUSH);
 					}
 					Ok(Some(SessionItem::Resync(_))) => break,
-					Ok(None) => return "the daemon closed the connection".into(),
+					Ok(None) => return tr!("watch-closed").into(),
 					Err(e) => return why(&e),
 				},
 				() = due => {
@@ -141,7 +142,7 @@ async fn mirror(conn: MsgConnection, hub: &MsgHub, shell: &dyn Shell, epoch: u64
 				}
 				() = hub.changed() => {
 					if hub.epoch() != epoch {
-						return "messages turned off".into();
+						return tr!("msg-turned-off").into();
 					}
 				}
 			}
