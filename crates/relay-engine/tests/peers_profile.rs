@@ -73,6 +73,7 @@ async fn a_discovered_name_is_shown_before_any_connection_and_is_sanitized() {
 			fingerprint_hint: Some(FingerprintHint::of(&target.fingerprint())),
 			capabilities: String::new(),
 			addresses: vec!["127.0.0.1:9".parse().unwrap()],
+			txt: Default::default(),
 		})
 		.unwrap();
 	tokio::time::sleep(Duration::from_millis(100)).await;

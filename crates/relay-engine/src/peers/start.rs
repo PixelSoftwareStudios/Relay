@@ -129,6 +129,8 @@ fn spawn_discovery(
 				port,
 				fingerprint: local,
 				capabilities: String::new(),
+				mode: Default::default(),
+				extra_txt: Vec::new(),
 			})
 			.map_err(|e| PeerError::Discovery(e.to_string()))
 	};
