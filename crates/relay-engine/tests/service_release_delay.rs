@@ -20,6 +20,7 @@ fn request(client: &RelayClient, op: u8, delay: u32) -> SetGlobalControlsRequest
 		microphone_gain: None,
 		playback_gain: None,
 		ptt_release_delay_ms: Some(delay),
+		autostart_daemon: None,
 	}
 }
 

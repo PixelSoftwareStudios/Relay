@@ -171,6 +171,7 @@ pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
 		avatar_sha256: aux.avatar.map(|h| h.to_vec()).unwrap_or_default(),
 		inbound_policy: inbound_to_pb(aux.inbound_policy) as i32,
 		advert_mode: advert_to_pb(aux.advert_mode) as i32,
+		autostart_daemon: aux.autostart_daemon,
 		ptt_release_delay_ms: u32::try_from(global.ptt_release_delay.as_millis())
 			.unwrap_or(u32::MAX),
 	}

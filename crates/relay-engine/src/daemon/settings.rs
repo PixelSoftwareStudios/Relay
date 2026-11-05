@@ -84,6 +84,7 @@ impl SettingsStore for FileSettings {
 			microphone_gain: audio.microphone_gain,
 			playback_gain: audio.playback_gain,
 			ptt_release_delay_ms: prefs.ptt.release_delay_ms,
+			autostart_daemon: prefs.clients.autostart_daemon,
 			avatar: *lock(&self.avatar),
 			inbound_policy: match prefs.privacy.inbound_policy {
 				prefs::InboundPolicy::Anyone => InboundPolicy::Anyone,
@@ -113,6 +114,7 @@ impl SettingsStore for FileSettings {
 			}
 			SettingsChange::NoiseBackend(name) => next.audio.noise_backend = parse_backend(name)?,
 			SettingsChange::PttReleaseDelay(ms) => next.ptt.release_delay_ms = *ms,
+			SettingsChange::AutostartDaemon(on) => next.clients.autostart_daemon = *on,
 			SettingsChange::Privacy { inbound, advert } => {
 				next.privacy.inbound_policy = match inbound {
 					InboundPolicy::Anyone => prefs::InboundPolicy::Anyone,

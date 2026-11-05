@@ -161,7 +161,14 @@ impl Actor {
 			ServiceOp::Controls {
 				microphone_gain,
 				release_delay_ms,
+				autostart_daemon,
 			} => {
+				if let Some(on) = autostart_daemon {
+					self.ports
+						.settings
+						.save(&SettingsChange::AutostartDaemon(on))?;
+					self.directory.aux.autostart_daemon = on;
+				}
 				if let Some(delay) = release_delay_ms {
 					self.ports
 						.settings

@@ -158,6 +158,7 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				microphone_gain,
 				playback_gain,
 				ptt_release_delay_ms,
+				autostart_daemon: None,
 			})
 			.await
 		}

@@ -77,13 +77,16 @@ pub(super) async fn global_controls(
 		.transpose()?;
 	let domain = service.run(mutation, command, None).await?;
 	if domain.get_ref().problem.is_some()
-		|| (microphone.is_none() && body.ptt_release_delay_ms.is_none())
+		|| (microphone.is_none()
+			&& body.ptt_release_delay_ms.is_none()
+			&& body.autostart_daemon.is_none())
 	{
 		return Ok(domain);
 	}
 	let op = ServiceOp::Controls {
 		microphone_gain: microphone,
 		release_delay_ms: body.ptt_release_delay_ms,
+		autostart_daemon: body.autostart_daemon,
 	};
 	service_op(service, mutation, body, op).await
 }

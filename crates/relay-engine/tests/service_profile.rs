@@ -266,3 +266,54 @@ async fn hidden_mode_reaches_the_peer_adapter() {
 	assert!(advertised.last().expect("profile pushed").hidden);
 	assert!(!advertised.first().expect("initial profile").hidden);
 }
+
+#[tokio::test]
+async fn the_desktop_autostart_preference_defaults_on_and_persists() {
+	let dir = home();
+	let (daemon, _sim, mut cli) = engine(dir.path()).await;
+	let shown = |settings: relay_api::pb::Settings| settings.autostart_daemon;
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert!(shown(settings), "on by default");
+
+	let request = relay_api::pb::SetGlobalControlsRequest {
+		context: Some(ctx(&cli, 1)),
+		muted: None,
+		deafened: None,
+		microphone_gain: None,
+		playback_gain: None,
+		ptt_release_delay_ms: None,
+		autostart_daemon: Some(false),
+	};
+	assert_applied(
+		&cli.raw()
+			.set_global_controls(request)
+			.await
+			.expect("set")
+			.into_inner(),
+	);
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert!(!shown(settings));
+	drop(cli);
+	daemon.shutdown().await.expect("shutdown");
+
+	let (options, sim) = engine_options(dir.path(), 440.0);
+	let (daemon, _sim, mut cli) = started(options, sim).await;
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert!(!shown(settings), "kept across a restart");
+	daemon.shutdown().await.expect("shutdown");
+}

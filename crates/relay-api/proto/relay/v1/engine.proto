@@ -192,6 +192,7 @@ message Settings {
   InboundPolicy inbound_policy = 11;
   AdvertMode advert_mode = 12;
   uint32 ptt_release_delay_ms = 13; // 0..=2000; gate hold after an ordinary key-up
+  bool autostart_daemon = 14; // the desktop app starts/restarts the daemon by itself
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -269,6 +270,7 @@ message SetGlobalControlsRequest {
   optional float microphone_gain = 4;
   optional float playback_gain = 5;
   optional uint32 ptt_release_delay_ms = 6; // 0..=2000, applies live and is persisted
+  optional bool autostart_daemon = 7; // persisted; read by the desktop app
 }
 message SelectDevicesRequest { MutationContext context = 1; string input_device_id = 2; string output_device_id = 3; }
 message SetNoiseSuppressionRequest { MutationContext context = 1; string qualified_backend_id = 2; }

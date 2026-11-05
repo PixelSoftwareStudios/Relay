@@ -255,3 +255,13 @@ fn ptt_release_delay_defaults_validates_and_round_trips() {
 		"missing key takes the default"
 	);
 }
+
+#[test]
+fn the_desktop_starts_the_daemon_by_default_and_can_be_told_not_to() {
+	let dir = tempfile::tempdir().unwrap();
+	let (store, _) = store(&dir);
+	assert_eq!(store.get("clients.autostart_daemon").unwrap(), "true");
+	store.set("clients.autostart_daemon", "false").unwrap();
+	assert!(!store.load().unwrap().preferences.clients.autostart_daemon);
+	assert!(store.set("clients.autostart_daemon", "sometimes").is_err());
+}

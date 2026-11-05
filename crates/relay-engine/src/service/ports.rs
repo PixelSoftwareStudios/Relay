@@ -197,6 +197,8 @@ pub enum SettingsChange {
 	NoiseBackend(String),
 	/// Push-to-talk release delay in milliseconds.
 	PttReleaseDelay(u32),
+	/// Whether the desktop app starts the daemon by itself.
+	AutostartDaemon(bool),
 	/// Inbound policy and discovery visibility.
 	Privacy {
 		/// Who may ring this device.
@@ -223,6 +225,8 @@ pub struct StoredSettings {
 	pub playback_gain: f32,
 	/// Push-to-talk release delay in milliseconds (0 closes at once).
 	pub ptt_release_delay_ms: u32,
+	/// The desktop app starts and restarts the daemon by itself.
+	pub autostart_daemon: bool,
 	/// Local avatar hash.
 	pub avatar: Option<[u8; 32]>,
 	/// Who may ring this device.
@@ -390,6 +394,7 @@ impl SettingsStore for Unwired {
 	fn load(&self) -> StoredSettings {
 		StoredSettings {
 			display_name: "My device".to_owned(),
+			autostart_daemon: true,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			..StoredSettings::default()

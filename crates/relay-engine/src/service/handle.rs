@@ -46,6 +46,8 @@ pub enum ServiceOp {
 		microphone_gain: Option<f32>,
 		/// New push-to-talk release delay in milliseconds, if changing (persisted).
 		release_delay_ms: Option<u32>,
+		/// Whether the desktop app starts the daemon by itself, if changing.
+		autostart_daemon: Option<bool>,
 	},
 	/// Change who may ring this device and how it appears in discovery.
 	Privacy {

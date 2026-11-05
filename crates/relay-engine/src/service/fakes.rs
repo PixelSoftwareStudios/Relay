@@ -215,6 +215,7 @@ impl Default for MemorySettings {
 		Self {
 			stored: Mutex::new(StoredSettings {
 				display_name: "Test device".to_owned(),
+				autostart_daemon: true,
 				microphone_gain: 1.0,
 				playback_gain: 1.0,
 				..StoredSettings::default()
@@ -238,6 +239,7 @@ impl SettingsStore for MemorySettings {
 			}
 			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
 			SettingsChange::PttReleaseDelay(ms) => stored.ptt_release_delay_ms = *ms,
+			SettingsChange::AutostartDaemon(on) => stored.autostart_daemon = *on,
 			SettingsChange::Privacy { inbound, advert } => {
 				stored.inbound_policy = *inbound;
 				stored.advert_mode = *advert;

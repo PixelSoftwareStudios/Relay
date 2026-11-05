@@ -33,6 +33,8 @@ pub struct Aux {
 	pub inbound_policy: InboundPolicy,
 	/// How the device appears in discovery.
 	pub advert_mode: AdvertMode,
+	/// The desktop app starts the daemon by itself.
+	pub autostart_daemon: bool,
 }
 
 impl Aux {
@@ -55,6 +57,7 @@ impl From<StoredSettings> for Aux {
 			microphone_gain: stored.microphone_gain,
 			display_name: stored.display_name,
 			avatar: stored.avatar,
+			autostart_daemon: stored.autostart_daemon,
 			inbound_policy: stored.inbound_policy,
 			advert_mode: stored.advert_mode,
 		}

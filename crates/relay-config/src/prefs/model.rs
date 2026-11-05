@@ -227,6 +227,23 @@ impl Default for Ptt {
 	}
 }
 
+/// Behaviour of the programs that talk to the daemon.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Clients {
+	/// The desktop app starts the daemon when none runs and restarts it after
+	/// a crash. (`RELAY_NO_AUTOSTART=1` overrides this for every client.)
+	pub autostart_daemon: bool,
+}
+
+impl Default for Clients {
+	fn default() -> Self {
+		Self {
+			autostart_daemon: true,
+		}
+	}
+}
+
 /// All user preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -240,6 +257,7 @@ pub struct Preferences {
 	pub identity: Identity,
 	pub hotkeys: Hotkeys,
 	pub ptt: Ptt,
+	pub clients: Clients,
 }
 
 impl Default for Preferences {
@@ -254,6 +272,7 @@ impl Default for Preferences {
 			identity: Identity::default(),
 			hotkeys: Hotkeys::default(),
 			ptt: Ptt::default(),
+			clients: Clients::default(),
 		}
 	}
 }
