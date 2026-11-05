@@ -97,6 +97,11 @@ pub trait NoiseSuppressor: Send {
 		timing: BlockTiming,
 	) -> Result<ProcessProgress, DspError>;
 
+	/// Far-end reference for echo cancellation; backends without AEC ignore it.
+	fn push_render(&mut self, _render: &[f32]) -> Result<(), DspError> {
+		Ok(())
+	}
+
 	/// Restart the stream. Must be bounded and preallocated.
 	fn reset(&mut self, reason: Discontinuity);
 }

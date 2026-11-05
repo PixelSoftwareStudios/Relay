@@ -10,6 +10,7 @@ members = [
 	"crates/relay-engine",
 	"crates/relay-platform",
 	"apps/relay-cli",
+	"benches",
 ]
 # The desktop shell pulls in a WebView toolchain, so headless builds skip it.
 default-members = [
@@ -22,6 +23,7 @@ default-members = [
 	"crates/relay-engine",
 	"crates/relay-platform",
 	"apps/relay-cli",
+	"benches",
 ]
 exclude = ["apps/relay-desktop"]
 
@@ -49,6 +51,9 @@ opus = "0.4.0"
 rtrb = "0.4.1"
 rubato = "5.0.1"
 bytemuck = "1"
+# Evaluation-only audio processing candidates (not default features)
+sonora = "0.2.0"
+nnnoiseless = { version = "0.5.2", default-features = false }
 
 # Local control API (gRPC / protobuf)
 tonic = "0.14.9"
@@ -100,6 +105,8 @@ criterion = "0.8.2"
 rtp = "0.17.2"
 webrtc-util = { version = "0.17.1", default-features = false, features = ["marshal"] }
 tempfile = "3.27.0"
+hound = "3.5.1"
+cpu-time = "1.0.0"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"

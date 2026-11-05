@@ -82,16 +82,6 @@ impl SonoraSuppressor {
 			render_sink: vec![0.0; FRAME_SAMPLES],
 		}
 	}
-
-	/// Far-end reference for the AEC profile (one 10 ms frame).
-	pub fn push_render(&mut self, render: &[f32]) -> Result<(), DspError> {
-		if render.len() != FRAME_SAMPLES {
-			return Err(DspError::Backend("render frame must be 480 samples".into()));
-		}
-		self.apm
-			.process_render_f32(&[render], &mut [&mut self.render_sink[..]])
-			.map_err(|e| DspError::Backend(e.to_string()))
-	}
 }
 
 impl NoiseSuppressor for SonoraSuppressor {
@@ -137,6 +127,16 @@ impl NoiseSuppressor for SonoraSuppressor {
 			status: ProcessStatus::Ok,
 			discontinuity: None,
 		})
+	}
+
+	/// Far-end reference for the AEC profile (one 10 ms frame).
+	fn push_render(&mut self, render: &[f32]) -> Result<(), DspError> {
+		if render.len() != FRAME_SAMPLES {
+			return Err(DspError::Backend("render frame must be 480 samples".into()));
+		}
+		self.apm
+			.process_render_f32(&[render], &mut [&mut self.render_sink[..]])
+			.map_err(|e| DspError::Backend(e.to_string()))
 	}
 
 	fn reset(&mut self, _reason: Discontinuity) {

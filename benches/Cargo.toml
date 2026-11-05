@@ -1,0 +1,45 @@
+[package]
+name = "relay-benches"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+path = "lib.rs"
+
+[features]
+# Evaluation-only audio-processing candidates; never part of the product build.
+sonora = ["relay-audio/eval-sonora"]
+nnnoiseless = ["relay-audio/eval-nnnoiseless"]
+
+[dependencies]
+relay-audio.workspace = true
+cpu-time.workspace = true
+hound.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true
+relay-protocol.workspace = true
+tempfile.workspace = true
+
+[[bench]]
+name = "jitter"
+path = "protocol/jitter.rs"
+harness = false
+
+[[bench]]
+name = "audio_stages"
+path = "audio/stages.rs"
+harness = false
+
+[[bin]]
+name = "audio-corpus"
+path = "audio/main.rs"
+
+[lints]
+workspace = true
