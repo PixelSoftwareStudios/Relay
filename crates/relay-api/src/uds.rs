@@ -110,6 +110,10 @@ impl UdsListener {
 							break;
 						}
 					}
+					// A probe that connects and hangs up (a readiness check) is not an attack.
+					Err(ApiError::Io(e)) if e.kind() == io::ErrorKind::NotConnected => {
+						tracing::debug!("local api probe closed before it was checked");
+					}
 					Err(e) => tracing::warn!(error = %e, "rejected local api peer"),
 				}
 			}
