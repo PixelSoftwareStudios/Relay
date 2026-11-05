@@ -104,8 +104,11 @@ Wiring (`daemon/assemble.rs`, `glue.rs`):
   so the call starts at once and the dial pins that key. A bare `ManualLocalAddress` of an
   unknown peer starts a dial and answers `FAILED_PRECONDITION`; retry after the handshake.
 - Microphone gain is applied after the suppressor; noise suppression accepts `off` only (other
-  backends need a qualified model and report `UNAVAILABLE`); the microphone test is still
-  `UNIMPLEMENTED`.
+  backends need a qualified model and report `UNAVAILABLE`).
+- Media over an overlay: signaling and the control link work over an opted-in overlay address,
+  but media candidates a peer offers are checked with the plain LAN policy (peer-supplied, so
+  never overlay). An overlay-only pair therefore connects and rings but sends no audio until
+  media paths are derived from the authenticated link; that was left out deliberately.
 
 Recovery notices from `relay-config` appear as `Snapshot.warnings`. Shutdown stops the actor
 first (detaching every client and stopping every live call), lets the hangups leave, stops the
@@ -122,11 +125,45 @@ cache. `Settings.display_name` and `Settings.avatar_sha256` carry both in snapsh
 settings events. The peers adapter learns the profile through `PeerControl::profile_changed`
 (called at start-up and on every change) and advertises/transfers it.
 
+## Avatar, connection info, privacy
+
+- `GetAvatar` returns the cached canonical lossless WebP (`image`, `media_type`, 256x256) for
+  the local avatar or one received from a peer. Unknown hash is `NOT_FOUND`, a malformed hash
+  `INVALID_ARGUMENT`, anything over 1 MiB or not a canonical WebP is refused. Needs `observe`.
+- `GetConnectionInfo` lists the eligible addresses of this machine, the listen port, the key
+  digest and the best `relay://ip:port#fingerprint`. It uses `relay_net::connect::encode` with the
+  plain LAN policy and the default interface policy: physical private IPv4 first, then ULA IPv6,
+  then IPv4 link-local; no tunnel, VPN, container, loopback, public, link-local IPv6 or
+  100.64.0.0/10 address, whether or not typed overlay entry is enabled. Interfaces are listed
+  with `if-addrs` (injectable through `NetworkOptions::interfaces`).
+- `SetPrivacy` changes `privacy.inbound_policy` (`anyone`, `shared_channel_only`) and
+  `privacy.advert_mode` (`visible`, `hidden`); each is optional and an empty request is refused.
+  Both are persisted, shown in `Settings` and pushed as a settings event. A hidden mode flips
+  `AdvertSpec::hidden`, so discovery advertises neither name nor key hint (re-announced at once).
+  The inbound policy is enforced by the channel module.
+
+## Telemetry and the microphone test
+
+- The media workers publish levels and counters as plain atomics (`media/meters.rs`): microphone
+  level after gain and suppression, capture overruns, playback underruns, and per call the
+  received level, a speaking flag (audible within the last 300 ms) and the receive counters.
+  Nothing is allocated or locked on the audio threads; a reader samples them.
+- `WatchTelemetry` samples at most 20 times a second (default 10, `max(meters_hz, stats_hz)`),
+  one task per stream, filtered by `call_ids` (at most 8). A stream keeps 8 samples and drops
+  the oldest when its client is slow (`DropOldest`); `telemetry_samples_dropped` counts them and
+  `sample_sequence` shows the gaps. Round-trip time, jitter and mouth-to-ear estimates are
+  unset (`latency_estimate_method` is `unmeasured`) until the media layer measures them.
+- The microphone test is local only. It meters the capture path and, with
+  `local_playback` (which needs `confirmed_feedback_warning`), plays the microphone on the
+  user's own output through a one-frame-deep monitor queue. It adds no sender and touches no
+  gate, so it cannot transmit even during a call. It needs a selected microphone (there is no
+  default), ends after 30 s (`RunOptions::mic_test_max`), on `StopMicTest`, when the starting
+  client goes away (idle detach) and at shutdown, and then releases the microphone unless a call
+  is using it. The test opens the microphone under a reserved capture generation that the domain
+  never sees; if a call opens capture meanwhile the test shares that stream.
+
 ## Not done / owned elsewhere
 
-- `WatchTelemetry`, the microphone test and the channel, privacy, avatar-download and
-  connection-info RPCs are `UNIMPLEMENTED` in the service; channel state is still empty in
-  snapshots.
 - Discovered devices have no peer id until their first handshake, so only peers with a known key
   are listed. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
 - `InputControlMessage.transmit_route_generation` is not validated; the core binds a press to
@@ -148,6 +185,9 @@ and watch without gaps, replay and resync, bounded streams, push-to-talk gate be
 config persistence, writer lock, idle clients and shutdown. `service_overlay` covers the overlay
 setting; `service_e2e` runs two complete engines (separate homes, loopback sockets, fake audio):
 trust gating, call, consent, audio both ways, withdrawal and hangup.
+`service_profile` covers avatar download, connection info and privacy; `service_telemetry` the
+telemetry stream and the microphone test (including release on client loss). The mic test during
+a connected call, and speaking indicators, are in `service_e2e`.
 `cargo test -p relay-cli --test real_engine` runs the CLI against the real service layer.
 
 ## Media and peers
