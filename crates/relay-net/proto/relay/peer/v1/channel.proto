@@ -1,0 +1,43 @@
+syntax = "proto3";
+package relay.peer.v1;
+
+// Channel messages carried INSIDE authenticated peer-control records. They are bounded
+// (see relay-net's channel::limits) and never reach call state. A join failure is always the
+// same ChannelJoinDenied: unknown channel, wrong password, bad invite and lockout are not
+// distinguishable by the peer. See docs/channels.md.
+message ChannelMessage {
+  oneof body {
+    ChannelProof proof = 1;
+    ChannelJoinStart join_start = 2;
+    ChannelJoinReply join_reply = 3;
+    ChannelJoinConfirm join_confirm = 4;
+    ChannelJoinGrant join_grant = 5;
+    ChannelJoinDenied join_denied = 6;
+    ChannelRenew renew = 7;
+  }
+}
+
+// Existing member proves membership; the verifier answers with is_reply = true.
+message ChannelProof {
+  bytes channel_ref = 1;  // exactly 16, keyed by the channel id and bound to this session
+  bytes cert = 2;         // membership certificate for the sender's static key
+  repeated bytes revocations = 3;  // <= 16 signed revocations
+  bool is_reply = 4;
+}
+message ChannelJoinStart {
+  bytes channel_ref = 1;  // exactly 16
+  bytes invite_id = 2;    // empty or exactly 8
+  bytes pake_message = 3; // exactly 33
+}
+message ChannelJoinReply { bytes pake_message = 1; bytes confirmation = 2; } // 33, 32
+message ChannelJoinConfirm { bytes confirmation = 1; }                       // 32
+message ChannelJoinGrant {
+  string name = 1;        // names travel only after the PAKE succeeded
+  bool listed = 2;
+  bool password = 3;
+  bool invite_only = 4;
+  bytes owner_public = 5; // exactly 32; must hash to the id the joiner asked for
+  bytes cert = 6;
+}
+message ChannelJoinDenied {}
+message ChannelRenew { bytes channel_ref = 1; bytes cert = 2; }

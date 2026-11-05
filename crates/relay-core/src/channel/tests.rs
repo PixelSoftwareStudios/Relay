@@ -32,7 +32,10 @@ fn names_are_validated() {
 		ChannelName::new(&"x".repeat(49)).unwrap_err(),
 		NameError::Length
 	);
-	assert_eq!(ChannelName::new("a\u{202E}b").unwrap_err(), NameError::Character);
+	assert_eq!(
+		ChannelName::new("a\u{202E}b").unwrap_err(),
+		NameError::Character
+	);
 	assert_eq!(ChannelName::new("<b>").unwrap_err(), NameError::Character);
 }
 

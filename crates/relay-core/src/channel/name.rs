@@ -35,8 +35,10 @@ impl ChannelName {
 
 fn is_forbidden(c: char) -> bool {
 	c.is_control()
-		|| matches!(c, '<' | '>' | '&' | '"' | '\u{061C}' | '\u{00AD}' | '\u{FEFF}')
-		|| matches!(c,
+		|| matches!(
+			c,
+			'<' | '>' | '&' | '"' | '\u{061C}' | '\u{00AD}' | '\u{FEFF}'
+		) || matches!(c,
 			'\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}'
 			| '\u{2066}'..='\u{2069}')
 }

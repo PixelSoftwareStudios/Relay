@@ -5,6 +5,7 @@
 //! call acceptance or microphone authority.
 
 mod address;
+pub mod channel;
 pub mod control;
 pub mod discovery;
 pub mod handshake;
