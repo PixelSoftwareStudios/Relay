@@ -1,7 +1,43 @@
 //! The request vocabulary both clients speak. Values are already validated by
 //! the caller; call-bound commands carry the controller generation to use.
 
-use relay_api::pb::{TransmitMode, TrustState};
+use std::fmt;
+
+use relay_api::pb::{AdvertMode, InboundPolicy, TransmitMode, TrustState};
+
+/// A secret string (channel password, invite token). `Debug` never prints it,
+/// so commands can be logged or stored in view models without leaking.
+#[derive(Clone, PartialEq, Eq)]
+pub struct Secret(String);
+
+impl Secret {
+	/// Wrap secret text.
+	pub fn new(text: impl Into<String>) -> Self {
+		Self(text.into())
+	}
+
+	/// The secret text; call only where it goes on the wire.
+	pub fn expose(&self) -> &str {
+		&self.0
+	}
+}
+
+impl fmt::Debug for Secret {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		f.write_str("Secret(<redacted>)")
+	}
+}
+
+/// How a channel is advertised and joined.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct ChannelOptions {
+	/// Advertise the channel name to members' devices.
+	pub listed: bool,
+	/// Require a password to join.
+	pub password: bool,
+	/// Require an invite token to join.
+	pub invite_only: bool,
+}
 
 /// Who to call.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -10,6 +46,8 @@ pub enum CallTarget {
 	Peer(Vec<u8>),
 	/// A manual `ip:port` on the local network.
 	Address(String),
+	/// A pasted `relay://ip:port#fingerprint` string; the engine validates it.
+	ConnectionString(String),
 }
 
 /// Lifecycle verbs on an existing call.
@@ -115,5 +153,42 @@ pub enum Command {
 		requested: TrustState,
 		/// Whether the fingerprint was compared out of band.
 		out_of_band_verified: bool,
+	},
+	/// Create a channel owned by this device.
+	CreateChannel {
+		/// Channel name.
+		name: String,
+		/// Listing and join requirements.
+		options: ChannelOptions,
+		/// Password, when `options.password` is set.
+		password: Secret,
+	},
+	/// Join a channel by id and password, or by invite token.
+	JoinChannel {
+		/// Channel id (16 bytes); empty when joining by invite alone.
+		channel_id: Vec<u8>,
+		/// Channel password, or empty.
+		password: Secret,
+		/// Invite token, or empty.
+		invite: Secret,
+	},
+	/// Leave a channel and delete its local secrets.
+	LeaveChannel {
+		/// Channel id (16 bytes).
+		channel_id: Vec<u8>,
+	},
+	/// Revoke a member by identity fingerprint.
+	RevokeMember {
+		/// Channel id (16 bytes).
+		channel_id: Vec<u8>,
+		/// Member fingerprint.
+		fingerprint: Vec<u8>,
+	},
+	/// Change inbound policy and/or advertisement mode; `None` is unchanged.
+	SetPrivacy {
+		/// Who may ring this device.
+		inbound: Option<InboundPolicy>,
+		/// Whether this device is advertised.
+		advert: Option<AdvertMode>,
 	},
 }

@@ -3,16 +3,19 @@
 //! the telemetry stream.
 
 use relay_api::pb::{
-	AcquireControllerRequest, CallMutation, DecidePeerTrustRequest, MutationContext, Operation,
-	SelectDevicesRequest, SetCallControlsRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetProfileRequest, SetTransmitRouteRequest, StartCallRequest,
-	StartMicTestRequest, TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest,
-	start_call_request,
+	AcquireControllerRequest, CallMutation, CreateChannelRequest, DecidePeerTrustRequest,
+	JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
+	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest,
+	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest,
+	SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
+	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
 
-use crate::command::{CallAction, CallTarget, Command};
+use relay_api::pb::ChannelPolicy;
+
+use crate::command::{CallAction, CallTarget, ChannelOptions, Command};
 
 /// Connect and register under `name` with `capabilities`.
 pub async fn connect_registered(
@@ -85,6 +88,9 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			let target = match target {
 				CallTarget::Peer(id) => start_call_request::Target::PeerId(id),
 				CallTarget::Address(addr) => start_call_request::Target::ManualLocalAddress(addr),
+				CallTarget::ConnectionString(text) => {
+					start_call_request::Target::ManualConnectionString(text)
+				}
 			};
 			rpc.start_call(StartCallRequest {
 				context: Some(context),
@@ -198,6 +204,68 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			.await
 		}
 		Command::StopMicTest => rpc.stop_mic_test(context).await,
+		Command::CreateChannel {
+			name,
+			options,
+			password,
+		} => {
+			let ChannelOptions {
+				listed,
+				password: needs_password,
+				invite_only,
+			} = options;
+			rpc.create_channel(CreateChannelRequest {
+				context: Some(context),
+				name,
+				policy: Some(ChannelPolicy {
+					listed,
+					password: needs_password,
+					invite_only,
+				}),
+				password: password.expose().to_owned(),
+			})
+			.await
+		}
+		Command::JoinChannel {
+			channel_id,
+			password,
+			invite,
+		} => {
+			rpc.join_channel(JoinChannelRequest {
+				context: Some(context),
+				channel_id,
+				name: String::new(),
+				password: password.expose().to_owned(),
+				invite: invite.expose().to_owned(),
+			})
+			.await
+		}
+		Command::LeaveChannel { channel_id } => {
+			rpc.leave_channel(LeaveChannelRequest {
+				context: Some(context),
+				channel_id,
+			})
+			.await
+		}
+		Command::RevokeMember {
+			channel_id,
+			fingerprint,
+		} => {
+			rpc.revoke_channel_member(RevokeChannelMemberRequest {
+				context: Some(context),
+				channel_id,
+				fingerprint,
+			})
+			.await
+		}
+		Command::SetPrivacy { inbound, advert } => {
+			rpc.set_privacy(SetPrivacyRequest {
+				context: Some(context),
+				inbound_policy: inbound.map(|p| p as i32),
+				advert_mode: advert.map(|m| m as i32),
+			})
+			.await
+		}
 		Command::DecideTrust {
 			peer_id,
 			public_key_sha256,

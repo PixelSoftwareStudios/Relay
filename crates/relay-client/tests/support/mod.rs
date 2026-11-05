@@ -89,9 +89,69 @@ impl Engine for FakeEngine {
 		let target = match r.target {
 			Some(start_call_request::Target::PeerId(id)) => format!("peer={}", hex::encode(id)),
 			Some(start_call_request::Target::ManualLocalAddress(a)) => format!("addr={a}"),
+			Some(start_call_request::Target::ManualConnectionString(s)) => format!("conn={s}"),
 			None => "none".into(),
 		};
 		self.op(r.context.as_ref(), format!("start_call {target}"))
+	}
+	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let policy = r.policy.unwrap_or_default();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"create_channel {} listed={} pw={} invite={} secret_len={}",
+				r.name,
+				policy.listed,
+				policy.password,
+				policy.invite_only,
+				r.password.len()
+			),
+		)
+	}
+	async fn join_channel(&self, r: Request<JoinChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"join_channel pw={} invite={}",
+				r.password.len(),
+				r.invite.len()
+			),
+		)
+	}
+	async fn leave_channel(&self, r: Request<LeaveChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(r.context.as_ref(), "leave_channel".into())
+	}
+	async fn revoke_channel_member(
+		&self,
+		r: Request<RevokeChannelMemberRequest>,
+	) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("revoke fp={}", r.fingerprint.len()),
+		)
+	}
+	async fn set_privacy(&self, r: Request<SetPrivacyRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("privacy {:?} {:?}", r.inbound_policy, r.advert_mode),
+		)
+	}
+	async fn list_channels(&self, _: Request<ListChannelsRequest>) -> Resp<ListChannelsResponse> {
+		unsupported()
+	}
+	async fn create_invite(&self, _: Request<CreateInviteRequest>) -> Resp<CreateInviteResponse> {
+		unsupported()
+	}
+	async fn get_avatar(&self, _: Request<GetAvatarRequest>) -> Resp<AvatarImage> {
+		unsupported()
+	}
+	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
+		unsupported()
 	}
 	async fn accept_call(&self, r: Request<CallMutation>) -> Resp<Operation> {
 		let r = r.into_inner();

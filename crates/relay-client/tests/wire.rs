@@ -4,7 +4,7 @@ mod support;
 
 use relay_api::pb::{OperationState, TransmitMode, TrustState};
 use relay_client::wire::{acquire_generation, connect_registered, open_telemetry, send};
-use relay_client::{CallAction, CallTarget, Command};
+use relay_client::{CallAction, CallTarget, ChannelOptions, Command, Secret};
 use support::Harness;
 
 async fn client(h: &Harness) -> relay_api::RelayClient {
@@ -142,4 +142,53 @@ async fn telemetry_requests_the_given_rates() {
 	let mut stream = open_telemetry(&mut c, 10, 1).await.unwrap();
 	assert!(stream.message().await.unwrap().is_some());
 	assert_eq!(h.log(), ["telemetry 10 1"]);
+}
+
+#[tokio::test]
+async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
+	let h = Harness::start().await;
+	let mut c = client(&h).await;
+	let commands = [
+		Command::StartCall(CallTarget::ConnectionString("relay://1.2.3.4:5#ab".into())),
+		Command::CreateChannel {
+			name: "dorm".into(),
+			options: ChannelOptions {
+				listed: true,
+				password: true,
+				invite_only: false,
+			},
+			password: Secret::new("pw"),
+		},
+		Command::JoinChannel {
+			channel_id: Vec::new(),
+			password: Secret::new(""),
+			invite: Secret::new("RLYI1-abc"),
+		},
+		Command::LeaveChannel {
+			channel_id: vec![1; 16],
+		},
+		Command::RevokeMember {
+			channel_id: vec![1; 16],
+			fingerprint: vec![2; 32],
+		},
+		Command::SetPrivacy {
+			inbound: Some(relay_api::pb::InboundPolicy::SharedChannelOnly),
+			advert: None,
+		},
+	];
+	for command in commands {
+		let op = send(&mut c, command).await.unwrap();
+		assert_eq!(op.state, OperationState::Applied as i32);
+	}
+	assert_eq!(
+		h.log(),
+		[
+			"start_call conn=relay://1.2.3.4:5#ab",
+			"create_channel dorm listed=true pw=true invite=false secret_len=2",
+			"join_channel pw=0 invite=9",
+			"leave_channel",
+			"revoke fp=32",
+			"privacy Some(2) None",
+		]
+	);
 }
