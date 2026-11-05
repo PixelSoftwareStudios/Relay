@@ -6,6 +6,7 @@ pub use limiter::Limiter;
 
 use crate::error::{AudioError, Result};
 use crate::format::MAX_CALLS;
+use crate::tones::TonePlayer;
 
 /// Highest accepted linear gain (about +6 dB).
 pub const MAX_GAIN: f32 = 2.0;
@@ -119,6 +120,13 @@ impl Mixer {
 		}
 		state.current = state.target;
 		Ok(())
+	}
+
+	/// Mix the tone slot into the quantum. Call after every [`Mixer::add`] and
+	/// before [`Mixer::finish`]: tones then follow master gain and the limiter,
+	/// and are part of the playback signal (the AEC render reference).
+	pub fn add_tones(&mut self, tones: &mut TonePlayer) {
+		tones.render_into(&mut self.acc);
 	}
 
 	/// Apply master gain and the limiter, writing the quantum to `out`.

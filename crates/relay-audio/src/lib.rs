@@ -13,6 +13,7 @@ pub mod mixer;
 pub mod pipeline;
 pub mod playback;
 pub mod ring;
+pub mod tones;
 
 pub use error::{AudioError, Result};
 pub use format::{BlockTiming, Discontinuity, FRAME_SAMPLES, INTERNAL_RATE, MAX_CALLS};

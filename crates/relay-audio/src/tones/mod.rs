@@ -1,0 +1,259 @@
+//! Ring, ringback and blip playback for the daemon.
+//!
+//! [`TonePlayer`] owns the decoded sounds and is driven from the real-time
+//! side; [`ToneControl`] is the single-producer control handle. Rendering
+//! (`render_into`) allocates nothing, takes no locks and never logs. Tones are
+//! mixed after per-call gains through [`crate::mixer::Mixer::add_tones`], so
+//! master gain and the limiter apply, and they are part of the playback
+//! signal (hence of the AEC render reference). They never reach capture or an
+//! encoder.
+
+mod assets;
+
+use rtrb::{Consumer, Producer, RingBuffer};
+use thiserror::Error;
+
+/// Fade length for start, stop and mute changes (10 ms).
+pub const FADE_SAMPLES: usize = 480;
+/// Pending control commands the player can hold.
+pub const COMMAND_CAPACITY: usize = 32;
+
+/// An embedded sound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Sound {
+	/// Incoming-call ring; loop period 2.0 s.
+	Ring = 0,
+	/// Outgoing-call ringback; loop period 3.0 s.
+	Ringback = 1,
+	/// Falling one-shot blip.
+	CallEnd = 2,
+	/// Rising one-shot blip.
+	Connected = 3,
+}
+
+/// Control-side failures.
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum ToneError {
+	#[error("tone volume must be finite and within 0.0..=1.0")]
+	InvalidVolume,
+	#[error("tone command queue is full")]
+	QueueFull,
+}
+
+/// What the player is doing, as seen by the render side.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ToneState {
+	Idle,
+	Playing {
+		sound: Sound,
+		looping: bool,
+		gain: f32,
+		position: usize,
+	},
+}
+
+#[derive(Debug, Clone, Copy)]
+enum Command {
+	Start {
+		sound: Sound,
+		looping: bool,
+		gain: f32,
+	},
+	Stop,
+	SetGain(f32),
+	SetMuted(bool),
+}
+
+/// Control handle; keep exactly one (it is the queue's only producer).
+pub struct ToneControl {
+	tx: Producer<Command>,
+}
+
+impl ToneControl {
+	/// Start `sound`. Starting what already plays only updates the volume;
+	/// starting a different sound fades the current one out first.
+	pub fn start(&mut self, sound: Sound, looping: bool, volume: f32) -> Result<(), ToneError> {
+		let gain = checked_volume(volume)?;
+		self.send(Command::Start {
+			sound,
+			looping,
+			gain,
+		})
+	}
+
+	/// Fade out and go idle; a no-op when idle.
+	pub fn stop(&mut self) -> Result<(), ToneError> {
+		self.send(Command::Stop)
+	}
+
+	/// Change the playing volume (ramped).
+	pub fn set_volume(&mut self, volume: f32) -> Result<(), ToneError> {
+		self.send(Command::SetGain(checked_volume(volume)?))
+	}
+
+	/// Gate for global deafen: while muted the output is silent (ramped) and
+	/// the sound keeps its position.
+	pub fn set_muted(&mut self, muted: bool) -> Result<(), ToneError> {
+		self.send(Command::SetMuted(muted))
+	}
+
+	fn send(&mut self, command: Command) -> Result<(), ToneError> {
+		self.tx.push(command).map_err(|_| ToneError::QueueFull)
+	}
+}
+
+fn checked_volume(volume: f32) -> Result<f32, ToneError> {
+	if volume.is_finite() && (0.0..=1.0).contains(&volume) {
+		Ok(volume)
+	} else {
+		Err(ToneError::InvalidVolume)
+	}
+}
+
+#[derive(Debug, Clone, Copy)]
+struct Active {
+	sound: Sound,
+	looping: bool,
+	position: usize,
+	stopping: bool,
+}
+
+/// Plays one tone at a time into the mix.
+pub struct TonePlayer {
+	rx: Consumer<Command>,
+	sounds: [Vec<f32>; 4],
+	active: Option<Active>,
+	pending: Option<(Sound, bool, f32)>,
+	env: f32,
+	gain: f32,
+	gain_target: f32,
+	muted: bool,
+	mute_env: f32,
+}
+
+impl TonePlayer {
+	/// Decode every sound once and create the control handle.
+	pub fn new() -> (Self, ToneControl) {
+		let (tx, rx) = RingBuffer::new(COMMAND_CAPACITY);
+		let sounds = Sound::ALL.map(|s| assets::decode(s.bytes()));
+		let player = Self {
+			rx,
+			sounds,
+			active: None,
+			pending: None,
+			env: 0.0,
+			gain: 0.0,
+			gain_target: 0.0,
+			muted: false,
+			mute_env: 1.0,
+		};
+		(player, ToneControl { tx })
+	}
+
+	pub fn state(&self) -> ToneState {
+		match self.active {
+			Some(a) => ToneState::Playing {
+				sound: a.sound,
+				looping: a.looping,
+				gain: self.gain_target,
+				position: a.position,
+			},
+			None => ToneState::Idle,
+		}
+	}
+
+	/// True when nothing is playing or queued to play.
+	pub fn is_idle(&self) -> bool {
+		self.active.is_none() && self.pending.is_none()
+	}
+
+	/// Drain commands and ADD the tone to `out` (mono, 48 kHz). Safe to call
+	/// from an audio callback.
+	pub fn render_into(&mut self, out: &mut [f32]) {
+		while let Ok(command) = self.rx.pop() {
+			self.apply(command);
+		}
+		let step = 1.0 / FADE_SAMPLES as f32;
+		for dst in out.iter_mut() {
+			if self.active.is_none() {
+				match self.pending.take() {
+					Some((sound, looping, gain)) => self.begin(sound, looping, gain),
+					None => break,
+				}
+			}
+			let Some(mut a) = self.active else { break };
+			let target = if a.stopping { 0.0 } else { 1.0 };
+			self.env = approach(self.env, target, step);
+			self.gain = approach(self.gain, self.gain_target, step);
+			let mute_target = if self.muted { 0.0 } else { 1.0 };
+			self.mute_env = approach(self.mute_env, mute_target, step);
+
+			let data = &self.sounds[a.sound.index()];
+			let sample = data.get(a.position).copied().unwrap_or(0.0);
+			*dst += sample * self.gain * self.env * self.mute_env;
+
+			a.position += 1;
+			let mut done = a.stopping && self.env <= 0.0;
+			if a.position >= a.sound.period_samples() {
+				if a.looping {
+					a.position = 0;
+				} else {
+					done = true;
+				}
+			}
+			self.active = if done { None } else { Some(a) };
+		}
+	}
+
+	fn apply(&mut self, command: Command) {
+		match command {
+			Command::Start {
+				sound,
+				looping,
+				gain,
+			} => match &mut self.active {
+				Some(a) if a.sound == sound && a.looping == looping && !a.stopping => {
+					self.gain_target = gain;
+				}
+				Some(a) => {
+					a.stopping = true;
+					self.pending = Some((sound, looping, gain));
+				}
+				None => self.pending = Some((sound, looping, gain)),
+			},
+			Command::Stop => {
+				self.pending = None;
+				if let Some(a) = &mut self.active {
+					a.stopping = true;
+				}
+			}
+			Command::SetGain(gain) => {
+				self.gain_target = gain;
+				if let Some((_, _, g)) = &mut self.pending {
+					*g = gain;
+				}
+			}
+			Command::SetMuted(muted) => self.muted = muted,
+		}
+	}
+
+	fn begin(&mut self, sound: Sound, looping: bool, gain: f32) {
+		self.active = Some(Active {
+			sound,
+			looping,
+			position: 0,
+			stopping: false,
+		});
+		self.env = 0.0;
+		self.gain = gain;
+		self.gain_target = gain;
+	}
+}
+
+fn approach(value: f32, target: f32, step: f32) -> f32 {
+	if value < target {
+		(value + step).min(target)
+	} else {
+		(value - step).max(target)
+	}
+}

@@ -237,3 +237,28 @@ fn drift_correction_at_48k_is_allocation_free() {
 	assert!(produced > 0);
 	assert_eq!(n, 0);
 }
+
+#[test]
+fn tone_render_is_allocation_free() {
+	use relay_audio::tones::{Sound, TonePlayer};
+	let (mut player, mut control) = TonePlayer::new();
+	let mut mixer = Mixer::new(480);
+	let mut out = [0.0_f32; 480];
+	let n = allocations_in(|| {
+		for i in 0..400 {
+			match i % 100 {
+				0 => control.start(Sound::Ring, true, 0.7).unwrap(),
+				20 => control.start(Sound::Ringback, true, 0.7).unwrap(),
+				40 => control.set_muted(true).unwrap(),
+				50 => control.set_muted(false).unwrap(),
+				60 => control.start(Sound::CallEnd, false, 1.0).unwrap(),
+				80 => control.stop().unwrap(),
+				_ => {}
+			}
+			mixer.begin();
+			mixer.add_tones(&mut player);
+			mixer.finish(&mut out).unwrap();
+		}
+	});
+	assert_eq!(n, 0);
+}
