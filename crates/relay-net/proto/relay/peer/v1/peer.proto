@@ -1,6 +1,8 @@
 syntax = "proto3";
 package relay.peer.v1;
 
+import "relay/peer/v1/channel.proto";
+
 // Bounded messages INSIDE authenticated reliable peer-control records.
 // Not a remote gRPC service. Never expose local Engine RPCs to LAN peers.
 message Envelope {
@@ -24,6 +26,7 @@ message Envelope {
     MediaReady media_ready = 17;
     MediaFeedback media_feedback = 18;
     StreamState stream_state = 19;
+    ChannelMessage channel = 20; // named-channel proof and join; never reaches call state
   }
 }
 message Hello {

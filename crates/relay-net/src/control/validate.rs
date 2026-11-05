@@ -124,6 +124,9 @@ fn validate_body(body: &Body) -> Result<(), ValidationError> {
 		}
 		Body::MediaFeedback(m) => call_id(&m.call_id),
 		Body::StreamState(m) => call_id(&m.call_id),
+		Body::Channel(m) => {
+			crate::channel::wire::validate(m).map_err(|_| fail("malformed channel message"))
+		}
 	}
 }
 
