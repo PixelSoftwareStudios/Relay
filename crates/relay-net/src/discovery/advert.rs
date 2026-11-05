@@ -4,9 +4,9 @@ use std::net::{IpAddr, SocketAddr, SocketAddrV6};
 use mdns_sd::{ResolvedService, ScopedIp};
 
 use super::DiscoveryError;
+use super::names::sanitize_display_name;
 use crate::address::AddressPolicy;
 use crate::identity::Fingerprint;
-use crate::limits::{DISPLAY_NAME_MAX_BYTES, DISPLAY_NAME_MAX_CHARS};
 use crate::noise::PROTOCOL_MAJOR;
 
 const HINT_BYTES: usize = 10;
@@ -163,30 +163,6 @@ pub struct DiscoveredPeer {
 	/// Raw TXT entries other than the core keys, bounded and ASCII-only: untrusted input for
 	/// extensions such as channel tags. Never interpreted here.
 	pub txt: BTreeMap<String, String>,
-}
-
-/// Removes control characters, bidi overrides/isolates, zero-width marks and markup
-/// delimiters, then bounds the name to 64 scalar values and 256 UTF-8 bytes.
-pub fn sanitize_display_name(raw: &str) -> String {
-	let cleaned: String = raw
-		.chars()
-		.filter(|c| {
-			!c.is_control() && !is_invisible_or_bidi(*c) && !matches!(c, '<' | '>' | '&' | '"')
-		})
-		.take(DISPLAY_NAME_MAX_CHARS)
-		.collect();
-	let cleaned = truncate(cleaned.trim(), DISPLAY_NAME_MAX_BYTES);
-	if cleaned.is_empty() {
-		"Unnamed device".to_owned()
-	} else {
-		cleaned
-	}
-}
-
-fn is_invisible_or_bidi(c: char) -> bool {
-	matches!(c,
-		'\u{061C}' | '\u{200B}'..='\u{200F}' | '\u{202A}'..='\u{202E}' | '\u{2060}'..='\u{2064}'
-		| '\u{2066}'..='\u{2069}' | '\u{FEFF}' | '\u{00AD}')
 }
 
 fn truncate(text: &str, max_bytes: usize) -> String {

@@ -14,7 +14,10 @@ mod scope;
 use std::fmt;
 
 pub use membership::{ChannelEntry, LimitReached, Memberships, Role};
-pub use name::{ChannelName, NameError};
+pub use name::{
+	COMBINING_RUN_MAX, ChannelName, NameError, is_combining_mark, is_invisible_or_format,
+	is_private_use_or_noncharacter,
+};
 pub use scope::{Evidence, InboundPolicy, PeerScope, RingDecision, visible};
 
 /// Joined channels per device.

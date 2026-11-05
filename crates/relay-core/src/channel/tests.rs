@@ -125,3 +125,25 @@ fn debug_output_does_not_print_the_full_id() {
 	let text = format!("{:?}", id(0xab));
 	assert!(text.len() < 24);
 }
+
+#[test]
+fn channel_names_refuse_invisible_and_lookalike_padding() {
+	for bad in [
+		"Club\u{3164}",
+		"Cl\u{034F}ub",
+		"Club\u{206A}",
+		"Club\u{FE0F}",
+		"Club\u{E0041}",
+		"Club\u{2800}",
+		"Club\u{E000}",
+		"\u{0301}Club",
+		"C\u{0301}\u{0302}\u{0303}lub",
+	] {
+		assert_eq!(
+			ChannelName::new(bad).unwrap_err(),
+			NameError::Character,
+			"{bad:?}"
+		);
+	}
+	assert!(ChannelName::new("Caf\u{e9} \u{0301}").is_ok());
+}

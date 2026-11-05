@@ -3,6 +3,7 @@
 
 mod advert;
 mod interfaces;
+mod names;
 mod service;
 mod table;
 
@@ -10,9 +11,9 @@ use thiserror::Error;
 
 pub use advert::{
 	AdvertMode, Advertisement, DiscoveredPeer, EXTRA_TXT_MAX, FingerprintHint, parse_resolved,
-	sanitize_display_name,
 };
 pub use interfaces::InterfacePolicy;
+pub use names::{name_skeleton, sanitize_display_name};
 pub use service::{Discovery, DiscoveryEvent};
 pub use table::DiscoveryTable;
 

@@ -145,7 +145,7 @@ fn a_trusted_non_member_learns_nothing_from_the_whole_link_up() {
 	assert!(
 		from_stranger
 			.iter()
-			.all(|m| !contains(&[m.clone()], &ids[0].as_bytes()[..]))
+			.all(|m| !contains(std::slice::from_ref(m), &ids[0].as_bytes()[..]))
 	);
 	assert!(stranger.proven.is_empty() && member.proven.is_empty());
 }

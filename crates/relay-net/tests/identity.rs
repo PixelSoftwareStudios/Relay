@@ -129,3 +129,101 @@ fn trust_store_is_bounded() {
 	assert!(result.is_err());
 	assert!(store.len() <= 1024);
 }
+
+#[test]
+fn lookalike_names_of_a_trusted_contact_raise_key_changed() {
+	use relay_net::discovery::{name_skeleton, sanitize_display_name};
+	let mut store = InMemoryTrustStore::new();
+	let alice = Identity::generate().unwrap().fingerprint();
+	store
+		.put(TrustRecord {
+			fingerprint: alice,
+			state: TrustState::Verified,
+			display_name: "Alice".into(),
+			trusted_at: std::time::SystemTime::now(),
+		})
+		.unwrap();
+	// The review's scenario: every one of these used to evaluate as `New`.
+	for lookalike in [
+		"Alice\u{3164}",
+		"Alice\u{FFA0}",
+		"Ali\u{034F}ce",
+		"Alice\u{FE0F}",
+		"Alice\u{E0041}",
+		"Alice\u{2800}",
+		"Alice\u{180E}",
+		"Alice\u{206A}",
+		"\u{0410}lice",
+		"Alic\u{0435}",
+		"ALICE",
+		"A l i c e",
+		"\u{FF21}lice",
+		"Al\u{0131}ce",
+	] {
+		let stranger = Identity::generate().unwrap().fingerprint();
+		assert!(
+			matches!(
+				evaluate_peer(&store, &stranger, lookalike),
+				PeerTrust::KeyChanged { .. }
+			),
+			"{lookalike:?} -> {:?}",
+			sanitize_display_name(lookalike)
+		);
+	}
+	// A genuinely different name is still just new.
+	let other = Identity::generate().unwrap().fingerprint();
+	assert_eq!(evaluate_peer(&store, &other, "Bob"), PeerTrust::New);
+	assert_eq!(name_skeleton("Alice"), name_skeleton("\u{0410}lice"));
+}
+
+#[test]
+fn invisible_and_format_characters_are_removed_from_names() {
+	use relay_net::discovery::sanitize_display_name;
+	for ch in [
+		'\u{3164}',
+		'\u{FFA0}',
+		'\u{206A}',
+		'\u{206F}',
+		'\u{FE0F}',
+		'\u{034F}',
+		'\u{E0041}',
+		'\u{2800}',
+		'\u{180E}',
+		'\u{200D}',
+		'\u{202E}',
+		'\u{E000}',
+		'\u{FDD0}',
+	] {
+		assert_eq!(
+			sanitize_display_name(&format!("A{ch}B")),
+			"AB",
+			"{:x}",
+			ch as u32
+		);
+	}
+	// Compatibility forms fold, whitespace collapses, leading marks and zalgo are cut.
+	assert_eq!(sanitize_display_name("\u{FF21}\u{FF42}"), "Ab");
+	assert_eq!(sanitize_display_name("  a \t\n b  "), "a b");
+	assert_eq!(sanitize_display_name("\u{0301}x"), "x");
+	assert_eq!(
+		sanitize_display_name(&format!("e{}", "\u{0301}".repeat(30))),
+		"\u{e9}\u{0301}\u{0301}"
+	);
+	assert_eq!(sanitize_display_name("\u{3164}\u{200B}"), "Unnamed device");
+	let long = sanitize_display_name(&"é".repeat(500));
+	assert!(long.chars().count() <= 64 && long.len() <= 256);
+}
+
+proptest::proptest! {
+	#[test]
+	fn sanitized_names_hold_no_invisible_characters(raw in ".{0,200}") {
+		use relay_net::discovery::sanitize_display_name;
+		let clean = sanitize_display_name(&raw);
+		proptest::prop_assert!(clean.chars().count() <= 64 && clean.len() <= 256);
+		proptest::prop_assert!(!clean.chars().any(|c| c.is_control()
+			|| relay_core::channel::is_invisible_or_format(c)
+			|| relay_core::channel::is_private_use_or_noncharacter(c)));
+		// Idempotent: sanitising twice changes nothing.
+		proptest::prop_assert_eq!(sanitize_display_name(&clean), clean);
+	}
+}

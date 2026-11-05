@@ -6,6 +6,7 @@ use std::time::SystemTime;
 use thiserror::Error;
 
 use super::Fingerprint;
+use crate::discovery::name_skeleton;
 
 const TRUST_RECORDS_MAX: usize = 1024;
 
@@ -39,6 +40,10 @@ pub enum TrustError {
 /// Storage for trust decisions. Persistence is supplied by the configuration layer.
 pub trait TrustStore {
 	fn get(&self, fingerprint: &Fingerprint) -> Option<TrustRecord>;
+	/// Records whose name *looks like* `display_name`: implementations compare
+	/// [`crate::discovery::name_skeleton`] of both names, not the raw strings, so a lookalike
+	/// (invisible character, confusable letter, case, spacing) of a trusted contact's name is
+	/// found and [`evaluate_peer`] reports `KeyChanged` instead of `New`.
 	fn find_by_name(&self, display_name: &str) -> Vec<TrustRecord>;
 	/// Records an explicit user decision. May upgrade `UnverifiedFirstUse` to `Verified`.
 	fn put(&mut self, record: TrustRecord) -> Result<(), TrustError>;
@@ -105,9 +110,10 @@ impl TrustStore for InMemoryTrustStore {
 	}
 
 	fn find_by_name(&self, display_name: &str) -> Vec<TrustRecord> {
+		let wanted = name_skeleton(display_name);
 		self.records
 			.values()
-			.filter(|r| r.display_name == display_name)
+			.filter(|r| name_skeleton(&r.display_name) == wanted)
 			.cloned()
 			.collect()
 	}
