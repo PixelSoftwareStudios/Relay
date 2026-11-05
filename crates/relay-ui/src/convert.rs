@@ -161,6 +161,7 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		microphone_gain: s.microphone_gain,
 		playback_gain: s.playback_gain,
 		ptt_release_delay_ms: s.ptt_release_delay_ms,
+		autostart_daemon: s.autostart_daemon,
 		display_name: s.display_name.clone(),
 		avatar_hash: hex::encode(&s.avatar_sha256),
 		// An unspecified value is the conservative reading.

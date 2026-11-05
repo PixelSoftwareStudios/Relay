@@ -11,6 +11,30 @@ use relay_ui::hub::Hub;
 use relay_ui::model::{Link, Phase};
 use relay_ui::supervisor::{backoff, supervise};
 
+struct Passive;
+
+impl relay_ui::shell::FilePicker for Passive {
+	fn pick_image(
+		&self,
+	) -> relay_ui::shell::BoxFuture<'_, Result<Option<relay_ui::shell::PickedFile>, String>> {
+		Box::pin(async { Ok(None) })
+	}
+}
+
+impl relay_ui::shell::Shell for Passive {
+	fn copy_text(&self, _: &str) {}
+	fn request_repaint(&self) {}
+	fn window_visible(&self) -> bool {
+		true
+	}
+	fn show_window(&self) {}
+	fn hide_window(&self) {}
+	fn quit(&self) {}
+	fn hides_to_tray(&self) -> bool {
+		false
+	}
+}
+
 struct Rig {
 	engine: Arc<ScriptedEngine>,
 	hub: Arc<Hub>,
@@ -21,7 +45,13 @@ fn rig() -> Rig {
 	let engine = Arc::new(ScriptedEngine::default());
 	let hub = Arc::new(Hub::default());
 	let slot = Arc::new(SessionSlot::default());
-	tokio::spawn(supervise(engine.clone(), hub.clone(), slot.clone()));
+	tokio::spawn(supervise(
+		engine.clone(),
+		hub.clone(),
+		slot.clone(),
+		Arc::new(Passive),
+		Arc::new(relay_ui::autostart::AutoStart::new(true)),
+	));
 	Rig { engine, hub, slot }
 }
 
@@ -150,4 +180,74 @@ async fn daemon_restart_reconnects_and_engine_resync_request_is_honoured() {
 	feed2.watch.send(Ok(Some(resync))).unwrap();
 	tokio::time::sleep(Duration::from_secs(1)).await;
 	assert_eq!(r.hub.state().revision, 9);
+}
+
+struct Starter {
+	starts: std::sync::atomic::AtomicUsize,
+}
+
+impl relay_ui::shell::FilePicker for Starter {
+	fn pick_image(
+		&self,
+	) -> relay_ui::shell::BoxFuture<'_, Result<Option<relay_ui::shell::PickedFile>, String>> {
+		Box::pin(async { Ok(None) })
+	}
+}
+
+impl relay_ui::shell::Shell for Starter {
+	fn copy_text(&self, _: &str) {}
+	fn request_repaint(&self) {}
+	fn window_visible(&self) -> bool {
+		true
+	}
+	fn show_window(&self) {}
+	fn hide_window(&self) {}
+	fn quit(&self) {}
+	fn hides_to_tray(&self) -> bool {
+		false
+	}
+	fn can_manage_daemon(&self) -> bool {
+		true
+	}
+	fn start_daemon(&self) -> relay_ui::shell::BoxFuture<'_, Result<String, String>> {
+		Box::pin(async {
+			self.starts
+				.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+			Ok("started".to_owned())
+		})
+	}
+}
+
+#[tokio::test(start_paused = true)]
+async fn an_unreachable_daemon_is_started_but_never_after_a_user_quit_or_a_crash_loop() {
+	let engine = Arc::new(ScriptedEngine::default());
+	let hub = Arc::new(Hub::default());
+	let slot = Arc::new(SessionSlot::default());
+	let shell = Arc::new(Starter {
+		starts: Default::default(),
+	});
+	let policy = Arc::new(relay_ui::autostart::AutoStart::new(false));
+	tokio::spawn(supervise(
+		engine.clone(),
+		hub.clone(),
+		slot,
+		shell.clone(),
+		policy.clone(),
+	));
+	// The scripted engine reports the daemon down forever: three starts, then
+	// the supervisor gives up and says why.
+	tokio::time::sleep(Duration::from_secs(30)).await;
+	let starts = || shell.starts.load(std::sync::atomic::Ordering::SeqCst);
+	assert_eq!(starts(), 3);
+	assert!(policy.paused());
+	let state = hub.state();
+	assert_eq!(state.link, Link::Offline);
+	assert!(
+		state
+			.link_error
+			.as_deref()
+			.is_some_and(|e| e.contains("keeps stopping"))
+	);
+	tokio::time::sleep(Duration::from_secs(120)).await;
+	assert_eq!(starts(), 3, "no further automatic starts");
 }

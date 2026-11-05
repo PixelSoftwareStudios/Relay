@@ -266,6 +266,11 @@ impl Controller {
 		.map(drop)
 	}
 
+	/// Whether this app starts the daemon by itself. The daemon stores it.
+	pub async fn set_autostart(&self, enabled: bool) -> Result<(), ControlError> {
+		self.run(Command::SetAutostart { enabled }).await.map(drop)
+	}
+
 	pub async fn select_devices(
 		&self,
 		input_id: &str,

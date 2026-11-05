@@ -5,7 +5,9 @@ use std::sync::atomic::Ordering;
 use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
-use crate::format::{HOTKEY_NOTE, gain_percent, link_label};
+use crate::format::{
+	HOTKEY_NOTE, close_note, gain_percent, link_label, own_live_calls, quit_prompt,
+};
 use crate::model::{AppState, Direction, Link, Meters, Mode};
 use crate::viewmodel::{CallCard, MODES, PeerRow, mode_enabled};
 
@@ -26,7 +28,13 @@ pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Acti
 			text.push_str(&format!(" {e}"));
 		}
 		if state.link == Link::Offline {
-			text.push_str(" Start the daemon; this window reconnects by itself.");
+			text.push_str(
+				if actions.shared.autostart.enabled() && !actions.shared.autostart.paused() {
+					" Starting it automatically."
+				} else {
+					" Start the daemon; this window reconnects by itself."
+				},
+			);
 		}
 		banner(ui, &text, state.link == Link::Offline);
 		if state.link == Link::Offline && actions.shell.can_manage_daemon() {
@@ -383,20 +391,55 @@ pub fn app_panel(
 	ui.heading("This app");
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
-		let close = if has_tray { "Closing the window hides it to the tray." } else { "There is no tray icon on this platform, so closing the window quits this app." };
-		ui.label(format!("{close} Quitting this app leaves the Relay daemon, and any call, running. This app cannot stop the daemon."));
+		let live = own_live_calls(&state.calls).len();
+		ui.label(close_note(has_tray, live));
 		ui.horizontal(|ui| {
 			if has_tray && ui.button("Hide window").clicked() {
 				actions.hide_window();
 			}
+			if live == 0 {
+				local.confirm_quit_app = false;
+			}
 			if ui.button("Quit this app (daemon keeps running)").clicked() {
-				actions.quit_app();
+				if live == 0 {
+					actions.quit_app();
+				} else {
+					local.confirm_quit_app = true;
+				}
 			}
 		});
+		if local.confirm_quit_app {
+			ui.label(RichText::new(quit_prompt(live)).strong());
+			ui.horizontal(|ui| {
+				if ui.button("Hang up and quit").clicked() {
+					actions.quit_app();
+				}
+				if ui.button("Cancel").clicked() {
+					local.confirm_quit_app = false;
+				}
+			});
+		}
+		autostart_checkbox(ui, state, actions);
 		ui.label(RichText::new(HOTKEY_NOTE).weak());
 	});
 	if actions.shell.can_manage_daemon() {
 		daemon_panel(ui, state, actions, local);
+	}
+}
+
+/// The stored "Start daemon automatically" preference.
+fn autostart_checkbox(ui: &mut Ui, state: &AppState, actions: &Actions) {
+	let Some(settings) = &state.settings else {
+		return;
+	};
+	let mut on = settings.autostart_daemon;
+	if ui
+		.checkbox(&mut on, "Start the daemon automatically")
+		.on_hover_text("When the daemon is not running, Relay apps start it. It advertises on the local network only while an app is open.")
+		.changed()
+	{
+		actions.shared.autostart.set_setting(on);
+		actions.run(|c| async move { c.set_autostart(on).await });
 	}
 }
 
@@ -409,6 +452,9 @@ fn daemon_panel(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Lo
 		if state.link != Link::Connected {
 			ui.label("The daemon is not connected.");
 			start_daemon_button(ui, actions);
+			if actions.shared.autostart.paused() {
+				ui.label(RichText::new("Automatic start is paused until you press Start daemon.").weak());
+			}
 			return;
 		}
 		ui.label("The daemon keeps running when you close this app. Quitting it ends all calls and releases the microphone.");

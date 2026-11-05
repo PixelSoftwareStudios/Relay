@@ -10,6 +10,8 @@ pub const MAX_WARNINGS: usize = 16;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Link {
+	/// The app is starting the daemon itself.
+	Starting,
 	Connecting,
 	Connected,
 	Reconnecting,
@@ -140,6 +142,8 @@ pub struct Settings {
 	pub playback_gain: f32,
 	/// Push-to-talk release delay in milliseconds (0 to 2000).
 	pub ptt_release_delay_ms: u32,
+	/// The app starts the daemon by itself when none runs.
+	pub autostart_daemon: bool,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,

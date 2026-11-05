@@ -169,7 +169,7 @@ impl Ops {
 /// The shared wire command for a UI command that mutates the engine.
 fn wire_command(command: Command) -> Option<WireCommand> {
 	Some(match command {
-		Command::AcquireController { .. } => return None,
+		Command::AcquireController { .. } | Command::SetAutostart { .. } => return None,
 		Command::StartCall { peer_id } => WireCommand::StartCall(CallTarget::Peer(peer_id)),
 		Command::AcceptCall {
 			call_id,
@@ -326,6 +326,25 @@ impl Ops {
 					invite: Some(Secret::new(reply.invite)),
 					..Outcome::default()
 				})
+			}
+			Command::SetAutostart { enabled } => {
+				let request = pb::SetGlobalControlsRequest {
+					context: Some(client.new_mutation().map_err(map_error)?),
+					muted: None,
+					deafened: None,
+					microphone_gain: None,
+					playback_gain: None,
+					ptt_release_delay_ms: None,
+					autostart_daemon: Some(enabled),
+				};
+				let operation = client
+					.raw()
+					.set_global_controls(request)
+					.await
+					.map_err(status)?
+					.into_inner();
+				drop(client);
+				self.settle(operation).await
 			}
 			_ => unreachable!("every other command has a wire form"),
 		}

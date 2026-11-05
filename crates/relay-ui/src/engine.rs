@@ -68,6 +68,10 @@ pub enum Command {
 		playback_gain: Option<f32>,
 		ptt_release_delay_ms: Option<u32>,
 	},
+	/// Whether the app starts the daemon by itself (stored by the daemon).
+	SetAutostart {
+		enabled: bool,
+	},
 	SelectDevices {
 		input_id: String,
 		output_id: String,

@@ -97,6 +97,7 @@ pub fn seed() -> AppState {
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			ptt_release_delay_ms: 200,
+			autostart_daemon: true,
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,
@@ -193,6 +194,11 @@ impl Operations for MockOps {
 					}
 				});
 			}
+			Command::SetAutostart { enabled } => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.autostart_daemon = enabled;
+				}
+			}),
 			Command::SelectDevices {
 				input_id,
 				output_id,

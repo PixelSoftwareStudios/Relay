@@ -157,3 +157,81 @@ fn start_results_become_plain_messages() {
 		"{failed}"
 	);
 }
+
+fn call(id: &str, phase: relay_ui::model::Phase, mine: bool) -> relay_ui::model::Call {
+	relay_ui::model::Call {
+		call_id: id.to_owned(),
+		peer_id: "p".to_owned(),
+		phase,
+		transmit: relay_ui::model::Transmit {
+			mode: relay_ui::model::Mode::ReceiveOnly,
+			consent_granted: false,
+			effective_transmitting: false,
+			blocked_reason: String::new(),
+			releasing: false,
+		},
+		user_muted: false,
+		user_deafened: false,
+		receive_gain: 1.0,
+		profile: String::new(),
+		problem: None,
+		controlled_by_me: mine,
+		controller_generation: 1,
+	}
+}
+
+#[tokio::test]
+async fn quitting_the_app_without_calls_quits_at_once() {
+	let (shell, actions) = rig();
+	actions.quit_app();
+	assert_eq!(shell.quits.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn quitting_the_app_hangs_up_its_calls_first_then_quits() {
+	use relay_ui::model::Phase;
+	let (shell, actions) = rig();
+	actions.hub.update(|s| {
+		s.calls.push(call("a", Phase::Connected, true));
+		s.calls.push(call("b", Phase::Connected, false));
+	});
+	actions.quit_app();
+	for _ in 0..300 {
+		if shell.quits.load(Ordering::SeqCst) > 0 {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	assert_eq!(shell.quits.load(Ordering::SeqCst), 1);
+}
+
+#[test]
+fn only_this_apps_live_calls_count_and_the_texts_mention_them() {
+	use relay_ui::format::{close_note, own_live_calls, quit_prompt};
+	use relay_ui::model::Phase;
+	let calls = vec![
+		call("a", Phase::Connected, true),
+		call("b", Phase::Connected, false),
+		call("c", Phase::Ended, true),
+		call("d", Phase::IncomingRinging, true),
+	];
+	assert_eq!(own_live_calls(&calls), vec!["a", "d"]);
+	assert!(quit_prompt(2).contains("2 active calls"));
+	assert!(quit_prompt(1).contains("hung up"));
+	assert_eq!(quit_prompt(0), "Quit this app?");
+	assert!(close_note(true, 0).contains("hides it to the tray"));
+	assert!(close_note(false, 1).contains("quits this app"));
+	assert!(close_note(true, 3).contains("3 calls are active"));
+	assert!(close_note(true, 0).contains("hangs up the calls"));
+}
+
+#[tokio::test]
+async fn a_quit_daemon_pauses_automatic_starts_until_the_user_starts_it() {
+	let (_shell, actions) = rig();
+	actions.quit_daemon();
+	settled(&actions).await;
+	assert!(actions.shared.autostart.paused());
+	actions.start_daemon();
+	settled(&actions).await;
+	assert!(!actions.shared.autostart.paused());
+}

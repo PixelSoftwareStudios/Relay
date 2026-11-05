@@ -29,6 +29,8 @@ pub struct Shared {
 	pub quitting: AtomicBool,
 	/// A start or stop of the daemon is in flight.
 	pub daemon_busy: AtomicBool,
+	/// When the app starts the daemon by itself.
+	pub autostart: Arc<crate::autostart::AutoStart>,
 	pub inbox: Inbox,
 }
 
@@ -41,6 +43,7 @@ impl Default for Shared {
 			error: Mutex::new(None),
 			quitting: AtomicBool::new(false),
 			daemon_busy: AtomicBool::new(false),
+			autostart: Arc::new(crate::autostart::AutoStart::default()),
 			inbox: Inbox::default(),
 		}
 	}
@@ -133,9 +136,29 @@ impl Actions {
 	}
 
 	/// Quit this app only; the daemon is a separate process.
+	///
+	/// The calls this app owns are hung up first (bounded, best effort): the
+	/// daemon would end them after its grace period anyway, but a clean
+	/// hang-up tells the peer at once.
 	pub fn quit_app(&self) {
 		self.shared.quitting.store(true, Ordering::Release);
-		self.shell.quit();
+		let calls = self
+			.hub
+			.read(|state| crate::format::own_live_calls(&state.calls));
+		if calls.is_empty() {
+			self.shell.quit();
+			return;
+		}
+		let (controller, shell) = (self.controller.clone(), self.shell.clone());
+		self.runtime.spawn(async move {
+			let hang_up = async {
+				for id in &calls {
+					let _ = controller.end_call(id).await;
+				}
+			};
+			let _ = tokio::time::timeout(std::time::Duration::from_secs(2), hang_up).await;
+			shell.quit();
+		});
 	}
 
 	pub fn copy_text(&self, text: &str) {

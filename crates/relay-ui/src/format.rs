@@ -38,6 +38,7 @@ pub fn phase_label(phase: Phase) -> &'static str {
 
 pub fn link_label(link: Link) -> &'static str {
 	match link {
+		Link::Starting => "Starting the Relay daemon",
 		Link::Connecting => "Connecting to the Relay daemon",
 		Link::Connected => "Connected",
 		Link::Reconnecting => "Daemon connection lost, reconnecting",
@@ -153,4 +154,45 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 		format!("Waiting for a key press from an engine-side input source.{blocked}"),
 		Tone::Idle,
 	)
+}
+
+/// Ids of the calls this app owns that are still live. Quitting the app hangs
+/// these up; other clients' calls are not touched.
+pub fn own_live_calls(calls: &[Call]) -> Vec<String> {
+	calls
+		.iter()
+		.filter(|c| c.controlled_by_me)
+		.filter(|c| {
+			!matches!(
+				c.phase,
+				Phase::Ending | Phase::Ended | Phase::Failed | Phase::Declined | Phase::Cancelled
+			)
+		})
+		.map(|c| c.call_id.clone())
+		.collect()
+}
+
+/// What closing the window does, and what quitting the app does to calls.
+pub fn close_note(has_tray: bool, own_calls: usize) -> String {
+	let close = if has_tray {
+		"Closing the window hides it to the tray; calls keep going."
+	} else {
+		"There is no tray icon on this platform, so closing the window quits this app."
+	};
+	let quit = "Quitting this app hangs up the calls it started or accepted and leaves the Relay daemon running. This app cannot stop the daemon.";
+	let live = match own_calls {
+		0 => String::new(),
+		1 => " One call is active.".to_owned(),
+		n => format!(" {n} calls are active."),
+	};
+	format!("{close} {quit}{live}")
+}
+
+/// The confirmation shown before quitting while calls are live.
+pub fn quit_prompt(own_calls: usize) -> String {
+	match own_calls {
+		0 => "Quit this app?".to_owned(),
+		1 => "Quit this app? Your active call will be hung up.".to_owned(),
+		n => format!("Quit this app? Your {n} active calls will be hung up."),
+	}
 }

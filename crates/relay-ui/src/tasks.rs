@@ -12,12 +12,15 @@ impl Actions {
 	/// Start the standalone daemon (only when the user clicks). The window
 	/// reconnects by itself once the endpoint is up.
 	pub fn start_daemon(&self) {
+		self.shared.autostart.user_start();
 		self.daemon_job(false);
 	}
 
 	/// Ask the daemon to stop: calls end and the microphone is released. This
 	/// is not [`Actions::quit_app`], which leaves the daemon running.
 	pub fn quit_daemon(&self) {
+		// Quitting on purpose is not a crash: nothing restarts it this session.
+		self.shared.autostart.user_quit();
 		self.daemon_job(true);
 	}
 

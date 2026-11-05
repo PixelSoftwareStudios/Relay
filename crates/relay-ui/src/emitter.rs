@@ -63,6 +63,7 @@ pub fn tray_summary(state: &AppState) -> TraySummary {
 		.count();
 	let tooltip = match state.link {
 		_ if state.mock => "Relay (mock data)".to_owned(),
+		Link::Starting => "Relay: starting daemon".to_owned(),
 		Link::Connecting => "Relay: connecting to daemon".to_owned(),
 		Link::Reconnecting => "Relay: daemon connection lost, reconnecting".to_owned(),
 		Link::Offline => "Relay: daemon not running".to_owned(),

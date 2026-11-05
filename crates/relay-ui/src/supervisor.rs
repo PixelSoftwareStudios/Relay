@@ -6,11 +6,13 @@ use std::time::Duration;
 
 use relay_api::WatchItem;
 
+use crate::autostart::{AutoStart, Decision};
 use crate::controller::SessionSlot;
 use crate::convert;
 use crate::engine::{Connection, Engine, EngineError};
 use crate::hub::Hub;
 use crate::model::Link;
+use crate::shell::Shell;
 
 const BACKOFF_BASE: Duration = Duration::from_millis(250);
 const BACKOFF_MAX: Duration = Duration::from_secs(5);
@@ -23,7 +25,13 @@ pub fn backoff(attempt: u32) -> Duration {
 }
 
 /// Run forever; drop or abort the task to stop.
-pub async fn supervise(engine: Arc<dyn Engine>, hub: Arc<Hub>, slot: Arc<SessionSlot>) {
+pub async fn supervise(
+	engine: Arc<dyn Engine>,
+	hub: Arc<Hub>,
+	slot: Arc<SessionSlot>,
+	shell: Arc<dyn Shell>,
+	autostart: Arc<AutoStart>,
+) {
 	let mut attempt = 0u32;
 	let mut had_session = false;
 	loop {
@@ -31,12 +39,25 @@ pub async fn supervise(engine: Arc<dyn Engine>, hub: Arc<Hub>, slot: Arc<Session
 			Ok(connection) => {
 				attempt = 0;
 				had_session = true;
-				let reason = mirror(connection, &hub, &slot).await;
+				let reason = mirror(connection, &hub, &slot, &autostart).await;
 				slot.clear();
 				hub.clear_meters();
 				hub.update(|s| s.set_link_down(Link::Reconnecting, Some(reason)));
 			}
 			Err(error) => {
+				let started = if matches!(error, EngineError::Unavailable(_)) {
+					start_if_wanted(&hub, shell.as_ref(), &autostart).await
+				} else {
+					Started::No
+				};
+				match started {
+					Started::Retry => continue,
+					Started::Shown => {
+						tokio::time::sleep(BACKOFF_MAX).await;
+						continue;
+					}
+					Started::No => {}
+				}
 				let link = match error {
 					EngineError::Unavailable(_) => Link::Offline,
 					_ if had_session => Link::Reconnecting,
@@ -50,8 +71,73 @@ pub async fn supervise(engine: Arc<dyn Engine>, hub: Arc<Hub>, slot: Arc<Session
 	}
 }
 
+/// The clock the policy runs on; tokio's, so tests can pause it.
+fn now() -> std::time::Instant {
+	tokio::time::Instant::now().into_std()
+}
+
+/// Says why automatic starts stopped, and keeps saying it.
+fn gave_up(hub: &Hub, autostart: &AutoStart) -> Started {
+	let why = autostart
+		.last_failure()
+		.unwrap_or_else(|| "It stopped again right after starting.".to_owned());
+	let text = format!(
+		"The Relay daemon keeps stopping, so it is not restarted again automatically. {why}"
+	);
+	hub.update(|s| s.set_link_down(Link::Offline, Some(text)));
+	Started::Shown
+}
+
+/// What trying to start the daemon led to.
+enum Started {
+	/// Nothing was started; show the connect error as usual.
+	No,
+	/// Try to connect again now.
+	Retry,
+	/// The link text already says why; wait before looking again.
+	Shown,
+}
+
+/// Starts the daemon when the policy allows, showing the app as "starting"
+/// meanwhile.
+async fn start_if_wanted(hub: &Hub, shell: &dyn Shell, autostart: &AutoStart) -> Started {
+	if !shell.can_manage_daemon() {
+		return Started::No;
+	}
+	match autostart.decide(now()) {
+		Decision::Idle if autostart.gave_up() => gave_up(hub, autostart),
+		Decision::Idle => Started::No,
+		Decision::Wait(delay) => {
+			hub.update(|s| s.set_link_down(Link::Offline, None));
+			tokio::time::sleep(delay).await;
+			Started::Retry
+		}
+		Decision::Start => {
+			hub.update(|s| s.set_link_down(Link::Starting, None));
+			let outcome = shell.start_daemon().await;
+			autostart.record_start(now(), &outcome);
+			match outcome {
+				Ok(_) => Started::Retry,
+				Err(message) => {
+					hub.update(|s| s.set_link_down(Link::Offline, Some(message)));
+					Started::Shown
+				}
+			}
+		}
+		Decision::GiveUp => gave_up(hub, autostart),
+	}
+}
+
 /// Mirror one session until it ends; the returned text says why.
-async fn mirror(mut conn: Connection, hub: &Hub, slot: &SessionSlot) -> String {
+async fn mirror(
+	mut conn: Connection,
+	hub: &Hub,
+	slot: &SessionSlot,
+	autostart: &AutoStart,
+) -> String {
+	if let Some(settings) = &conn.snapshot.settings {
+		autostart.set_setting(settings.autostart_daemon);
+	}
 	hub.update(|s| {
 		s.client_id = conn.client_id.clone();
 		s.engine = Some(convert::engine_info(&conn.info));

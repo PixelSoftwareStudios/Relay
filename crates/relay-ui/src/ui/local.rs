@@ -36,6 +36,8 @@ pub struct Local {
 	pub leave_confirm: Option<String>,
 	/// The "Quit daemon" confirmation is showing.
 	pub confirm_quit_daemon: bool,
+	/// The "Quit this app" confirmation (calls are live) is showing.
+	pub confirm_quit_app: bool,
 
 	pub connection: Option<Result<ConnectionView, String>>,
 	pub connection_requested: bool,

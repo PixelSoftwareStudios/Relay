@@ -5,6 +5,7 @@
 
 pub mod actions;
 pub mod apply;
+pub mod autostart;
 pub mod avatar;
 pub mod channels;
 pub mod controller;

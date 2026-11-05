@@ -153,6 +153,13 @@ async fn actions_go_through_the_shell() {
 	r.actions.copy_text("relay://x");
 	r.actions.hide_window();
 	r.actions.quit_app();
+	// The seeded calls are hung up first (no session here, so each fails fast).
+	for _ in 0..300 {
+		if r.shell.quits.load(Ordering::SeqCst) > 0 {
+			break;
+		}
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
 	assert_eq!(*r.shell.copied.lock().unwrap(), ["relay://x"]);
 	assert_eq!(r.shell.hides.load(Ordering::SeqCst), 1);
 	assert_eq!(r.shell.quits.load(Ordering::SeqCst), 1);
