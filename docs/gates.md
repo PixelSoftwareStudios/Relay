@@ -1,0 +1,153 @@
+# Gate register
+
+Every exit gate of work packages WP-00 to WP-12, plus the cross-cutting release gates, with an honest
+status. Update a row in the same change that produces its evidence, and record the evidence itself in
+`docs/evidence.md` (hardware, review, measurement) or name the test here.
+
+Test names are listed as `file::test` under the owning crate's `tests/` directory. They were read from
+the repository, not re-run for this register; CI (`.github/workflows/ci.yml`) is written but has not run
+yet.
+
+## Status vocabulary
+
+| Status | Meaning |
+|---|---|
+| met-by-test | An automated test in the repository asserts the gate. It still passes only on the platforms where it has run. |
+| simulated | Exercised only with fakes, in-process loopback or a model; real devices or networks are not involved. |
+| unmet-needs-hardware | Needs real devices, a second machine or another OS. Cannot be closed from one development host. |
+| unmet-needs-review | Needs a named independent reviewer, or a written record that does not exist yet. |
+| blocked | Cannot start until something else exists (a corpus, a candidate, a decision, another gate). |
+
+A hardware or review gate is never marked met by a test that uses fakes.
+
+## Work package gates
+
+### WP-00 Workspace, toolchain, policy
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Existing-behaviour inventory and decision diff reviewed | unmet-needs-review | `docs/decisions.md` records choices; there is no review record. Needs a reviewer sign-off in `docs/evidence.md`. |
+| Headless build passes on each first-tier target | unmet-needs-hardware | Built and tested on macOS (Apple silicon) by the authors. Linux and Windows are covered only by the `headless` CI job, which has not run. Record the first green run per OS. |
+| Lint, test and dependency policy enforced | simulated | `rustfmt.toml`, workspace lints, `deny.toml` and CI exist. Policy is enforced only once CI runs on a pushed revision. |
+
+### WP-01 Domain, local API, fakes
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Snapshot and watch deliver without gaps | met-by-test | relay-core `watch::every_revision_is_delivered_exactly_once_in_order`, `watcher_following_events_always_equals_a_fresh_snapshot`; relay-api `engine_api::snapshot_then_watch_loses_nothing_under_concurrent_writes`, `tracker::gap_is_reported_when_strict`. |
+| Stale operations are rejected | met-by-test | relay-api `guard::stale_incarnation_is_rejected`; relay-engine `service_clients::takeover_invalidates_the_previous_controller`; relay-core `routing::stale_capture_completion_is_rejected_and_loss_needs_explicit_resume`. |
+| Duplicate commands are idempotent | met-by-test | relay-core `operations::duplicate_request_returns_the_cached_result_without_reexecuting`, `start_call_retry_does_not_create_a_second_call`; relay-api `engine_api::duplicate_operation_returns_previous_outcome`. |
+| A fake CLI and a fake GUI observe independent sessions without media | met-by-test | relay-engine `service_clients::two_clients_keep_independent_sessions`; relay-core `watch::independent_clients_see_the_same_independent_calls`. |
+
+### WP-02 Local audio loopback
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| No callback allocation after initialisation | simulated | relay-audio `allocations::capture_callback_is_allocation_free`, `playback_callback_is_allocation_free`, `full_loopback_step_is_allocation_free` on the fake-device path. Real cpal threads are not counted (`docs/audio.md`). |
+| One-hour loopback and device-removal recovery on qualified hardware | unmet-needs-hardware | Not run. Needs the run recorded with device models, OS and backend. |
+| Measured latency distribution and failure counts, noise suppression off baseline | unmet-needs-hardware | Only stage microbenchmarks exist (`docs/evidence.md`); no mouth-to-ear or round-trip fixture. |
+
+### WP-03 Opus, RTP, jitter, drift
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Reordering, wrap, loss, DTX-style gaps | met-by-test | relay-protocol `jitter_buffer::reordered_packets_within_margin_play_in_order`, `survives_sequence_and_timestamp_wrap`, `single_loss_is_concealed_then_resumes`, `deliberate_gap_is_silence_not_loss`; `jitter_props::invariants_hold_under_chaos`; `seq_extension.rs`; `rtp_oracle.rs`. |
+| Simulated drift at +-100 and +-300 ppm | met-by-test | relay-protocol `drift_sim::converges_for_each_simulated_drift`, `saturates_instead_of_chasing_excess_drift`. Simulation only; hardware clock behaviour is unmeasured. |
+| Late packets cannot grow playout delay past the bound | met-by-test | relay-protocol `jitter_buffer::late_packet_is_dropped_and_does_not_grow_delay`, `stall_burst_keeps_delay_bounded`. |
+
+### WP-04 Discovery, trust, secure transport
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| No microphone starts on discovery, handshake or call acceptance alone | met-by-test | relay-core `routing::receive_only_by_default_and_no_capture_before_consent`; relay-engine `media_end_to_end::a_call_carries_audio_both_ways_only_after_consent_and_stops_on_withdrawal`; relay-cli `engine_e2e::call_sends_the_peer_id_and_never_a_microphone_grant`. |
+| Malformed or authentication-failed records do not change trusted state | met-by-test | relay-net `control::tampered_record_is_rejected_and_closes_the_channel`, `media::injected_garbage_and_replays_do_not_disturb_live_media`, `media::every_single_byte_flip_is_rejected`, `fuzz.rs` property tests; relay-engine `peers_trust::nothing_is_persisted_by_observation_only`. |
+| Real mDNS discovery between two hosts | unmet-needs-hardware | Live test is opt-in (`cargo test -p relay-net --test discovery -- --ignored`); no multi-host run is recorded. |
+| Independent security review of the Noise composition, nonces, replay and epoch handling | unmet-needs-review | `docs/net.md` states the composition is a proposal, not an audited protocol. Distributed binaries are blocked on this. |
+| Fuzzing of untrusted parsers beyond property tests | unmet-needs-review | Targets exist in `fuzz/`; they have not been built or run. Needs a recorded run (duration, corpus, findings). |
+
+### WP-05 First two-device call
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Paired two-device call works without external services | unmet-needs-hardware | In-process end-to-end exists (relay-engine `media_end_to_end`, `peers_links`), which is simulated. A run on two real machines is needed. |
+| Hangup, mute, consent withdrawal, control reconnect and daemon exit have documented outcomes | simulated | Behaviour is tested: `media_end_to_end::losing_the_microphone_pauses_sending_and_waits_for_the_user`, `service_daemon::shutdown_ends_open_streams_and_removes_the_socket`, desktop `supervisor::daemon_restart_reconnects_and_engine_resync_request_is_honoured`. A single consolidated outcome table is still to be written. |
+| Full-chain latency compared to local loopback; no unsupported claim | unmet-needs-hardware | No measurement. Claims stay out of docs until `docs/evidence.md` has the run. |
+
+### WP-06 Multi-call routing and input authority
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Canary audio shows no path forwards one call into another | met-by-test | relay-engine `media_canary::each_call_hears_only_its_own_tone_on_a_hostile_network`, `a_packet_relabelled_for_another_call_is_rejected`, `wrong_generation_source_or_ssrc_is_dropped`, `concealment_and_silence_never_invent_audio_for_an_idle_call`. Uses fake devices; DSP and encoder histories on real audio are not covered. |
+| Held PTT cannot survive disconnect, takeover or route-generation change | met-by-test | relay-core `ptt::held_ptt_does_not_survive_client_disconnect`, `held_ptt_does_not_survive_takeover_and_old_press_never_revives`, `held_ptt_does_not_survive_route_generation_change`, `held_ptt_does_not_survive_lock_suspend_or_device_loss`; relay-engine `service_gate::takeover_drops_the_previous_holders_press`, `a_held_press_opens_the_gate_and_closing_the_stream_closes_it`. |
+| Resource admission protects existing calls | met-by-test | relay-engine `media_admission::refusing_a_second_call_leaves_the_running_call_untouched`, `an_already_overloaded_worker_admits_nothing_new`. Load numbers are modelled, not measured on target hardware. |
+
+### WP-07 Noise-suppression selection
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Choose one default from recorded quality, latency and resource evidence, or ship bypass | blocked | Bypass is the shipped default. The only comparison used a synthetic corpus, which the log itself says is not speech. Needs a real speech corpus run (`docs/evidence.md` "Not run"). |
+| No call-time model download or re-initialisation on audio callbacks | simulated | No downloader exists, and relay-audio `allocations::dsp_chain_is_allocation_free` covers the shipped chain. Candidates other than `off` are not callback-safe as measured (sonora allocates per frame). |
+| Approved model hash, license and runtime manifest checked in | blocked | No candidate is qualified, so no manifest exists. |
+
+### WP-08 CLI, TUI, hotkeys
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Terminal-only install calls without WebView or GUI dependencies | met-by-test | Structural: `apps/relay-desktop` is outside `default-members`; `cargo tree -p relay-cli` shows no eframe or webview. Exercised by relay-cli `engine_e2e` and the CI `headless` job (not yet run). |
+| PTT press, release, focus, game and lock behaviour on the supported matrix | unmet-needs-hardware | Fake-backend logic is tested (relay-platform `ptt::lock_releases_and_requires_repress`, `focus_loss_and_target_change_release`, `backend_stop_releases`). Real key delivery on macOS, Windows, X11 and Wayland portals is a manual gate in `docs/platform.md`. |
+| An unsupported portal reports honestly, never false success | met-by-test | relay-platform `hotkey::unavailable_backends_refuse_to_start`, `detected_backend_probe_is_never_a_false_success`. |
+| TUI push-to-talk against a real engine `InputControl` handler | unmet-needs-hardware | Engine-side stream semantics listed as open in `docs/cli.md` and `docs/platform.md`; a real-engine run is missing. |
+
+### WP-09 Preferences, identity, avatars, supportability
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| A crash during a config replace never silently enables the microphone or loses trust without notice | met-by-test | relay-config `recovery::garbage_main_recovers_backup_without_enabling_mic`, `truncated_main_is_detected_and_recovered`, `corrupt_main_and_backup_resets_loudly_and_preserves_file`, `uncommitted_transaction_is_invisible_after_restart`, `garbage_wal_sidecar_never_silently_keeps_a_recovered_mic`. Power-loss injection on real filesystems is not done. |
+| Decompression, size, path and malformed-avatar handling | met-by-test | relay-config `avatar::decompression_bomb_dimensions_are_rejected`, `lying_header_dimensions_are_rejected`, `oversize_encoded_is_rejected_before_decoding`, `truncated_png_is_rejected`, `path_validation`, `cache_detects_tampering`. |
+| Support bundle has no keys, tokens, raw voice or sensitive paths by default | met-by-test | relay-config `diagnostics::bundle_omits_identity_paths_and_names`, `log_lines_are_redacted`, `raw_capture_needs_explicit_opt_in`; relay-cli `engine_e2e::doctor_writes_a_private_redacted_bundle_even_without_an_engine`. |
+| OS credential store behaviour on Windows and Linux | unmet-needs-hardware | Only macOS has been exercised by the authors; no record exists for other stores. |
+
+### WP-10 Desktop client
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Closing the GUI has a documented effect on leases and background calls | simulated | Documented in `docs/desktop.md` (quitting never stops the daemon or ends calls). Lease behaviour is tested on the engine side (relay-engine `service_gate::a_held_press_opens_the_gate_and_closing_the_stream_closes_it`, `service_daemon::idle_clients_are_detached_and_release_their_calls`); the real window and tray were never observed by a person. |
+| Headless artifacts carry no GUI dependency; GUI resources measured separately | unmet-needs-hardware | Dependency split holds structurally. Resource gate is explicitly unmet: one idle sample with no daemon only (`docs/desktop.md`). Needs idle and active CPU and RSS per platform. |
+| No client path carries audio samples or inference | unmet-needs-review | By construction: the gRPC contract has no sample payloads and `docs/architecture.md` forbids it. There is no test asserting it; a reviewer should confirm against `crates/relay-api/proto`. |
+| Windows named-pipe or authenticated local transport | unmet-needs-hardware | Named pipe is an unimplemented spike (`docs/api.md`); only the loopback token profile exists and its ACL hardening on Windows is open. |
+
+### WP-11 Qualification, packaging, release
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Every mandatory gate has evidence, a named reviewer and a passing artifact revision | blocked | Depends on every open row in this file. |
+| No unreviewed plaintext or insecure credential fallback in a distributed build | unmet-needs-review | There is no plaintext transport mode (`docs/net.md`). The explicit INSECURE identity file option exists (`docs/decisions.md`); the release build must be reviewed to confirm it is not enabled by default and is labelled. |
+| Published claims match measured configurations and known limits | blocked | Needs the measurements above; the support matrix in `docs/release.md` stays empty of claims until then. |
+| Dependency licenses and provenance | simulated | `deny.toml` written, `LICENSE` and manifests agree (Apache-2.0). Mechanical checks pass only once recorded as run; third-party notices and SBOM are generated at release time (`docs/release.md`). |
+| Reproducible, hashed, signed artifacts | unmet-needs-review | Plan in `docs/release.md`; no signing identity, notarization or Windows signing exists. |
+| Clean-machine install, run and uninstall on each supported OS | unmet-needs-hardware | Not performed. |
+
+### WP-12 Speaker-mode AEC
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Speaker-mode qualification including double-talk and changing output gain | blocked | Deferred past v1 (headset-first). Needs render-reference alignment work and hardware. Only an AEC3 timing sample on a silent render exists. |
+| No unexplained double suppression or second AEC in use | blocked | Depends on the above; no AEC is wired into calls. |
+
+## Cross-cutting release gates
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Independent security review of peer security and channels | unmet-needs-review | `docs/net.md`, `docs/channels.md`: composition is a proposal; `spake2` unaudited. Needs a named reviewer, scope, findings and a closing revision. |
+| Default noise suppressor chosen, with licensed and hashed model | blocked | See WP-07. Not required while bypass ships. |
+| Real-time deadlines: callback and worker p99, p99.9 and maximum under load, xruns | unmet-needs-hardware | Allocation freedom is tested on fakes only; no timing under load on real devices. |
+| Multi-call privacy on real audio | simulated | Canary tests use fake devices; native sample non-interference through real DSP is not shown. |
+| Global PTT on advertised platforms | unmet-needs-hardware | See WP-08. |
+| Windows local IPC isolation | unmet-needs-hardware | See WP-10. Blocks any Windows claim. |
+| macOS identity and microphone permission flow (signed bundle, deny, revoke, restart) | unmet-needs-hardware | No signed bundle exists. Blocks any macOS release claim. |
+| Platform backend and latency claims | unmet-needs-hardware | All latency and resource figures in the repository are microbenchmarks or targets. |
+| Licenses and source provenance | simulated | See WP-11. Apache-2.0 chosen; `LICENSE` and manifests agree. Needs a recorded `cargo deny` run and the generated notices. |
+| Schema and API compatibility | simulated | Contracts compile and are exercised by tests. The cross-version matrix is an open gate in `docs/api.md`; the product is unreleased, so no old-client compatibility is promised. |
+| Cross-platform persistence and secrets | unmet-needs-hardware | SQLite recovery is tested on the host filesystem (see WP-09); Windows and Linux credential stores and filesystem permissions are untested. |
+| Adversarial networking and resource limits | simulated | Property tests (`relay-net` `fuzz.rs`, `channel_fuzz.rs`), bounded queues and limiter tests exist. Coverage-guided fuzzing, identity churn, interface changes and rekey under load are not run. |
+| GUI packaging and footprint | unmet-needs-hardware | Clean-machine build, signing, install and footprint measurement not done. |
