@@ -119,6 +119,11 @@ pub struct RunOptions {
 	pub entropy: Option<Arc<dyn Entropy>>,
 	/// How long a microphone test runs before it stops by itself.
 	pub mic_test_max: Duration,
+	/// Where channel secrets live; `None` follows the preferences (OS credential
+	/// store unless the user chose the insecure file).
+	pub channel_vault: Option<Arc<dyn relay_config::vault::SecretVault>>,
+	/// Time source of the channel driver; `None` is the system clock.
+	pub channel_clock: Option<crate::channels::Clock>,
 }
 
 impl RunOptions {
@@ -136,6 +141,8 @@ impl RunOptions {
 			idle_client_ttl: Duration::from_secs(300),
 			entropy: None,
 			mic_test_max: crate::media::MIC_TEST_MAX,
+			channel_vault: None,
+			channel_clock: None,
 		}
 	}
 }

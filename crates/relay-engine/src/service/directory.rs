@@ -9,6 +9,7 @@ use super::convert::{device_to_pb, peer_to_pb};
 use super::ports::{
 	AdvertMode, DeviceInfo, InboundPolicy, LocalProfile, PeerInfo, PeerTrust, StoredSettings,
 };
+use crate::channels::ChannelView;
 
 const MAX_FLAGGED: usize = 16;
 const MAX_WARNINGS: usize = 32;
@@ -68,6 +69,8 @@ pub struct Directory {
 	devices: BTreeMap<String, DeviceInfo>,
 	warnings: Vec<relay_api::pb::Problem>,
 	flagged: BTreeSet<PeerId>,
+	channels: BTreeMap<Vec<u8>, relay_api::pb::ChannelInfo>,
+	shared: BTreeMap<PeerId, Vec<Vec<u8>>>,
 	/// Auxiliary settings.
 	pub aux: Aux,
 }
@@ -86,6 +89,8 @@ impl Directory {
 			devices: devices.into_iter().map(|d| (d.id.clone(), d)).collect(),
 			warnings,
 			flagged: BTreeSet::new(),
+			channels: BTreeMap::new(),
+			shared: BTreeMap::new(),
 			aux,
 		}
 	}
@@ -102,6 +107,57 @@ impl Directory {
 		ids.into_iter().filter_map(|id| self.peer(id)).collect()
 	}
 
+	/// The peer as clients see it: discovery data, link state and the channels it
+	/// proved (never merely hinted).
+	fn peer_view(&self, info: &PeerInfo, linked: bool) -> relay_api::pb::Peer {
+		let mut view = peer_to_pb(info, linked);
+		if let Some(shared) = self.shared.get(&info.id) {
+			view.shared_channel_ids.clone_from(shared);
+		}
+		view
+	}
+
+	/// Joined channels.
+	pub fn channels(&self) -> Vec<relay_api::pb::ChannelInfo> {
+		self.channels.values().cloned().collect()
+	}
+
+	/// Replaces the channel state; reports changed channels, left channels and
+	/// every peer whose proven set moved.
+	pub fn set_channels(&mut self, view: ChannelView) -> Vec<StateEvent> {
+		let next: BTreeMap<Vec<u8>, relay_api::pb::ChannelInfo> = view
+			.channels
+			.into_iter()
+			.map(|c| (c.channel_id.clone(), c))
+			.collect();
+		let mut events = Vec::new();
+		for (id, info) in &next {
+			if self.channels.get(id) != Some(info) {
+				events.push(StateEvent {
+					event: Some(state_event::Event::Channel(info.clone())),
+				});
+			}
+		}
+		for id in self.channels.keys().filter(|id| !next.contains_key(*id)) {
+			events.push(removed(id.clone(), "channel"));
+		}
+		let moved: BTreeSet<PeerId> = self
+			.shared
+			.keys()
+			.chain(view.shared.keys())
+			.filter(|p| self.shared.get(p) != view.shared.get(p))
+			.copied()
+			.collect();
+		self.channels = next;
+		self.shared = view.shared;
+		for peer in moved {
+			if let Some(view) = self.peer(peer) {
+				events.push(peer_event(view));
+			}
+		}
+		events
+	}
+
 	/// Every known device.
 	pub fn devices(&self) -> Vec<relay_api::pb::Device> {
 		self.devices.values().map(device_to_pb).collect()
@@ -110,8 +166,8 @@ impl Directory {
 	fn peer(&self, id: PeerId) -> Option<relay_api::pb::Peer> {
 		let linked = self.linked.contains(&id);
 		match self.peers.get(&id) {
-			Some(info) => Some(peer_to_pb(info, linked)),
-			None => linked.then(|| peer_to_pb(&PeerInfo::bare(id), true)),
+			Some(info) => Some(self.peer_view(info, linked)),
+			None => linked.then(|| self.peer_view(&PeerInfo::bare(id), true)),
 		}
 	}
 
@@ -123,7 +179,7 @@ impl Directory {
 			return Vec::new();
 		}
 		self.flagged.insert(info.id);
-		let event = peer_event(peer_to_pb(&info, self.linked.contains(&info.id)));
+		let event = peer_event(self.peer_view(&info, self.linked.contains(&info.id)));
 		self.peers.insert(info.id, info);
 		vec![event]
 	}
@@ -166,7 +222,7 @@ impl Directory {
 		let mut events = Vec::new();
 		for (id, info) in &next {
 			if self.peers.get(id) != Some(info) {
-				events.push(peer_event(peer_to_pb(info, self.linked.contains(id))));
+				events.push(peer_event(self.peer_view(info, self.linked.contains(id))));
 			}
 		}
 		for id in self.peers.keys().filter(|id| !next.contains_key(id)) {

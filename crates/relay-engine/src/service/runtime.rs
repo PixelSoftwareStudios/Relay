@@ -20,6 +20,7 @@ use super::ids::{Entropy, Ids, OsEntropy};
 use super::ledger::Ledger;
 use super::ports::Ports;
 use super::rpc::{EngineService, Shared};
+use crate::channels::ChannelHub;
 
 /// Everything configurable about the service.
 pub struct ServiceConfig {
@@ -63,6 +64,7 @@ pub struct ServiceBuilder {
 	inbox: mpsc::Receiver<super::handle::Msg>,
 	gates: GatePublisher,
 	registry: Arc<ClientRegistry>,
+	channels: Option<ChannelHub>,
 }
 
 impl ServiceBuilder {
@@ -85,7 +87,14 @@ impl ServiceBuilder {
 			inbox,
 			gates,
 			registry,
+			channels: None,
 		})
+	}
+
+	/// Serves the channel RPCs from this driver (without one they are unimplemented).
+	pub fn with_channels(mut self, channels: ChannelHub) -> Self {
+		self.channels = Some(channels);
+		self
 	}
 
 	/// The handle adapters use to report events.
@@ -112,6 +121,7 @@ impl ServiceBuilder {
 			inbox,
 			gates,
 			registry,
+			channels,
 		} = self;
 		let incarnation = registry.incarnation();
 		let state = State::new(
@@ -161,6 +171,7 @@ impl ServiceBuilder {
 			api: config.api,
 			limits: config.limits,
 			next_source: AtomicU64::new(1),
+			channels,
 		});
 		let sweeper = tokio::spawn(sweep(
 			handle.clone(),

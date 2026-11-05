@@ -192,7 +192,7 @@ pub fn snapshot_to_pb(
 		devices: directory.devices(),
 		settings: Some(settings_to_pb(&core.global, &directory.aux)),
 		warnings: directory.warnings(),
-		channels: Vec::new(),
+		channels: directory.channels(),
 	}
 }
 

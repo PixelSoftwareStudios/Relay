@@ -13,6 +13,7 @@ use super::feed::FeedItem;
 use super::gates::GateReader;
 use super::ledger::Fingerprint;
 use super::ports::{AdvertMode, DeviceInfo, InboundPolicy, PeerInfo, TrustRequest};
+use crate::channels::ChannelView;
 
 /// Work that is executed by an adapter rather than the domain core.
 #[derive(Debug, Clone, PartialEq)]
@@ -117,6 +118,10 @@ pub(crate) enum Msg {
 		reply: Reply<Subscribed>,
 	},
 	Peers(Vec<PeerInfo>),
+	Channels {
+		view: ChannelView,
+		reply: Reply<u64>,
+	},
 	Devices(Vec<DeviceInfo>),
 	Attention {
 		peer: Option<PeerInfo>,
@@ -175,6 +180,12 @@ impl ControlHandle {
 	/// Replaces the discovered peers.
 	pub async fn peers_changed(&self, peers: Vec<PeerInfo>) -> Result<(), ServiceError> {
 		self.post(Msg::Peers(peers)).await
+	}
+
+	/// Replaces the joined channels and the per-peer proven sets; answers with the
+	/// API revision after the change was published.
+	pub async fn channels_changed(&self, view: ChannelView) -> Result<u64, ServiceError> {
+		self.ask(|reply| Msg::Channels { view, reply }, true).await
 	}
 
 	/// Replaces the known devices.

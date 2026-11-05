@@ -146,6 +146,11 @@ impl Actor {
 				let events = self.directory.set_peers(peers);
 				self.publish(events);
 			}
+			Msg::Channels { view, reply } => {
+				let events = self.directory.set_channels(view);
+				self.publish(events);
+				let _ = reply.send(self.feed.revision());
+			}
 			Msg::Devices(devices) => {
 				let events = self.directory.set_devices(devices);
 				self.publish(events);

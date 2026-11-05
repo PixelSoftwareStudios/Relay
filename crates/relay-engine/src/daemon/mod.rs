@@ -65,8 +65,10 @@ impl DaemonHandle {
 			idle_client_ttl,
 			entropy,
 			mic_test_max,
+			channel_vault,
+			channel_clock,
 		} = options;
-		let loaded = env::load(paths, identity_store)?;
+		let loaded = env::load(paths, identity_store, channel_vault)?;
 		let mut config = ServiceConfig::new(loaded.local);
 		config.limits = limits;
 		config.api = api;
@@ -98,16 +100,23 @@ impl DaemonHandle {
 			incarnation: registry.incarnation(),
 			settings: loaded.settings,
 			avatars: loaded.avatars,
+			channels: loaded.channels,
 			handle: control.clone(),
 			gates: gates.clone(),
 		};
 		let (ports, adapters, listen) = match adapters {
 			Some(factory) => (factory(&environment), None, None),
 			None => {
-				let (ports, adapters) = assemble::assemble(&environment, network, audio, mic_test_max).await?;
+				let clock = channel_clock.unwrap_or_else(crate::channels::Clock::system);
+				let (ports, adapters) =
+					assemble::assemble(&environment, network, audio, mic_test_max, clock).await?;
 				let listen = Some(adapters.listen_addr());
 				(ports, Some(adapters), listen)
 			}
+		};
+		let builder = match adapters.as_ref() {
+			Some(adapters) => builder.with_channels(adapters.channels()),
+			None => builder,
 		};
 		let service = builder.start(ports)?;
 		let endpoint = bound.endpoint();
@@ -140,6 +149,11 @@ impl DaemonHandle {
 	/// The peer-link address other engines dial, once the real adapters run.
 	pub fn listen_addr(&self) -> Option<std::net::SocketAddr> {
 		self.listen
+	}
+
+	/// The channel driver, when the real adapters run.
+	pub fn channels(&self) -> Option<crate::channels::ChannelHub> {
+		self.adapters.as_ref().map(assemble::Adapters::channels)
 	}
 
 	/// Handle for injecting adapter events (tests, embedding).

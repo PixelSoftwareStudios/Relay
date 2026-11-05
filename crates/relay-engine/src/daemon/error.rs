@@ -25,6 +25,9 @@ pub enum DaemonError {
 	/// The identity key could not be created or read.
 	#[error("identity: {0}")]
 	Identity(String),
+	/// The channel driver could not load the stored channels.
+	#[error("channels: {0}")]
+	Channels(String),
 	/// Signal handling or another OS facility failed.
 	#[error("i/o: {0}")]
 	Io(#[from] std::io::Error),

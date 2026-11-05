@@ -3,13 +3,17 @@
 use std::sync::Arc;
 
 use relay_config::avatar::AvatarCache;
+use relay_config::channels::ChannelStorage;
 use relay_config::fsx::WriterLock;
 use relay_config::identity::{IdentityStore, Secret32, StoredIdentity, TrustStore, open_store};
 use relay_config::prefs::{PreferenceStore, Preferences};
+use relay_config::vault::{SecretVault, open_vault};
 use relay_config::{Notice, Paths, Storage};
 use relay_core::DeviceKeyId;
+use relay_net::channel::ChannelStore;
 use relay_net::identity::{Identity, PublicKey};
 
+use super::SqliteChannelStore;
 use super::error::DaemonError;
 use super::settings::FileSettings;
 use crate::peers::{ConfigTrust, SharedTrust};
@@ -41,6 +45,8 @@ pub struct Environment {
 	pub settings: Arc<FileSettings>,
 	/// Avatar cache (shared with peers for received avatars).
 	pub avatars: Arc<AvatarCache>,
+	/// Channel records (metadata in SQLite, secrets in the vault).
+	pub channels: Arc<dyn ChannelStore>,
 	/// Handle adapters use to report events to the control actor.
 	pub handle: ControlHandle,
 	/// Lock-free transmit gates for the media thread.
@@ -60,6 +66,7 @@ pub(super) struct Loaded {
 	pub trust: SharedTrust,
 	pub settings: Arc<FileSettings>,
 	pub avatars: Arc<AvatarCache>,
+	pub channels: Arc<dyn ChannelStore>,
 }
 
 fn generate_identity() -> Result<StoredIdentity, DaemonError> {
@@ -73,6 +80,7 @@ fn generate_identity() -> Result<StoredIdentity, DaemonError> {
 pub(super) fn load(
 	paths: Paths,
 	identity_store: Option<Box<dyn IdentityStore>>,
+	channel_vault: Option<Arc<dyn SecretVault>>,
 ) -> Result<Loaded, DaemonError> {
 	let storage = Storage::open(&paths)?;
 	let lock = Arc::clone(&storage.lock);
@@ -106,6 +114,14 @@ pub(super) fn load(
 			.map_err(|e| DaemonError::Identity(e.to_string()))?,
 	);
 
+	let vault = match channel_vault {
+		Some(vault) => vault,
+		None => open_vault(&preferences, &paths)?,
+	};
+	let channels: Arc<dyn ChannelStore> = Arc::new(SqliteChannelStore::new(ChannelStorage::open(
+		&storage.database,
+		vault,
+	)?));
 	let avatars = Arc::new(AvatarCache::new(&storage.database));
 	let settings = Arc::new(FileSettings::new(
 		prefs_store,
@@ -124,5 +140,6 @@ pub(super) fn load(
 		trust,
 		settings,
 		avatars,
+		channels,
 	})
 }

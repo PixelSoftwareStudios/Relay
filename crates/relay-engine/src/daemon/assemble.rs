@@ -6,15 +6,17 @@ use std::time::Duration;
 use relay_audio::device::DeviceSelection;
 use relay_net::discovery::sanitize_display_name;
 use tokio::runtime::Handle;
+use tokio::sync::watch;
 use tokio::task::JoinHandle;
 
 use super::error::DaemonError;
 use super::options::{AudioSetup, NetworkOptions};
 use super::{Environment, glue};
+use crate::channels::{ChannelHub, Clock, HubParts};
 use crate::media::{MediaConfig, MediaSystem, Selection};
-use crate::peers::{PeerAdapter, PeerConfig, PeerHandle, spawn};
+use crate::peers::{AdvertSpec, PeerAdapter, PeerConfig, PeerHandle, spawn};
 use crate::service::Ports;
-use crate::service::ports::{DeviceControl, SettingsStore};
+use crate::service::ports::{AdvertMode, DeviceControl, SettingsStore};
 
 /// How long to wait for the first device listing before giving up on
 /// restoring the saved selection.
@@ -23,12 +25,17 @@ const LISTING_WAIT: Duration = Duration::from_secs(2);
 /// What keeps the real adapters alive.
 pub(super) struct Adapters {
 	peers: PeerHandle,
+	channels: ChannelHub,
 	tasks: Vec<JoinHandle<()>>,
 }
 
 impl Adapters {
 	pub(super) fn listen_addr(&self) -> std::net::SocketAddr {
 		self.peers.local_addr()
+	}
+
+	pub(super) fn channels(&self) -> ChannelHub {
+		self.channels.clone()
 	}
 
 	pub(super) fn shutdown(self) {
@@ -44,6 +51,7 @@ pub(super) async fn assemble(
 	network: NetworkOptions,
 	audio: AudioSetup,
 	mic_test_max: std::time::Duration,
+	clock: Clock,
 ) -> Result<(Ports, Adapters), DaemonError> {
 	let stored = env.settings.load();
 	let mut config = PeerConfig::new(&sanitize_display_name(&stored.display_name));
@@ -57,6 +65,14 @@ pub(super) async fn assemble(
 	config.avatars = Some(Arc::clone(&env.avatars));
 	config.avatar = stored.avatar;
 	let manual_policy = config.manual_policy();
+	let advert = Arc::new(
+		watch::channel(AdvertSpec {
+			hidden: stored.advert_mode == AdvertMode::Hidden,
+			..AdvertSpec::default()
+		})
+		.0,
+	);
+	config.advert = Some(advert.subscribe());
 	let (peers, output) = spawn(
 		config,
 		Arc::clone(&env.transport_identity),
@@ -65,6 +81,16 @@ pub(super) async fn assemble(
 	)
 	.await?;
 
+	let channels = ChannelHub::new(HubParts {
+		store: Arc::clone(&env.channels),
+		local: peers.fingerprint(),
+		peers: peers.clone(),
+		control: env.handle.clone(),
+		settings: env.settings.clone(),
+		clock,
+		advert: Arc::clone(&advert),
+	})
+	.map_err(|e| DaemonError::Channels(e.to_string()))?;
 	let runtime = Handle::current();
 	let (sink, events) = glue::media_events(env.handle.clone());
 	let mut media_config = MediaConfig::new(Selection {
@@ -85,14 +111,22 @@ pub(super) async fn assemble(
 	)
 	.map_err(DaemonError::Media)?;
 
-	let mut adapter = PeerAdapter::new(peers.clone(), runtime, network.policy, manual_policy);
+	let mut adapter =
+		PeerAdapter::new(peers.clone(), runtime, network.policy, manual_policy).with_advert(advert);
 	if let Some(interfaces) = network.interfaces {
 		adapter = adapter.with_interfaces(interfaces);
 	}
 	let adapter = Arc::new(adapter);
 	let tasks = vec![
 		events,
-		glue::peer_output(output, env.handle.clone(), media.clone(), adapter.clone()),
+		glue::peer_output(
+			output,
+			env.handle.clone(),
+			media.clone(),
+			adapter.clone(),
+			channels.clone(),
+		),
+		channels.spawn_maintenance(),
 		glue::device_watch(media.clone(), env.handle.clone()),
 	];
 	restore_devices(&media, &stored.input_device, &stored.output_device, env).await;
@@ -102,7 +136,14 @@ pub(super) async fn assemble(
 		devices: Arc::new(media),
 		settings: env.settings.clone(),
 	};
-	Ok((ports, Adapters { peers, tasks }))
+	Ok((
+		ports,
+		Adapters {
+			peers,
+			channels,
+			tasks,
+		},
+	))
 }
 
 /// Re-applies the saved device choice once the device thread has listed

@@ -1,6 +1,7 @@
 //! The local API: `relay.v1.Engine` implemented over the control actor.
 
 mod avatar;
+mod channels;
 mod commands;
 mod connection;
 mod input;
@@ -54,6 +55,8 @@ pub(crate) struct Shared {
 	pub api: ApiLimits,
 	pub limits: Limits,
 	pub next_source: AtomicU64,
+	/// The channel driver, when the engine runs real adapters.
+	pub channels: Option<crate::channels::ChannelHub>,
 }
 
 /// The `relay.v1.Engine` implementation. Cheap to clone.
@@ -198,7 +201,15 @@ impl Engine for EngineService {
 		let id = super::convert::operation_id(&request.get_ref().operation_id)?;
 		match self.shared.handle.operation(caller, id).await? {
 			Some(operation) => Ok(Response::new(operation)),
-			None => Err(Status::not_found("OPERATION_UNKNOWN_OR_EXPIRED")),
+			None => match self
+				.shared
+				.channels
+				.as_ref()
+				.and_then(|c| c.operation(caller, id))
+			{
+				Some(operation) => Ok(Response::new(operation)),
+				None => Err(Status::not_found("OPERATION_UNKNOWN_OR_EXPIRED")),
+			},
 		}
 	}
 
@@ -361,44 +372,50 @@ impl Engine for EngineService {
 
 	async fn create_channel(
 		&self,
-		_: Request<CreateChannelRequest>,
+		request: Request<CreateChannelRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		channels::create(self, &mutation, body).await
 	}
 
 	async fn join_channel(
 		&self,
-		_: Request<JoinChannelRequest>,
+		request: Request<JoinChannelRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		channels::join(self, &mutation, body).await
 	}
 
 	async fn leave_channel(
 		&self,
-		_: Request<LeaveChannelRequest>,
+		request: Request<LeaveChannelRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		channels::leave(self, &mutation, body).await
 	}
 
 	async fn list_channels(
 		&self,
-		_: Request<ListChannelsRequest>,
+		request: Request<ListChannelsRequest>,
 	) -> Result<Response<ListChannelsResponse>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		self.observer(&request, |body| body.client.as_ref())?;
+		channels::list(self)
 	}
 
 	async fn create_invite(
 		&self,
-		_: Request<CreateInviteRequest>,
+		request: Request<CreateInviteRequest>,
 	) -> Result<Response<CreateInviteResponse>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		channels::invite(self, &mutation, body).await
 	}
 
 	async fn revoke_channel_member(
 		&self,
-		_: Request<RevokeChannelMemberRequest>,
+		request: Request<RevokeChannelMemberRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(ServiceError::Unimplemented("channels").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		channels::revoke(self, &mutation, body).await
 	}
 
 	async fn set_privacy(

@@ -8,6 +8,7 @@ use relay_api::pb::Problem;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use crate::channels::ChannelHub;
 use crate::media::{EventSink, MediaEvent, MediaSystem};
 use crate::peers::{PeerAdapter, PeerOutput, fingerprint};
 use crate::service::ControlHandle;
@@ -68,6 +69,7 @@ pub(super) fn peer_output(
 	handle: ControlHandle,
 	media: MediaSystem,
 	adapter: Arc<PeerAdapter>,
+	channels: ChannelHub,
 ) -> JoinHandle<()> {
 	tokio::spawn(async move {
 		while let Some(item) = output.recv().await {
@@ -80,7 +82,9 @@ pub(super) fn peer_output(
 					)
 			);
 			let delivered = match item {
-				PeerOutput::Core(event) => handle.peer(event).await,
+				// An invite from outside the user's chosen scope never reaches call state.
+				PeerOutput::Core(event) if channels.screen(&event) => handle.peer(event).await,
+				PeerOutput::Core(_) => Ok(()),
 				PeerOutput::Media { peer, signal } => {
 					media.handle_signal(peer, signal);
 					Ok(())
@@ -124,6 +128,11 @@ pub(super) fn peer_output(
 						"",
 					);
 					handle.attention(None, warning).await
+				}
+				// Channel traffic goes to the channel driver and nowhere else.
+				PeerOutput::Channel(event) => {
+					channels.on_event(event).await;
+					Ok(())
 				}
 				PeerOutput::Profile { .. } | PeerOutput::AvatarReady { .. } => Ok(()),
 			};
