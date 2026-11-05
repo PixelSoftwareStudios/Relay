@@ -105,30 +105,38 @@ render reference (feed the reference from the final output). Tones never feed
 an encoder or the capture path. Global deafen = `set_muted(true)` (silent after
 the ramp).
 
-### Engine integration contract (not yet wired)
+### Engine integration (wired)
 
-The daemon owns one `TonePlayer` on the playback side and the `ToneControl` in
-the media/engine thread. Preferences (proposed): `audio.ringtone_enabled`
-(default true), `audio.ringtone_volume` (0.7), `audio.ringback_enabled`
-(true).
+`MediaSystem::start` builds one `TonePlayer` and installs it in the render worker
+(`RenderCmd::SetTones`); the `ToneControl` stays behind a mutex in the media
+system and is driven through `MediaControl::tone(ToneCommand)` (`Start`, `Stop`,
+`Volume`, `Muted`). Every quantum the worker runs `begin(); add(call...);
+add_tones(&mut player); finish(out)`, and keeps ticking while a tone plays even
+with no call (RT-18). A `Start` opens the playback stream (like a call or the
+microphone test does), a looping tone keeps it open, and after a `Stop` (200 ms)
+or a one-shot (1.5 s) the stream closes again unless a call or the test needs it.
+Tones have no path to capture, encoders or send gates; the tests
+`media_tone_playback` assert that a local ring sends zero packets and that the
+peer hears only the microphone.
 
-- Incoming call enters Ringing, a client is attached and ringtone enabled:
-  `start(Ring, true, ringtone_volume)`.
-- Stop the ring (`stop()`) on accept, decline, timeout, remote cancel, call
-  end, owner (attached client) leaving, and engine shutdown.
-- Outgoing call enters Ringing and ringback enabled:
-  `start(Ringback, true, 0.7)`; `stop()` when it connects, fails, is
-  cancelled or ends. Ring and ringback never overlap (a new start fades the
-  old one out).
-- Optional: `start(Connected, false, v)` on connect and `start(CallEnd, false,
-  v)` on hangup after the loop stop; they replace the looping tone.
-- Deafen on: `set_muted(true)` and stop any ring; deafen off: `set_muted(false)`.
-  Presence loss (no client attached) stops incoming rings.
-- Per mixer quantum: `begin(); add(call...); add_tones(&mut player);
-  finish(out)`. If no call mixes, the tone still needs a running playback
-  quantum, so the output stream must be open while a tone plays.
-- Preference changes apply live through `set_volume`; disabling a setting
-  while ringing calls `stop()`.
+Which tone plays is decided by `service/tones.rs` (`ToneDriver`, pure) from the
+control actor, after every message and tick:
+
+- Incoming call `IncomingRinging`, a client attached (open state watch) and
+  `audio.ringtone_enabled`: `Start(Ring, looping, audio.ringtone_volume)`.
+- Outgoing call `OutgoingRinging` and `audio.ringback_enabled`:
+  `Start(Ringback, looping, 0.7)`. A ring wins over a ringback; they never overlap.
+- The loop stops on accept, decline, timeout, remote cancel, end, failure, the
+  last client leaving, a disabled preference and shutdown.
+- `audio.call_sounds_enabled`: `Connected` when a call becomes `Active` and
+  `CallEnd` when a call that was active ends; one-shots at the ring volume that
+  never interrupt a ring.
+- Global deafen: `Muted(true)` and stop; undeafen: `Muted(false)` (a call still
+  ringing then rings again).
+- Preference changes arrive through `SetGlobalControls` and apply live: a volume
+  change is `Volume(v)`, disabling stops the tone.
+- `PreviewTone` (settings "Test ring") plays the ring for 2 s on this device's
+  output regardless of `ringtone_enabled`; real tones and deafen override it.
 
 ## Evaluation candidates
 
