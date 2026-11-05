@@ -196,7 +196,9 @@ pub(super) async fn avatar(
 	body: &UploadAvatarRequest,
 ) -> Result<Response<Operation>, Status> {
 	if body.encoded_image.is_empty() || body.encoded_image.len() > MAX_AVATAR_BYTES {
-		return Err(invalid("avatar must be 1 byte to 1 MiB").into());
+		return Err(
+			invalid("avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)").into(),
+		);
 	}
 	let op = ServiceOp::Avatar(body.encoded_image.clone());
 	service_op(service, mutation, body, op).await

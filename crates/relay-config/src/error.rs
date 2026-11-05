@@ -77,7 +77,7 @@ pub enum AvatarError {
 	TooLarge { size: usize, limit: usize },
 	#[error("avatar is empty")]
 	Empty,
-	#[error("unsupported or unrecognised image format")]
+	#[error("unsupported or unrecognised image format (use PNG, JPEG, WebP, GIF, BMP or TIFF)")]
 	UnsupportedFormat,
 	#[error("avatar dimensions {width}x{height} exceed the {limit} pixel limit")]
 	DimensionsTooLarge { width: u32, height: u32, limit: u32 },

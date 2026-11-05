@@ -65,7 +65,8 @@ fn check_size(bytes: &[u8]) -> std::result::Result<(), AvatarError> {
 
 /// Reads dimensions from the header only, before any pixel allocation.
 fn check_dimensions(bytes: &[u8], limit: u32) -> std::result::Result<(), AvatarError> {
-	let (w, h) = reader(bytes, limit)?
+	// Unlimited here so an oversized header is reported with its real size, not as a decoder error.
+	let (w, h) = reader(bytes, u32::MAX)?
 		.into_dimensions()
 		.map_err(|e| AvatarError::Decode(e.to_string()))?;
 	if w == 0 || h == 0 {
