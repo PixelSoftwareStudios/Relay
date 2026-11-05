@@ -10,6 +10,7 @@ pub mod dsp;
 pub mod error;
 pub mod format;
 pub mod mixer;
+pub mod pipeline;
 pub mod playback;
 pub mod ring;
 
