@@ -6,6 +6,7 @@
 
 mod feed;
 mod manage;
+mod messaging;
 mod real;
 mod requests;
 
@@ -16,7 +17,9 @@ use relay_api::pb::{EngineInfo, Operation, Snapshot, TelemetrySnapshot};
 use relay_api::{Endpoint, WatchItem};
 
 pub use feed::{ConnectionState, Update, run_state_feed, run_telemetry_feed};
+pub(crate) use feed::needs_resync;
 pub use manage::{ChannelRef, Credential, Manage};
+pub use messaging::{Messaging, RealSessionWatch};
 pub use real::RealClient;
 pub use relay_client::{CallAction, CallTarget};
 pub use requests::{CallControls, GlobalControls, PttAction, PttRequest, TrustDecision};
@@ -113,6 +116,19 @@ pub async fn connect(global: &GlobalArgs) -> Result<RealClient, CliError> {
 	let endpoint = endpoint::resolve(global)?;
 	autostart(&endpoint, global).await?;
 	connect_to(&endpoint, global).await
+}
+
+/// Connect for `relay messages` or the TUI's messages pane: auto-start rules as
+/// [`connect`], but registered with the `messages` capability only.
+pub async fn connect_messages(global: &GlobalArgs) -> Result<RealClient, CliError> {
+	let endpoint = endpoint::resolve(global)?;
+	autostart(&endpoint, global).await?;
+	RealClient::connect_messages(&endpoint, global)
+		.await
+		.map_err(|source| CliError::Unreachable {
+			endpoint: endpoint::describe(&endpoint),
+			source,
+		})
 }
 
 /// Connect without ever starting the daemon: for paths that must work, or

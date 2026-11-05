@@ -6,11 +6,12 @@ mod call;
 mod channel;
 pub mod clipboard;
 pub mod config;
-mod hold;
 mod controls;
 mod daemon;
 mod doctor;
+mod hold;
 mod hotkey;
+pub mod messages;
 mod mic_test;
 pub mod names;
 mod output;
@@ -25,8 +26,8 @@ use std::io::Write;
 
 use relay_api::pb::{Operation, OperationState};
 
-pub use hotkey::{set as hotkey_set, status_view as hotkey_status_view};
 pub use hold::Hold;
+pub use hotkey::{set as hotkey_set, status_view as hotkey_status_view};
 pub use output::Out;
 
 use crate::cli::{Cli, CliError, Command, GlobalArgs};
@@ -74,6 +75,10 @@ async fn dispatch(
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
 		Command::Config(cmd) => config::run(&cli.global, cmd, &mut out).await,
+		Command::Messages(args) => {
+			let mut client = client::connect_messages(&cli.global).await?;
+			messages::run(&mut client, args, &mut out).await
+		}
 		Command::Call { peer } => {
 			let mut client = client::connect(&cli.global).await?;
 			hold::start(&mut client, &peer, &mut out, &mut hold).await
@@ -123,7 +128,8 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		| Command::Doctor(_)
 		| Command::Tui(_)
 		| Command::Hotkey(_)
-		| Command::Config(_) => Err(CliError::Usage(
+		| Command::Config(_)
+		| Command::Messages(_) => Err(CliError::Usage(
 			"this command manages its own connection".into(),
 		)),
 	}

@@ -34,7 +34,7 @@ pub enum Update {
 }
 
 /// Whether the error means "open a fresh watch" rather than "give up for now".
-fn needs_resync(err: &ApiError) -> bool {
+pub(crate) fn needs_resync(err: &ApiError) -> bool {
 	matches!(
 		err,
 		ApiError::RevisionGap { .. }

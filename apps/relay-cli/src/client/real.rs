@@ -25,6 +25,8 @@ const PTT_LEASE_MS: u32 = 400;
 pub(super) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const CLIENT_NAME: &str = "relay-cli";
 const CAPABILITIES: &[&str] = &["observe", "call-control"];
+/// Messaging commands ask for nothing else: least privilege.
+const MESSAGES_CAPABILITIES: &[&str] = &["messages"];
 
 /// A registered connection to the engine.
 pub struct RealClient {
@@ -32,6 +34,7 @@ pub struct RealClient {
 	endpoint: Endpoint,
 	takeover: bool,
 	timeout: Duration,
+	capabilities: &'static [&'static str],
 	input: Option<InputStream>,
 }
 
@@ -49,25 +52,41 @@ impl RealClient {
 			endpoint,
 			global.takeover,
 			Duration::from_millis(global.timeout_ms),
+			CAPABILITIES,
+		)
+		.await
+	}
+
+	/// Connect and register with the `messages` capability only.
+	pub async fn connect_messages(
+		endpoint: &Endpoint,
+		global: &GlobalArgs,
+	) -> Result<Self, ApiError> {
+		Self::open(
+			endpoint,
+			false,
+			Duration::from_millis(global.timeout_ms),
+			MESSAGES_CAPABILITIES,
 		)
 		.await
 	}
 
 	/// Open a second registered connection to the same engine.
 	pub async fn duplicate(&self) -> Result<Self, ApiError> {
-		Self::open(&self.endpoint, self.takeover, self.timeout).await
+		Self::open(&self.endpoint, self.takeover, self.timeout, self.capabilities).await
 	}
 
 	async fn open(
 		endpoint: &Endpoint,
 		takeover: bool,
 		timeout: Duration,
+		capabilities: &'static [&'static str],
 	) -> Result<Self, ApiError> {
 		let client = connect_registered(
 			endpoint,
 			CLIENT_NAME,
 			env!("CARGO_PKG_VERSION"),
-			CAPABILITIES,
+			capabilities,
 		)
 		.await?;
 		Ok(Self {
@@ -75,6 +94,7 @@ impl RealClient {
 			endpoint: endpoint.clone(),
 			takeover,
 			timeout,
+			capabilities,
 			input: None,
 		})
 	}

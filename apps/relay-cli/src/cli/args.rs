@@ -108,6 +108,8 @@ pub enum Command {
 	/// Your avatar.
 	#[command(subcommand)]
 	Avatar(AvatarCommand),
+	/// Text, images and file offers inside a call.
+	Messages(super::MessagesArgs),
 }
 
 impl Command {

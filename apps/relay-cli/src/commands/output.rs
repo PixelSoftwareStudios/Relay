@@ -1,7 +1,7 @@
 //! Output sink that prints either text or JSON.
 
 use std::fmt::Display;
-use std::io::Write;
+use std::io::{BufRead, Read, Write};
 
 use serde::Serialize;
 
@@ -16,6 +16,7 @@ pub struct Out<'a> {
 	writer: &'a mut dyn Write,
 	secrets: Option<&'a mut dyn SecretSource>,
 	clipboard: Option<&'a mut dyn Clipboard>,
+	input: Option<&'a mut dyn BufRead>,
 }
 
 impl<'a> Out<'a> {
@@ -26,6 +27,7 @@ impl<'a> Out<'a> {
 			writer,
 			secrets: None,
 			clipboard: None,
+			input: None,
 		}
 	}
 
@@ -39,6 +41,45 @@ impl<'a> Out<'a> {
 	pub fn with_clipboard(mut self, clipboard: &'a mut dyn Clipboard) -> Self {
 		self.clipboard = Some(clipboard);
 		self
+	}
+
+	/// Read stdin-like input from `input` instead of the process's stdin.
+	pub fn with_input(mut self, input: &'a mut dyn BufRead) -> Self {
+		self.input = Some(input);
+		self
+	}
+
+	/// Read all of stdin as text, failing when it exceeds `max_bytes`.
+	pub fn read_input(&mut self, max_bytes: usize) -> Result<String, CliError> {
+		let mut bytes = Vec::new();
+		let limit = u64::try_from(max_bytes)
+			.unwrap_or(u64::MAX)
+			.saturating_add(1);
+		match self.input.as_deref_mut() {
+			Some(input) => input.take(limit).read_to_end(&mut bytes)?,
+			None => std::io::stdin()
+				.lock()
+				.take(limit)
+				.read_to_end(&mut bytes)?,
+		};
+		if bytes.len() > max_bytes {
+			return Err(CliError::Usage(format!(
+				"the input is longer than {max_bytes} bytes"
+			)));
+		}
+		String::from_utf8(bytes).map_err(|_| CliError::Usage("the input is not valid UTF-8".into()))
+	}
+
+	/// Ask a yes/no question on stderr and read one line; anything but `y`/`yes` is no.
+	pub fn confirm(&mut self, question: &str) -> Result<bool, CliError> {
+		eprint!("{question} [y/N] ");
+		let mut line = String::new();
+		match self.input.as_deref_mut() {
+			Some(input) => input.read_line(&mut line)?,
+			None => std::io::stdin().lock().read_line(&mut line)?,
+		};
+		let answer = line.trim().to_ascii_lowercase();
+		Ok(answer == "y" || answer == "yes")
 	}
 
 	/// Read one secret (hidden prompt or stdin). Never echoed or logged.
@@ -75,6 +116,21 @@ impl<'a> Out<'a> {
 			writeln!(self.writer)?;
 		} else {
 			writeln!(self.writer, "{value}")?;
+		}
+		Ok(())
+	}
+
+	/// Print `value` as one JSON line, or the text `text` builds (not built for JSON).
+	pub fn emit_with<T: Serialize>(
+		&mut self,
+		value: &T,
+		text: impl FnOnce() -> String,
+	) -> Result<(), CliError> {
+		if self.json {
+			serde_json::to_writer(&mut *self.writer, value)?;
+			writeln!(self.writer)?;
+		} else {
+			writeln!(self.writer, "{}", text())?;
 		}
 		Ok(())
 	}
