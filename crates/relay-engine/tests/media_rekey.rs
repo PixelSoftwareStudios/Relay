@@ -40,14 +40,25 @@ async fn audio_continues_after_the_link_session_is_replaced() {
 	// side replaces the session.
 	let a_is_lower = a.identity.fingerprint().as_bytes() < b.identity.fingerprint().as_bytes();
 	if a_is_lower {
-		a.peers.dial(b.peers.local_addr(), Some(b.id)).await.unwrap();
+		a.peers
+			.dial(b.peers.local_addr(), Some(b.id))
+			.await
+			.unwrap();
 	} else {
-		b.peers.dial(a.peers.local_addr(), Some(a.id)).await.unwrap();
+		b.peers
+			.dial(a.peers.local_addr(), Some(a.id))
+			.await
+			.unwrap();
 	}
-	until(&mut a, &mut b, "both media sockets follow the new session", |a, b| {
-		a.media.media_epoch(b.id).is_some_and(|e| e != before)
-			&& b.media.media_epoch(a.id).is_some_and(|e| e != before)
-	})
+	until(
+		&mut a,
+		&mut b,
+		"both media sockets follow the new session",
+		|a, b| {
+			a.media.media_epoch(b.id).is_some_and(|e| e != before)
+				&& b.media.media_epoch(a.id).is_some_and(|e| e != before)
+		},
+	)
 	.await;
 
 	let sent = a.media.report(call).unwrap().sent;
