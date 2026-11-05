@@ -119,10 +119,20 @@ fn finish(
 		return Err(HandshakeError::Noise);
 	}
 	let remote = remote_key(&state)?;
+	let handshake_hash: [u8; 32] = state
+		.get_handshake_hash()
+		.try_into()
+		.map_err(|_| HandshakeError::Noise)?;
 	let transport = state
 		.into_stateless_transport_mode()
 		.map_err(|_| HandshakeError::Noise)?;
-	Ok(SecureSession::new(transport, epoch, role, remote))
+	Ok(SecureSession::new(
+		transport,
+		epoch,
+		role,
+		remote,
+		handshake_hash,
+	))
 }
 
 /// Runs the initiator side. When `expected` is given, the responder's key is checked after

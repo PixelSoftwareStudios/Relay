@@ -1,14 +1,14 @@
 //! The session transcript that channel proofs are bound to.
 
-use crate::identity::PublicKey;
-use crate::session::{LinkEpoch, Role, SecureSession};
+use crate::session::SecureSession;
 
-const DOMAIN: &str = "relay-net 2026 channel session binding v1";
+const DOMAIN: &str = "relay-net 2026 channel session binding v2";
 
-/// Digest of the fresh link epoch (which is inside the Noise prologue) and both static public
-/// keys, in initiator/responder order. A PAKE run, a confirmation or a reference computed
-/// under one binding does not verify under another, so nothing recorded on one link replays on
-/// another link, with other keys, or in the other direction.
+/// Digest of the Noise handshake hash, which commits to the prologue (protocol major and the
+/// fresh link epoch), both static public keys and every handshake message. A PAKE run, a
+/// confirmation or a reference computed under one binding does not verify under another, so
+/// nothing recorded on one link replays on another link, with other keys, or in the other
+/// direction (the role is part of every reference).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SessionBinding {
 	digest: [u8; 32],
@@ -16,27 +16,19 @@ pub struct SessionBinding {
 }
 
 impl SessionBinding {
-	pub fn new(
-		epoch: &LinkEpoch,
-		initiator: &PublicKey,
-		responder: &PublicKey,
-		local_is_initiator: bool,
-	) -> Self {
-		let mut hasher = blake3::Hasher::new_derive_key(DOMAIN);
-		hasher.update(epoch.as_bytes());
-		hasher.update(initiator.as_bytes());
-		hasher.update(responder.as_bytes());
-		Self {
-			digest: *hasher.finalize().as_bytes(),
-			local_is_initiator,
-		}
+	/// Binding for an established session.
+	pub fn for_session(session: &SecureSession) -> Self {
+		Self::from_handshake_hash(
+			session.handshake_hash(),
+			session.role() == crate::session::Role::Initiator,
+		)
 	}
 
-	/// Builds the binding for an established session; `local` is our own static public key.
-	pub fn for_session(session: &SecureSession, local: &PublicKey) -> Self {
-		match session.role() {
-			Role::Initiator => Self::new(session.epoch(), local, session.remote_key(), true),
-			Role::Responder => Self::new(session.epoch(), session.remote_key(), local, false),
+	/// Binding from a raw handshake hash (both ends hold the same one).
+	pub fn from_handshake_hash(hash: &[u8; 32], local_is_initiator: bool) -> Self {
+		Self {
+			digest: blake3::derive_key(DOMAIN, hash),
+			local_is_initiator,
 		}
 	}
 

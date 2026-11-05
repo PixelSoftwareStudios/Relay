@@ -60,6 +60,7 @@ pub struct SecureSession {
 	epoch: LinkEpoch,
 	role: Role,
 	remote: PublicKey,
+	handshake_hash: [u8; 32],
 	next_sequence: [AtomicU64; 2],
 	created: Instant,
 }
@@ -70,12 +71,14 @@ impl SecureSession {
 		epoch: LinkEpoch,
 		role: Role,
 		remote: PublicKey,
+		handshake_hash: [u8; 32],
 	) -> Self {
 		Self {
 			transport,
 			epoch,
 			role,
 			remote,
+			handshake_hash,
 			next_sequence: [AtomicU64::new(0), AtomicU64::new(0)],
 			created: Instant::now(),
 		}
@@ -91,6 +94,13 @@ impl SecureSession {
 
 	pub const fn remote_key(&self) -> &PublicKey {
 		&self.remote
+	}
+
+	/// The Noise handshake hash `h`: identical on both ends, and it commits to the prologue
+	/// (protocol and epoch), both static keys and every handshake message. It is a public
+	/// channel-binding value (not a key); upper layers bind their own proofs to it.
+	pub const fn handshake_hash(&self) -> &[u8; 32] {
+		&self.handshake_hash
 	}
 
 	pub fn remote_fingerprint(&self) -> Fingerprint {

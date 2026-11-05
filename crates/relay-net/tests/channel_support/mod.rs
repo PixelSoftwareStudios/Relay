@@ -33,7 +33,13 @@ impl Pair {
 	}
 
 	pub fn with(joiner: Identity, admitter: Identity, epoch: LinkEpoch) -> Self {
-		let joiner_binding = SessionBinding::new(&epoch, joiner.public(), admitter.public(), true);
+		// Stands in for the Noise handshake hash: commits to epoch and both keys.
+		let mut hasher = blake3::Hasher::new();
+		hasher.update(epoch.as_bytes());
+		hasher.update(joiner.public().as_bytes());
+		hasher.update(admitter.public().as_bytes());
+		let joiner_binding =
+			SessionBinding::from_handshake_hash(hasher.finalize().as_bytes(), true);
 		let admitter_binding = joiner_binding.peer_view();
 		Self {
 			joiner,

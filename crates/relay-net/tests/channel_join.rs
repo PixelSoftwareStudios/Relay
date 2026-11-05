@@ -164,8 +164,6 @@ fn same_epoch_with_different_keys_does_not_bind() {
 		epoch,
 	);
 	assert_ne!(a.joiner_binding.digest(), b.joiner_binding.digest());
-	let swapped = SessionBinding::new(&epoch, a.admitter.public(), a.joiner.public(), true);
-	assert_ne!(a.joiner_binding.digest(), swapped.digest());
 }
 
 #[test]
@@ -331,4 +329,21 @@ fn concurrent_exchanges_are_bounded() {
 fn service_type_is_cloneable_for_many_links() {
 	let w = world(OPEN, None, &owner().fingerprint());
 	let _second: AdmissionService = w.service.clone();
+}
+
+mod common;
+
+#[tokio::test]
+async fn both_ends_of_a_real_session_share_the_binding() {
+	let link = common::link().await;
+	let a = SessionBinding::for_session(&link.initiator);
+	let b = SessionBinding::for_session(&link.responder);
+	assert_eq!(a.digest(), b.digest());
+	assert!(a.local_is_initiator() && !b.local_is_initiator());
+	assert_eq!(a.peer_view(), b);
+	let other = common::link().await;
+	assert_ne!(
+		a.digest(),
+		SessionBinding::for_session(&other.initiator).digest()
+	);
 }
