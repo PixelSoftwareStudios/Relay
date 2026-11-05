@@ -1991,6 +1991,7 @@ version = "0.1.0"
 dependencies = [
  "directories",
  "fs4",
+ "hex",
  "rand",
  "relay-messages",
  "rustix",
@@ -2026,6 +2027,7 @@ dependencies = [
  "protoc-bin-vendored",
  "rand",
  "relay-core",
+ "relay-io",
  "relay-messages",
  "relay-protocol",
  "snow",
