@@ -79,7 +79,10 @@ room noise is not amplified, and relaxes to unity during gated passages.
 `eval-nnnoiseless` (pure-Rust RNNoise port) are not default features and are
 not reachable from `create_suppressor`. Measured behaviour, including that
 sonora allocates per frame, is in `docs/evidence.md`. Benchmarks and the corpus
-runner live in the `relay-benches` crate (`benches/`).
+runner live in the `relay-benches` crate (`benches/`): a deterministic builder
+for a LibriSpeech + DEMAND corpus (local, gitignored under `benches/corpus`),
+SI-SDR, STOI and eSTOI (in-repo, unvalidated against a reference), delay by
+cross-correlation, per-frame timing, CPU time, and a paced worker-thread test.
 
 ## Known limits
 
