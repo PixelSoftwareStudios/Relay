@@ -1,13 +1,15 @@
 //! `GetInfo` and `RegisterClient`.
 
 use relay_api::pb::{
-	ClientContext, ClientSession, EngineInfo, RegisterClientRequest, ResourceLimits,
+	ClientContext, ClientSession, EngineInfo, Operation, OperationState, RegisterClientRequest,
+	ResourceLimits,
 };
 use relay_core::{Command, Reject, Request as CoreRequest};
 use tonic::{Response, Status};
 
 use super::{API_MAJOR, EngineService};
 use crate::service::clients::Capability;
+use crate::service::convert::Mutation;
 use crate::service::error::ServiceError;
 
 const MAX_NAME_CHARS: usize = 64;
@@ -47,7 +49,7 @@ pub(super) async fn register(
 		return Err(ServiceError::InvalidArgument("display name".to_owned()).into());
 	}
 	let granted: Vec<Capability> = if body.requested_capabilities.is_empty() {
-		Capability::ALL.to_vec()
+		Capability::DEFAULT.to_vec()
 	} else {
 		let mut wanted: Vec<_> = body
 			.requested_capabilities
@@ -89,4 +91,18 @@ pub(super) async fn register(
 		granted_capabilities: granted.iter().map(|c| c.name().to_owned()).collect(),
 		revision,
 	}))
+}
+
+/// Records the request to stop the engine. Repeating it changes nothing; the
+/// daemon host notices the flag, answers nothing further and shuts down
+/// gracefully (calls ended, microphone released, endpoint removed).
+pub(super) fn shutdown(service: &EngineService, mutation: &Mutation) -> Operation {
+	service.shared.shutdown.send_replace(true);
+	Operation {
+		operation_id: mutation.operation.to_bytes().to_vec(),
+		state: OperationState::Applied as i32,
+		revision: 0,
+		call_id: Vec::new(),
+		problem: None,
+	}
 }

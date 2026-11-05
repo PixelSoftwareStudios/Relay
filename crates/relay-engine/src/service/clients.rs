@@ -16,17 +16,23 @@ pub enum Capability {
 	Observe,
 	/// Change engine and call state, including push-to-talk input.
 	CallControl,
+	/// Stop the whole engine. Never granted unless named at registration.
+	Admin,
 }
 
 impl Capability {
 	/// Every capability this engine can grant.
-	pub const ALL: [Self; 2] = [Self::Observe, Self::CallControl];
+	pub const ALL: [Self; 3] = [Self::Observe, Self::CallControl, Self::Admin];
+
+	/// What a client gets when it asks for nothing in particular.
+	pub const DEFAULT: [Self; 2] = [Self::Observe, Self::CallControl];
 
 	/// The wire name.
 	pub const fn name(self) -> &'static str {
 		match self {
 			Self::Observe => "observe",
 			Self::CallControl => "call-control",
+			Self::Admin => "admin",
 		}
 	}
 

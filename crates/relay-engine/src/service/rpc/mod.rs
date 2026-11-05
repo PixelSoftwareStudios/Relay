@@ -43,6 +43,8 @@ pub(crate) const API_MAJOR: u32 = 1;
 
 /// State shared by every handler.
 pub(crate) struct Shared {
+	/// Set when an admin client asked the engine to stop.
+	pub shutdown: Arc<tokio::sync::watch::Sender<bool>>,
 	pub handle: ControlHandle,
 	pub registry: Arc<ClientRegistry>,
 	pub book: Arc<ClientBook>,
@@ -440,6 +442,17 @@ impl Engine for EngineService {
 	) -> Result<Response<ConnectionInfo>, Status> {
 		self.observer(&request, |body| Some(body))?;
 		connection::get(self).await
+	}
+
+	async fn shutdown(
+		&self,
+		request: Request<MutationContext>,
+	) -> Result<Response<Operation>, Status> {
+		let caller = self.caller(&request)?;
+		let body = request.into_inner();
+		let mutation = check_mutation(caller, Some(&body), &self.incarnation())?;
+		self.shared.book.require(caller, Capability::Admin)?;
+		Ok(Response::new(session::shutdown(self, &mutation)))
 	}
 
 	type InputControlStream = Stream<InputControlAck>;

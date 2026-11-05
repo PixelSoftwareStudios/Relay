@@ -48,6 +48,7 @@ pub struct DaemonHandle {
 	notices: Vec<Notice>,
 	local: DeviceKeyId,
 	listen: Option<std::net::SocketAddr>,
+	requested: tokio::sync::watch::Receiver<bool>,
 }
 
 impl DaemonHandle {
@@ -119,6 +120,7 @@ impl DaemonHandle {
 			None => builder,
 		};
 		let service = builder.start(ports)?;
+		let requested = service.shutdown_requested();
 		let endpoint = bound.endpoint();
 		let leftover = bound.leftover();
 		let (shutdown, signal) = oneshot::channel();
@@ -138,6 +140,7 @@ impl DaemonHandle {
 			notices,
 			local,
 			listen,
+			requested,
 		})
 	}
 
@@ -164,6 +167,13 @@ impl DaemonHandle {
 	/// The published transmit gates.
 	pub fn gates(&self) -> &GateReader {
 		&self.gates
+	}
+
+	/// Resolves once an admin client asked the engine to stop (`Shutdown`).
+	pub async fn shutdown_requested(&self) {
+		let mut requested = self.requested.clone();
+		// A closed channel means the service is gone, which is as good as a stop.
+		let _ = requested.wait_for(|asked| *asked).await;
 	}
 
 	/// This device's identity digest.
@@ -211,7 +221,10 @@ pub async fn run(options: RunOptions) -> Result<(), DaemonError> {
 		endpoint = %relay_client_describe(daemon.endpoint()),
 		"engine listening"
 	);
-	wait_for_signal().await?;
+	tokio::select! {
+		signal = wait_for_signal() => signal?,
+		() = daemon.shutdown_requested() => tracing::info!("stop requested through the API"),
+	}
 	tracing::info!("shutting down");
 	daemon.shutdown().await
 }

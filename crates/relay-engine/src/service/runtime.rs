@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use relay_api::{ApiLimits, ClientRegistry, StreamLimiter};
 use relay_core::{ClientId, Engine, Limits, PeerId, State};
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
 use super::actor::Actor;
@@ -59,6 +59,7 @@ impl ServiceConfig {
 /// A service whose channel exists but whose actor has not started yet, so
 /// adapters can be given a [`ControlHandle`] before they are built.
 pub struct ServiceBuilder {
+	shutdown: Arc<watch::Sender<bool>>,
 	config: ServiceConfig,
 	handle: ControlHandle,
 	inbox: mpsc::Receiver<super::handle::Msg>,
@@ -82,6 +83,7 @@ impl ServiceBuilder {
 		let handle = ControlHandle::new(tx, gates.reader());
 		let registry = Arc::new(ClientRegistry::new(config.limits.attached_clients));
 		Ok(Self {
+			shutdown: Arc::new(watch::channel(false).0),
 			config,
 			handle,
 			inbox,
@@ -116,6 +118,7 @@ impl ServiceBuilder {
 	/// Starts the actor and the idle-client sweeper.
 	pub fn start(self, ports: Ports) -> Result<Service, ServiceError> {
 		let Self {
+			shutdown,
 			config,
 			handle,
 			inbox,
@@ -160,6 +163,7 @@ impl ServiceBuilder {
 		);
 		let api = EngineService::new(Shared {
 			handle: handle.clone(),
+			shutdown: Arc::clone(&shutdown),
 			registry: Arc::clone(&registry),
 			book: Arc::clone(&book),
 			limiter: StreamLimiter::new(config.api.max_streams),
@@ -185,6 +189,7 @@ impl ServiceBuilder {
 			registry,
 			actor: tokio::spawn(actor.run()),
 			sweeper,
+			shutdown,
 		})
 	}
 }
@@ -199,9 +204,15 @@ pub struct Service {
 	pub registry: Arc<ClientRegistry>,
 	actor: JoinHandle<()>,
 	sweeper: JoinHandle<()>,
+	shutdown: Arc<watch::Sender<bool>>,
 }
 
 impl Service {
+	/// Turns `true` once an admin client asked the engine to stop.
+	pub fn shutdown_requested(&self) -> watch::Receiver<bool> {
+		self.shutdown.subscribe()
+	}
+
 	/// Stops the actor (releasing every client and call) and waits for it.
 	pub async fn stop(self) {
 		self.sweeper.abort();

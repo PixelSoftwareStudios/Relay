@@ -337,6 +337,9 @@ impl Engine for FakeEngine {
 			.map(Response::new)
 			.ok_or_else(|| Status::not_found("unknown avatar"))
 	}
+	async fn shutdown(&self, _: Request<MutationContext>) -> Resp<Operation> {
+		unsupported()
+	}
 	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
 		Ok(Response::new(ConnectionInfo {
 			local_addresses: vec!["192.168.1.20".into()],

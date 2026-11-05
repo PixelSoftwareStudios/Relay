@@ -11,6 +11,14 @@ use crate::pb::{
 use crate::{AVATAR_MAX_BYTES, ApiError, RelayClient};
 
 impl RelayClient {
+	/// Ask the engine to stop gracefully (ends calls, releases the microphone,
+	/// removes the endpoint). Needs the `admin` capability, which the client
+	/// must have named when it registered. Repeating it is harmless.
+	pub async fn shutdown(&mut self) -> Result<Operation, ApiError> {
+		let context = self.new_mutation()?;
+		Ok(self.inner.shutdown(context).await?.into_inner())
+	}
+
 	/// Mutation context with a fresh random operation id. Reuse the returned id
 	/// when retrying the same command.
 	pub fn new_mutation(&self) -> Result<MutationContext, ApiError> {
