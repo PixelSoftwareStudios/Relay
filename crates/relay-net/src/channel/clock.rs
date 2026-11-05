@@ -13,7 +13,6 @@
 //! ([`SKEW_TOLERANCE_SECS`] documents the intended bound for operator-facing checks).
 
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 /// Clock error between devices that discovery and proofs are designed to absorb: tag epochs
 /// accept one hour either side.
@@ -30,9 +29,7 @@ pub struct SystemClock;
 
 impl UnixClock for SystemClock {
 	fn now(&self) -> u64 {
-		SystemTime::now()
-			.duration_since(UNIX_EPOCH)
-			.map_or(0, |d| d.as_secs())
+		relay_io::clock::unix_secs()
 	}
 }
 

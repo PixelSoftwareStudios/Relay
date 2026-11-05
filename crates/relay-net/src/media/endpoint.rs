@@ -1,3 +1,4 @@
+use relay_io::LockExt;
 use std::net::SocketAddr;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -108,9 +109,7 @@ impl MediaEndpoint {
 	}
 
 	fn lock(&self) -> MutexGuard<'_, State> {
-		self.state
-			.lock()
-			.unwrap_or_else(|poisoned| poisoned.into_inner())
+		self.state.lock_unpoisoned()
 	}
 
 	/// Allows inbound audio for an accepted call stream.

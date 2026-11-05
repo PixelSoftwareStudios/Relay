@@ -12,6 +12,7 @@
 //! wrong password, unknown or spent invite, lockout and full channel look the same, and an
 //! unknown channel or invite still runs a complete exchange against a random credential.
 
+use relay_io::LockExt;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -248,7 +249,7 @@ impl AdmissionService {
 	}
 
 	fn limiter(&self) -> std::sync::MutexGuard<'_, AttemptLimiter> {
-		self.inner.limiter.lock().unwrap_or_else(|p| p.into_inner())
+		self.inner.limiter.lock_unpoisoned()
 	}
 
 	/// Finds the admitting channel whose reference the sender computed on this session.

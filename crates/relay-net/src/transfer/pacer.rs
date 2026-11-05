@@ -5,6 +5,7 @@
 //! it with a paused clock. The rate can be changed while a transfer runs, which is how the
 //! engine slows files down during a call.
 
+use relay_io::LockExt;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -71,7 +72,7 @@ impl SharedLimit {
 	/// Sets or clears (`None`) the aggregate cap in bytes per second.
 	pub fn set_rate(&self, rate: Option<u64>) {
 		let now = elapsed_ms(self.start);
-		*self.inner.lock().unwrap_or_else(|p| p.into_inner()) = rate.map(|r| Limiter::new(r, now));
+		*self.inner.lock_unpoisoned() = rate.map(|r| Limiter::new(r, now));
 	}
 }
 
@@ -101,7 +102,7 @@ impl Pacer {
 	/// Changes this link's cap while it runs.
 	pub fn set_rate(&self, rate: Option<u64>) {
 		let now = elapsed_ms(self.start);
-		*self.local.lock().unwrap_or_else(|p| p.into_inner()) = rate.map(|r| Limiter::new(r, now));
+		*self.local.lock_unpoisoned() = rate.map(|r| Limiter::new(r, now));
 	}
 
 	/// Waits until `n` bytes may be sent, then charges both buckets.
@@ -119,11 +120,8 @@ impl Pacer {
 	/// Charges and returns 0, or returns the milliseconds to wait without charging.
 	fn try_charge(&self, n: u64) -> u64 {
 		let now = elapsed_ms(self.start);
-		let mut local = self.local.lock().unwrap_or_else(|p| p.into_inner());
-		let mut shared = self
-			.global
-			.as_ref()
-			.map(|g| g.inner.lock().unwrap_or_else(|p| p.into_inner()));
+		let mut local = self.local.lock_unpoisoned();
+		let mut shared = self.global.as_ref().map(|g| g.inner.lock_unpoisoned());
 		let global_now = self.global.as_ref().map_or(0, |g| elapsed_ms(g.start));
 		let wait_local = local.as_mut().map_or(0, |l| l.wait_ms(n, now));
 		let wait_global = shared

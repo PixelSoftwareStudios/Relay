@@ -5,6 +5,7 @@
 //! evicted instead of refusing a newcomer. An evicted handshake sees [`HandshakePermit::evicted`]
 //! complete and must abandon the connection; [`super::respond_gated`] does that.
 
+use relay_io::LockExt;
 use std::collections::HashMap;
 use std::net::{IpAddr, Ipv6Addr};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -104,11 +105,7 @@ impl HandshakePermit {
 
 impl Drop for HandshakePermit {
 	fn drop(&mut self) {
-		self.state
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
-			.slots
-			.remove(&self.id);
+		self.state.lock_unpoisoned().slots.remove(&self.id);
 	}
 }
 
@@ -133,7 +130,7 @@ impl HandshakeGate {
 	/// share; otherwise a full gate evicts the oldest slot of the busiest source.
 	pub fn try_enter(&self, source: IpAddr) -> Result<HandshakePermit, HandshakeError> {
 		let key = source_key(source);
-		let mut state = self.state.lock().unwrap_or_else(|p| p.into_inner());
+		let mut state = self.state.lock_unpoisoned();
 		let held = state.slots.values().filter(|s| s.source == key).count();
 		if held >= self.per_source || self.capacity == 0 {
 			return Err(HandshakeError::Overloaded);
@@ -172,11 +169,7 @@ impl HandshakeGate {
 	}
 
 	pub fn in_use(&self) -> usize {
-		self.state
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
-			.slots
-			.len()
+		self.state.lock_unpoisoned().slots.len()
 	}
 }
 

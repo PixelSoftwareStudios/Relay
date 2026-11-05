@@ -5,6 +5,7 @@
 //! Nothing is buffered beyond one frame: the kernel socket buffer and the receiver's reading
 //! pace provide backpressure, and the pacer shapes the sender.
 
+use relay_io::LockExt;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -79,7 +80,7 @@ impl LinkGuard {
 impl Drop for LinkGuard {
 	fn drop(&mut self) {
 		if let Some((key, map)) = self.source.take() {
-			let mut map = map.lock().unwrap_or_else(|p| p.into_inner());
+			let mut map = map.lock_unpoisoned();
 			if let Some(n) = map.get_mut(&key) {
 				*n = n.saturating_sub(1);
 				if *n == 0 {

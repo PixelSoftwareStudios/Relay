@@ -2,6 +2,7 @@
 //! layer implements it (ideally over an encrypted store or the OS credential store, because a
 //! record holds PAKE-equivalent secrets and, on owner devices, the signing key).
 
+use relay_io::LockExt;
 use std::collections::BTreeMap;
 use std::sync::Mutex;
 
@@ -202,7 +203,7 @@ impl InMemoryChannelStore {
 	}
 
 	fn lock(&self) -> std::sync::MutexGuard<'_, BTreeMap<ChannelId, ChannelRecord>> {
-		self.records.lock().unwrap_or_else(|p| p.into_inner())
+		self.records.lock_unpoisoned()
 	}
 }
 

@@ -6,6 +6,7 @@
 //! token. A token is removed the moment it is redeemed, expires on its own, is revoked after a
 //! few wrong attempts by the right peer, and is never logged.
 
+use relay_io::LockExt;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
@@ -109,7 +110,7 @@ impl Registry {
 		DataError,
 	> {
 		let now = Instant::now();
-		let mut entries = self.entries.lock().unwrap_or_else(|p| p.into_inner());
+		let mut entries = self.entries.lock_unpoisoned();
 		entries.retain(|_, e| e.expires > now && !e.deliver.is_closed());
 		if entries.len() >= TOKENS_OUTSTANDING_MAX || entries.contains_key(&expectation.offer_id) {
 			return Err(DataError::TooManyPending);
@@ -131,10 +132,7 @@ impl Registry {
 	}
 
 	pub(crate) fn revoke(&self, offer_id: &[u8; 16]) {
-		self.entries
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
-			.remove(offer_id);
+		self.entries.lock_unpoisoned().remove(offer_id);
 	}
 
 	/// Redeems a presented token. Every failure looks the same to the dialer (the connection
@@ -146,7 +144,7 @@ impl Registry {
 		offer_id: &[u8; 16],
 		token: &TransferToken,
 	) -> Result<Claimed, DataError> {
-		let mut entries = self.entries.lock().unwrap_or_else(|p| p.into_inner());
+		let mut entries = self.entries.lock_unpoisoned();
 		let entry = entries.get_mut(offer_id).ok_or(DataError::TokenRejected)?;
 		if entry.expires <= Instant::now() || entry.deliver.is_closed() {
 			entries.remove(offer_id);
@@ -171,6 +169,6 @@ impl Registry {
 	}
 
 	pub(crate) fn len(&self) -> usize {
-		self.entries.lock().unwrap_or_else(|p| p.into_inner()).len()
+		self.entries.lock_unpoisoned().len()
 	}
 }

@@ -1,5 +1,6 @@
 //! The listener, the dialer, and the caps that keep file transfers from starving a call.
 
+use relay_io::LockExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
@@ -78,7 +79,7 @@ impl Inner {
 			.try_acquire_owned()
 			.map_err(|_| DataError::TooManyPending)?;
 		if let Some(ip) = source {
-			let mut map = self.sources.lock().unwrap_or_else(|p| p.into_inner());
+			let mut map = self.sources.lock_unpoisoned();
 			let held = map.entry(source_key(ip)).or_default();
 			if *held >= self.config.per_source {
 				return Err(DataError::TooManyPending);

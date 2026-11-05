@@ -14,6 +14,7 @@ mdns-sd.workspace = true
 prost.workspace = true
 rand.workspace = true
 relay-core.workspace = true
+relay-io.workspace = true
 relay-messages.workspace = true
 relay-protocol.workspace = true
 snow.workspace = true
