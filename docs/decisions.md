@@ -91,6 +91,18 @@ only (JIS X 0208 level 1 plus Joyo for Japanese, GB2312 for Simplified Chinese, 
 syllables and Jamo for Korean) plus every non-ASCII character in UI strings. Full CJK fonts are
 4 to 16 MB each; the subsets total about 3.1 MB. Regular weight only: egui synthesises no bold or
 italic, so extra weights would only be dead weight. Rarer characters fall back to egui's built-in
-fonts or show as missing. Revisit when a shaping text stack is adopted (Devanagari conjuncts) or
-when per-locale font ordering is needed (shared Han glyph forms). Build recipe and licences:
+fonts or show as missing. Revisit when a shaping text stack is adopted (Devanagari conjuncts). Font order is per language (`fonts::order`). Build recipe and licences:
 `assets/font/README.md`.
+
+## Desktop translations use Project Fluent, one folder per language
+
+Decision: the desktop UI is translated with Project Fluent (`fluent-bundle` 0.16, `unic-langid`), catalogs in the repository-root `localizations/<lang>/<section>.ftl`, embedded with `include_str!`, system language from `sys-locale`.
+
+Why Fluent: the nine languages need real plural rules (Russian has three forms, Japanese and Chinese one) and grammatical agreement, which only a message format with selectors handles; code must not assemble sentences. `rust-i18n` (macro lookup over YAML, JSON or TOML) has no plural or gender support, keys-as-text by default and build-time macros that read files from the crate directory, so it was rejected. `fluent-templates` wraps `fluent-bundle` with a build-time static loader that expects one directory tree through its own macro and `walkdir`, bringing nothing we need and fighting the section layout and `include_str!` embedding; `fluent-bundle` directly is the same engine, maintained by Mozilla, with a small API. The concurrent bundle is `Sync`, so one static serves the UI thread, the tray and the notification thread.
+
+Per-frame cost: strings are read every frame, so an argument-free message is formatted once per language, leaked into a `&'static str` and served from a map (bounded by the catalog size, no allocation after the first use). Messages with arguments are formatted per call and returned as `String`; they are the minority and were already `format!`ed before.
+
+Layout: one folder per language so translators work in parallel without merge conflicts, split into ten section files so no file passes 500 lines. English is the reference: tests require every other folder to have the same files, no extra ids, matching `$variables` and each id in exactly one section; missing messages fall back to English per message. Ids are semantic keys, never English text, so rewording English does not invalidate translations.
+
+Settings and fonts: the choice is stored in `desktop.toml` like the other desktop-only preferences and applied live; `fonts::order` puts the language's own CJK face first (shared Han glyphs differ per region) and the fonts are reinstalled on change. Hindi is flagged experimental because egui does not shape Devanagari. Daemon and engine text is shown as received. Translations are machine-written and gated on native-speaker review (`docs/gates.md`).
+
