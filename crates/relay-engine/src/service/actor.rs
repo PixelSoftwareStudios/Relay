@@ -143,6 +143,11 @@ impl Actor {
 				let events = self.directory.set_devices(devices);
 				self.publish(events);
 			}
+			Msg::Attention { peer, warning } => {
+				let mut events = peer.map(|p| self.directory.flag(p)).unwrap_or_default();
+				events.extend(self.directory.warn(warning));
+				self.publish(events);
+			}
 			Msg::Shutdown => {}
 		}
 	}

@@ -6,7 +6,10 @@ use relay_api::pb::{Removed, StateEvent, state_event};
 use relay_core::PeerId;
 
 use super::convert::{device_to_pb, peer_to_pb};
-use super::ports::{DeviceInfo, PeerInfo, StoredSettings};
+use super::ports::{DeviceInfo, PeerInfo, PeerTrust, StoredSettings};
+
+const MAX_FLAGGED: usize = 16;
+const MAX_WARNINGS: usize = 32;
 
 /// Local settings that live outside the domain core.
 #[derive(Debug, Clone, PartialEq)]
@@ -45,6 +48,7 @@ pub struct Directory {
 	linked: BTreeSet<PeerId>,
 	devices: BTreeMap<String, DeviceInfo>,
 	warnings: Vec<relay_api::pb::Problem>,
+	flagged: BTreeSet<PeerId>,
 	/// Auxiliary settings.
 	pub aux: Aux,
 }
@@ -62,6 +66,7 @@ impl Directory {
 			linked: BTreeSet::new(),
 			devices: devices.into_iter().map(|d| (d.id.clone(), d)).collect(),
 			warnings,
+			flagged: BTreeSet::new(),
 			aux,
 		}
 	}
@@ -91,9 +96,54 @@ impl Directory {
 		}
 	}
 
+	/// Records a peer that needs the user's attention (waiting for a trust
+	/// decision, or presenting a changed key). It stays listed until the
+	/// adapter reports it with a settled trust label.
+	pub fn flag(&mut self, info: PeerInfo) -> Vec<StateEvent> {
+		if self.flagged.len() >= MAX_FLAGGED && !self.flagged.contains(&info.id) {
+			return Vec::new();
+		}
+		self.flagged.insert(info.id);
+		let event = peer_event(peer_to_pb(&info, self.linked.contains(&info.id)));
+		self.peers.insert(info.id, info);
+		vec![event]
+	}
+
+	/// Adds a runtime warning; repeats are ignored and the list is bounded.
+	pub fn warn(&mut self, warning: relay_api::pb::Problem) -> Option<StateEvent> {
+		if self
+			.warnings
+			.iter()
+			.any(|w| w.code == warning.code && w.message == warning.message)
+		{
+			return None;
+		}
+		if self.warnings.len() >= MAX_WARNINGS {
+			self.warnings.remove(0);
+		}
+		self.warnings.push(warning.clone());
+		Some(StateEvent {
+			event: Some(state_event::Event::Warning(warning)),
+		})
+	}
+
 	/// Replaces the discovered peers and reports what changed.
 	pub fn set_peers(&mut self, peers: Vec<PeerInfo>) -> Vec<StateEvent> {
-		let next: BTreeMap<PeerId, PeerInfo> = peers.into_iter().map(|p| (p.id, p)).collect();
+		let mut next: BTreeMap<PeerId, PeerInfo> = peers.into_iter().map(|p| (p.id, p)).collect();
+		let flagged: Vec<PeerId> = self.flagged.iter().copied().collect();
+		for id in flagged {
+			match next.get(&id) {
+				Some(info) if info.trust != PeerTrust::Unknown => {
+					self.flagged.remove(&id);
+				}
+				Some(_) => {}
+				None => {
+					if let Some(kept) = self.peers.get(&id) {
+						next.insert(id, kept.clone());
+					}
+				}
+			}
+		}
 		let mut events = Vec::new();
 		for (id, info) in &next {
 			if self.peers.get(id) != Some(info) {

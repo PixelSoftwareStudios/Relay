@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use relay_api::pb::{Operation, Snapshot, StateEvent};
+use relay_api::pb::{Operation, Problem, Snapshot, StateEvent};
 use relay_core::{
 	ClientId, Input, MonoTime, OpResult, OperationId, PeerEvent, Request, Revision, SystemEvent,
 };
@@ -111,6 +111,10 @@ pub(crate) enum Msg {
 	},
 	Peers(Vec<PeerInfo>),
 	Devices(Vec<DeviceInfo>),
+	Attention {
+		peer: Option<PeerInfo>,
+		warning: Problem,
+	},
 	Shutdown,
 }
 
@@ -169,6 +173,16 @@ impl ControlHandle {
 	/// Replaces the known devices.
 	pub async fn devices_changed(&self, devices: Vec<DeviceInfo>) -> Result<(), ServiceError> {
 		self.post(Msg::Devices(devices)).await
+	}
+
+	/// Raises a warning for clients, optionally flagging a peer that needs the
+	/// user's attention (see `Directory::flag`).
+	pub async fn attention(
+		&self,
+		peer: Option<PeerInfo>,
+		warning: Problem,
+	) -> Result<(), ServiceError> {
+		self.post(Msg::Attention { peer, warning }).await
 	}
 
 	/// Stops the actor after it drains what it already accepted.
