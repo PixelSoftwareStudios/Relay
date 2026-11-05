@@ -14,8 +14,7 @@ use relay_api::RelayClient;
 use relay_api::pb::{
 	AcquireControllerRequest, CallState, DecidePeerTrustRequest, DeviceDirection, Peer,
 	SelectDevicesRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
-	TelemetryRequest, TransmitMode, TrustState,
-	start_call_request::Target,
+	TelemetryRequest, TransmitMode, TrustState, start_call_request::Target,
 };
 use relay_engine::daemon::DaemonHandle;
 use service_support::*;
@@ -286,15 +285,28 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 		local_playback: true,
 		confirmed_feedback_warning: true,
 	};
-	let started = a.cli.raw().start_mic_test(request).await.expect("test").into_inner();
+	let started = a
+		.cli
+		.raw()
+		.start_mic_test(request)
+		.await
+		.expect("test")
+		.into_inner();
 	assert_applied(&started);
 
 	// A hears its own microphone; B hears nothing, and A's gate stays shut.
 	eventually!((rms(&tail(&a, 300)) > 0.05).then_some(()));
 	tokio::time::sleep(Duration::from_millis(800)).await;
-	assert!(rms(&tail(&b, 500)) < 1e-4, "the test must not reach the peer");
+	assert!(
+		rms(&tail(&b, 500)) < 1e-4,
+		"the test must not reach the peer"
+	);
 	assert!(!a.daemon.gates().load().is_open(call_id_of(&call)));
-	let transmit = call_in(&mut a.cli, &call).await.expect("call").transmit.expect("route");
+	let transmit = call_in(&mut a.cli, &call)
+		.await
+		.expect("call")
+		.transmit
+		.expect("route");
 	assert!(!transmit.consent_granted && !transmit.effective_transmitting);
 	let req = TelemetryRequest {
 		client: b.cli.context(),
@@ -302,12 +314,25 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 		meters_hz: 20,
 		stats_hz: 0,
 	};
-	let mut stream = b.cli.raw().watch_telemetry(req).await.expect("stream").into_inner();
+	let mut stream = b
+		.cli
+		.raw()
+		.watch_telemetry(req)
+		.await
+		.expect("stream")
+		.into_inner();
 	let quiet = stream.message().await.expect("sample").expect("open");
 	assert!(!quiet.calls[0].speaking && quiet.calls[0].receive_dbfs.is_none());
 
 	let stop = ctx(&a.cli, 22);
-	assert_applied(&a.cli.raw().stop_mic_test(stop).await.expect("stop").into_inner());
+	assert_applied(
+		&a.cli
+			.raw()
+			.stop_mic_test(stop)
+			.await
+			.expect("stop")
+			.into_inner(),
+	);
 
 	// With consent the same microphone does reach B, and B's meters show speech.
 	route(&mut a.cli, 23, &call, TransmitMode::OpenMic).await;
@@ -317,7 +342,11 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 			break sample;
 		}
 	};
-	assert!(loud.calls[0].receive_dbfs.is_some_and(|level| level > -30.0));
+	assert!(
+		loud.calls[0]
+			.receive_dbfs
+			.is_some_and(|level| level > -30.0)
+	);
 	assert!(loud.calls[0].packets_received > 0);
 	a.daemon.shutdown().await.expect("a stops");
 	b.daemon.shutdown().await.expect("b stops");

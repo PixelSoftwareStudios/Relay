@@ -140,7 +140,10 @@ async fn an_avatar_is_fetched_in_chunks_verified_and_cached() {
 	.await;
 	assert_eq!(hash, avatar.hash);
 	assert_eq!(b.cache.get(&hash).unwrap().unwrap(), avatar.image);
-	assert!(avatar.image.len() > 8192, "the transfer used several chunks");
+	assert!(
+		avatar.image.len() > 8192,
+		"the transfer used several chunks"
+	);
 	let _ = &mut a.output;
 }
 
