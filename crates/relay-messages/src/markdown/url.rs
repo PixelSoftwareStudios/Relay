@@ -98,7 +98,13 @@ fn analyse_host(host: &str) -> Option<HostInfo> {
 		}
 		if let Some(rest) = label.strip_prefix("xn--") {
 			match punycode::decode(rest) {
-				Some(d) if !d.is_empty() => {
+				Some(d)
+					if !d.is_ascii()
+						&& !d.chars().any(|c| {
+							c.is_control()
+								|| c.is_whitespace() || crate::sanitize::is_format_char(c)
+						}) =>
+				{
 					if mixed(&d) {
 						warning = Some(HostWarning::MixedScript);
 					} else if warning.is_none() {

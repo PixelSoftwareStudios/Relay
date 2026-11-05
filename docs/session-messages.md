@@ -271,7 +271,7 @@ message FileOffer {
   bytes offer_id = 3;            // 16 bytes
   string name = 4;               // receiver re-sanitizes
   uint64 size = 5;
-  string media_type = 6;         // advisory
+  string media_type = 6;         // advisory; the receiver ignores it and derives its own from the name
   bytes blake3 = 7;              // 32 bytes
 }
 message OfferResponse { bytes offer_id = 1; bool accepted = 2; string reason = 3; }
