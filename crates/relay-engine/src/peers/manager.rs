@@ -3,28 +3,24 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
 
 use arc_swap::ArcSwap;
 use relay_core::PeerEvent;
 use relay_net::discovery::DiscoveryTable;
 use relay_net::identity::{Fingerprint, PeerTrust, TrustRecord, TrustState, evaluate_peer};
 use relay_net::proto::{Envelope, envelope::Body};
-use relay_net::session::Role;
-use tokio::net::TcpStream;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::timeout;
 
+use super::dialing::Want;
 use super::election::{LinkFacts, Verdict, elect};
 use super::handle::{Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id};
-use super::link::{Established, LinkEvent, LinkId, LinkParams, establish};
+use super::link::{Established, LinkEvent, LinkId, LinkParams};
 use super::signaling::{Inbound, SessionTable, decode};
 use super::trust::{SharedTrust, now};
 
 const PENDING_PER_PEER: usize = 32;
-const DIAL_TIMEOUT: Duration = Duration::from_secs(3);
 
 enum Outbox {
 	Sent,
@@ -35,13 +31,6 @@ enum Outbox {
 pub(super) struct Entry {
 	pub(super) link: Established,
 	pub(super) trusted: bool,
-}
-
-#[derive(Default)]
-pub(super) struct Want {
-	attempt: u32,
-	dialling: bool,
-	retry_scheduled: bool,
 }
 
 pub(super) struct Actor {
@@ -151,13 +140,6 @@ impl Actor {
 		}
 	}
 
-	fn remember_address(&mut self, peer: Fingerprint, addr: SocketAddr) {
-		let known = self.addresses.entry(peer).or_default();
-		if !known.contains(&addr) && known.len() < 8 {
-			known.push(addr);
-		}
-	}
-
 	fn on_discovered(&mut self, mut found: relay_net::discovery::DiscoveredPeer) {
 		found.display_name = relay_net::discovery::sanitize_display_name(&found.display_name);
 		let matches: Vec<Fingerprint> = self
@@ -170,20 +152,6 @@ impl Actor {
 			return;
 		}
 		matches.into_iter().for_each(|peer| self.try_dial(peer));
-	}
-
-	fn candidate_addresses(&self, peer: &Fingerprint) -> Vec<SocketAddr> {
-		let mut out = self.addresses.get(peer).cloned().unwrap_or_default();
-		for found in self.table.iter() {
-			if found
-				.fingerprint_hint
-				.is_some_and(|hint| hint.matches(peer))
-			{
-				out.extend(&found.addresses);
-			}
-		}
-		out.dedup();
-		out
 	}
 
 	pub(super) fn trusted_link(&self, peer: &Fingerprint) -> Option<&Entry> {
@@ -199,62 +167,6 @@ impl Actor {
 		} else {
 			self.try_dial(peer);
 		}
-	}
-
-	/// Starts a dial for a wanted peer without a link, if addresses are known.
-	fn try_dial(&mut self, peer: Fingerprint) {
-		let Some(want) = self.wanted.get(&peer) else {
-			return;
-		};
-		if want.dialling || self.canonical.contains_key(&peer) {
-			return;
-		}
-		let addresses = self.candidate_addresses(&peer);
-		if addresses.is_empty() {
-			return;
-		}
-		let id = self.dial(addresses, Some(peer));
-		if let Some(want) = self.wanted.get_mut(&peer) {
-			want.dialling = true;
-		}
-		self.dialling.insert(id, Some(peer));
-	}
-
-	fn dial(&mut self, addresses: Vec<SocketAddr>, expected: Option<Fingerprint>) -> LinkId {
-		let id = self.ids.fetch_add(1, Ordering::Relaxed);
-		self.dialling.insert(id, expected);
-		let (params, events) = (Arc::clone(&self.params), self.link_tx.clone());
-		tokio::spawn(async move {
-			let mut last = String::from("no address");
-			for addr in addresses {
-				match timeout(DIAL_TIMEOUT, TcpStream::connect(addr)).await {
-					Ok(Ok(stream)) => {
-						match establish(
-							stream,
-							Role::Initiator,
-							expected,
-							&params,
-							id,
-							events.clone(),
-						)
-						.await
-						{
-							Ok(()) => return,
-							Err(error) => last = error.to_string(),
-						}
-					}
-					Ok(Err(error)) => last = error.to_string(),
-					Err(_) => last = "connect timed out".to_owned(),
-				}
-			}
-			let _ = events
-				.send(LinkEvent::Failed {
-					link: id,
-					error: last,
-				})
-				.await;
-		});
-		id
 	}
 
 	pub(super) async fn send(&mut self, peer: Fingerprint, envelope: Envelope) {
@@ -340,35 +252,6 @@ impl Actor {
 				}
 			}
 		}
-	}
-
-	fn dial_ended(&mut self, peer: Fingerprint) {
-		if let Some(want) = self.wanted.get_mut(&peer) {
-			want.dialling = false;
-		}
-		if !self.canonical.contains_key(&peer) {
-			self.schedule_redial(peer);
-		}
-	}
-
-	fn schedule_redial(&mut self, peer: Fingerprint) {
-		let Some(want) = self.wanted.get_mut(&peer) else {
-			return;
-		};
-		if want.retry_scheduled {
-			return;
-		}
-		want.retry_scheduled = true;
-		let delay = self
-			.config
-			.backoff
-			.delay(want.attempt, rand::random::<f64>());
-		want.attempt = want.attempt.saturating_add(1);
-		let commands = self.commands.clone();
-		tokio::spawn(async move {
-			tokio::time::sleep(delay).await;
-			let _ = commands.send(Command::Redial(peer)).await;
-		});
 	}
 
 	async fn on_up(&mut self, link: Established) {
