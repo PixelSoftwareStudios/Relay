@@ -158,9 +158,19 @@ impl Actor {
 				self.directory.aux.advert_mode = advert;
 				self.advertise_profile();
 			}
-			ServiceOp::MicrophoneGain(gain) => {
-				self.ports.media.set_microphone_gain(gain)?;
-				self.directory.aux.microphone_gain = gain;
+			ServiceOp::Controls {
+				microphone_gain,
+				release_delay_ms,
+			} => {
+				if let Some(delay) = release_delay_ms {
+					self.ports
+						.settings
+						.save(&SettingsChange::PttReleaseDelay(delay))?;
+				}
+				if let Some(gain) = microphone_gain {
+					self.ports.media.set_microphone_gain(gain)?;
+					self.directory.aux.microphone_gain = gain;
+				}
 				self.publish_settings();
 			}
 		}

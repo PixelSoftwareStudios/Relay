@@ -40,8 +40,13 @@ pub enum ServiceOp {
 	Avatar(Vec<u8>),
 	/// Decide a peer's trust.
 	Trust(TrustRequest),
-	/// Set the microphone gain.
-	MicrophoneGain(f32),
+	/// Apply the non-domain parts of a global-controls change.
+	Controls {
+		/// New microphone gain, if changing.
+		microphone_gain: Option<f32>,
+		/// New push-to-talk release delay in milliseconds, if changing (persisted).
+		release_delay_ms: Option<u32>,
+	},
 	/// Change who may ring this device and how it appears in discovery.
 	Privacy {
 		/// New inbound policy, if changing.

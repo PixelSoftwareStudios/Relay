@@ -193,6 +193,7 @@ async fn explicit_release_and_global_mute_close_the_gate() {
 		deafened: None,
 		microphone_gain: None,
 		playback_gain: None,
+		ptt_release_delay_ms: None,
 	};
 	talk.cli
 		.raw()

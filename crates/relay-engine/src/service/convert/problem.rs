@@ -36,6 +36,7 @@ pub fn problem_of(reject: &Reject) -> Problem {
 		Reject::StaleSequence { .. } => ("STALE_SEQUENCE", false, ""),
 		Reject::TooManyInputSources => ("TOO_MANY_INPUT_SOURCES", false, ""),
 		Reject::InvalidTtl => ("INVALID_LEASE", false, ""),
+		Reject::InvalidReleaseDelay => ("INVALID_RELEASE_DELAY", false, ""),
 		Reject::SettingsConflict { .. } => ("SETTINGS_CONFLICT", true, "refresh_state"),
 		Reject::StaleGeneration => ("STALE_GENERATION", true, "refresh_state"),
 		Reject::StaleSession => ("STALE_SESSION", false, "refresh_state"),

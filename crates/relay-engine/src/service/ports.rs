@@ -195,6 +195,8 @@ pub enum SettingsChange {
 	},
 	/// Qualified noise suppression backend id.
 	NoiseBackend(String),
+	/// Push-to-talk release delay in milliseconds.
+	PttReleaseDelay(u32),
 	/// Inbound policy and discovery visibility.
 	Privacy {
 		/// Who may ring this device.
@@ -219,6 +221,8 @@ pub struct StoredSettings {
 	pub microphone_gain: f32,
 	/// Playback gain.
 	pub playback_gain: f32,
+	/// Push-to-talk release delay in milliseconds (0 closes at once).
+	pub ptt_release_delay_ms: u32,
 	/// Local avatar hash.
 	pub avatar: Option<[u8; 32]>,
 	/// Who may ring this device.

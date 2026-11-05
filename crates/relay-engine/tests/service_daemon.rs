@@ -123,6 +123,7 @@ async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 		deafened: None,
 		microphone_gain: Some(0.5),
 		playback_gain: None,
+		ptt_release_delay_ms: None,
 	};
 	assert_applied(
 		&cli.raw()

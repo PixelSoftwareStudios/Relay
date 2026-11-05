@@ -125,6 +125,7 @@ impl Source<'_> {
 			sequence: message.input_sequence,
 			pressed,
 			ttl,
+			immediate: false,
 		};
 		let applied = self.send(update).await?;
 		match applied.result {
@@ -171,6 +172,8 @@ impl Source<'_> {
 				sequence: FINAL_SEQUENCE,
 				pressed: false,
 				ttl: None,
+				// Retiring a source closes at once; only a key-up is held.
+				immediate: true,
 			};
 			let _ = self.send(update).await;
 		}

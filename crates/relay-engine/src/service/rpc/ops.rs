@@ -1,5 +1,7 @@
 //! Mutations executed by adapters, with per-client idempotency.
 
+use std::time::Duration;
+
 use prost::Message;
 use relay_api::pb::{
 	DecidePeerTrustRequest, MutationContext, Operation, SelectDevicesRequest,
@@ -20,6 +22,7 @@ const MAX_NAME_CHARS: usize = 64;
 const MAX_DEVICE_ID_BYTES: usize = 512;
 const MAX_AVATAR_BYTES: usize = 1024 * 1024;
 const MAX_MIC_GAIN: f32 = 4.0;
+const MAX_RELEASE_DELAY_MS: u32 = 2000;
 
 fn invalid(message: &str) -> ServiceError {
 	ServiceError::InvalidArgument(message.to_owned())
@@ -45,10 +48,21 @@ pub(super) async fn global_controls(
 	mutation: &Mutation,
 	body: &SetGlobalControlsRequest,
 ) -> Result<Response<Operation>, Status> {
+	let release_delay = body
+		.ptt_release_delay_ms
+		.map(|ms| {
+			if ms <= MAX_RELEASE_DELAY_MS {
+				Ok(Duration::from_millis(u64::from(ms)))
+			} else {
+				Err(invalid("ptt release delay out of range"))
+			}
+		})
+		.transpose()?;
 	let command = Command::SetGlobalControls {
 		muted: body.muted,
 		deafened: body.deafened,
 		output_gain: body.playback_gain.map(|g| gain(g, 2.0)).transpose()?,
+		ptt_release_delay: release_delay,
 		expected: mutation.expected_revision.map(SettingsRevision::new),
 	};
 	let microphone = body
@@ -62,12 +76,16 @@ pub(super) async fn global_controls(
 		})
 		.transpose()?;
 	let domain = service.run(mutation, command, None).await?;
-	match microphone {
-		Some(gain) if domain.get_ref().problem.is_none() => {
-			service_op(service, mutation, body, ServiceOp::MicrophoneGain(gain)).await
-		}
-		_ => Ok(domain),
+	if domain.get_ref().problem.is_some()
+		|| (microphone.is_none() && body.ptt_release_delay_ms.is_none())
+	{
+		return Ok(domain);
 	}
+	let op = ServiceOp::Controls {
+		microphone_gain: microphone,
+		release_delay_ms: body.ptt_release_delay_ms,
+	};
+	service_op(service, mutation, body, op).await
 }
 
 fn bounded_id(id: &str) -> Result<(), ServiceError> {

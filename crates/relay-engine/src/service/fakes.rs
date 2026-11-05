@@ -237,6 +237,7 @@ impl SettingsStore for MemorySettings {
 				stored.output_device.clone_from(output);
 			}
 			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
+			SettingsChange::PttReleaseDelay(ms) => stored.ptt_release_delay_ms = *ms,
 			SettingsChange::Privacy { inbound, advert } => {
 				stored.inbound_policy = *inbound;
 				stored.advert_mode = *advert;

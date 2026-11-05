@@ -6,6 +6,8 @@ use std::time::Duration;
 
 use relay_api::{ApiLimits, ClientRegistry, StreamLimiter};
 use relay_core::{ClientId, Engine, Limits, PeerId, State};
+
+const MAX_RELEASE_DELAY_MS: u32 = 2000;
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
@@ -127,10 +129,17 @@ impl ServiceBuilder {
 			channels,
 		} = self;
 		let incarnation = registry.incarnation();
+		// The stored push-to-talk release delay seeds the domain; later changes
+		// arrive through `SetGlobalControls`.
+		let stored = ports.settings.load();
+		let mut limits = config.limits.clone();
+		limits.ptt_release_delay = std::time::Duration::from_millis(u64::from(
+			stored.ptt_release_delay_ms.min(MAX_RELEASE_DELAY_MS),
+		));
 		let state = State::new(
 			config.local,
 			relay_core::Incarnation::from_u128(u128::from_be_bytes(incarnation)),
-			config.limits.clone(),
+			limits,
 		)
 		.map_err(|e| ServiceError::Config(e.to_string()))?;
 		let ids = Ids::new(Arc::clone(&config.entropy));

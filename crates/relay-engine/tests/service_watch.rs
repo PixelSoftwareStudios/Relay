@@ -16,6 +16,7 @@ async fn toggle(client: &mut RelayClient, op: u8, muted: bool) {
 		deafened: None,
 		microphone_gain: None,
 		playback_gain: None,
+		ptt_release_delay_ms: None,
 	};
 	client
 		.raw()
