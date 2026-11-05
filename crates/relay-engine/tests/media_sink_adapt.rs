@@ -9,8 +9,6 @@ use relay_engine::media::RenderSink;
 struct Run {
 	/// Silence inserted by the device callback during the measured window.
 	underrun_frames: u64,
-	/// Fill just before a mixer write, averaged over the last `tail_s` seconds.
-	tail_fill: f64,
 	/// Fill target the sink ended with.
 	target: usize,
 	shed: u64,
@@ -80,10 +78,8 @@ fn simulate(s: &Scenario) -> Run {
 		.iter()
 		.map(|(sum, n)| if *n == 0 { 0.0 } else { sum / f64::from(*n) })
 		.collect();
-	let tail = &per_second[per_second.len().saturating_sub(11)..per_second.len() - 1];
 	Run {
 		underrun_frames: shared.underrun_frames() - under_at_start.unwrap_or(0),
-		tail_fill: tail.iter().sum::<f64>() / tail.len() as f64,
 		target: sink.target(),
 		shed: sink.shed_frames(),
 		final_ppm: sink.drift_ppm(),
