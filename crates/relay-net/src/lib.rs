@@ -6,6 +6,7 @@
 
 mod address;
 pub mod channel;
+pub mod connect;
 pub mod control;
 pub mod discovery;
 pub mod handshake;
@@ -21,5 +22,7 @@ pub mod proto {
 	include!(concat!(env!("OUT_DIR"), "/relay.peer.v1.rs"));
 }
 
-pub use address::{AddressError, AddressPolicy, endpoint_to_proto, is_lan_ip};
+pub use address::{
+	AddressError, AddressPolicy, endpoint_to_proto, is_lan_ip, is_shared_address_space,
+};
 pub use noise::PROTOCOL_MAJOR;

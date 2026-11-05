@@ -54,6 +54,16 @@ impl InterfacePolicy {
 		Ok(())
 	}
 
+	/// Whether an interface name may be used. With `allowed` set only those names qualify;
+	/// otherwise tunnel, VPN, bridge and container names are excluded.
+	pub fn admits_name(&self, name: &str) -> bool {
+		if self.allowed.is_empty() {
+			!EXCLUDED_PREFIXES.iter().any(|p| name.starts_with(p))
+		} else {
+			self.allowed.iter().any(|a| a == name)
+		}
+	}
+
 	/// Names of the interfaces currently eligible, for display to the user.
 	pub fn describe(&self) -> String {
 		if self.allowed.is_empty() {

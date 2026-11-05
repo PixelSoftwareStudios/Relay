@@ -12,6 +12,8 @@ use crate::proto::Endpoint;
 pub enum AddressError {
 	#[error("address is not a private or link-local LAN address")]
 	NotLan,
+	#[error("shared-address-space (CGNAT / overlay VPN) addresses are not LAN addresses")]
+	OverlayNetwork,
 	#[error("loopback addresses are not permitted by this policy")]
 	Loopback,
 	#[error("malformed endpoint")]
@@ -57,6 +59,8 @@ impl AddressPolicy {
 		}
 		if is_lan_ip(ip) {
 			Ok(())
+		} else if is_shared_address_space(ip) {
+			Err(AddressError::OverlayNetwork)
 		} else {
 			Err(AddressError::NotLan)
 		}
@@ -156,6 +160,16 @@ pub fn is_lan_ip(ip: IpAddr) -> bool {
 		IpAddr::V4(v4) => v4.is_private() || v4.is_link_local(),
 		IpAddr::V6(v6) => is_v6_link_local(&v6) || (v6.segments()[0] & 0xfe00) == 0xfc00,
 	}
+}
+
+/// RFC 6598 shared address space, 100.64.0.0/10. Carrier-grade NAT uses it, and so do overlay
+/// VPNs such as Tailscale. It is **deliberately not a LAN address**: such a path may cross the
+/// internet through a coordination service, which contradicts the LAN-only boundary, and
+/// `Ipv4Addr::is_private` does not include it either. It is refused with a distinct error so
+/// the UI can explain why. Someone who really wants to call over an overlay needs an explicit,
+/// separate policy that does not exist yet.
+pub fn is_shared_address_space(ip: IpAddr) -> bool {
+	matches!(canonical(ip), IpAddr::V4(v4) if v4.octets()[0] == 100 && (v4.octets()[1] & 0xc0) == 0x40)
 }
 
 fn is_v6_link_local(ip: &Ipv6Addr) -> bool {
