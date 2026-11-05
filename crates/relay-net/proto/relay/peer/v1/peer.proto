@@ -1,0 +1,95 @@
+syntax = "proto3";
+package relay.peer.v1;
+
+// Bounded messages INSIDE authenticated reliable peer-control records.
+// Not a remote gRPC service. Never expose local Engine RPCs to LAN peers.
+message Envelope {
+  bytes message_id = 1; // exactly 16; semantic operation identity
+  uint32 protocol_major = 15;
+  bytes reply_to_message_id = 16; // optional semantic correlation, empty or 16 bytes
+  oneof body {
+    Hello hello = 2;
+    Invite invite = 3;
+    Ringing ringing = 4;
+    Accept accept = 5;
+    Reject reject = 6;
+    End end = 7;
+    Keepalive keepalive = 8;
+    EndpointOffer endpoint_offer = 9;
+    Profile profile = 10;
+    AvatarRequest avatar_request = 11;
+    AvatarChunk avatar_chunk = 12;
+    EpochSwitch epoch_switch = 13;
+    Error error = 14;
+    MediaReady media_ready = 17;
+    MediaFeedback media_feedback = 18;
+    StreamState stream_state = 19;
+  }
+}
+message Hello {
+  uint32 protocol_major = 1;
+  uint32 protocol_minor = 2;
+  bytes public_key_sha256 = 3; // must equal authenticated static-key digest
+  string display_name = 4;
+  repeated string media_profiles = 5;
+  uint32 max_parallel_calls = 6;
+  bytes engine_incarnation = 7; // exactly 16; restart is not a resumable old engine
+}
+message Invite { bytes call_id = 1; repeated string offered_profiles = 2; uint32 ring_timeout_ms = 3; bool allow_parallel_same_peer = 4; }
+message Ringing { bytes call_id = 1; }
+message Accept {
+  bytes call_id = 1;
+  string selected_profile = 2;
+  uint32 send_ssrc = 3;
+  uint32 initial_stream_generation = 4;
+  // Acceptance is not local microphone consent on either machine.
+}
+message Reject { bytes call_id = 1; string reason_code = 2; }
+message End { bytes call_id = 1; string reason_code = 2; }
+message Keepalive { uint64 nonce = 1; bool reply = 2; }
+message Endpoint {
+  bytes ip_address = 1; // exactly 4 or 16
+  uint32 port = 2;
+  uint32 ipv6_scope_id = 3; // local interpretation; never blindly trust remote indexes
+}
+message EndpointOffer { bytes link_epoch = 1; repeated Endpoint candidates = 2; }
+message Profile { string display_name = 1; bytes avatar_sha256 = 2; uint32 avatar_size = 3; }
+message AvatarRequest { bytes avatar_sha256 = 1; }
+message AvatarChunk {
+  bytes avatar_sha256 = 1;
+  uint32 offset = 2;
+  uint32 total_size = 3;
+  bytes data = 4; // <=8192; transfer totals <=256KiB
+  bool final_chunk = 5;
+}
+message EpochSwitch {
+  bytes previous_epoch = 1;
+  bytes next_epoch = 2;
+  repeated bytes active_call_ids = 3;
+  bool acknowledge = 4;
+}
+message Error { string code = 1; bytes call_id = 2; }
+
+message MediaReady {
+  bytes call_id = 1;
+  string selected_profile = 2;
+  uint32 send_ssrc = 3;
+  uint32 send_stream_generation = 4;
+  bytes link_epoch = 5;
+}
+message MediaFeedback {
+  bytes call_id = 1;
+  uint32 stream_generation = 2;
+  uint64 received = 3;
+  uint64 missing_at_deadline = 4;
+  uint64 late = 5;
+  uint32 playout_target_us = 6;
+  string overload_code = 7;
+}
+message StreamState {
+  bytes call_id = 1;
+  uint32 stream_generation = 2;
+  bool sender_gate_open = 3;
+  uint32 next_media_timestamp = 4;
+  // Advisory state only. Never grants local mic authority or blocks media playout.
+}

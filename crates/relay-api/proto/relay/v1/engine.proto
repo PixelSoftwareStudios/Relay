@@ -1,0 +1,325 @@
+syntax = "proto3";
+package relay.v1;
+
+// Design contract, not generated/compiled application code.
+// Transport authenticates the OS user first. Client IDs are not credentials.
+// All IDs below are validated opaque bytes: 16 bytes except peer_id (32).
+// Every mutation is authorized and converted to domain types before execution.
+service Engine {
+  rpc GetInfo(Empty) returns (EngineInfo);
+  rpc RegisterClient(RegisterClientRequest) returns (ClientSession);
+  rpc GetSnapshot(ClientContext) returns (Snapshot);
+  rpc WatchState(WatchStateRequest) returns (stream StateEnvelope);
+  rpc WatchTelemetry(TelemetryRequest) returns (stream TelemetrySnapshot);
+  rpc GetOperation(GetOperationRequest) returns (Operation);
+  rpc StartCall(StartCallRequest) returns (Operation);
+  rpc AcceptCall(CallMutation) returns (Operation);
+  rpc DeclineCall(CallMutation) returns (Operation);
+  rpc EndCall(CallMutation) returns (Operation);
+  rpc AcquireController(AcquireControllerRequest) returns (ControllerLease);
+  rpc ReleaseController(ReleaseControllerRequest) returns (Operation);
+  rpc SetTransmitRoute(SetTransmitRouteRequest) returns (Operation);
+  rpc SetCallControls(SetCallControlsRequest) returns (Operation);
+  rpc SetGlobalControls(SetGlobalControlsRequest) returns (Operation);
+  rpc SelectDevices(SelectDevicesRequest) returns (Operation);
+  rpc SetNoiseSuppression(SetNoiseSuppressionRequest) returns (Operation);
+  rpc StartMicTest(StartMicTestRequest) returns (Operation);
+  rpc StopMicTest(MutationContext) returns (Operation);
+  rpc SetProfile(SetProfileRequest) returns (Operation);
+  rpc UploadAvatar(UploadAvatarRequest) returns (Operation);
+  rpc DecidePeerTrust(DecidePeerTrustRequest) returns (Operation);
+  rpc InputControl(stream InputControlMessage) returns (stream InputControlAck);
+}
+
+message Empty {}
+message ClientContext {
+  bytes client_id = 1;
+  bytes engine_incarnation = 2;
+}
+message MutationContext {
+  ClientContext client = 1;
+  bytes operation_id = 2;
+  optional uint64 expected_revision = 3;
+}
+message EngineInfo {
+  bytes engine_incarnation = 1;
+  string application_version = 2;
+  uint32 api_major = 3;
+  uint32 api_minor = 4;
+  repeated string capabilities = 5;
+  ResourceLimits limits = 6;
+}
+message ResourceLimits {
+  uint32 active_calls = 1;
+  uint32 clients = 2;
+  uint32 avatar_max_bytes = 3;
+  uint32 meters_max_hz = 4;
+  uint32 ptt_lease_max_ms = 5;
+}
+message RegisterClientRequest {
+  string display_name = 1; // bounded UTF-8; not a trusted identity
+  string client_version = 2;
+  uint32 api_major = 3;
+  repeated string requested_capabilities = 4;
+}
+message ClientSession {
+  ClientContext context = 1;
+  repeated string granted_capabilities = 2;
+  uint64 revision = 3;
+}
+enum CallState {
+  CALL_STATE_UNSPECIFIED = 0;
+  CALL_STATE_OUTGOING_RINGING = 1;
+  CALL_STATE_INCOMING_RINGING = 2;
+  CALL_STATE_NEGOTIATING = 3;
+  CALL_STATE_CONNECTED = 4;
+  CALL_STATE_INTERRUPTED = 5;
+  CALL_STATE_ENDING = 6;
+  CALL_STATE_ENDED = 7;
+  CALL_STATE_FAILED = 8;
+  CALL_STATE_PREPARING = 9;
+  CALL_STATE_DECLINED = 10;
+  CALL_STATE_CANCELLED = 11;
+}
+enum TransmitMode {
+  TRANSMIT_MODE_UNSPECIFIED = 0;
+  TRANSMIT_MODE_RECEIVE_ONLY = 1;
+  TRANSMIT_MODE_PUSH_TO_TALK = 2;
+  TRANSMIT_MODE_OPEN_MIC = 3;
+}
+enum OperationState {
+  OPERATION_STATE_UNSPECIFIED = 0;
+  OPERATION_STATE_ACCEPTED = 1;
+  OPERATION_STATE_APPLIED = 2;
+  OPERATION_STATE_FAILED = 3;
+}
+enum TrustState {
+  TRUST_STATE_UNSPECIFIED = 0;
+  TRUST_STATE_UNKNOWN = 1;
+  TRUST_STATE_TOFU_UNVERIFIED = 2;
+  TRUST_STATE_VERIFIED = 3;
+  TRUST_STATE_KEY_CHANGED = 4;
+  TRUST_STATE_BLOCKED = 5;
+}
+enum DeviceDirection {
+  DEVICE_DIRECTION_UNSPECIFIED = 0;
+  DEVICE_DIRECTION_INPUT = 1;
+  DEVICE_DIRECTION_OUTPUT = 2;
+}
+message Problem {
+  string code = 1; // stable machine code, not a localized string
+  string message = 2; // sanitized description
+  bool retryable = 3;
+  string recovery_action = 4;
+}
+message Operation {
+  bytes operation_id = 1;
+  OperationState state = 2;
+  uint64 revision = 3;
+  bytes call_id = 4;
+  Problem problem = 5;
+}
+message GetOperationRequest { ClientContext client = 1; bytes operation_id = 2; }
+message Peer {
+  bytes peer_id = 1;
+  string display_name = 2;
+  repeated string local_addresses = 3;
+  TrustState trust = 4;
+  bool reachable = 5;
+  bytes avatar_sha256 = 6;
+}
+message Device {
+  string device_id = 1; // opaque adapter-qualified ID; never an enumeration index
+  string name = 2;
+  DeviceDirection direction = 3;
+  bool available = 4;
+  bool system_default = 5;
+  repeated uint32 supported_rates_hint = 6;
+}
+message ControllerLease {
+  bytes call_id = 1;
+  bytes controller_client_id = 2;
+  uint64 generation = 3;
+  bytes lease_id = 4;
+  uint32 expires_in_ms = 5;
+}
+message TransmitRoute {
+  TransmitMode mode = 1;
+  bool consent_granted = 2;
+  bool effective_transmitting = 3;
+  string blocked_reason = 4;
+  uint64 generation = 5;
+  bool authorized_background_open_mic = 6;
+}
+message Call {
+  bytes call_id = 1;
+  bytes peer_id = 2;
+  CallState state = 3;
+  uint64 revision = 4;
+  ControllerLease controller = 5;
+  TransmitRoute transmit = 6;
+  bool user_muted = 7;
+  bool user_deafened = 8;
+  float receive_gain = 9;
+  string negotiated_profile = 10;
+  Problem problem = 11;
+}
+message Settings {
+  uint64 revision = 1;
+  string input_device_id = 2;
+  string output_device_id = 3;
+  string ns_backend_id = 4;
+  bool global_muted = 5;
+  bool global_deafened = 6;
+  float microphone_gain = 7;
+  float playback_gain = 8;
+}
+message Snapshot {
+  bytes engine_incarnation = 1;
+  uint64 revision = 2;
+  repeated Peer peers = 3;
+  repeated Call calls = 4;
+  repeated Device devices = 5;
+  Settings settings = 6;
+  repeated Problem warnings = 7;
+}
+message WatchStateRequest {
+  ClientContext client = 1;
+  optional uint64 after_revision = 2;
+  repeated bytes call_filter = 3;
+  bool include_peers = 4;
+}
+message ResyncRequired { uint64 current_revision = 1; string reason = 2; }
+message Removed { bytes id = 1; string kind = 2; }
+message StateEvent {
+  oneof event {
+    Peer peer = 1;
+    Call call = 2;
+    Device device = 3;
+    Settings settings = 4;
+    Operation operation = 5;
+    Removed removed = 6;
+    Problem warning = 7;
+  }
+}
+message StateEnvelope {
+  bytes engine_incarnation = 1;
+  uint64 revision = 2;
+  oneof body { Snapshot snapshot = 3; StateEvent event = 4; ResyncRequired resync = 5; }
+}
+message StartCallRequest {
+  MutationContext context = 1;
+  oneof target { bytes peer_id = 2; string manual_local_address = 3; }
+  bool allow_parallel_same_peer = 4;
+  // StartCall NEVER implicitly authorizes microphone transmission.
+}
+message CallMutation { MutationContext context = 1; bytes call_id = 2; uint64 controller_generation = 3; }
+message AcquireControllerRequest {
+  MutationContext context = 1;
+  bytes call_id = 2;
+  bool request_explicit_takeover = 3;
+}
+message ReleaseControllerRequest {
+  MutationContext context = 1;
+  bytes call_id = 2;
+  bytes lease_id = 3;
+  uint64 controller_generation = 4;
+}
+message SetTransmitRouteRequest {
+  MutationContext context = 1;
+  bytes call_id = 2;
+  uint64 controller_generation = 3;
+  TransmitMode mode = 4;
+  bool explicit_microphone_consent = 5;
+  bool authorize_background_open_mic = 6;
+}
+message SetCallControlsRequest {
+  MutationContext context = 1;
+  bytes call_id = 2;
+  uint64 controller_generation = 3;
+  optional bool muted = 4;
+  optional bool deafened = 5;
+  optional float receive_gain = 6; // finite, engine-clamped
+}
+message SetGlobalControlsRequest {
+  MutationContext context = 1;
+  optional bool muted = 2;
+  optional bool deafened = 3;
+  optional float microphone_gain = 4;
+  optional float playback_gain = 5;
+}
+message SelectDevicesRequest { MutationContext context = 1; string input_device_id = 2; string output_device_id = 3; }
+message SetNoiseSuppressionRequest { MutationContext context = 1; string qualified_backend_id = 2; }
+message StartMicTestRequest {
+  MutationContext context = 1;
+  bool local_playback = 2;
+  bool confirmed_feedback_warning = 3;
+}
+message SetProfileRequest { MutationContext context = 1; string display_name = 2; }
+message UploadAvatarRequest {
+  MutationContext context = 1;
+  bytes encoded_image = 2; // bounded <=256KiB, not a local path or raw pixel array
+  string declared_media_type = 3; // do not trust without decoding validation
+}
+message DecidePeerTrustRequest {
+  MutationContext context = 1;
+  bytes peer_id = 2;
+  bytes expected_public_key_sha256 = 3;
+  TrustState requested_trust = 4;
+  bool out_of_band_verified = 5;
+}
+enum InputAction {
+  INPUT_ACTION_UNSPECIFIED = 0;
+  INPUT_ACTION_PRESS = 1;
+  INPUT_ACTION_RENEW = 2;
+  INPUT_ACTION_RELEASE = 3;
+  INPUT_ACTION_RELEASE_ALL = 4;
+}
+message InputControlMessage {
+  ClientContext client = 1;
+  bytes source_id = 2; // unique per input-control stream
+  uint64 input_sequence = 3;
+  bytes call_id = 4;
+  uint64 controller_generation = 5;
+  uint64 transmit_route_generation = 6;
+  InputAction action = 7;
+  uint32 requested_lease_ms = 8;
+}
+message InputControlAck {
+  bytes source_id = 1;
+  uint64 input_sequence = 2;
+  bool accepted = 3;
+  uint32 effective_lease_ms = 4;
+  bool effective_transmitting = 5;
+  Problem problem = 6;
+}
+message TelemetryRequest {
+  ClientContext client = 1;
+  repeated bytes call_ids = 2;
+  uint32 meters_hz = 3;
+  uint32 stats_hz = 4;
+}
+message CallTelemetry {
+  bytes call_id = 1;
+  bool speaking = 2;
+  optional float receive_dbfs = 3;
+  optional double rtt_ms = 4;
+  optional double rtp_interarrival_jitter_ms = 5;
+  double playout_target_ms = 6;
+  uint64 packets_received = 7;
+  uint64 packets_late = 8;
+  uint64 packets_missing_at_deadline = 9;
+  uint64 concealed_samples = 10;
+  optional double estimated_mouth_to_ear_ms = 11;
+  string latency_estimate_method = 12;
+}
+message TelemetrySnapshot {
+  bytes engine_incarnation = 1;
+  uint64 sample_sequence = 2;
+  uint64 monotonic_ms_since_engine_start = 3; // not comparable across engines
+  optional float microphone_dbfs = 4;
+  uint64 capture_overruns = 5;
+  uint64 render_underruns = 6;
+  uint64 telemetry_samples_dropped = 7;
+  repeated CallTelemetry calls = 8;
+}
