@@ -149,3 +149,18 @@ fn import_rejects_typos_bad_values_and_newer_versions() {
 		Err(ConfigError::UnsupportedVersion { found: 99, .. })
 	));
 }
+
+#[test]
+fn read_only_peek_needs_no_lock_and_writes_nothing() {
+	let dir = tempfile::tempdir().unwrap();
+	let paths = Paths::under(dir.path());
+	assert_eq!(PreferenceStore::read_only(&paths).unwrap(), None);
+	let (store, _s) = store(&dir);
+	assert_eq!(PreferenceStore::read_only(&paths).unwrap(), None);
+	store.save(&chosen_mic()).unwrap();
+	// The writer (and its lock) is still alive.
+	assert_eq!(
+		PreferenceStore::read_only(&paths).unwrap(),
+		Some(chosen_mic())
+	);
+}

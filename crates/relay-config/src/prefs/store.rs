@@ -1,12 +1,17 @@
 //! Preference store over the SQLite `prefs` table.
 
+use std::time::Duration;
+
+use rusqlite::{Connection, OpenFlags};
+
 use super::flat;
 use super::model::Preferences;
 use super::portable;
 use super::sql;
-use crate::db::Database;
+use crate::db::{Database, SCHEMA_VERSION};
 use crate::error::{ConfigError, Result};
 use crate::notice::Notice;
+use crate::paths::Paths;
 
 /// Loaded preferences plus anything the user must be told about.
 #[derive(Debug)]
@@ -24,6 +29,29 @@ pub struct PreferenceStore {
 impl PreferenceStore {
 	pub fn open(db: &Database) -> Result<Self> {
 		Ok(Self { db: db.clone() })
+	}
+
+	/// Reads preferences without the writer lock, recovery or any write, for tools
+	/// that must not disturb a running daemon (`doctor`, `config get`). Returns
+	/// `None` when no database exists yet or nothing was ever saved.
+	pub fn read_only(paths: &Paths) -> Result<Option<Preferences>> {
+		let path = paths.database_file();
+		if !path.exists() {
+			return Ok(None);
+		}
+		let conn = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)?;
+		conn.busy_timeout(Duration::from_secs(2))?;
+		let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+		if version > i64::from(SCHEMA_VERSION) {
+			return Err(ConfigError::UnsupportedVersion {
+				found: version,
+				supported: SCHEMA_VERSION,
+			});
+		}
+		if version == 0 {
+			return Ok(None);
+		}
+		sql::load(&conn)
 	}
 
 	/// Loads preferences. Recovery from a damaged database is reported by
