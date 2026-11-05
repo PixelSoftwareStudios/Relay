@@ -40,3 +40,12 @@ fn garbage_and_truncated_input_is_rejected_not_panicked_on() {
 fn absurd_dimensions_hit_the_decoder_limits() {
 	assert!(decode_for_texture(&png(5000, 1)).is_none());
 }
+
+#[test]
+fn the_engines_lossless_webp_avatars_decode() {
+	let mut out = Vec::new();
+	RgbaImage::new(64, 64)
+		.write_to(&mut Cursor::new(&mut out), ImageFormat::WebP)
+		.unwrap();
+	assert_eq!(decode_for_texture(&out).unwrap().size, [64, 64]);
+}
