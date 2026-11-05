@@ -6,6 +6,23 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+relay-core.workspace = true
+relay-protocol.workspace = true
+relay-audio.workspace = true
+relay-net.workspace = true
+relay-config.workspace = true
+relay-api.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tonic.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+rand.workspace = true
+bytes.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [lints]
 workspace = true

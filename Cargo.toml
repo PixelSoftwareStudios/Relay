@@ -8,6 +8,7 @@ members = [
 	"crates/relay-config",
 	"crates/relay-api",
 	"crates/relay-engine",
+	"crates/relay-platform",
 	"apps/relay-cli",
 ]
 # The desktop shell pulls in a WebView toolchain, so headless builds skip it.
@@ -19,6 +20,7 @@ default-members = [
 	"crates/relay-config",
 	"crates/relay-api",
 	"crates/relay-engine",
+	"crates/relay-platform",
 	"apps/relay-cli",
 ]
 exclude = ["apps/relay-desktop"]
@@ -39,6 +41,7 @@ relay-net = { path = "crates/relay-net" }
 relay-config = { path = "crates/relay-config" }
 relay-api = { path = "crates/relay-api" }
 relay-engine = { path = "crates/relay-engine" }
+relay-platform = { path = "crates/relay-platform" }
 
 # Audio devices, buffering, resampling and codec
 cpal = "0.18.2"
