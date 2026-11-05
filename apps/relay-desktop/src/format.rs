@@ -2,7 +2,7 @@
 
 use crate::model::{Call, Link, Phase};
 
-pub const MAX_AVATAR_BYTES: usize = 256 * 1024;
+pub const MAX_AVATAR_BYTES: usize = 1024 * 1024;
 
 pub fn format_dbfs(dbfs: Option<f32>) -> String {
 	match dbfs {
@@ -47,7 +47,7 @@ pub fn avatar_problem(size: usize, media_type: &str) -> Option<&'static str> {
 	} else if size == 0 {
 		Some("The file is empty.")
 	} else if size > MAX_AVATAR_BYTES {
-		Some("The image must be 256 KiB or smaller.")
+		Some("The image must be 1 MiB or smaller.")
 	} else {
 		None
 	}

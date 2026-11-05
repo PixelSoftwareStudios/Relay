@@ -10,10 +10,10 @@ use relay_net::identity::{Identity, TrustRecord, TrustState};
 use relay_net::proto::{AvatarChunk, Profile, envelope::Body};
 use support_peers::{Raw, expect, fast_config, peer, peer_with};
 
-/// A noisy 128x128 PNG, big enough to need several chunks.
+/// A noisy 256x256 PNG, big enough to need several chunks.
 fn noisy_png() -> Vec<u8> {
 	let mut state = 0x1234_5678u32;
-	let img = image::RgbImage::from_fn(128, 128, |_, _| {
+	let img = image::RgbImage::from_fn(256, 256, |_, _| {
 		let mut next = || {
 			state = state.wrapping_mul(1_664_525).wrapping_add(1_013_904_223);
 			(state >> 24) as u8

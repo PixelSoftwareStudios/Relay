@@ -11,7 +11,7 @@ use crate::service::clients::Capability;
 use crate::service::error::ServiceError;
 
 const MAX_NAME_CHARS: usize = 64;
-const AVATAR_MAX_BYTES: u32 = 256 * 1024;
+const AVATAR_MAX_BYTES: u32 = 1024 * 1024;
 
 pub(super) fn info(service: &EngineService) -> EngineInfo {
 	let limits = &service.shared.limits;

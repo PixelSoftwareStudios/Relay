@@ -324,7 +324,7 @@ pub fn profile(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Loc
 				actions.run(|c| async move { c.set_profile(&name).await });
 			}
 		});
-		ui.label("Profile image: path to a PNG or JPEG file up to 256 KiB");
+		ui.label("Profile image: path to a PNG or JPEG file up to 1 MiB");
 		ui.horizontal(|ui| {
 			ui.add(
 				egui::TextEdit::singleline(&mut local.avatar_path).hint_text("/path/to/image.png"),

@@ -1,5 +1,5 @@
-/// Largest avatar PNG the API will carry (canonical 128 px images are far smaller).
-pub const AVATAR_MAX_BYTES: usize = 256 * 1024;
+/// Largest avatar image the API will carry: 1 MiB, for uploads and canonical PNGs alike.
+pub const AVATAR_MAX_BYTES: usize = 1024 * 1024;
 
 /// Resource bounds applied by the transport and middleware.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,9 +17,10 @@ pub struct ApiLimits {
 }
 
 impl ApiLimits {
-	/// Defaults from the resource budget: 1 MiB messages, 32 clients, 256-event queues.
+	/// Defaults from the resource budget: messages of 1 MiB plus room for the envelope of
+	/// a maximal avatar, 32 clients, 256-event queues.
 	pub const DEFAULT: Self = Self {
-		max_message_bytes: 1024 * 1024,
+		max_message_bytes: AVATAR_MAX_BYTES + 64 * 1024,
 		max_clients: 32,
 		max_in_flight: 64,
 		max_streams: 96,

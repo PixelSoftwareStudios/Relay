@@ -62,7 +62,7 @@ message AvatarChunk {
   bytes avatar_sha256 = 1;
   uint32 offset = 2;
   uint32 total_size = 3;
-  bytes data = 4; // <=8192; transfer totals <=256KiB
+  bytes data = 4; // <=8192; transfer totals <=1MiB
   bool final_chunk = 5;
 }
 message EpochSwitch {

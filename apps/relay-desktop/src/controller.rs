@@ -10,7 +10,7 @@ use crate::engine::{Command, EngineError, Operations};
 use crate::hub::Hub;
 use crate::model::{Call, Mode};
 
-pub const AVATAR_MAX_BYTES: usize = 256 * 1024;
+pub const AVATAR_MAX_BYTES: usize = 1024 * 1024;
 const NAME_MAX_CHARS: usize = 64;
 const GAIN_MAX: f32 = 4.0;
 const CALL_ID_LEN: usize = 16;
@@ -280,7 +280,7 @@ impl Controller {
 		}
 		if bytes.is_empty() || bytes.len() > AVATAR_MAX_BYTES {
 			return Err(ControlError::Invalid(
-				"avatar must be between 1 byte and 256 KiB",
+				"avatar must be between 1 byte and 1 MiB",
 			));
 		}
 		self.run(Command::UploadAvatar {

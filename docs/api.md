@@ -22,7 +22,7 @@ Living notes for `crates/relay-api`. The contract is `crates/relay-api/proto/rel
 ## Client context and middleware
 `GetInfo` and `RegisterClient` are the only unauthenticated-by-context methods. All others must carry metadata `relay-client-id` (32 hex chars) and may carry `relay-incarnation`. `GuardLayer` validates these through a `ClientValidator` (`ClientRegistry` is a bounded reference implementation, 32 clients) before the handler runs: unknown id is `UNAUTHENTICATED`, stale incarnation is `FAILED_PRECONDITION`, malformed is `INVALID_ARGUMENT`. The engine must still check that the body's `ClientContext` equals the header. A client id is an identifier, not authentication.
 
-Limits (`ApiLimits::DEFAULT`): 1 MiB messages (tonic encode/decode caps plus an early `content-length` reject, `RESOURCE_EXHAUSTED`/`OUT_OF_RANGE`), 64 requests in flight, 96 open streams, 256-event subscriber queues. Streaming handlers must call `StreamLimiter::acquire()` and keep the guard in their stream task.
+Limits (`ApiLimits::DEFAULT`): messages of 1 MiB plus 64 KiB of envelope (tonic encode/decode caps plus an early `content-length` reject, `RESOURCE_EXHAUSTED`/`OUT_OF_RANGE`), 64 requests in flight, 96 open streams, 256-event subscriber queues. Streaming handlers must call `StreamLimiter::acquire()` and keep the guard in their stream task.
 
 ## Operations
 Each mutation carries a 16-byte `operation_id`. Same id + identical request returns the stored outcome; same id + different request is `ALREADY_EXISTS` (`OPERATION_ID_REUSED`). Retention (4,096 per client, 10 minutes) is the engine's job. `RelayClient::wait_operation` polls `GetOperation` until the state leaves `ACCEPTED`.
@@ -34,7 +34,7 @@ Each mutation carries a 16-byte `operation_id`. Same id + identical request retu
 - Channel RPCs (`CreateChannel`, `JoinChannel`, `LeaveChannel`, `ListChannels`, `CreateInvite`, `RevokeChannelMember`) follow `docs/channels.md`. `Snapshot.channels`, `Peer.shared_channel_ids`, `Settings.inbound_policy` and `Settings.advert_mode` expose state; `SetPrivacy` changes the last two.
 - Failed channel operations carry stable `Problem.code`s: `CHANNEL_DENIED` (uniform for unknown channel, wrong secret, bad or spent invite), `CHANNEL_LOCKED_OUT`, `CHANNEL_LIMIT`, `CHANNEL_NAME_INVALID`.
 - Passwords and invite secrets live only in request bodies (and the `CreateInviteResponse`). The generated `Debug` is disabled for those messages and replaced by redacting impls; the guard logs method paths only (`SENSITIVE_METHODS` lists the affected RPCs). The engine must not put them in events, snapshots, operation results or logs.
-- `GetAvatar(hash)` returns a canonical PNG up to `AVATAR_MAX_BYTES` (256 KiB); unknown hash is `NOT_FOUND`. `RelayClient::get_avatar` rejects larger answers.
+- `GetAvatar(hash)` returns a canonical PNG up to `AVATAR_MAX_BYTES` (1 MiB; the default message limit is that plus 64 KiB of envelope); unknown hash is `NOT_FOUND`. `RelayClient::get_avatar` rejects larger answers.
 - `GetConnectionInfo` returns eligible LAN addresses, listen port, local fingerprint and an opaque `connection_string` filled by the engine. `StartCallRequest.target` also accepts `manual_connection_string`.
 
 ## Client sketch

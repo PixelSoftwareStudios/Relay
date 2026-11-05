@@ -80,7 +80,7 @@ The advertised display name is the stored preference, or the computer's hostname
 `gethostname`) when the preference is empty or still the factory default; either way it passes
 `relay_net::discovery::sanitize_display_name`. `SetProfile` sanitizes and persists through
 `relay-config`. `UploadAvatar` goes through `relay_config::avatar::process_avatar`
-(size/dimension-capped decode, centre crop, 128x128 PNG re-encode, blake3 hash) and the avatar
+(size/dimension-capped decode, centre crop, 256x256 PNG re-encode and lossless oxipng compression, blake3 hash) and the avatar
 cache. `Settings.display_name` and `Settings.avatar_sha256` carry both in snapshots and
 settings events. The peers adapter learns the profile through `PeerControl::profile_changed`
 (called at start-up and on every change) and advertises/transfers it.
@@ -92,8 +92,9 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   the route generation internally.
 - `MutationContext.expected_revision` is honoured for `SetGlobalControls` only (settings
   revision).
-- The local avatar hash is not persisted by `relay-config` (no schema field), so it is
-  re-created from the cache only on upload.
+- The local avatar hash is persisted in the settings `state` table, but its bytes live in the
+  disposable `avatars.db` cache; if that file is wiped the local avatar reads as unset until
+  uploaded again.
 - Operation events are not streamed; clients poll `GetOperation`.
 - Windows named pipe transport is not wired here.
 
@@ -137,7 +138,7 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   is `MediaSignal`.
 - Profile and avatar: after a link becomes trusted each side sends `Profile` (sanitized display
   name, avatar hash and size). Names and avatars are display-only and never confer trust. The
-  receiver treats size and hash as claims: size > 256 KiB is ignored; one fetch per peer, only
+  receiver treats size and hash as claims: size > 1 MiB is ignored; one fetch per peer, only
   from a trusted authenticated link, never from a discovery hint; chunks must arrive in order,
   within the announced size; the assembled bytes go through
   `AvatarCache::put_untrusted` (`validate_canonical`) and the stored hash must equal the
