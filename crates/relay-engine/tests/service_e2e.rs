@@ -361,7 +361,7 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn telemetry_reports_the_control_link_round_trip_once_a_keepalive_is_echoed() {
-	let (mut a, mut b, call) = connected_pair().await;
+	let (a, b, call) = connected_pair().await;
 	let req = TelemetryRequest {
 		client: a.cli.context(),
 		call_ids: vec![call],
