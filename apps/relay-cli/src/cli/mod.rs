@@ -7,5 +7,5 @@ pub mod exit;
 mod messages_args;
 
 pub use args::*;
-pub use messages_args::*;
 pub use error::{CliError, TargetError};
+pub use messages_args::*;
