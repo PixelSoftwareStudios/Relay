@@ -14,15 +14,17 @@ const MIB: u64 = 1024 * 1024;
 /// Sends `size` bytes through a paced link on a paused clock and returns the virtual seconds
 /// it took. The far end drains a raw duplex so only the pacer spends time.
 async fn paced_send(size: u64, pacer: Pacer, other: Option<(u64, Pacer)>) -> f64 {
+	// Real handshakes run on the real clock: a paused clock auto-advances whenever the runtime
+	// idles on socket I/O, which would fire the handshake deadline under load.
 	let (init, resp) = common::sessions().await;
-	tokio::time::pause();
-	let mut handles = Vec::new();
-	let mut links = Vec::new();
 	let mut jobs = vec![(size, pacer, init, resp)];
 	if let Some((n, p)) = other {
 		let (i2, r2) = common::sessions().await;
 		jobs.push((n, p, i2, r2));
 	}
+	tokio::time::pause();
+	let mut handles = Vec::new();
+	let mut links = Vec::new();
 	for (n, p, init, _resp) in jobs {
 		let (a, mut b) = duplex(1 << 20);
 		handles.push(tokio::spawn(async move {
