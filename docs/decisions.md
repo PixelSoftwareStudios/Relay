@@ -57,3 +57,24 @@ small.
 Still out of scope: screen sharing and video (the traffic class is reserved but unused),
 persistent chat history, group rooms, link previews and anything that auto-downloads, auto-opens
 or executes received content. Details in `docs/session-messages.md`.
+
+## Noto Sans is the UI font, with subset fallbacks
+
+Status: accepted.
+
+The UI bundles Noto Sans plus Noto Sans JP, KR, SC and Devanagari (`assets/font`, loaded by
+`relay_ui::fonts::install`). egui's default fonts cover Latin and little else, and user-supplied
+display names and messages arrive in any script, so missing glyphs would show as boxes. Noto is the
+one family that covers all nine planned UI languages (English, Spanish, German, Russian, Brazilian
+Portuguese, Korean, Japanese, Simplified Chinese, Hindi) with one look, under the SIL OFL 1.1, which
+is compatible with shipping inside an Apache-2.0 application when the licence text travels with the
+fonts.
+
+Subset policy: full Latin, Latin Extended, Greek, Cyrillic and Devanagari; for CJK, the common set
+only (JIS X 0208 level 1 plus Joyo for Japanese, GB2312 for Simplified Chinese, KS X 1001 Hangul
+syllables and Jamo for Korean) plus every non-ASCII character in UI strings. Full CJK fonts are
+4 to 16 MB each; the subsets total about 3.1 MB. Regular weight only: egui synthesises no bold or
+italic, so extra weights would only be dead weight. Rarer characters fall back to egui's built-in
+fonts or show as missing. Revisit when a shaping text stack is adopted (Devanagari conjuncts) or
+when per-locale font ordering is needed (shared Han glyph forms). Build recipe and licences:
+`assets/font/README.md`.

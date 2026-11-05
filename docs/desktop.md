@@ -21,7 +21,7 @@ The desktop crate holds only what needs a window or the OS; everything else is i
 - `src/host.rs`: `DesktopShell`, the `relay_ui::shell::Shell` implementation (egui clipboard and viewport commands, the `rfd` dialog with the size check before reading).
 - `src/host.rs` also implements the messaging dialogs: `pick_directory` (download folder), `save_as` (export), `pick_file` (file offer) with `rfd`, returning paths only, and `open_url` (egui `OpenUrl`, after the link confirmation).
 - `src/tray.rs`: `tray-icon` menu, three glyph states, Show / Quit.
-- Images used here come from `assets/icon/`: window icon `relay-mark-256.png` and tray glyphs `tray-{idle,call,muted}[@2x].png`. The header logo and `default-avatar.png` are embedded by `relay-ui`. No fonts are bundled.
+- Images used here come from `assets/icon/`: window icon `relay-mark-256.png` and tray glyphs `tray-{idle,call,muted}[@2x].png`. The header logo and `default-avatar.png` are embedded by `relay-ui`. Fonts come from `assets/font` (Noto Sans and CJK/Devanagari subsets, about 3.1 MB, OFL 1.1), embedded and installed by `relay-ui` (`fonts::install`, see `docs/ui.md`); the desktop app adds nothing.
 - Tests in `apps/relay-desktop/tests`: tray glyphs and the picker's bounded read. All logic and UI tests live in `crates/relay-ui/tests`.
 
 ## Threading and repaint
