@@ -1,5 +1,7 @@
 //! Text redaction for support bundles. Conservative: when unsure, redact.
 
+use super::ip::looks_like_ip;
+
 const SENSITIVE_KEYS: [&str; 8] = [
 	"token",
 	"secret",
@@ -26,20 +28,13 @@ fn looks_like_path(s: &str) -> bool {
 	unix || home || windows || s.starts_with("\\\\")
 }
 
-fn looks_like_ip(s: &str) -> bool {
-	let host = s.split(':').next().unwrap_or(s);
-	let parts: Vec<&str> = host.split('.').collect();
-	(parts.len() == 4
-		&& parts
-			.iter()
-			.all(|p| !p.is_empty() && p.len() <= 3 && p.bytes().all(|b| b.is_ascii_digit())))
-		|| s.matches(':').count() >= 3 && s.bytes().all(|b| b.is_ascii_hexdigit() || b == b':')
-}
-
 fn redact_value(value: &str) -> String {
-	let core =
-		value.trim_matches(|c: char| matches!(c, '"' | '\'' | ',' | ';' | '(' | ')' | '[' | ']'));
-	if is_hex_run(core) || looks_like_path(core) || looks_like_ip(core) {
+	let quoted = value.trim_matches(|c: char| matches!(c, '"' | '\'' | ',' | ';' | '(' | ')'));
+	let core = quoted.trim_matches(|c: char| matches!(c, '[' | ']'));
+	// Brackets are part of an `[v6]:port` literal, so the IP test sees them.
+	if looks_like_ip(quoted) {
+		value.replace(quoted, "<redacted>")
+	} else if is_hex_run(core) || looks_like_path(core) || looks_like_ip(core) {
 		value.replace(core, "<redacted>")
 	} else {
 		value.to_owned()
@@ -57,7 +52,17 @@ fn redact_word(word: &str) -> String {
 			return format!("{k}={}", redact_value(v));
 		}
 	}
-	redact_value(word)
+	let whole = redact_value(word);
+	if whole == word
+		&& let Some((k, v)) = word.split_once(':')
+	{
+		// `peer:fe80::1` style: the value follows the first colon.
+		let tail = redact_value(v);
+		if tail != v {
+			return format!("{k}:{tail}");
+		}
+	}
+	whole
 }
 
 /// Redacts one line: secrets after sensitive keys, long hex (keys, hashes, ids),

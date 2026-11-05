@@ -80,3 +80,50 @@ fn raw_capture_needs_explicit_opt_in() {
 	prefs.diagnostics.record_raw_audio = true;
 	assert!(RawCaptureConsent::from_preferences(&prefs).is_some());
 }
+
+#[test]
+fn every_ip_form_is_redacted() {
+	for ip in [
+		"10.0.0.1",
+		"192.168.1.20:5000",
+		"fe80::1",
+		"fd00::1",
+		"::1",
+		"fd12::5",
+		"2001:db8::8a2e:370:7334",
+		"2001:db8:0:0:0:0:2:1",
+		"::ffff:192.168.1.20",
+		"fe80::1%en0",
+		"fe80::1%2",
+		"[fd00::1]",
+		"[fd00::1]:7000",
+		"[fe80::1%en0]:7000",
+	] {
+		let plain = redact_line(&format!("connected to {ip} now"));
+		assert_eq!(plain, "connected to <redacted> now", "{ip}");
+		let keyed = redact_line(&format!("addr={ip}"));
+		assert_eq!(keyed, "addr=<redacted>", "{ip}");
+		let labelled = redact_line(&format!("peer:{ip}"));
+		assert_eq!(labelled, "peer:<redacted>", "{ip}");
+		let quoted = redact_line(&format!("(\"{ip}\"),"));
+		assert!(!quoted.contains(ip), "{ip}: {quoted}");
+	}
+}
+
+#[test]
+fn ordinary_text_is_not_over_redacted() {
+	for line in [
+		"jitter buffer grew to 40 ms",
+		"started at 12:30",
+		"ratio 3:1 reached",
+		"version 1.2.3",
+		"std::sync::Mutex poisoned",
+		"separator :: here",
+		"call [ok] done",
+		"time 10:20:30",
+		"list [1, 2, 3]",
+		"path-less thing: fine",
+	] {
+		assert_eq!(redact_line(line), line);
+	}
+}

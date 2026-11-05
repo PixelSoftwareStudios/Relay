@@ -2,6 +2,7 @@
 
 mod bundle;
 mod capture;
+mod ip;
 mod redact;
 
 pub use bundle::{BUNDLE_MAX_BYTES, BundleInput, build_bundle};
