@@ -1,4 +1,4 @@
-//! Constrained decode of untrusted avatar bytes and re-encode to a canonical PNG.
+//! Constrained decode of untrusted avatar bytes and re-encode to a canonical lossless WebP.
 
 use std::fs::{self, File};
 use std::io::{Cursor, Read};
@@ -8,13 +8,13 @@ use image::imageops::FilterType;
 use image::{ImageFormat, ImageReader, Limits};
 
 use super::limits::{DECODE_ALLOC_MAX, ENCODED_MAX_BYTES, INPUT_DIMENSION_MAX, OUTPUT_DIMENSION};
-use super::png::{check_canonical, encode_canonical};
+use super::webp::{check_canonical, encode_canonical};
 use crate::error::{AvatarError, ConfigError, Result};
 
-/// A canonical avatar: small PNG plus its blake3 content hash.
+/// A canonical avatar: a lossless WebP image plus its blake3 content hash.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Avatar {
-	pub png: Vec<u8>,
+	pub image: Vec<u8>,
 	pub hash: [u8; 32],
 }
 
@@ -32,7 +32,14 @@ fn reader(
 		.with_guessed_format()
 		.map_err(|e| AvatarError::Decode(e.to_string()))?;
 	match reader.format() {
-		Some(ImageFormat::Png | ImageFormat::Jpeg) => {}
+		Some(
+			ImageFormat::Png
+			| ImageFormat::Jpeg
+			| ImageFormat::WebP
+			| ImageFormat::Gif
+			| ImageFormat::Bmp
+			| ImageFormat::Tiff,
+		) => {}
 		_ => return Err(AvatarError::UnsupportedFormat),
 	}
 	let mut limits = Limits::default();
@@ -84,8 +91,9 @@ fn check_dimensions(bytes: &[u8], limit: u32) -> std::result::Result<(), AvatarE
 /// Validates untrusted upload bytes and returns the canonical avatar.
 ///
 /// The image is center-cropped to a square, resized to 256x256 and re-encoded as a
-/// losslessly compressed RGBA PNG, which discards metadata and any trailing or hidden
-/// data. Compression is deterministic, so equal input gives equal bytes and hash.
+/// lossless WebP, which discards metadata and any trailing or hidden data. Accepts
+/// PNG, JPEG, WebP, GIF, BMP and TIFF; animated inputs contribute their first frame.
+/// Encoding is deterministic, so equal input gives equal bytes and hash.
 pub fn process_avatar(bytes: &[u8]) -> Result<Avatar> {
 	check_size(bytes)?;
 	check_dimensions(bytes, INPUT_DIMENSION_MAX)?;
@@ -96,13 +104,13 @@ pub fn process_avatar(bytes: &[u8]) -> Result<Avatar> {
 	let side = w.min(h);
 	let square = decoded.crop_imm((w - side) / 2, (h - side) / 2, side, side);
 	let small = square.resize_exact(OUTPUT_DIMENSION, OUTPUT_DIMENSION, FilterType::Lanczos3);
-	let png = encode_canonical(&small.to_rgba8())?;
-	let hash = *blake3::hash(&png).as_bytes();
-	Ok(Avatar { png, hash })
+	let image = encode_canonical(&small.to_rgba8())?;
+	let hash = *blake3::hash(&image).as_bytes();
+	Ok(Avatar { image, hash })
 }
 
 /// Validates bytes received from a peer as an already-canonical avatar: a 256x256
-/// 8-bit RGBA PNG with only `IHDR`, `IDAT` and `IEND` chunks within the size limit.
+/// lossless WebP with a single `VP8L` chunk and nothing else, within the size limit.
 /// Nothing is re-encoded. Returns the blake3 hash of the received bytes.
 pub fn validate_canonical(bytes: &[u8]) -> Result<[u8; 32]> {
 	check_canonical(bytes)?;
@@ -128,7 +136,7 @@ pub fn parse_hash(text: &str) -> std::result::Result<[u8; 32], AvatarError> {
 
 /// Reads a user-chosen avatar file after path validation.
 ///
-/// Accepts only regular, non-symlink files with a png/jpg/jpeg extension and never
+/// Accepts only regular, non-symlink files with a png/jpg/jpeg/webp/gif/bmp/tif/tiff extension and never
 /// reads more than the encoded limit.
 pub fn read_avatar_file(path: &Path) -> Result<Vec<u8>> {
 	let bad = |m: &'static str| ConfigError::Avatar(AvatarError::BadPath(m));
@@ -139,8 +147,13 @@ pub fn read_avatar_file(path: &Path) -> Result<Vec<u8>> {
 		.extension()
 		.and_then(|e| e.to_str())
 		.map(str::to_ascii_lowercase);
-	if !matches!(ext.as_deref(), Some("png" | "jpg" | "jpeg")) {
-		return Err(bad("extension must be png, jpg or jpeg"));
+	if !matches!(
+		ext.as_deref(),
+		Some("png" | "jpg" | "jpeg" | "webp" | "gif" | "bmp" | "tif" | "tiff")
+	) {
+		return Err(bad(
+			"extension must be png, jpg, jpeg, webp, gif, bmp or tiff",
+		));
 	}
 	let meta = fs::symlink_metadata(path).map_err(|e| ConfigError::io(path, e))?;
 	if meta.file_type().is_symlink() {

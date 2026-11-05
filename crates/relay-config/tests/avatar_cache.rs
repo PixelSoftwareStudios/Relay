@@ -39,11 +39,11 @@ fn cache_stores_verifies_and_rejects_untrusted() {
 	cache.put(&a).unwrap();
 	assert_eq!(
 		cache.get(&a.hash).unwrap().as_deref(),
-		Some(a.png.as_slice())
+		Some(a.image.as_slice())
 	);
 	assert_eq!(cache.get(&[0; 32]).unwrap(), None);
 	assert!(cache.put_untrusted(b"junk").is_err());
-	assert_eq!(cache.put_untrusted(&a.png).unwrap(), a.hash);
+	assert_eq!(cache.put_untrusted(&a.image).unwrap(), a.hash);
 }
 
 #[test]
@@ -114,7 +114,7 @@ fn corrupted_pages_are_wiped_silently() {
 	cache.put(&b).unwrap();
 	assert_eq!(
 		cache.get(&b.hash).unwrap().as_deref(),
-		Some(b.png.as_slice())
+		Some(b.image.as_slice())
 	);
 }
 
@@ -135,7 +135,7 @@ fn cache_file_and_directory_are_private() {
 fn eviction_follows_access_order_and_never_exceeds_the_bound() {
 	let dir = tempfile::tempdir().unwrap();
 	let items: Vec<Avatar> = (1..=6).map(mk).collect();
-	let each = items.iter().map(|a| a.png.len()).max().unwrap() as u64;
+	let each = items.iter().map(|a| a.image.len()).max().unwrap() as u64;
 	let bound = each * 3;
 	let cache = open_in(dir.path(), bound);
 	for a in &items[..3] {
@@ -156,7 +156,7 @@ fn eviction_follows_access_order_and_never_exceeds_the_bound() {
 fn local_avatar_is_pinned_and_persists() {
 	let dir = tempfile::tempdir().unwrap();
 	let items: Vec<Avatar> = (1..=5).map(mk).collect();
-	let each = items.iter().map(|a| a.png.len()).max().unwrap() as u64;
+	let each = items.iter().map(|a| a.image.len()).max().unwrap() as u64;
 	let bound = each * 2;
 	{
 		let cache = open_in(dir.path(), bound);

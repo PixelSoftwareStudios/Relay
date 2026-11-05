@@ -10,7 +10,6 @@ blake3.workspace = true
 directories.workspace = true
 hex.workspace = true
 image.workspace = true
-oxipng.workspace = true
 keyring.workspace = true
 rusqlite.workspace = true
 serde.workspace = true

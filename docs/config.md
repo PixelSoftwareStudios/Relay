@@ -135,19 +135,23 @@ file store is built only when the setting is `insecure_file`, and `describe()` s
 ## Avatar pipeline
 
 Upload: encoded <= 1 MiB (`ENCODED_MAX_BYTES`, also the cap for what is stored, served or
-accepted from a peer), PNG/JPEG only, input <= 2048x2048, decoder allocation capped
-(2048x2048 RGBA), then center-crop, resize to 256x256 and encode as RGBA8 PNG. The PNG is
-recompressed losslessly with `oxipng` (libdeflate level 12, preset-2 filter set, metadata
-stripped, colour/bit-depth/palette reduction off so the output is always RGBA8, no timeout, no
-threads): same input, same bytes, same blake3 hash. This runs at upload only. Typical results:
-a flat avatar ~0.7 KB, a smooth gradient ~0.8 KB, a vector-style picture ~19 KB, incompressible
-noise ~218 KB (worst case about 262 KB, far under the cap); ~30 to 150 ms in release builds.
+accepted from a peer). Accepted inputs are PNG, JPEG, WebP, GIF, BMP and TIFF (sniffed from the
+bytes, not the extension); animated GIF/WebP contribute their first frame. Input <= 2048x2048,
+decoder allocation capped (2048x2048 RGBA, so header lies and decompression bombs fail before
+pixels are allocated). Then center-crop, Lanczos resize to 256x256 and encode as a **lossless
+WebP** with the pure-Rust `image-webp` encoder (via the `image` crate; version pinned by
+`Cargo.lock`, currently 0.2.4). The encoder has no options, timestamps or metadata, so the same
+pixels give the same bytes and the same blake3 hash. Encoding runs at upload only. Typical sizes
+for 256x256 RGBA: flat colour ~0.2 KB, smooth gradient ~29 KB, vector-style art ~19 KB, photo-like
+~67 KB, incompressible noise ~197 KB (about 0.2 to 0.5 ms each); worst case stays far below the
+1 MiB cap.
 
-Receive: `validate_canonical` checks the canonical form without re-encoding: size <= 1 MiB,
-PNG signature, chunks exactly `IHDR`, `IDAT`+ and `IEND` with valid CRCs (any other chunk,
-ancillary or not, or trailing bytes is refused), 256x256, 8-bit RGBA, non-interlaced; the
-image must also decode under the same limits. JPEG is not canonical. The hash is blake3 of the
-received bytes.
+Receive: `validate_canonical` checks the canonical form from the header, without re-encoding and
+before any pixel allocation: size <= 1 MiB; `RIFF` length equal to the file size minus 8;
+`WEBP` form type; exactly one chunk, `VP8L` (so no lossy `VP8`, `VP8X`, `ALPH`, `ANIM`, `ANMF`,
+`EXIF`, `XMP`, `ICCP` or unknown chunks), zero padding and no trailing bytes; VP8L signature,
+version 0 and dimensions exactly 256x256. A bounded full decode (same limits) must then succeed.
+PNG, JPEG and every other format are not canonical. The hash is blake3 of the received bytes.
 
 ### Avatar cache
 

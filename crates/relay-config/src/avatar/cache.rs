@@ -78,7 +78,7 @@ impl AvatarCache {
 
 	/// Stores a locally processed avatar.
 	pub fn put(&self, avatar: &Avatar) -> Result<()> {
-		self.write(&avatar.hash, &avatar.png)
+		self.write(&avatar.hash, &avatar.image)
 	}
 
 	/// Validates and stores bytes received from a peer; returns their hash.
