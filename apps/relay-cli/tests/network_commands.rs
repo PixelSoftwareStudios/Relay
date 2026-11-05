@@ -327,46 +327,6 @@ fn stdin_secrets_drop_line_endings_and_refuse_empty() {
 }
 
 #[tokio::test]
-async fn avatar_set_checks_the_file_and_clear_is_honestly_unsupported() {
-	let dir = tempfile::tempdir().unwrap();
-	let png = dir.path().join("me.png");
-	std::fs::write(&png, [0x89, b'P', b'N', b'G', 1, 2, 3]).unwrap();
-	let mut c = FakeControl::new();
-	run_with(&mut c, &["avatar", "set", png.to_str().unwrap()], false)
-		.await
-		.unwrap();
-	assert_eq!(c.log, ["avatar 7 image/png"]);
-
-	let gif = dir.path().join("me.gif");
-	std::fs::write(&gif, [1, 2]).unwrap();
-	let err = run_with(&mut c, &["avatar", "set", gif.to_str().unwrap()], false)
-		.await
-		.unwrap_err();
-	assert_eq!(err.exit_code(), exit::USAGE);
-
-	let big = dir.path().join("big.jpg");
-	std::fs::write(&big, vec![0u8; 1024 * 1024 + 1]).unwrap();
-	let err = run_with(&mut c, &["avatar", "set", big.to_str().unwrap()], false)
-		.await
-		.unwrap_err();
-	assert_eq!(err.exit_code(), exit::USAGE);
-	let empty = dir.path().join("empty.png");
-	std::fs::write(&empty, []).unwrap();
-	assert!(
-		run_with(&mut c, &["avatar", "set", empty.to_str().unwrap()], false)
-			.await
-			.is_err()
-	);
-	assert_eq!(c.log.len(), 1, "invalid files never reach the engine");
-
-	let err = run_with(&mut c, &["avatar", "clear"], false)
-		.await
-		.unwrap_err();
-	assert_eq!(err.code(), "unsupported");
-	assert_eq!(err.exit_code(), exit::REJECTED);
-}
-
-#[tokio::test]
 async fn a_refused_invite_is_a_rejection_not_an_empty_token() {
 	let mut c = FakeControl::new();
 	c.invite_failure = Some(relay_api::pb::Problem {

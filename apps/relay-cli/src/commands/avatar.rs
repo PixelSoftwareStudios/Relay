@@ -1,6 +1,6 @@
 //! `relay avatar set|clear`.
 
-use std::path::Path;
+use relay_config::avatar::process_avatar;
 
 use super::{Out, report};
 use crate::cli::{AvatarCommand, CliError};
@@ -9,20 +9,20 @@ use crate::client::Manage;
 /// The engine's limit for an uploaded avatar.
 const MAX_AVATAR_BYTES: u64 = 1024 * 1024;
 
-/// Media type from the file extension; the engine decodes and validates anyway.
-fn media_type(path: &Path) -> Result<&'static str, CliError> {
-	match path
-		.extension()
-		.and_then(|e| e.to_str())
-		.map(str::to_ascii_lowercase)
-		.as_deref()
-	{
-		Some("png") => Ok("image/png"),
-		Some("jpg" | "jpeg") => Ok("image/jpeg"),
-		_ => Err(CliError::Usage(
-			"the avatar must be a .png or .jpg file".into(),
-		)),
+/// The engine's own text for an empty or oversized body.
+const SIZE_REFUSAL: &str = "avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)";
+
+/// The format is sniffed from the bytes (extension and media type are ignored, as in the
+/// engine), so this mirrors the engine's checks: six formats, 1 MiB, 2048x2048. The engine
+/// stays the authority; this only saves a round trip and gives the same wording.
+fn precheck(bytes: &[u8]) -> Result<(), CliError> {
+	if bytes.is_empty() || bytes.len() as u64 > MAX_AVATAR_BYTES {
+		return Err(CliError::Usage(SIZE_REFUSAL.into()));
 	}
+	process_avatar(bytes)
+		.map(drop)
+		// `ConfigError` words it as `avatar rejected: <reason>`, as the engine does.
+		.map_err(|e| CliError::Usage(e.to_string()))
 }
 
 pub async fn run<C: Manage>(
@@ -32,20 +32,20 @@ pub async fn run<C: Manage>(
 ) -> Result<(), CliError> {
 	match cmd {
 		AvatarCommand::Set { file } => {
-			let media = media_type(&file)?;
 			let size = std::fs::metadata(&file)?.len();
 			if size == 0 || size > MAX_AVATAR_BYTES {
-				return Err(CliError::Usage(
-					"the avatar file must be between 1 byte and 1 MiB".into(),
-				));
+				return Err(CliError::Usage(SIZE_REFUSAL.into()));
 			}
 			let bytes = std::fs::read(&file)?;
-			let op = client.upload_avatar(bytes, media).await?;
+			precheck(&bytes)?;
+			let op = client
+				.upload_avatar(bytes, "application/octet-stream")
+				.await?;
 			report(&op, out)
 		}
-		AvatarCommand::Clear => Err(CliError::Unsupported(
-			"this engine API has no way to remove an avatar yet; set a different image instead"
-				.into(),
-		)),
+		AvatarCommand::Clear => {
+			let op = client.clear_avatar().await?;
+			report(&op, out)
+		}
 	}
 }
