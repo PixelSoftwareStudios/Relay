@@ -4,9 +4,6 @@
 //! guard is armed. Setup (including warm-up) is allowed to allocate; the
 //! measured regions are not.
 
-#[path = "common/counting.rs"]
-mod counting;
-
 use relay_audio::capture::{CaptureChain, CaptureSetup, capture_pair};
 use relay_audio::codec::{CallDecoder, CallEncoder, EncoderConfig, MAX_PACKET_BYTES};
 use relay_audio::convert::{ChannelSelect, StreamResampler};
@@ -17,7 +14,10 @@ use relay_audio::mixer::Mixer;
 use relay_audio::pipeline::{LoopbackConfig, LoopbackPipeline};
 use relay_audio::playback::playback_pair;
 
-use counting::allocations_in;
+use relay_testkit::{CountingAlloc, allocations_in};
+
+#[global_allocator]
+static ALLOC: CountingAlloc = CountingAlloc;
 
 #[test]
 fn counter_actually_counts() {

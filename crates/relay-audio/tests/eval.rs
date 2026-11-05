@@ -1,12 +1,12 @@
 //! Evaluation-candidate checks; compiled only with the `eval-*` features.
 #![cfg(any(feature = "eval-sonora", feature = "eval-nnnoiseless"))]
 
-#[path = "common/counting.rs"]
-mod counting;
-
-use counting::allocations_in;
 use relay_audio::dsp::{DspLimits, NoiseSuppressor};
 use relay_audio::format::BlockTiming;
+use relay_testkit::{CountingAlloc, allocations_in};
+
+#[global_allocator]
+static ALLOC: CountingAlloc = CountingAlloc;
 
 const LIMITS: DspLimits = DspLimits {
 	max_block_samples: 480,

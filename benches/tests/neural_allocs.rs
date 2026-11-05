@@ -3,37 +3,13 @@
 //! `cargo test --release -p relay-benches --features neural,sonora,nnnoiseless --test neural_allocs -- --ignored --nocapture`
 #![cfg(feature = "neural")]
 
-use std::alloc::{GlobalAlloc, Layout, System};
-use std::sync::atomic::{AtomicU64, Ordering};
-
 use relay_audio::dsp::DspLimits;
 use relay_audio::format::{BlockTiming, FRAME_SAMPLES};
 use relay_benches::audio::runner::{default_backends, make_candidate};
-
-struct Counting;
-
-static ALLOCATIONS: AtomicU64 = AtomicU64::new(0);
-
-// SAFETY: forwards every call to the system allocator unchanged.
-unsafe impl GlobalAlloc for Counting {
-	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-		// SAFETY: same arguments, same contract as the caller's.
-		unsafe { System.alloc(layout) }
-	}
-	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-		// SAFETY: same arguments, same contract as the caller's.
-		unsafe { System.dealloc(ptr, layout) }
-	}
-	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new: usize) -> *mut u8 {
-		ALLOCATIONS.fetch_add(1, Ordering::Relaxed);
-		// SAFETY: same arguments, same contract as the caller's.
-		unsafe { System.realloc(ptr, layout, new) }
-	}
-}
+use relay_testkit::{CountingAlloc, total_allocations};
 
 #[global_allocator]
-static GLOBAL: Counting = Counting;
+static GLOBAL: CountingAlloc = CountingAlloc;
 
 #[test]
 #[ignore = "needs the local weights"]
@@ -70,11 +46,11 @@ fn allocations_per_frame() {
 		for n in 0..100 {
 			step(n, &mut candidate);
 		}
-		let before = ALLOCATIONS.load(Ordering::Relaxed);
+		let before = total_allocations();
 		for n in 100..100 + FRAMES {
 			step(n, &mut candidate);
 		}
-		let used = ALLOCATIONS.load(Ordering::Relaxed) - before;
+		let used = total_allocations() - before;
 		println!(
 			"ALLOCS {name} {:.2} per frame ({used} over {FRAMES})",
 			used as f64 / FRAMES as f64

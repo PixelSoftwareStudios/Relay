@@ -42,5 +42,8 @@ dtln = []
 eval-sonora = ["dep:sonora"]
 eval-nnnoiseless = ["dep:nnnoiseless"]
 
+[dev-dependencies]
+relay-testkit.workspace = true
+
 [lints]
 workspace = true

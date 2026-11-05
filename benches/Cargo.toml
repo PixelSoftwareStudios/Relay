@@ -31,6 +31,7 @@ realfft = { workspace = true, optional = true }
 [dev-dependencies]
 criterion.workspace = true
 relay-protocol.workspace = true
+relay-testkit.workspace = true
 tempfile.workspace = true
 
 [[bench]]

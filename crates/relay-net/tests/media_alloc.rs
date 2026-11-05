@@ -2,7 +2,6 @@
 //! allocation-free API produces the same wire format as the allocating one.
 
 mod common;
-mod counting;
 
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -16,7 +15,10 @@ use relay_net::media::{
 use relay_net::record::RecordKind;
 use relay_net::session::SecureSession;
 
-use counting::allocations_in;
+use relay_testkit::{CountingAlloc, allocations_in};
+
+#[global_allocator]
+static ALLOC: CountingAlloc = CountingAlloc;
 
 const CALL: [u8; 16] = [3; 16];
 

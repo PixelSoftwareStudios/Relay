@@ -16,6 +16,7 @@ members = [
 	"apps/relay-cli",
 	"apps/relay-daemon",
 	"apps/relay-desktop",
+	"crates/relay-testkit",
 	"benches",
 ]
 # The desktop GUI links windowing libraries, so headless builds skip it.
@@ -57,6 +58,8 @@ relay-client = { path = "crates/relay-client" }
 relay-ui = { path = "crates/relay-ui" }
 relay-messages = { path = "crates/relay-messages" }
 relay-io = { path = "crates/relay-io" }
+# Test and bench support (dev-dependency only; not a default member)
+relay-testkit = { path = "crates/relay-testkit" }
 
 # Audio devices, buffering, resampling and codec
 cpal = { version = "0.18.2" }
