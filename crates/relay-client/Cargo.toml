@@ -1,0 +1,22 @@
+[package]
+name = "relay-client"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Request, endpoint and meter logic shared by the Relay CLI and desktop clients"
+
+[dependencies]
+relay-api.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+uuid.workspace = true
+
+[dev-dependencies]
+hex.workspace = true
+tempfile.workspace = true
+tokio-stream.workspace = true
+tokio = { workspace = true, features = ["test-util"] }
+
+[lints]
+workspace = true
