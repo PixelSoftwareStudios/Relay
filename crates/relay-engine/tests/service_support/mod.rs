@@ -61,7 +61,7 @@ impl Rig {
 	}
 
 	pub async fn full_client(&self, name: &str) -> RelayClient {
-		self.client(name, &["observe", "control", "input"]).await
+		self.client(name, &["observe", "call-control"]).await
 	}
 }
 

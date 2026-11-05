@@ -59,7 +59,7 @@ pub fn call_to_pb(view: &relay_core::CallView, revision: u64) -> Call {
 		lease_id: lease_bytes(lease),
 		expires_in_ms: 0,
 	});
-	let blocked = view.gate.deny.map(|deny| format!("{deny:?}"));
+	let blocked = view.gate.deny.map(|deny| words(&format!("{deny:?}")));
 	let problem = (view.state == CallState::Failed)
 		.then(|| {
 			view.reason
@@ -95,6 +95,11 @@ fn failure_problem(reason: &str) -> pb::Problem {
 		retryable: true,
 		recovery_action: "retry_call".to_owned(),
 	}
+}
+
+/// `CaptureInvalid` as `capture invalid`, for people to read.
+fn words(camel: &str) -> String {
+	screaming(camel).replace('_', " ").to_lowercase()
 }
 
 fn screaming(camel: &str) -> String {

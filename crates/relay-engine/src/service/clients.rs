@@ -14,22 +14,19 @@ use super::error::ServiceError;
 pub enum Capability {
 	/// Read snapshots and watch state.
 	Observe,
-	/// Change engine and call state.
-	Control,
-	/// Send push-to-talk input.
-	Input,
+	/// Change engine and call state, including push-to-talk input.
+	CallControl,
 }
 
 impl Capability {
 	/// Every capability this engine can grant.
-	pub const ALL: [Self; 3] = [Self::Observe, Self::Control, Self::Input];
+	pub const ALL: [Self; 2] = [Self::Observe, Self::CallControl];
 
 	/// The wire name.
 	pub const fn name(self) -> &'static str {
 		match self {
 			Self::Observe => "observe",
-			Self::Control => "control",
-			Self::Input => "input",
+			Self::CallControl => "call-control",
 		}
 	}
 

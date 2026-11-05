@@ -99,7 +99,7 @@ impl EngineService {
 		let caller = self.caller(&request)?;
 		let body = request.into_inner();
 		let mutation = check_mutation(caller, context(&body), &self.incarnation())?;
-		self.shared.book.require(caller, Capability::Control)?;
+		self.shared.book.require(caller, Capability::CallControl)?;
 		Ok((mutation, body))
 	}
 
@@ -422,7 +422,7 @@ impl Engine for EngineService {
 		request: Request<Streaming<InputControlMessage>>,
 	) -> Result<Response<Self::InputControlStream>, Status> {
 		let caller = self.caller(&request)?;
-		self.shared.book.require(caller, Capability::Input)?;
+		self.shared.book.require(caller, Capability::CallControl)?;
 		input::open(self, caller, request.into_inner())
 	}
 }
