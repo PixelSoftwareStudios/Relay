@@ -45,3 +45,12 @@ pub fn engine_options(home: &Path, tone_hz: f32) -> (RunOptions, Sim) {
 	options.audio = audio;
 	(options, sim)
 }
+
+/// A flat-colour PNG of the given size, for avatar uploads.
+pub fn png(width: u32, height: u32) -> Vec<u8> {
+	let mut out = std::io::Cursor::new(Vec::new());
+	image::RgbaImage::from_pixel(width, height, image::Rgba([200, 30, 30, 255]))
+		.write_to(&mut out, image::ImageFormat::Png)
+		.expect("encode");
+	out.into_inner()
+}

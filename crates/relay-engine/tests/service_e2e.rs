@@ -13,7 +13,8 @@ use std::time::Duration;
 use relay_api::RelayClient;
 use relay_api::pb::{
 	AcquireControllerRequest, CallState, DecidePeerTrustRequest, DeviceDirection, Peer,
-	SelectDevicesRequest, SetTransmitRouteRequest, StartCallRequest, TransmitMode, TrustState,
+	SelectDevicesRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
+	TelemetryRequest, TransmitMode, TrustState,
 	start_call_request::Target,
 };
 use relay_engine::daemon::DaemonHandle;
@@ -124,8 +125,8 @@ async fn route(cli: &mut RelayClient, op: u8, call: &[u8], mode: TransmitMode) {
 	);
 }
 
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn two_engines_pair_call_and_talk_only_with_consent() {
+/// Two engines with a connected call and nobody consented yet.
+async fn connected_pair() -> (Side, Side, Vec<u8>) {
 	let mut a = side(TONE_A).await;
 	let mut b = side(TONE_B).await;
 	let b_addr = b.daemon.listen_addr().expect("b listens");
@@ -218,6 +219,12 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	);
 	wait_state(&mut a.cli, &call, CallState::Connected).await;
 	wait_state(&mut b.cli, &call, CallState::Connected).await;
+	(a, b, call)
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn two_engines_pair_call_and_talk_only_with_consent() {
+	let (mut a, mut b, call) = connected_pair().await;
 
 	// Connected and silent: nobody consented, and no microphone is even selected.
 	tokio::time::sleep(Duration::from_millis(500)).await;
@@ -266,6 +273,52 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	wait_state(&mut b.cli, &call, CallState::Ended).await;
 	assert!(!b.daemon.gates().load().is_open(call_id_of(&call)));
 
+	a.daemon.shutdown().await.expect("a stops");
+	b.daemon.shutdown().await.expect("b stops");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported() {
+	let (mut a, mut b, call) = connected_pair().await;
+	select_microphone(&mut a.cli, 20).await;
+	let request = StartMicTestRequest {
+		context: Some(ctx(&a.cli, 21)),
+		local_playback: true,
+		confirmed_feedback_warning: true,
+	};
+	let started = a.cli.raw().start_mic_test(request).await.expect("test").into_inner();
+	assert_applied(&started);
+
+	// A hears its own microphone; B hears nothing, and A's gate stays shut.
+	eventually!((rms(&tail(&a, 300)) > 0.05).then_some(()));
+	tokio::time::sleep(Duration::from_millis(800)).await;
+	assert!(rms(&tail(&b, 500)) < 1e-4, "the test must not reach the peer");
+	assert!(!a.daemon.gates().load().is_open(call_id_of(&call)));
+	let transmit = call_in(&mut a.cli, &call).await.expect("call").transmit.expect("route");
+	assert!(!transmit.consent_granted && !transmit.effective_transmitting);
+	let req = TelemetryRequest {
+		client: b.cli.context(),
+		call_ids: vec![call.clone()],
+		meters_hz: 20,
+		stats_hz: 0,
+	};
+	let mut stream = b.cli.raw().watch_telemetry(req).await.expect("stream").into_inner();
+	let quiet = stream.message().await.expect("sample").expect("open");
+	assert!(!quiet.calls[0].speaking && quiet.calls[0].receive_dbfs.is_none());
+
+	let stop = ctx(&a.cli, 22);
+	assert_applied(&a.cli.raw().stop_mic_test(stop).await.expect("stop").into_inner());
+
+	// With consent the same microphone does reach B, and B's meters show speech.
+	route(&mut a.cli, 23, &call, TransmitMode::OpenMic).await;
+	let loud = loop {
+		let sample = stream.message().await.expect("sample").expect("open");
+		if sample.calls[0].speaking {
+			break sample;
+		}
+	};
+	assert!(loud.calls[0].receive_dbfs.is_some_and(|level| level > -30.0));
+	assert!(loud.calls[0].packets_received > 0);
 	a.daemon.shutdown().await.expect("a stops");
 	b.daemon.shutdown().await.expect("b stops");
 }
