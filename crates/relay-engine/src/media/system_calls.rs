@@ -2,6 +2,7 @@
 
 use std::net::SocketAddr;
 use std::sync::Arc;
+use std::time::Instant;
 
 use relay_core::{CallId, PeerEvent, PeerId, SessionId, SystemEvent};
 
@@ -39,9 +40,9 @@ impl MediaSystem {
 						Some(media) if media.peer == peer => media.remote = Some(ready),
 						Some(_) => return,
 						None => {
-							if state.early_ready.len() < 16 {
-								state.early_ready.insert(call, (epoch, ready));
-							}
+							state
+								.early_ready
+								.insert(call, peer, epoch, ready, Instant::now());
 							return;
 						}
 					}
@@ -83,7 +84,7 @@ impl MediaSystem {
 	pub(super) async fn try_activate(&self, call: CallId) {
 		let plan = {
 			let mut state = self.state();
-			if let Some((epoch, ready)) = state.early_ready.remove(&call) {
+			if let Some((epoch, ready)) = state.early_ready.take(&call, Instant::now()) {
 				let own_epoch = state
 					.calls
 					.get(&call)
@@ -186,7 +187,7 @@ impl MediaSystem {
 	pub(super) fn retire(&self, call: CallId) {
 		let (removed_peer, none_left) = {
 			let mut state = self.state();
-			state.early_ready.remove(&call);
+			state.early_ready.discard(&call);
 			let Some(media) = state.calls.remove(&call) else {
 				return;
 			};

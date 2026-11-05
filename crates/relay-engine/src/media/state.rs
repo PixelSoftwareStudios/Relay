@@ -24,7 +24,7 @@ pub enum Phase {
 }
 
 /// The remote side's announced stream.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct RemoteReady {
 	pub ssrc: u32,
 	pub generation: u32,
@@ -58,7 +58,7 @@ pub struct State {
 	pub peers: HashMap<PeerId, PeerMedia>,
 	/// Candidates and readiness that arrived before the local side was ready.
 	pub early_offers: HashMap<PeerId, ([u8; 16], Vec<SocketAddr>)>,
-	pub early_ready: HashMap<CallId, ([u8; 16], RemoteReady)>,
+	pub early_ready: super::early::EarlyReady,
 	pub playback_open: bool,
 	pub next_source: u64,
 }
