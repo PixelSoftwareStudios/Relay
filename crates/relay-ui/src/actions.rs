@@ -4,7 +4,9 @@
 
 use std::future::Future;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
+
+use relay_io::LockExt;
 
 use tokio::runtime::Handle;
 
@@ -14,10 +16,6 @@ use crate::hub::Hub;
 use crate::inbox::Inbox;
 use crate::model::{AppState, Meters};
 use crate::shell::Shell;
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-	m.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// Everything the UI thread reads. Writers also request a repaint, so an
 /// idle app is never redrawn.
@@ -54,28 +52,28 @@ impl Default for Shared {
 
 impl Shared {
 	pub fn state(&self) -> Arc<AppState> {
-		lock(&self.state).clone()
+		self.state.lock_unpoisoned().clone()
 	}
 
 	pub fn meters(&self) -> Arc<Meters> {
-		lock(&self.meters).clone()
+		self.meters.lock_unpoisoned().clone()
 	}
 
 	/// Tray text changed since the last call, if any.
 	pub fn take_tray(&self) -> Option<TraySummary> {
-		lock(&self.tray).take()
+		self.tray.lock_unpoisoned().take()
 	}
 
 	pub fn error(&self) -> Option<String> {
-		lock(&self.error).clone()
+		self.error.lock_unpoisoned().clone()
 	}
 
 	pub fn clear_error(&self) {
-		*lock(&self.error) = None;
+		*self.error.lock_unpoisoned() = None;
 	}
 
 	pub fn set_error(&self, message: String) {
-		*lock(&self.error) = Some(message);
+		*self.error.lock_unpoisoned() = Some(message);
 	}
 }
 
@@ -87,17 +85,17 @@ pub struct ShellSink {
 
 impl Sink for ShellSink {
 	fn state(&self, state: &AppState) {
-		*lock(&self.shared.state) = Arc::new(state.clone());
+		*self.shared.state.lock_unpoisoned() = Arc::new(state.clone());
 		self.shell.request_repaint();
 	}
 
 	fn meters(&self, meters: &Meters) {
-		*lock(&self.shared.meters) = Arc::new(meters.clone());
+		*self.shared.meters.lock_unpoisoned() = Arc::new(meters.clone());
 		self.shell.request_repaint();
 	}
 
 	fn tray(&self, summary: &TraySummary) {
-		*lock(&self.shared.tray) = Some(summary.clone());
+		*self.shared.tray.lock_unpoisoned() = Some(summary.clone());
 		self.shell.request_repaint();
 	}
 }

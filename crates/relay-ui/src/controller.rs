@@ -4,6 +4,8 @@
 
 use std::sync::{Arc, Mutex};
 
+use relay_io::LockExt;
+
 use serde::{Serialize, Serializer};
 
 use crate::engine::{Command, EngineError, Operations};
@@ -51,11 +53,11 @@ pub struct SessionSlot(Mutex<Option<Session>>);
 
 impl SessionSlot {
 	pub fn set(&self, ops: Arc<dyn Operations>) {
-		*self.0.lock().unwrap_or_else(|e| e.into_inner()) = Some(Session { ops });
+		*self.0.lock_unpoisoned() = Some(Session { ops });
 	}
 
 	pub fn clear(&self) {
-		*self.0.lock().unwrap_or_else(|e| e.into_inner()) = None;
+		*self.0.lock_unpoisoned() = None;
 	}
 
 	pub fn is_connected(&self) -> bool {
@@ -63,7 +65,7 @@ impl SessionSlot {
 	}
 
 	pub(crate) fn get(&self) -> Option<Session> {
-		self.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
+		self.0.lock_unpoisoned().clone()
 	}
 }
 
@@ -336,19 +338,22 @@ impl Controller {
 		.map(drop)
 	}
 
+	/// Remove the stored avatar (idempotent in the engine).
+	pub async fn clear_avatar(&self) -> Result<(), ControlError> {
+		self.run(Command::ClearAvatar).await.map(drop)
+	}
+
 	/// Raw encoded bytes only; the engine decodes and validates the image.
 	pub async fn upload_avatar(
 		&self,
 		bytes: Vec<u8>,
 		media_type: &str,
 	) -> Result<(), ControlError> {
-		if !matches!(media_type, "image/png" | "image/jpeg") {
-			return Err(ControlError::Invalid("avatar must be PNG or JPEG"));
+		if media_type.is_empty() {
+			return Err(ControlError::Invalid("avatar needs a media type"));
 		}
 		if bytes.is_empty() || bytes.len() > AVATAR_MAX_BYTES {
-			return Err(ControlError::Invalid(
-				"avatar must be between 1 byte and 1 MiB",
-			));
+			return Err(ControlError::Invalid(crate::format::AVATAR_SIZE_REFUSAL));
 		}
 		self.run(Command::UploadAvatar {
 			bytes,

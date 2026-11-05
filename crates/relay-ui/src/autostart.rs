@@ -6,7 +6,9 @@
 //! a minute) until the user presses "Start daemon".
 
 use std::collections::VecDeque;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
+
+use relay_io::LockExt;
 use std::time::{Duration, Instant};
 
 /// The window in which starts are counted.
@@ -75,28 +77,24 @@ impl AutoStart {
 		}
 	}
 
-	fn lock(&self) -> MutexGuard<'_, Inner> {
-		self.inner.lock().unwrap_or_else(|e| e.into_inner())
-	}
-
 	/// The stored "Start daemon automatically" choice, read from the daemon.
 	pub fn set_setting(&self, on: bool) {
-		self.lock().setting = on;
+		self.inner.lock_unpoisoned().setting = on;
 	}
 
 	/// The stored choice (what the checkbox shows).
 	pub fn setting(&self) -> bool {
-		self.lock().setting
+		self.inner.lock_unpoisoned().setting
 	}
 
 	/// The user quit the daemon: never start it again in this session by itself.
 	pub fn user_quit(&self) {
-		self.lock().user_quit = true;
+		self.inner.lock_unpoisoned().user_quit = true;
 	}
 
 	/// The user asked for a start: forget quits and failures.
 	pub fn user_start(&self) {
-		let mut inner = self.lock();
+		let mut inner = self.inner.lock_unpoisoned();
 		inner.user_quit = false;
 		inner.gave_up = false;
 		inner.starts.clear();
@@ -104,30 +102,30 @@ impl AutoStart {
 
 	/// Whether automatic starts are currently allowed at all.
 	pub fn enabled(&self) -> bool {
-		let inner = self.lock();
+		let inner = self.inner.lock_unpoisoned();
 		inner.setting && !inner.env_off
 	}
 
 	/// Whether the app is holding back (quit, or crash loop) and the UI should
 	/// offer a manual button.
 	pub fn paused(&self) -> bool {
-		let inner = self.lock();
+		let inner = self.inner.lock_unpoisoned();
 		inner.user_quit || inner.gave_up
 	}
 
 	/// Whether the crash-loop cap stopped automatic starts.
 	pub fn gave_up(&self) -> bool {
-		self.lock().gave_up
+		self.inner.lock_unpoisoned().gave_up
 	}
 
 	/// The last start failure, for the "gave up" message.
 	pub fn last_failure(&self) -> Option<String> {
-		self.lock().last_failure.clone()
+		self.inner.lock_unpoisoned().last_failure.clone()
 	}
 
 	/// What to do now about an unreachable daemon.
 	pub fn decide(&self, now: Instant) -> Decision {
-		let mut inner = self.lock();
+		let mut inner = self.inner.lock_unpoisoned();
 		if !inner.setting || inner.env_off || inner.user_quit || inner.gave_up {
 			return Decision::Idle;
 		}
@@ -156,7 +154,7 @@ impl AutoStart {
 
 	/// Records a start attempt and how it went.
 	pub fn record_start(&self, now: Instant, outcome: &Result<String, String>) {
-		let mut inner = self.lock();
+		let mut inner = self.inner.lock_unpoisoned();
 		inner.starts.push_back(now);
 		inner.last_failure = outcome.as_ref().err().cloned();
 	}

@@ -1,16 +1,14 @@
 //! Results of background work waiting for the UI thread to pick up. Every
 //! slot is bounded; the UI drains it in `logic()` and then holds textures.
 
-use std::sync::{Mutex, MutexGuard};
+use std::sync::Mutex;
+
+use relay_io::LockExt;
 
 use relay_client::Secret;
 
 use crate::imaging::Decoded;
 use crate::model::ConnectionView;
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-	m.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// A profile image the user chose, ready to preview and upload.
 pub struct Picked {
@@ -38,7 +36,7 @@ const MAX_QUEUED_AVATARS: usize = 32;
 
 impl Inbox {
 	pub fn push_avatar(&self, hash: String, image: Option<Decoded>) {
-		let mut q = lock(&self.avatars);
+		let mut q = self.avatars.lock_unpoisoned();
 		if q.len() >= MAX_QUEUED_AVATARS {
 			q.remove(0);
 		}
@@ -46,30 +44,30 @@ impl Inbox {
 	}
 
 	pub fn take_avatars(&self) -> Vec<(String, Option<Decoded>)> {
-		std::mem::take(&mut *lock(&self.avatars))
+		std::mem::take(&mut *self.avatars.lock_unpoisoned())
 	}
 
 	pub fn set_connection(&self, result: Result<ConnectionView, String>) {
-		*lock(&self.connection) = Some(result);
+		*self.connection.lock_unpoisoned() = Some(result);
 	}
 
 	pub fn take_connection(&self) -> Option<Result<ConnectionView, String>> {
-		lock(&self.connection).take()
+		self.connection.lock_unpoisoned().take()
 	}
 
 	pub fn set_picked(&self, picked: Picked) {
-		*lock(&self.picked) = Some(picked);
+		*self.picked.lock_unpoisoned() = Some(picked);
 	}
 
 	pub fn take_picked(&self) -> Option<Picked> {
-		lock(&self.picked).take()
+		self.picked.lock_unpoisoned().take()
 	}
 
 	pub fn set_invite(&self, invite: Invite) {
-		*lock(&self.invite) = Some(invite);
+		*self.invite.lock_unpoisoned() = Some(invite);
 	}
 
 	pub fn take_invite(&self) -> Option<Invite> {
-		lock(&self.invite).take()
+		self.invite.lock_unpoisoned().take()
 	}
 }

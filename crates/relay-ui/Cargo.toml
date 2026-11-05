@@ -9,6 +9,7 @@ description = "Toolkit-level Relay UI shared by the desktop and mobile shells (e
 [dependencies]
 relay-api.workspace = true
 relay-client.workspace = true
+relay-io.workspace = true
 relay-messages.workspace = true
 egui.workspace = true
 async-trait.workspace = true

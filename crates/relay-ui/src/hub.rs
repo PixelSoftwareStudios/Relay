@@ -1,13 +1,11 @@
 //! Shared host state: the latest view plus dirty flags for the emitter.
 
+use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, MutexGuard};
+
+use relay_io::LockExt;
 
 use crate::model::{AppState, Meters};
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-	m.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// Shared between the supervisor (writer), commands and the emitter.
 #[derive(Default)]
@@ -24,7 +22,7 @@ impl Hub {
 	/// Mutate the state; an emission is scheduled only if it changed, so a
 	/// daemon that stays down does not wake the UI on every retry.
 	pub fn update<R>(&self, f: impl FnOnce(&mut AppState) -> R) -> R {
-		let mut guard = lock(&self.state);
+		let mut guard = self.state.lock_unpoisoned();
 		let before = guard.clone();
 		let out = f(&mut guard);
 		if *guard != before {
@@ -35,11 +33,11 @@ impl Hub {
 
 	/// Read without scheduling anything.
 	pub fn read<R>(&self, f: impl FnOnce(&AppState) -> R) -> R {
-		f(&lock(&self.state))
+		f(&self.state.lock_unpoisoned())
 	}
 
 	pub fn state(&self) -> AppState {
-		lock(&self.state).clone()
+		self.state.lock_unpoisoned().clone()
 	}
 
 	/// Meters are only produced while the window is visible.
@@ -58,7 +56,7 @@ impl Hub {
 	}
 
 	fn store_meters(&self, meters: Meters) {
-		let mut guard = lock(&self.meters);
+		let mut guard = self.meters.lock_unpoisoned();
 		let seq = guard.seq;
 		*guard = Meters { seq, ..meters };
 		self.meters_dirty.store(true, Ordering::Release);
@@ -69,7 +67,7 @@ impl Hub {
 	}
 
 	pub fn meters(&self) -> Meters {
-		lock(&self.meters).clone()
+		self.meters.lock_unpoisoned().clone()
 	}
 
 	/// Next state to emit, with its sequence number, if anything changed.
@@ -77,7 +75,7 @@ impl Hub {
 		if !self.state_dirty.swap(false, Ordering::AcqRel) {
 			return None;
 		}
-		let mut guard = lock(&self.state);
+		let mut guard = self.state.lock_unpoisoned();
 		guard.seq += 1;
 		Some(guard.clone())
 	}
@@ -86,7 +84,7 @@ impl Hub {
 		if !self.meters_dirty.swap(false, Ordering::AcqRel) {
 			return None;
 		}
-		let mut guard = lock(&self.meters);
+		let mut guard = self.meters.lock_unpoisoned();
 		guard.seq += 1;
 		Some(guard.clone())
 	}

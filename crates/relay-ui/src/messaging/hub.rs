@@ -3,17 +3,15 @@
 //! large, and `Hub::update` compares whole snapshots.
 
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex};
+
+use relay_io::LockExt;
 
 use tokio::sync::Notify;
 
 use super::engine::MsgOps;
 use super::state::{Feed, MessagesState};
 use crate::imaging::Decoded;
-
-fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
-	m.lock().unwrap_or_else(|e| e.into_inner())
-}
 
 /// Decoded images waiting for the UI thread; older ones drop.
 const MAX_QUEUED_IMAGES: usize = 32;
@@ -36,11 +34,11 @@ pub struct MsgHub {
 impl MsgHub {
 	/// Read the state. Do not call back into the hub from `f`.
 	pub fn read<R>(&self, f: impl FnOnce(&MessagesState) -> R) -> R {
-		f(&lock(&self.state))
+		f(&self.state.lock_unpoisoned())
 	}
 
 	pub fn update<R>(&self, f: impl FnOnce(&mut MessagesState) -> R) -> R {
-		f(&mut lock(&self.state))
+		f(&mut self.state.lock_unpoisoned())
 	}
 
 	/// Whether the user allows this app to hold the `messages` capability.
@@ -56,7 +54,7 @@ impl MsgHub {
 		}
 		self.epoch.fetch_add(1, Ordering::AcqRel);
 		if !on {
-			*lock(&self.ops) = None;
+			*self.ops.lock_unpoisoned() = None;
 			self.update(|s| {
 				s.forget_all();
 				s.feed = Feed::Off;
@@ -93,15 +91,15 @@ impl MsgHub {
 	}
 
 	pub fn set_ops(&self, ops: Arc<dyn MsgOps>) {
-		*lock(&self.ops) = Some(ops);
+		*self.ops.lock_unpoisoned() = Some(ops);
 	}
 
 	pub fn clear_ops(&self) {
-		*lock(&self.ops) = None;
+		*self.ops.lock_unpoisoned() = None;
 	}
 
 	pub fn ops(&self) -> Option<Arc<dyn MsgOps>> {
-		lock(&self.ops).clone()
+		self.ops.lock_unpoisoned().clone()
 	}
 
 	pub fn set_notice(&self, text: Option<String>) {
@@ -109,7 +107,7 @@ impl MsgHub {
 	}
 
 	pub fn push_image(&self, key: String, image: Result<Decoded, String>) {
-		let mut q = lock(&self.images);
+		let mut q = self.images.lock_unpoisoned();
 		if q.len() >= MAX_QUEUED_IMAGES {
 			drop(q.remove(0));
 		}
@@ -117,16 +115,16 @@ impl MsgHub {
 	}
 
 	pub fn return_draft(&self, session: String, text: String) {
-		let mut q = lock(&self.returned);
+		let mut q = self.returned.lock_unpoisoned();
 		q.retain(|(s, _)| *s != session);
 		q.push((session, text));
 	}
 
 	pub fn take_returned(&self) -> Vec<(String, String)> {
-		std::mem::take(&mut *lock(&self.returned))
+		std::mem::take(&mut *self.returned.lock_unpoisoned())
 	}
 
 	pub fn take_images(&self) -> Vec<(String, Result<Decoded, String>)> {
-		std::mem::take(&mut *lock(&self.images))
+		std::mem::take(&mut *self.images.lock_unpoisoned())
 	}
 }
