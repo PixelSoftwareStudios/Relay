@@ -16,7 +16,8 @@ Relay is a LAN-only voice tool. One per-user engine process owns devices, identi
 | `crates/relay-platform` | Global hotkeys and push-to-talk driver |
 | `crates/relay-client` | Request vocabulary, gRPC wire, endpoint and meter logic shared by the CLI and desktop clients |
 | `apps/relay-cli` | `relay` binary: scriptable CLI, TUI and the `relay daemon` engine host |
-| `apps/relay-desktop` | Optional native egui client (a workspace member, not a default build) |
+| `crates/relay-ui` | Shared egui UI (view models, state application, theme, responsive layout, widgets, screens) behind a `Shell` trait; no windowing or runtime (a workspace member, not a default build) |
+| `apps/relay-desktop` | Thin native shell over `relay-ui`: eframe window, tray, file dialog, tokio runtime (a workspace member, not a default build) |
 | `assets/` | Shared fonts and images |
 
 ## Boundaries
