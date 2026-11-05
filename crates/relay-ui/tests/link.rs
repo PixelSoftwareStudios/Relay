@@ -1,3 +1,5 @@
+#![cfg(unix)]
+
 use relay_api::Endpoint;
 use relay_ui::engine::{Engine, EngineError};
 use relay_ui::relay_link::RelayLink;

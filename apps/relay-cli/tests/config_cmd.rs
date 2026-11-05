@@ -4,6 +4,7 @@ mod common;
 
 use clap::Parser;
 use common::FakeControl;
+#[cfg(unix)]
 use common::engine::EngineHarness;
 use relay_cli::cli::{Cli, CliError, GlobalArgs, exit};
 use relay_cli::commands::Out;
@@ -137,6 +138,7 @@ async fn export_and_import_round_trip_through_a_file() {
 	);
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn with_an_engine_running_live_settings_route_through_it() {
 	let s = setup();
@@ -161,6 +163,7 @@ async fn with_an_engine_running_live_settings_route_through_it() {
 	);
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn settings_the_engine_cannot_change_live_and_import_are_refused_while_it_runs() {
 	let s = setup();
