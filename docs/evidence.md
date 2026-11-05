@@ -338,3 +338,34 @@ Same run with the main thread at user-interactive QoS (`--qos on`):
 - STOI: sonora lowers it by 0.010 to 0.023 at every SNR; nnnoiseless is within +0.008 to -0.009. eSTOI: sonora +0.005 to -0.036 (worse at high SNR), nnnoiseless +0.024 to -0.013 (better at low SNR). So neither improves intelligibility by these measures, while both reduce noise energy. These are objective proxies on read speech with stationary-ish noise; they do not establish listening quality.
 - sonora's NS+AGC and NS+AEC (silent render) numbers equal NS-only because these metrics are gain-invariant and there is no echo in the corpus; the AEC profile mostly adds about 384 samples of delay (715 vs 331) and 3.7x the CPU.
 - Per-frame delay is stable per backend now (sonora NS 304-508, median 331; the spread is a property of the frequency-dependent delay and of speech content, not measured further).
+
+## 2026-11-05: coverage-guided fuzzing of untrusted parsers
+
+Toolchain: `rustc 1.101.0-nightly (2d20b42b8 2026-11-04)` (rustup minimal profile), `cargo-fuzz 0.13.2`, libFuzzer with ASAN, macOS aarch64. Command per target, run from `fuzz/`, with the corpus in a scratch directory outside the repository (seeded from `fuzz/corpus/<target>/` where one exists):
+
+`cargo +nightly fuzz run <target> <scratch-corpus> -- -max_total_time=240`
+
+Each target ran once for 241 s, four targets at a time in parallel on a 10-core machine. `exec/s` is the final figure while sharing the machine.
+
+| Target | Executions | cov / features | Final corpus | Peak rss | Crashes |
+|---|---|---|---|---|---|
+| rtp_parse | 101,863,105 | 43 / 43 | 9 files, 1.1 KB | 446 MB | none |
+| record_header | 7,130,615 | 45 / 45 | 8 files, 225 B | 106 MB | none |
+| control_envelope | 6,583,700 | 1351 / 4858 | 1549 files, 93 KB | 438 MB | none |
+| media_datagram | 6,599,547 | 71 / 71 | 10 files, 1.8 KB | 407 MB | none |
+| channel_wire | 7,002,269 | 566 / 2194 | 670 files, 72 KB | 479 MB | none |
+| channel_text | 6,575,148 | 525 / 1561 | 437 files, 31 KB | 452 MB | none |
+| manual_endpoint | 7,773,127 | 374 / 814 | 288 files, 25 KB | 156 MB | none |
+| avatar_decode | 1,169,104 | 3403 / 8790 | 1013 files, 165 KB | 448 MB | none |
+
+Findings and caveats:
+
+- No crash, panic, assertion failure, out-of-memory or timeout in any target; the artifact directory stayed empty.
+- The `avatar_decode` target did not compile when first built (it used a removed `Avatar.png` field; the field is `image`). Fixed in commit `8fb3c46`. Before this run the targets had only been type-checked, and this one was not even that.
+- The rtp_parse, record_header and media_datagram logs of the first batch were overwritten by a duplicated launch, so those three were rerun cleanly; the table shows the clean reruns.
+- Resident memory of about 440 MB in rtp_parse is libFuzzer/ASAN overhead, not a parser leak: it was 441 MB after 2 M executions and 446 MB after 102 M.
+- `media_datagram` exercises only rejection of unsealed bytes against one fixed session; its coverage plateaued at 71 edges within seconds, so it cannot reach the authenticated-record paths. `rtp_parse`, `record_header` and `manual_endpoint` also plateaued early, which suggests small input spaces but is not proof of exhaustion.
+- `avatar_decode` is the slowest (about 4.9 k exec/s) and still gaining coverage when it stopped; four minutes is far too short for an image decoder.
+- Seeds are a handful of hand-made files under `fuzz/corpus/` for five targets; they are guesses at valid inputs and were not checked to parse successfully.
+
+This is a smoke run of 4 minutes per target. It is not a clean bill of health: no dictionary, no long run, no sanitizer other than ASAN, no differential or stateful fuzzing, and the control_envelope, channel_wire, channel_text and avatar_decode corpora were still growing.

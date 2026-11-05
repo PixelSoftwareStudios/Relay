@@ -63,7 +63,7 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Malformed or authentication-failed records do not change trusted state | met-by-test | relay-net `control::tampered_record_is_rejected_and_closes_the_channel`, `media::injected_garbage_and_replays_do_not_disturb_live_media`, `media::every_single_byte_flip_is_rejected`, `fuzz.rs` property tests; relay-engine `peers_trust::nothing_is_persisted_by_observation_only`. |
 | Real mDNS discovery between two hosts | unmet-needs-hardware | Live test is opt-in (`cargo test -p relay-net --test discovery -- --ignored`); no multi-host run is recorded. |
 | Independent security review of the Noise composition, nonces, replay and epoch handling | unmet-needs-review | `docs/net.md` states the composition is a proposal, not an audited protocol. Distributed binaries are blocked on this. |
-| Fuzzing of untrusted parsers beyond property tests | unmet-needs-review | Targets exist in `fuzz/`; they have not been built or run. Needs a recorded run (duration, corpus, findings). |
+| Fuzzing of untrusted parsers beyond property tests | unmet-needs-review | Eight cargo-fuzz targets in `fuzz/` each ran 4 minutes on nightly (6.6 M to 102 M executions, no crashes; `docs/evidence.md` Fuzzing). That is a smoke run, not a clean bill of health: corpora were still growing for the envelope, channel and avatar targets. Needs long runs (hours) and CI scheduling. |
 
 ### WP-05 First two-device call
 
@@ -149,5 +149,5 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Licenses and source provenance | simulated | See WP-11. Apache-2.0 chosen; `LICENSE` and manifests agree. Needs a recorded `cargo deny` run and the generated notices. |
 | Schema and API compatibility | simulated | Contracts compile and are exercised by tests. The cross-version matrix is an open gate in `docs/api.md`; the product is unreleased, so no old-client compatibility is promised. |
 | Cross-platform persistence and secrets | unmet-needs-hardware | SQLite recovery is tested on the host filesystem (see WP-09); Windows and Linux credential stores and filesystem permissions are untested. |
-| Adversarial networking and resource limits | simulated | Property tests (`relay-net` `fuzz.rs`, `channel_fuzz.rs`), bounded queues and limiter tests exist. Coverage-guided fuzzing, identity churn, interface changes and rekey under load are not run. |
+| Adversarial networking and resource limits | simulated | Property tests (`relay-net` `fuzz.rs`, `channel_fuzz.rs`), bounded queues and limiter tests exist. Coverage-guided fuzzing ran only as 4-minute per-parser smoke runs (no findings); longer runs, identity churn, interface changes and rekey under load are not run. |
 | GUI packaging and footprint | unmet-needs-hardware | Clean-machine build, signing, install and footprint measurement not done. |
