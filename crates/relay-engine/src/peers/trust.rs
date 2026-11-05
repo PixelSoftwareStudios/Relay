@@ -209,5 +209,5 @@ impl KeyedTrustStore for ConfigTrust {
 
 /// Current wall time for a new trust record.
 pub fn now() -> SystemTime {
-	SystemTime::now()
+	relay_io::clock::system_time()
 }

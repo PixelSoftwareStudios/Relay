@@ -204,24 +204,7 @@ fn write_bundle(
 		counters,
 		log_lines: &[],
 	});
-	write_private(path, text.as_bytes())?;
+	relay_io::fs::write_private(path, text.as_bytes())
+		.map_err(|e| std::io::Error::other(e.to_string()))?;
 	Ok(())
-}
-
-#[cfg(unix)]
-fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-	use std::io::Write;
-	use std::os::unix::fs::OpenOptionsExt;
-	let mut file = std::fs::OpenOptions::new()
-		.write(true)
-		.create(true)
-		.truncate(true)
-		.mode(0o600)
-		.open(path)?;
-	file.write_all(bytes)
-}
-
-#[cfg(not(unix))]
-fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
-	std::fs::write(path, bytes)
 }

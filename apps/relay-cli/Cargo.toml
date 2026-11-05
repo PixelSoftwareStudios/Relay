@@ -17,6 +17,7 @@ path = "src/main.rs"
 relay-api.workspace = true
 relay-client.workspace = true
 relay-config.workspace = true
+relay-io.workspace = true
 relay-net.workspace = true
 relay-platform.workspace = true
 clap.workspace = true

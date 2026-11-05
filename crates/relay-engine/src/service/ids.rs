@@ -4,7 +4,6 @@ use std::fmt;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use rand::RngExt;
 use relay_core::{CallId, ClientId, Incarnation, OperationId, SessionId};
 
 /// A source of 128-bit random values.
@@ -19,9 +18,7 @@ pub struct OsEntropy;
 
 impl Entropy for OsEntropy {
 	fn next_u128(&self) -> u128 {
-		let mut bytes = [0u8; 16];
-		rand::rng().fill(&mut bytes[..]);
-		u128::from_be_bytes(bytes)
+		relay_io::entropy::OsEntropy.next_u128()
 	}
 }
 
