@@ -125,6 +125,10 @@ CLI-facing helpers (for `relay config get|set|export|import`):
 | `audio.ringtone_enabled` / `audio.ringtone_volume` | Play the ring for an incoming call while a client is attached (default true) and its volume (0.0 to 1.0, default 0.7). Apply live; disabling while ringing stops the ring |
 | `audio.ringback_enabled` | Play the ringback while an outgoing call rings (default true). Applies live |
 | `audio.call_sounds_enabled` | Short connect and hang-up blips (default true). Applies live |
+| `messages.enabled` | Master switch for session messaging (default true). Off: nothing is sent, accepted or transferred (a peer's message is answered `Disabled`); existing transcripts stay readable. Applies live (`SetMessagingSettings`) |
+| `messages.max_offer_size_mib` | Largest file this device offers or accepts, 1 to 4096 MiB (default 2048). A larger inbound offer is refused with `TooLarge` before anything is stored. Applies live |
+| `messages.transfer_rate_limit_mbps` | Pacing cap of one file transfer in MiB/s, 0 to 1024 (default 16, 0 removes the cap). Applies live, to running transfers too |
+| `network.transfer_port` | TCP port of the file-transfer data-link listener (default 0 = a free port each run). It is told to a peer only inside an authenticated control-link grant, never advertised. Applies at daemon start; the effective port is `MessagingSettings.transfer_port` |
 | `hotkeys.push_to_talk` | Global push-to-talk accelerator (default `Ctrl+Alt+Space`; empty disables); read by `relay hotkey` and `relay tui` |
 | `PreferenceStore::read_only(&Paths)` | Read without the lock, recovery or writes (for `doctor`, `config get` next to a running daemon) |
 | `Storage::open(&Paths)` | Lock + open + recover + import; returns `database`, `lock`, `notices` |

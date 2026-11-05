@@ -1,8 +1,10 @@
 # Session messaging
 
 Design record for call-scoped messages, inline images and file offers. Status: design accepted,
-crate `relay-messages` implements the sans-IO core and `relay-net` the wire messages and the
-per-transfer data link; engine, API and UI integration are separate work. See the ADR "Session-scoped ephemeral messaging" in `docs/decisions.md`.
+crate `relay-messages` implements the sans-IO core, `relay-net` the wire messages and the
+per-transfer data link, the daemon (`relay-engine`, `docs/engine.md`) the live sessions, transfers
+and permissions, and `relay-api` the local API (`docs/api.md`); client UI integration is separate
+work. See the ADR "Session-scoped ephemeral messaging" in `docs/decisions.md`.
 
 Session messaging is a companion to voice, **not a chat platform**. There are no accounts,
 rooms, offline delivery, server history, read receipts, typing indicators, reactions, edits or
@@ -294,24 +296,38 @@ active. Known gaps: the engine must generate offer/session ids, map `ChatAck` an
 decide the listener address (the control link's remote IP plus the granted port); no resume; no
 Windows QoS marking; the hub's own listener port must be reachable (firewall).
 
-## Draft local API (relay-api)
+## Local API (relay-api, implemented)
 
-Additive to the gRPC contract, capability `call-control` for mutations, `observe` for reads:
+The contract is in `docs/api.md` ("Session messaging") and `crates/relay-api/proto`. Differences
+from the earlier draft, all decided during integration:
 
-- `SendMessage(call_id, text)` / `SendImage(call_id, bytes)` / `OfferFile(call_id, path)` ->
-  operation with `seq`; `RetryMessage(call_id, seq)`.
-- `RespondOffer(call_id, offer_id, accept, destination_dir)`; `RequestPreview`,
-  `ApprovePreview(offer_id, bool)`; `CancelTransfer`.
-- `SetSessionPermissions(call_id, allow_messages, allow_files)`.
-- `PinMessage(call_id, id, pinned)`, `SearchMessages(call_id, query)`, `ClearHistory(call_id | ended)`,
-  `ExportHistory(call_id, embed_images) -> bytes`, `CopyCodeBlock(call_id, id, index) -> bytes`.
-- `WatchMessages(call_id, after_seq)` stream of transcript events (new message, delivery change,
-  offer/transfer progress, history-full notice). A resync returns a snapshot.
-- Errors map to stable `Problem.code`s from `StoreError`/`TransferError`.
+- One new capability, `messages`, for every method and for the event stream; it is separate from
+  `observe` and `call-control` and not implied by `admin`. Mutations need only `messages`.
+- Methods address a **session** (`session_id`, 16 bytes) not a call id: a session starts with a
+  call and its retained transcript outlives it. `ListSessions` maps sessions to calls and peers.
+- `SearchMessages`/`ClearHistory`/`ExportHistory` became `SearchSession`/`ClearSession`/
+  `ExportSession`; `CopyCodeBlock` is client-side (the engine returns the exact stored text).
+  `SetMessagingSettings` changes the live preferences. `GetTranscript` pages by arrival ordinal
+  and is the resync path for `WatchSession`.
+- `OfferFile` takes an absolute path that the **daemon** opens (same machine, same user); see
+  `docs/api.md` for the rules. `RespondOffer` takes the destination directory the client chose;
+  the daemon sanitizes the name and never overwrites.
+- `ExportSession` returns the JSON and writes nothing; only an explicit `destination_path` makes
+  the daemon create a (new, owner-only) file.
+- Inline images are limited to 15 KiB by the lane; the engine keeps the bytes and does not decode.
+- The error vocabulary is the `Problem.code` list in `docs/api.md`, mapped from `StoreError`,
+  `TransferError` and the file checks.
 
 The daemon, not the client, owns transcripts, so a CLI and the desktop UI see the same session.
 
+## Engine decisions
+
+- Sessions are keyed by peer: at most one per peer; a message is routed by the authenticated
+  link's peer and can only reach that peer's session. The data-link session id is the call id.
+- The guest may change its own permission pair; the host's `PermissionUpdate` overwrites it.
+- Transcripts are cleared on daemon exit and idle exit (RAM only); there is no other persistence.
+
 ## Open questions
 
-- Whether the guest may toggle permissions for itself (receive-only) separately from the host.
+- Whether a guest's own permission change should survive a later host push (today the host's push overwrites it).
 - Video class is reserved; no behavior until a video decision exists.

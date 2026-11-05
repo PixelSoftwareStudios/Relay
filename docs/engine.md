@@ -226,6 +226,92 @@ decisions and the full behaviour table. Shape:
 - Engines that share a host also share a hostname, and trust is keyed by name: give each a
   distinct display name (the channel tests do) or the second pairing reports `PEER_KEY_CHANGED`.
 
+## Session messaging
+
+`src/messaging/` is the daemon side of `docs/session-messages.md`; `docs/api.md` has the RPCs.
+One actor, `Hub`, is the single owner of every transcript and transfer record. It is a separate
+task next to the control actor (the call state machine stays free of file and chat concerns),
+fed by closures on a bounded inbox (`MessagingHandle::post/ask`), and wakes for the stores' retry
+deadlines (`SessionStore::next_deadline`, `poll`), the "engine tick" for messaging.
+
+- **Sessions follow calls.** After every domain revision change the control actor reports
+  `CallFact`s (`Actor::sync_messaging`). A session starts when a call is `Connecting`, `Active` or
+  `Interrupted` and ends when the call is over or gone. It is a `relay_messages::SessionStore`
+  inside one `HistoryManager` (256 MiB retained budget, oldest ended first; a new call with the
+  same peer replaces the old transcript). **At most one session per peer**: no call id travels
+  on the session lane, so a message is routed by the *authenticated link's peer* to that peer's
+  one session. A message for session S can only come from S's peer; a peer with no session gets
+  a rate-limited `Ended` ack and nothing is stored. A second parallel call with a peer that
+  already has a session gets no messaging.
+- **Peer layer.** `PeerOutput::Session(SessionEvent)` carries `LinkUp{peer, remote_ip}`,
+  `LinkDown` and `Message` (never `Debug`-printed, only the kind), only from the canonical
+  trusted link; `PeerHandle::send_session` sends on that link or drops (the store's outbox
+  retries). `relay-net` already validates structure and flood-guards the link (4x the sender limit
+  closes it).
+- **Permissions on both sides.** `Permissions` live in the store; `SessionStore::receive` refuses
+  a disabled kind with a `Disabled` ack no matter what the sender's UI did, compose refuses it
+  locally. `messages.enabled` is checked in front of both. The initiator (host) pushes a
+  `PermissionUpdate`; only the host's push is applied by the guest. Files off cancels running
+  transfers and refuses new accepts. Max offer size is enforced on both sides (`TooLarge` ack).
+- **Acks and retries.** Every inbound chat/offer is answered with a `ChatAck` from the store
+  result; `Ack` updates delivery state; unacked messages are resent (5 s, doubling, 3 retries, then
+  `Failed(timeout)`); a rejection never retries; the user retries with `RetrySessionMessage`.
+- **Images** are validated by `relay_messages::image::inspect` (header only, decompression bombs
+  and animation limits refused) and stored as the sent bytes, at most 15 KiB on this lane. The
+  engine never decodes pixels, so there is no decode worker or allocation limit to enforce here;
+  clients decode with their own `max_alloc` and deadline.
+- **File transfers.** A `TransferHub` (`relay_net::transfer`) is bound at start on
+  `network.transfer_port` (0 = ephemeral) at the peer listener's IP, with the same address
+  policy. Its port is told to a peer only in the `DataLinkGrant` on the authenticated control
+  link; mDNS and connection strings never carry it. Flow: `OfferFile` (daemon opens the path,
+  hashes a BLAKE3 snapshot on a blocking worker, remembers size/mtime/inode) -> offer on the
+  control link -> `RespondOffer` -> `OfferResponse` + `TransferHub::expect` token as a grant on
+  the control link (the data-link session id is the call id, which both sides share) -> the
+  sender dials with the token -> chunks, credit and the verification result on the data link.
+  Each running transfer is one task owning its `relay-messages` `Sender`/`Receiver`, the file or
+  `FileSink`, and the link; reads (`spawn_blocking`) and every receiver step (write, fsync,
+  hash check, rename) run on blocking workers; the actor only records progress (an event per
+  256 KiB) and results. The sink is `relay_io::sink::DirSink` (temp file in the destination,
+  fsync, verify, rename without replacing); `RunOptions::messaging.sinks` replaces it (tests:
+  full or failing disk). Free space is checked by `Receiver::accept`
+  (`NO_SPACE`, the offer stays open). Two transfers per session, never auto-accepted, never
+  auto-opened, no resume; names are sanitized by both sides. The sender re-checks the source
+  before the first chunk and before finishing (`source_changed`). Pacing is
+  `messages.transfer_rate_limit_mbps` per link, applied live to running transfers. A failure the
+  receiver already reported on the data link is not repeated on the control link (the two race
+  and would change its meaning); a sender's failure also goes over the control link, because
+  closing a data link with unread credit can reset it and lose the last frame.
+- **Ownership and privacy.** Capability `messages` (never default, not implied by `admin`) gates
+  every RPC and the event stream. A client holding it may read and send in any live session of
+  this daemon and read/export/clear any retained transcript; the rationale is that transcripts
+  are private to the people in the call and the daemon serves one user, so "who may read" is the
+  question of which program the user trusted with `messages`, not which one holds the call lease.
+  Clients without it (observers, call controllers, admins) get `PERMISSION_DENIED` and no event.
+  Transcripts are RAM only; they vanish when the daemon exits (including idle-exit); `ClearSession`
+  (a client command such as `relay messages clear`) drop them earlier; export writes only where the client says.
+- **Logging.** Nothing logs message text, file names or paths. The only `tracing` calls in
+  `messaging/` carry ids and error classes, `Debug` of peer events and API requests is redacted,
+  and `messages_secrets` captures TRACE from two whole daemons and greps it.
+- **Idempotency.** Mutations keep their last 1024 outcomes by (client, operation id) in the actor
+  (same request: stored outcome; different request: `ALREADY_EXISTS`). Not time limited.
+- **Known limits.** `RespondOffer` accept creates the temp file in the actor (`Receiver::accept`
+  needs the sink synchronously for `NO_SPACE`): one `statvfs` and one `create`. Previews are read
+  from the live file at approval, not from the offer snapshot. A hostile peer that holds a real
+  call can still fill its session with up to 64 MiB; the budget and the per-peer rate limit are
+  the bound.
+
+Tests (`cargo test -p relay-engine --test 'messages_*'`, real daemons on loopback with fake audio
+unless noted): `messages_text` (round trips, acks, idempotency, pins, search, paging, gapless
+watch), `messages_files` (happy path with hash and no overwrite, reject, receiver and sender
+cancel, source changed, refused paths and size limits), `messages_limits` (full and failing disk
+through fake sinks, concurrency 2, files off mid-transfer, previews), `messages_permissions`
+(receiver enforcement, host push, master switch, capability gate, images, history budget, rate
+limit), `messages_isolation` (A with B and C plus B-C: no cross-call text), `messages_hostile` (a
+raw trusted peer: out-of-session chat, forged control messages, flood), `messages_retry` (a raw
+peer that controls its acks: resend with the same sequence, rejection, user retry),
+`messages_history` (retention, replacement, retained-budget eviction, clear, export, nothing on
+disk), `messages_secrets` (TRACE grep).
+
 ## Not done / owned elsewhere
 
 - Discovered devices have no peer id until their first handshake, so only peers with a known key
