@@ -30,8 +30,8 @@ and plug in through the port traits below.
 
 - `ClientContext` in the body must equal the `relay-client-id` header
   (`INVALID_ARGUMENT`); a foreign incarnation is `FAILED_PRECONDITION`.
-- `RegisterClient` grants `observe`/`control`/`input` (all when none requested); handlers check
-  the capability. An observer cannot mutate (`PERMISSION_DENIED`).
+- `RegisterClient` grants `observe` and `call-control` (both when none requested; `call-control`
+  covers every mutation and the push-to-talk stream); handlers check the capability. An observer cannot mutate (`PERMISSION_DENIED`).
 - Domain mutations (calls, controller, route, controls, global controls) use core's
   idempotency cache. Adapter-executed mutations (devices, noise, mic test, profile, avatar,
   trust, microphone gain) use `Ledger`, keyed by `(client, operation)` plus a hash of the
@@ -65,14 +65,51 @@ hold a `StreamLimiter` slot (96 by default).
 ## Daemon
 
 `daemon::run(RunOptions)` serves until SIGINT/SIGTERM; `DaemonHandle::start` is the same for
-tests. Start-up order: one `WriterLock` (shared by preferences and the trust store), preferences,
-identity (OS credential store unless the preferences say otherwise; there is no silent
-fallback), trust store, avatar cache, then the control service, then the socket. Recovery
-notices from `relay-config` appear as `Snapshot.warnings`. Adapters are built by
-`RunOptions::adapters` from an `Environment` (paths, identity, trust store, `FileSettings`,
-`ControlHandle`, `GateReader`); without it only settings are wired. Shutdown stops the actor
-first (detaching every client and stopping every live call), then the server (2 s drain),
-then removes the socket.
+tests and embedding. `relay daemon` is a thin call to `run`.
+
+Start-up order: one single-writer lock (shared by preferences and trust), preferences, identity
+(OS credential store unless the preferences say otherwise; no silent fallback), trust store,
+avatar cache; then the client endpoint is claimed (a second engine fails here, before touching
+the network or audio); then `assemble`: peer manager (listener, optional mDNS), media system
+(device thread, capture and render workers), glue tasks; then the control service; then serving.
+
+Wiring (`daemon/assemble.rs`, `glue.rs`):
+
+- `PeerAdapter` is the `PeerControl` port, `MediaSystem` is `MediaControl` and `DeviceControl`.
+- `MediaConfig::gates` is the actor's `GateReader`, so send paths read the published table.
+- `EventSink` never blocks (unbounded channel) and a task maps `MediaEvent::System/Peer` to
+  `ControlHandle::system/peer`; `OutputLost` becomes a warning.
+- `PeerOutput::Core` goes to `ControlHandle::peer`, `Media` to `MediaSystem::handle_signal`.
+- `TrustRequired` and `KeyChanged` flag the peer (`Peer.trust` UNKNOWN or KEY_CHANGED) and raise
+  warnings `TRUST_REQUIRED` / `PEER_KEY_CHANGED` through `ControlHandle::attention`, which
+  appear as `StateEvent.warning` and in `Snapshot.warnings`. `AvatarRejected` is a warning
+  (`AVATAR_REJECTED`). `Profile`, `AvatarReady` and link changes refresh the peer list.
+  Pinning goes through `DecidePeerTrust` (`PeerAdapter::decide_trust`).
+- The device list is polled every second and published when it changes. The saved device
+  selection is re-applied once hardware is listed; a missing device raises
+  `SAVED_DEVICE_UNAVAILABLE`, never a substitute.
+- Listen port: `network.listen_port` (default 47800, `0` = ephemeral) so a manual `ip:port`
+  stays valid. A port in use is an error, not a silent change.
+- Switches: `RunOptions::network` (`NetworkOptions::loopback()` for several engines on one
+  host, no discovery), `RunOptions::audio` (`AudioSetup::Cpal` or a fake `Backend`),
+  `RunOptions::transport` (Unix socket or loopback TCP profile) and `RunOptions::adapters`
+  (replace the real wiring with fakes, for service-layer tests).
+- Overlay addresses (100.64.0.0/10): `network.allow_overlay_manual` (default false) applies to
+  `PeerConfig::manual_policy()` only, used for user-typed addresses (`ManualLocalAddress`,
+  `ManualConnectionString`) and the links that follow. Discovery, peer-offered candidates and
+  the media policy never get the flag; discovered addresses are re-checked against the plain
+  policy when they enter the table. Inbound links are checked with the manual policy too, so an
+  opted-in user can be dialled over an overlay.
+- Manual targets: `ManualConnectionString` (`relay://ip:port#fingerprint`) names the peer's key,
+  so the call starts at once and the dial pins that key. A bare `ManualLocalAddress` of an
+  unknown peer starts a dial and answers `FAILED_PRECONDITION`; retry after the handshake.
+- Microphone gain is applied after the suppressor; noise suppression accepts `off` only (other
+  backends need a qualified model and report `UNAVAILABLE`); the microphone test is still
+  `UNIMPLEMENTED`.
+
+Recovery notices from `relay-config` appear as `Snapshot.warnings`. Shutdown stops the actor
+first (detaching every client and stopping every live call), lets the hangups leave, stops the
+peer manager, then the server (2 s drain), then removes the socket files.
 
 ## Profile
 
@@ -87,7 +124,11 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
 
 ## Not done / owned elsewhere
 
-- `WatchTelemetry` is `UNIMPLEMENTED` (media owns telemetry).
+- `WatchTelemetry`, the microphone test and the channel, privacy, avatar-download and
+  connection-info RPCs are `UNIMPLEMENTED` in the service; channel state is still empty in
+  snapshots.
+- Discovered devices have no peer id until their first handshake, so only peers with a known key
+  are listed. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
 - `InputControlMessage.transmit_route_generation` is not validated; the core binds a press to
   the route generation internally.
 - `MutationContext.expected_revision` is honoured for `SetGlobalControls` only (settings
@@ -104,7 +145,10 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
 --test service_gate --test service_daemon`: CLI and GUI clients on a real socket with fake
 adapters, takeover and stale controllers, duplicate/conflicting/expired operations, snapshot
 and watch without gaps, replay and resync, bounded streams, push-to-talk gate behaviour,
-config persistence, writer lock, idle clients and shutdown.
+config persistence, writer lock, idle clients and shutdown. `service_overlay` covers the overlay
+setting; `service_e2e` runs two complete engines (separate homes, loopback sockets, fake audio):
+trust gating, call, consent, audio both ways, withdrawal and hangup.
+`cargo test -p relay-cli --test real_engine` runs the CLI against the real service layer.
 
 ## Media and peers
 
