@@ -8,6 +8,7 @@
 
 pub mod binding;
 pub mod cert;
+pub mod clock;
 mod create;
 pub mod ids;
 pub mod invite;
