@@ -288,10 +288,32 @@ impl Engine for FakeEngine {
 		)
 	}
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
-		unsupported()
+		self.log.lock().unwrap().push("get_settings".into());
+		Ok(Response::new(SettingsDump {
+			values: [("ptt.release_delay_ms".to_owned(), "200".to_owned())].into(),
+		}))
 	}
-	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
-		unsupported()
+	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
+		let r = r.into_inner();
+		let mut keys: Vec<_> = r.values.iter().map(|(k, v)| format!("{k}={v}")).collect();
+		keys.sort();
+		let operation = self.op(
+			r.context.as_ref(),
+			format!("set_settings {}", keys.join(",")),
+		)?;
+		let results = r
+			.values
+			.keys()
+			.map(|key| SettingResult {
+				key: key.clone(),
+				outcome: SettingOutcome::AppliedLive as i32,
+				reason: String::new(),
+			})
+			.collect();
+		Ok(Response::new(SetSettingsResponse {
+			operation: Some(operation.into_inner()),
+			results,
+		}))
 	}
 	// Session messaging is not part of this test engine.
 	async fn list_sessions(&self, _: Request<ClientContext>) -> Resp<ListSessionsResponse> {

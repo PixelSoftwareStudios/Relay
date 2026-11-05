@@ -263,6 +263,10 @@ impl SettingsStore for MemorySettings {
 		lock(&self.avatars).push((hash, encoded.to_vec()));
 		Ok(hash)
 	}
+	fn clear_avatar(&self) -> Result<(), PortError> {
+		lock(&self.stored).avatar = None;
+		Ok(())
+	}
 	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
 		Ok(lock(&self.avatars)
 			.iter()

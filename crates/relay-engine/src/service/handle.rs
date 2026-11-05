@@ -39,6 +39,8 @@ pub enum ServiceOp {
 	Profile(String),
 	/// Replace the avatar.
 	Avatar(Vec<u8>),
+	/// Remove the avatar.
+	ClearAvatar,
 	/// Decide a peer's trust.
 	Trust(TrustRequest),
 	/// Apply the non-domain parts of a global-controls change.

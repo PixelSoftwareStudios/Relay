@@ -110,6 +110,14 @@ async fn every_other_command_reaches_its_rpc() {
 			bytes: vec![0; 3],
 			media_type: "image/png".into(),
 		},
+		Command::ClearAvatar,
+		Command::ForgetPeer {
+			peer_id: Vec::new(),
+			query: "kitchen".into(),
+		},
+		Command::SetSettings {
+			values: vec![("hotkeys.push_to_talk".into(), "F9".into())],
+		},
 		Command::StartMicTest {
 			local_playback: false,
 			confirmed_feedback: false,
@@ -139,6 +147,9 @@ async fn every_other_command_reaches_its_rpc() {
 			"ns rnn".into(),
 			"profile Ada".into(),
 			"avatar 3 image/png".into(),
+			"clear_avatar".into(),
+			"forget_peer id=0 query=kitchen".into(),
+			"set_settings hotkeys.push_to_talk=F9".into(),
 			"mic_test_start".into(),
 			"mic_test_stop".into(),
 			format!("trust {} oob=true", TrustState::Verified as i32),
@@ -237,4 +248,39 @@ async fn messaging_commands_use_their_own_rpcs_and_return_the_inner_operation() 
 		]
 	);
 	assert!(!Command::PreviewTone.is_messaging());
+}
+
+#[tokio::test]
+async fn settings_helpers_report_per_key_outcomes() {
+	let h = Harness::start().await;
+	let mut c = client(&h).await;
+	let answer = c
+		.set_settings([
+			("ptt.release_delay_ms", "300"),
+			("audio.ringtone_volume", "0.5"),
+		])
+		.await
+		.unwrap();
+	assert_eq!(answer.results.len(), 2);
+	assert!(
+		answer
+			.results
+			.iter()
+			.all(|r| r.outcome == relay_api::pb::SettingOutcome::AppliedLive as i32)
+	);
+	let all = c.get_settings().await.unwrap();
+	assert_eq!(
+		all.get("ptt.release_delay_ms").map(String::as_str),
+		Some("200")
+	);
+	let forgot = c.forget_peer(Some(&[7; 32]), "").await.unwrap();
+	assert_eq!(forgot.state, OperationState::Applied as i32);
+	assert_eq!(
+		h.log(),
+		[
+			"set_settings audio.ringtone_volume=0.5,ptt.release_delay_ms=300",
+			"get_settings",
+			"forget_peer id=32 query="
+		]
+	);
 }

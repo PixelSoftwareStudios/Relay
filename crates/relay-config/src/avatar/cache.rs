@@ -118,6 +118,15 @@ impl AvatarCache {
 		})
 	}
 
+	/// Forgets which avatar is the local user's own. The bytes stay cached but are no longer
+	/// pinned, so they age out like any received avatar.
+	pub fn clear_local(&self) -> Result<()> {
+		self.settings.with(|conn| {
+			conn.execute("DELETE FROM state WHERE key = ?1", [LOCAL_KEY])?;
+			Ok(())
+		})
+	}
+
 	/// The local avatar hash, only if its bytes are still cached.
 	pub fn local(&self) -> Result<Option<[u8; 32]>> {
 		let Some(hash) = self.pinned()? else {

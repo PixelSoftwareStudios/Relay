@@ -394,9 +394,10 @@ impl Engine for EngineService {
 
 	async fn clear_avatar(
 		&self,
-		_: Request<MutationContext>,
+		request: Request<MutationContext>,
 	) -> Result<Response<Operation>, Status> {
-		Err(Status::unimplemented("ClearAvatar"))
+		let (mutation, body) = self.begin(request, |b| Some(b))?;
+		ops::clear_avatar(self, &mutation, &body).await
 	}
 
 	async fn forget_peer(

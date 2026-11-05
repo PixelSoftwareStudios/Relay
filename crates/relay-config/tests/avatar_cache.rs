@@ -202,3 +202,20 @@ fn default_bound_is_128_mib() {
 		128 * 1024 * 1024
 	);
 }
+
+#[test]
+fn clearing_the_local_avatar_unpins_it_and_is_repeatable() {
+	let dir = tempfile::tempdir().unwrap();
+	let cache = AvatarCache::open(dir.path()).unwrap();
+	let a = flat(1);
+	cache.put(&a).unwrap();
+	cache.set_local(&a.hash).unwrap();
+	assert_eq!(cache.local().unwrap(), Some(a.hash));
+	cache.clear_local().unwrap();
+	assert_eq!(cache.local().unwrap(), None);
+	cache.clear_local().unwrap();
+	assert!(
+		cache.get(&a.hash).unwrap().is_some(),
+		"bytes age out, they are not deleted"
+	);
+}

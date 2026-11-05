@@ -158,6 +158,14 @@ impl SettingsStore for FileSettings {
 		Ok(avatar.hash)
 	}
 
+	fn clear_avatar(&self) -> Result<(), PortError> {
+		self.avatars
+			.clear_local()
+			.map_err(|e| PortError::Unavailable(e.to_string()))?;
+		*lock(&self.avatar) = None;
+		Ok(())
+	}
+
 	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
 		self.avatars
 			.get(hash)

@@ -4,11 +4,11 @@
 
 use relay_api::pb::{
 	AcquireControllerRequest, CallMutation, CreateChannelRequest, DecidePeerTrustRequest,
-	JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
+	ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
 	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest,
 	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest,
-	SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
-	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	SetSettingsRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
+	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -222,6 +222,25 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				declared_media_type: media_type,
 			})
 			.await
+		}
+		Command::ClearAvatar => rpc.clear_avatar(context).await,
+		Command::ForgetPeer { peer_id, query } => {
+			rpc.forget_peer(ForgetPeerRequest {
+				context: Some(context),
+				peer_id,
+				query,
+			})
+			.await
+		}
+		Command::SetSettings { values } => {
+			let request = SetSettingsRequest {
+				context: Some(context),
+				values: values.into_iter().collect(),
+			};
+			let answer = rpc.set_settings(request).await?.into_inner();
+			return answer.operation.ok_or(ApiError::InvalidResponse(
+				"settings answer without operation",
+			));
 		}
 		Command::StartMicTest {
 			local_playback,

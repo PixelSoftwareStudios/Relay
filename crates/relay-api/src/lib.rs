@@ -5,6 +5,7 @@
 
 mod client;
 mod client_ext;
+mod client_settings;
 mod client_messages;
 mod error;
 mod limits;

@@ -141,6 +141,11 @@ impl Actor {
 				self.directory.aux.avatar = Some(hash);
 				self.advertise_profile();
 			}
+			ServiceOp::ClearAvatar => {
+				self.ports.settings.clear_avatar()?;
+				self.directory.aux.avatar = None;
+				self.advertise_profile();
+			}
 			ServiceOp::Trust(request) => {
 				self.ports.peers.decide_trust(request)?;
 				let events = self.directory.set_peers(self.ports.peers.peers());

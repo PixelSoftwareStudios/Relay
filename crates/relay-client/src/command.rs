@@ -149,6 +149,22 @@ pub enum Command {
 		/// Declared media type.
 		media_type: String,
 	},
+	/// Remove the local avatar; trusted peers stop showing it.
+	ClearAvatar,
+	/// Forget a stored trust decision by peer id (32 bytes) or, when `peer_id` is empty, by
+	/// fingerprint prefix or exact name in `query`.
+	ForgetPeer {
+		/// Peer id (32 bytes), or empty.
+		peer_id: Vec<u8>,
+		/// Hex fingerprint prefix (at least 8 digits) or exact display name.
+		query: String,
+	},
+	/// Change preferences by flat key while the daemon runs. Only the operation comes back;
+	/// use `RelayClient::set_settings` for the per-key outcome.
+	SetSettings {
+		/// `section.key` and text value, parsed like `relay config set`.
+		values: Vec<(String, String)>,
+	},
 	/// Start the microphone test.
 	StartMicTest {
 		/// Play the microphone back locally.

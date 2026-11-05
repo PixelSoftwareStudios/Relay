@@ -202,6 +202,14 @@ pub(super) async fn avatar(
 	service_op(service, mutation, body, op).await
 }
 
+pub(super) async fn clear_avatar(
+	service: &EngineService,
+	mutation: &Mutation,
+	body: &MutationContext,
+) -> Result<Response<Operation>, Status> {
+	service_op(service, mutation, body, ServiceOp::ClearAvatar).await
+}
+
 pub(super) async fn trust(
 	service: &EngineService,
 	mutation: &Mutation,

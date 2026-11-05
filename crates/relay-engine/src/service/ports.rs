@@ -315,6 +315,8 @@ pub trait SettingsStore: Send + Sync {
 	fn save(&self, change: &SettingsChange) -> Result<(), PortError>;
 	/// Validates, normalizes and stores an avatar, returning its content hash.
 	fn store_avatar(&self, encoded: &[u8]) -> Result<[u8; 32], PortError>;
+	/// Removes the local avatar (it is no longer pinned in the cache).
+	fn clear_avatar(&self) -> Result<(), PortError>;
 	/// The canonical PNG stored under `hash` (local or received), if cached.
 	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError>;
 }
@@ -414,6 +416,9 @@ impl SettingsStore for Unwired {
 	}
 	fn store_avatar(&self, _: &[u8]) -> Result<[u8; 32], PortError> {
 		Err(PortError::Unsupported("avatars"))
+	}
+	fn clear_avatar(&self) -> Result<(), PortError> {
+		Ok(())
 	}
 	fn avatar(&self, _: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
 		Ok(None)
