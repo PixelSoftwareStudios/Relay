@@ -7,7 +7,10 @@ use relay_core::*;
 #[test]
 fn receive_only_by_default_and_no_capture_before_consent() {
 	let f = Fixture::new();
-	assert!(f.node.device.opened.is_empty(), "no capture without consent");
+	assert!(
+		f.node.device.opened.is_empty(),
+		"no capture without consent"
+	);
 	assert_eq!(f.view().gate.deny, Some(DenyReason::CaptureInvalid));
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
 }
@@ -31,11 +34,19 @@ fn withdrawal_stops_transmit_and_publishes_deny_first() {
 	let out = f.node.feed(Input::Client(Request {
 		client: f.client,
 		operation,
-		command: Command::SetTransmitRoute { call, lease, route: TransmitRoute::RECEIVE_ONLY },
+		command: Command::SetTransmitRoute {
+			call,
+			lease,
+			route: TransmitRoute::RECEIVE_ONLY,
+		},
 	}));
 	assert!(out.effects[0].is_gate(), "deny precedes every other effect");
 	assert!(!gate_in(&out.effects, call).unwrap().open);
-	assert!(out.effects.iter().any(|e| matches!(e, Effect::CloseCapture { .. })));
+	assert!(
+		out.effects
+			.iter()
+			.any(|e| matches!(e, Effect::CloseCapture { .. }))
+	);
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
 }
 
@@ -54,7 +65,10 @@ fn route_generation_advances_on_every_consent_change() {
 #[test]
 fn invalid_route_and_not_active_call_are_rejected() {
 	let mut f = Fixture::new();
-	let bad = TransmitRoute { mode: RouteMode::PushToTalk, background: true };
+	let bad = TransmitRoute {
+		mode: RouteMode::PushToTalk,
+		background: true,
+	};
 	assert_eq!(f.route(bad), Err(Reject::InvalidRoute));
 
 	let mut node = Node::new(1);
@@ -63,7 +77,11 @@ fn invalid_route_and_not_active_call_are_rejected() {
 	let (call, lease) = node.start_call(client, peer());
 	let route = TransmitRoute::open_mic();
 	let result = node.command(client, Command::SetTransmitRoute { call, lease, route });
-	assert_eq!(result, Err(Reject::CallNotActive), "ringing calls cannot be given mic consent");
+	assert_eq!(
+		result,
+		Err(Reject::CallNotActive),
+		"ringing calls cannot be given mic consent"
+	);
 	assert!(node.device.opened.is_empty());
 }
 
@@ -82,8 +100,14 @@ fn every_deny_wins_over_open_mic() {
 	.unwrap();
 	assert_eq!(f.view().gate.deny, Some(DenyReason::GlobalMuted));
 	// Clearing per-call mute cannot clear the global kill switch.
-	f.cmd(Command::SetCallControls { call, lease, muted: Some(false), deafened: None, gain: None })
-		.unwrap();
+	f.cmd(Command::SetCallControls {
+		call,
+		lease,
+		muted: Some(false),
+		deafened: None,
+		gain: None,
+	})
+	.unwrap();
 	assert!(!f.gate_open());
 	f.cmd(Command::SetGlobalControls {
 		muted: Some(false),
@@ -94,8 +118,14 @@ fn every_deny_wins_over_open_mic() {
 	.unwrap();
 	assert!(f.gate_open());
 
-	f.cmd(Command::SetCallControls { call, lease, muted: Some(true), deafened: None, gain: None })
-		.unwrap();
+	f.cmd(Command::SetCallControls {
+		call,
+		lease,
+		muted: Some(true),
+		deafened: None,
+		gain: None,
+	})
+	.unwrap();
 	assert_eq!(f.view().gate.deny, Some(DenyReason::CallMuted));
 }
 
@@ -156,7 +186,11 @@ fn consent_is_per_call() {
 	let (b, _) = common::activate(&mut node, client, device_key(0xC0));
 	node.command(
 		client,
-		Command::SetTransmitRoute { call: a, lease: lease_a, route: TransmitRoute::open_mic() },
+		Command::SetTransmitRoute {
+			call: a,
+			lease: lease_a,
+			route: TransmitRoute::open_mic(),
+		},
 	)
 	.unwrap();
 	node.complete_capture();
@@ -183,7 +217,11 @@ fn stale_capture_completion_is_rejected_and_loss_needs_explicit_resume() {
 	let late = f.node.feed(f.node.device.ready(gen1));
 	assert_eq!(late.result, Err(Reject::StaleGeneration));
 	assert!(!f.gate_open());
-	assert_eq!(f.node.device.opened.len(), 1, "no automatic reopen or device fallback");
+	assert_eq!(
+		f.node.device.opened.len(),
+		1,
+		"no automatic reopen or device fallback"
+	);
 
 	f.cmd(Command::ResumeCapture).unwrap();
 	assert_eq!(f.node.device.opened.len(), 2);
@@ -207,7 +245,10 @@ fn open_mic_follows_controller_unless_background() {
 	f.consent(TransmitRoute::open_mic_background());
 	f.node.feed(Input::Disconnected(f.client));
 	assert_eq!(f.view().route, TransmitRoute::open_mic_background());
-	assert!(f.gate_open(), "background authority survives closing the client");
+	assert!(
+		f.gate_open(),
+		"background authority survives closing the client"
+	);
 }
 
 #[test]
@@ -222,7 +263,10 @@ fn lock_and_suspend_close_the_gate_and_close_capture() {
 		assert_eq!(f.view().gate.deny, Some(DenyReason::SessionBlocked));
 		assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
 		f.node.feed(Input::System(SystemEvent::Session(up)));
-		assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Opening);
+		assert_eq!(
+			f.node.state.snapshot().global.capture,
+			CaptureState::Opening
+		);
 		assert!(!f.gate_open(), "must wait for a fresh capture generation");
 	}
 }
@@ -253,18 +297,33 @@ fn controller_takeover_requires_intent_and_expires_old_authority() {
 	f.consent(TransmitRoute::open_mic());
 	let other = f.node.attach_client();
 	let call = f.call;
-	let denied = f.node.command(other, Command::AcquireController { call, takeover: false });
+	let denied = f.node.command(
+		other,
+		Command::AcquireController {
+			call,
+			takeover: false,
+		},
+	);
 	assert_eq!(denied, Err(Reject::ControllerHeld { holder: f.client }));
 
-	let Ok(Reply::Controller(new_lease)) =
-		f.node.command(other, Command::AcquireController { call, takeover: true })
-	else {
+	let Ok(Reply::Controller(new_lease)) = f.node.command(
+		other,
+		Command::AcquireController {
+			call,
+			takeover: true,
+		},
+	) else {
 		panic!("takeover failed");
 	};
 	assert_ne!(new_lease, f.lease);
 	// The previous client's lease is stale; it cannot change routing any more.
 	let stale = f.route(TransmitRoute::RECEIVE_ONLY);
-	assert_eq!(stale, Err(Reject::StaleController { current: Some(new_lease) }));
+	assert_eq!(
+		stale,
+		Err(Reject::StaleController {
+			current: Some(new_lease)
+		})
+	);
 	// Takeover does not carry the old client's consent over.
 	assert_eq!(f.view().route, TransmitRoute::RECEIVE_ONLY);
 	assert!(!f.gate_open());

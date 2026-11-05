@@ -36,10 +36,21 @@ fn lease_expires_without_refresh_and_refresh_extends_it() {
 	f.node.advance(200);
 	f.ptt(1, 2, true).unwrap();
 	f.node.advance(200);
-	assert!(f.gate_open(), "refreshed lease still alive 400ms after the first press");
+	assert!(
+		f.gate_open(),
+		"refreshed lease still alive 400ms after the first press"
+	);
 	f.node.advance(100);
-	assert!(!f.gate_open(), "300ms after the last refresh the lease is dead");
-	assert!(f.node.effects.iter().any(|e| matches!(e, Effect::GateUpdate { gate, .. } if !gate.open)));
+	assert!(
+		!f.gate_open(),
+		"300ms after the last refresh the lease is dead"
+	);
+	assert!(
+		f.node
+			.effects
+			.iter()
+			.any(|e| matches!(e, Effect::GateUpdate { gate, .. } if !gate.open))
+	);
 	assert_eq!(f.node.state.next_deadline(), None);
 }
 
@@ -58,7 +69,11 @@ fn requested_ttl_is_clamped_to_the_hard_maximum() {
 		panic!("press failed");
 	};
 	assert_eq!(expires_at.as_millis(), 500);
-	let zero = PttUpdate { sequence: 2, ttl: Some(Duration::ZERO), ..update };
+	let zero = PttUpdate {
+		sequence: 2,
+		ttl: Some(Duration::ZERO),
+		..update
+	};
 	assert_eq!(f.cmd(Command::Ptt(zero)), Err(Reject::InvalidTtl));
 }
 
@@ -101,11 +116,21 @@ fn held_ptt_does_not_survive_takeover_and_old_press_never_revives() {
 	f.ptt(1, 1, true).unwrap();
 	let other = f.node.attach_client();
 	let call = f.call;
-	f.node.command(other, Command::AcquireController { call, takeover: true }).unwrap();
+	f.node
+		.command(
+			other,
+			Command::AcquireController {
+				call,
+				takeover: true,
+			},
+		)
+		.unwrap();
 	assert!(!f.gate_open());
 	assert_eq!(
 		f.ptt(1, 2, true),
-		Err(Reject::StaleController { current: f.node.state.call(call).unwrap().controller.map(|c| c.id) })
+		Err(Reject::StaleController {
+			current: f.node.state.call(call).unwrap().controller.map(|c| c.id)
+		})
 	);
 	// A release from the old holder is harmless and idempotent.
 	assert_eq!(f.ptt(1, 3, false), Ok(Reply::Done));
@@ -133,8 +158,10 @@ fn held_ptt_does_not_survive_lock_suspend_or_device_loss() {
 		f.node.feed(Input::System(event));
 		assert!(f.node.state.call(f.call).unwrap().input_leases.is_empty());
 		// Unlocking does not revive the press, and a new one needs the session.
-		f.node.feed(Input::System(SystemEvent::Session(SessionEvent::Unlocked)));
-		f.node.feed(Input::System(SystemEvent::Session(SessionEvent::Resumed)));
+		f.node
+			.feed(Input::System(SystemEvent::Session(SessionEvent::Unlocked)));
+		f.node
+			.feed(Input::System(SystemEvent::Session(SessionEvent::Resumed)));
 		assert!(!f.gate_open());
 	}
 
@@ -148,7 +175,8 @@ fn held_ptt_does_not_survive_lock_suspend_or_device_loss() {
 #[test]
 fn press_is_refused_while_the_session_is_locked() {
 	let mut f = ptt_fixture();
-	f.node.feed(Input::System(SystemEvent::Session(SessionEvent::Locked)));
+	f.node
+		.feed(Input::System(SystemEvent::Session(SessionEvent::Locked)));
 	assert_eq!(f.ptt(1, 1, true), Err(Reject::SessionBlocked));
 }
 

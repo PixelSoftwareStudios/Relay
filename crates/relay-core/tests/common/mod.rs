@@ -20,7 +20,12 @@ impl Fixture {
 		let mut node = Node::new(0xA0);
 		let client = node.attach_client();
 		let (call, lease) = activate(&mut node, client, peer());
-		Self { node, client, call, lease }
+		Self {
+			node,
+			client,
+			call,
+			lease,
+		}
 	}
 
 	pub fn cmd(&mut self, command: Command) -> OpResult {
@@ -66,7 +71,10 @@ pub fn activate(node: &mut Node, client: ClientId, peer: PeerId) -> (CallId, Con
 	let session = node.state.call(call).expect("call exists").session;
 	node.feed(Input::Peer(PeerEvent::Accepted { call, session }));
 	node.complete_media();
-	assert_eq!(node.state.call(call).map(|c| c.state), Some(CallState::Active));
+	assert_eq!(
+		node.state.call(call).map(|c| c.state),
+		Some(CallState::Active)
+	);
 	(call, lease)
 }
 

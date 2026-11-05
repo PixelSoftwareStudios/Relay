@@ -21,7 +21,9 @@ impl SeqIds {
 	/// Starts counting at one inside a namespace, so two fake engines never
 	/// mint the same identifier.
 	pub fn namespaced(namespace: u8) -> Self {
-		Self { next: (u128::from(namespace) << 64) | 1 }
+		Self {
+			next: (u128::from(namespace) << 64) | 1,
+		}
 	}
 
 	fn bump(&mut self) -> u128 {

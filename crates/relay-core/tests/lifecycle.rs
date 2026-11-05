@@ -19,10 +19,16 @@ fn preparing_waits_for_link_then_invites() {
 	let mut node = Node::new(1);
 	let client = node.attach_client();
 	let (call, _) = node.start_call(client, peer());
-	assert_eq!(node.state.call(call).map(|c| c.state), Some(CallState::Preparing));
+	assert_eq!(
+		node.state.call(call).map(|c| c.state),
+		Some(CallState::Preparing)
+	);
 	assert_eq!(node.network.link_requests, vec![peer()]);
 	node.link_up(peer());
-	assert_eq!(node.state.call(call).map(|c| c.state), Some(CallState::OutgoingRinging));
+	assert_eq!(
+		node.state.call(call).map(|c| c.state),
+		Some(CallState::OutgoingRinging)
+	);
 	assert!(matches!(node.network.sent[0].1, PeerMessage::Invite { .. }));
 }
 
@@ -32,20 +38,33 @@ fn link_setup_ring_and_path_timeouts_name_their_phase() {
 	let client = node.attach_client();
 	let (a, _) = node.start_call(client, peer());
 	node.advance(5_000);
-	assert_eq!(node.state.call(a).unwrap().reason, Some(EndReason::LinkSetupTimeout));
+	assert_eq!(
+		node.state.call(a).unwrap().reason,
+		Some(EndReason::LinkSetupTimeout)
+	);
 
 	node.link_up(peer());
 	let (b, _) = node.start_call(client, peer());
 	node.advance(30_000);
-	assert_eq!(node.state.call(b).unwrap().reason, Some(EndReason::RingTimeout));
+	assert_eq!(
+		node.state.call(b).unwrap().reason,
+		Some(EndReason::RingTimeout)
+	);
 
 	let (c, _) = node.start_call(client, peer());
 	let session = node.state.call(c).unwrap().session;
 	node.feed(Input::Peer(PeerEvent::Accepted { call: c, session }));
 	node.advance(3_000);
 	let call = node.state.call(c).unwrap();
-	assert_eq!((call.state, call.reason), (CallState::Failed, Some(EndReason::PathTimeout)));
-	assert!(node.effects.iter().any(|e| matches!(e, Effect::StopMedia { call, .. } if *call == c)));
+	assert_eq!(
+		(call.state, call.reason),
+		(CallState::Failed, Some(EndReason::PathTimeout))
+	);
+	assert!(
+		node.effects
+			.iter()
+			.any(|e| matches!(e, Effect::StopMedia { call, .. } if *call == c))
+	);
 }
 
 #[test]
@@ -59,7 +78,10 @@ fn incoming_accept_decline_and_terminal_answers() {
 		peer: peer(),
 		allow_parallel_same_peer: false,
 	}));
-	assert_eq!(node.state.call(call).unwrap().state, CallState::IncomingRinging);
+	assert_eq!(
+		node.state.call(call).unwrap().state,
+		CallState::IncomingRinging
+	);
 	// A duplicate invitation never rings again.
 	node.feed(Input::Peer(PeerEvent::Invite {
 		call,
@@ -69,16 +91,26 @@ fn incoming_accept_decline_and_terminal_answers() {
 	}));
 	assert_eq!(node.state.live_calls(), 1);
 
-	let lease = match node.command(client, Command::AcquireController { call, takeover: false }) {
+	let lease = match node.command(
+		client,
+		Command::AcquireController {
+			call,
+			takeover: false,
+		},
+	) {
 		Ok(Reply::Controller(lease)) => lease,
 		other => panic!("{other:?}"),
 	};
-	node.command(client, Command::DeclineCall { call, lease }).unwrap();
+	node.command(client, Command::DeclineCall { call, lease })
+		.unwrap();
 	assert_eq!(node.state.call(call).unwrap().state, CallState::Declined);
 	// Accept after decline returns the terminal result and never revives it.
 	let late = node.command(client, Command::AcceptCall { call, lease });
 	assert_eq!(late, Err(Reject::CallTerminal(CallState::Declined)));
-	assert_eq!(node.command(client, Command::DeclineCall { call, lease }), Ok(Reply::Done));
+	assert_eq!(
+		node.command(client, Command::DeclineCall { call, lease }),
+		Ok(Reply::Done)
+	);
 }
 
 #[test]
@@ -89,7 +121,8 @@ fn hangup_is_idempotent_and_waits_for_media_teardown() {
 	assert_eq!(f.view().state, CallState::Ending);
 	assert_eq!(f.cmd(Command::EndCall { call, lease }), Ok(Reply::Done));
 	let session = f.node.state.call(call).unwrap().session;
-	f.node.feed(Input::System(SystemEvent::MediaStopped { call, session }));
+	f.node
+		.feed(Input::System(SystemEvent::MediaStopped { call, session }));
 	assert_eq!(f.view().state, CallState::Ended);
 	assert_eq!(f.cmd(Command::EndCall { call, lease }), Ok(Reply::Done));
 	assert_eq!(f.node.state.live_calls(), 0);
@@ -115,7 +148,12 @@ fn admission_caps_calls_and_same_peer() {
 	let (call, session) = (node.ids.call(), node.ids.session());
 	let over = node.command(
 		client,
-		Command::StartCall { call, session, peer: device_key(200), allow_parallel_same_peer: false },
+		Command::StartCall {
+			call,
+			session,
+			peer: device_key(200),
+			allow_parallel_same_peer: false,
+		},
 	);
 	assert_eq!(over, Err(Reject::CallCapReached));
 
@@ -137,12 +175,22 @@ fn admission_caps_calls_and_same_peer() {
 	let (call, session) = (node.ids.call(), node.ids.session());
 	let dup = node.command(
 		client,
-		Command::StartCall { call, session, peer: peer(), allow_parallel_same_peer: false },
+		Command::StartCall {
+			call,
+			session,
+			peer: peer(),
+			allow_parallel_same_peer: false,
+		},
 	);
 	assert!(matches!(dup, Err(Reject::SamePeerCallExists(_))));
 	let parallel = node.command(
 		client,
-		Command::StartCall { call, session, peer: peer(), allow_parallel_same_peer: true },
+		Command::StartCall {
+			call,
+			session,
+			peer: peer(),
+			allow_parallel_same_peer: true,
+		},
 	);
 	assert!(parallel.is_ok());
 }
@@ -175,15 +223,21 @@ fn simultaneous_invites_elect_one_surviving_call_on_both_sides() {
 	assert!(survivor == call_a || survivor == call_b);
 	// The losing local id is an alias of the survivor and the loser's
 	// controller can still act on the incoming call it was folded into.
-	let (loser_node, loser_id) =
-		if survivor == call_a { (&b, call_b) } else { (&a, call_a) };
+	let (loser_node, loser_id) = if survivor == call_a {
+		(&b, call_b)
+	} else {
+		(&a, call_a)
+	};
 	assert_eq!(loser_node.state.call(loser_id).unwrap().id, survivor);
 	// Never auto-accepted.
 	assert_eq!(
-		[a.state.call(survivor).unwrap().state, b.state.call(survivor).unwrap().state]
-			.iter()
-			.filter(|s| **s == CallState::IncomingRinging)
-			.count(),
+		[
+			a.state.call(survivor).unwrap().state,
+			b.state.call(survivor).unwrap().state
+		]
+		.iter()
+		.filter(|s| **s == CallState::IncomingRinging)
+		.count(),
 		1
 	);
 }
@@ -199,7 +253,12 @@ fn explicit_parallel_calls_are_not_coalesced() {
 		let (call, session) = (a.ids.call(), a.ids.session());
 		a.command(
 			ca,
-			Command::StartCall { call, session, peer: b.key, allow_parallel_same_peer: true },
+			Command::StartCall {
+				call,
+				session,
+				peer: b.key,
+				allow_parallel_same_peer: true,
+			},
 		)
 		.unwrap();
 	}
@@ -214,7 +273,11 @@ fn link_loss_interrupts_active_and_fails_others() {
 	assert!(f.gate_open());
 	let out = f.node.feed(Input::Peer(PeerEvent::LinkDown(peer())));
 	assert_eq!(f.view().state, CallState::Interrupted);
-	assert_eq!(f.view().route, TransmitRoute::RECEIVE_ONLY, "consent never revives");
+	assert_eq!(
+		f.view().route,
+		TransmitRoute::RECEIVE_ONLY,
+		"consent never revives"
+	);
 	assert!(!common::gate_in(&out.effects, f.call).unwrap().open);
 	// Reconnect resumes the call but not the route.
 	f.node.link_up(peer());
@@ -228,8 +291,17 @@ fn link_loss_interrupts_active_and_fails_others() {
 fn lifecycle_table_has_no_exits_from_terminal_states() {
 	use CallState::*;
 	let all = [
-		Preparing, OutgoingRinging, IncomingRinging, Connecting, Active, Interrupted, Ending,
-		Ended, Declined, Cancelled, Failed,
+		Preparing,
+		OutgoingRinging,
+		IncomingRinging,
+		Connecting,
+		Active,
+		Interrupted,
+		Ending,
+		Ended,
+		Declined,
+		Cancelled,
+		Failed,
 	];
 	for from in all.into_iter().filter(|s| s.is_terminal()) {
 		assert!(all.iter().all(|to| !from.can_transition_to(*to)));
