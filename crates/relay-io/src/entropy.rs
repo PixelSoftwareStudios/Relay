@@ -2,6 +2,18 @@
 
 use rand::RngExt;
 
+/// `N` fresh random bytes from the operating system's CSPRNG.
+pub fn random_bytes<const N: usize>() -> [u8; N] {
+	let mut bytes = [0u8; N];
+	OsEntropy.fill(&mut bytes);
+	bytes
+}
+
+/// `N` fresh random bytes as lowercase hex (`2 * N` characters).
+pub fn random_hex<const N: usize>() -> String {
+	hex::encode(random_bytes::<N>())
+}
+
 /// Randomness from the operating system's CSPRNG (via the thread-local generator
 /// that the `rand` crate seeds from it).
 #[derive(Debug, Default, Clone, Copy)]

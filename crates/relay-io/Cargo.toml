@@ -10,6 +10,7 @@ description = "OS-level I/O helpers: filesystem, locks, processes, clocks, entro
 relay-messages.workspace = true
 directories.workspace = true
 rand.workspace = true
+hex.workspace = true
 thiserror.workspace = true
 
 fs4.workspace = true

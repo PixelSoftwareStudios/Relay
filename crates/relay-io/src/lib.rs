@@ -25,5 +25,7 @@ pub mod lock;
 pub mod paths;
 pub mod proc;
 pub mod sink;
+mod sync;
 
 pub use error::{IoError, Result};
+pub use sync::{LockExt, RwLockExt};
