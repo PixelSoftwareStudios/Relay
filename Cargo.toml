@@ -11,6 +11,7 @@ members = [
 	"crates/relay-platform",
 	"crates/relay-client",
 	"crates/relay-ui",
+	"crates/relay-messages",
 	"apps/relay-cli",
 	"apps/relay-daemon",
 	"apps/relay-desktop",
@@ -27,6 +28,7 @@ default-members = [
 	"crates/relay-engine",
 	"crates/relay-platform",
 	"crates/relay-client",
+	"crates/relay-messages",
 	"apps/relay-cli",
 	"apps/relay-daemon",
 	"benches",
@@ -51,6 +53,7 @@ relay-engine = { path = "crates/relay-engine" }
 relay-platform = { path = "crates/relay-platform" }
 relay-client = { path = "crates/relay-client" }
 relay-ui = { path = "crates/relay-ui" }
+relay-messages = { path = "crates/relay-messages" }
 
 # Audio devices, buffering, resampling and codec
 cpal = "0.18.2"
