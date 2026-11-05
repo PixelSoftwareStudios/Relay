@@ -51,18 +51,43 @@ left untouched.
 | `trust(public_key, display_name, level, first_seen)` | TOFU / Verified peers; `CHECK` on key length and level |
 | `avatars(hash, data, size, last_used)` | Content-addressed avatar blobs, LRU evicted |
 | `state(key, value)` | Small internal flags: local avatar hash |
+| `channels`, `channel_*` | Channel metadata (see below) |
 
 `Preferences::config_version` (currently 1) is the data-model version stored in `prefs`; it is
 separate from the SQL schema version.
 
-### Reserved: channels
+### Channels
 
-The channel feature (`docs/channels.md`) will add its tables as the next migration entry. That
-work is intentionally not done yet: the `ChannelStore` trait lives in `relay-net`, and its records
-hold PAKE-equivalent secrets and signing keys, which by the rule above belong in the OS credential
-store, not in this database. The expected split is non-secret metadata rows here and secret
-material in the credential store (or one blob encrypted with a key held there). Needs a decision
-before implementation.
+Channel state (`docs/channels.md`) is stored by `channels::ChannelStorage`, which is generic and
+knows nothing about the channel protocol: certificates, delegations and revocations are opaque
+blobs, policy flags and roles are small integers the caller defines.
+
+| Table | Purpose |
+|---|---|
+| `channels` | id, name, flags, role, owner public key, optional delegation and own certificate (public blobs) |
+| `channel_issued`, `channel_revocations`, `channel_invites` | Issued-certificate expiries, revocation blobs, invite id/expiry/uses left (children of `channels`, `ON DELETE CASCADE`) |
+| `channel_secrets` | Manifest of vault entries: `(channel, slot, generation, state)` with state `pending`, `committed` or `dead` |
+
+**Secrets are never in SQLite.** The owner signing key, the password-derived credential and the
+invite credentials go to a `vault::SecretVault` keyed by `(channel id, slot)`: the OS credential
+store by default (`KeyringVault`), or 0600 files in `channel-secrets/` only when
+`identity.key_storage = "insecure_file"` (`FileVault`, same explicit opt-in as the identity key);
+`MemoryVault` is for tests. `vault::open_vault(&prefs, &paths)` picks the right one.
+
+Writes keep the two stores consistent without orphans:
+
+1. The new secret versions are recorded as `pending` generations and committed.
+2. They are written to the vault under `slot.generation` names (old versions stay untouched).
+3. One transaction writes the metadata, marks the new generations `committed` and the
+   superseded or removed ones `dead`.
+4. Dead generations are wiped from the vault and their rows deleted.
+
+If step 2 or 3 fails, the staged vault entries are removed again. If the process dies at any
+point, `ChannelStorage::open` wipes remaining `pending` and `dead` entries, so a crash never
+leaves a secret without a record and never loses a committed one. `update` runs the caller's
+closure once with the connection held, as one read-modify-write, so single-use invites cannot be
+spent twice. The engine adapter is `daemon::SqliteChannelStore`, implementing
+`relay_net::channel::ChannelStore` (this crate does not depend on `relay-net`).
 
 ## Rules
 
