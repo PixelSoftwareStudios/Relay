@@ -104,6 +104,9 @@ pub struct Network {
 	/// TCP port for inbound peer links. Fixed by default so a manually entered
 	/// `ip:port` stays valid across restarts; `0` picks a free port each run.
 	pub listen_port: u16,
+	/// Accept 100.64.0.0/10 (Tailscale / CGNAT overlay) addresses the user types or
+	/// pastes. Never applies to discovered, advertised or peer-supplied addresses.
+	pub allow_overlay_manual: bool,
 }
 
 /// The default peer-link port.
@@ -116,6 +119,7 @@ impl Default for Network {
 			interface_policy: "eligible_local_interfaces".to_owned(),
 			allow_wan: false,
 			listen_port: DEFAULT_LISTEN_PORT,
+			allow_overlay_manual: false,
 		}
 	}
 }

@@ -164,3 +164,29 @@ fn read_only_peek_needs_no_lock_and_writes_nothing() {
 		Some(chosen_mic())
 	);
 }
+
+#[test]
+fn overlay_manual_entry_is_off_until_the_user_enables_it() {
+	let dir = tempfile::tempdir().unwrap();
+	let (store, _) = store(&dir);
+	assert_eq!(store.get("network.allow_overlay_manual").unwrap(), "false");
+	assert!(
+		!store
+			.load()
+			.unwrap()
+			.preferences
+			.network
+			.allow_overlay_manual
+	);
+	store.set("network.allow_overlay_manual", "true").unwrap();
+	assert!(
+		store
+			.load()
+			.unwrap()
+			.preferences
+			.network
+			.allow_overlay_manual
+	);
+	assert!(store.set("network.allow_overlay_manual", "yes").is_err());
+	assert_eq!(store.get("network.listen_port").unwrap(), "47800");
+}
