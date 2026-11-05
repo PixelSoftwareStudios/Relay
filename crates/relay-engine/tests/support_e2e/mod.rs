@@ -61,7 +61,7 @@ pub struct Sim {
 }
 
 impl Sim {
-	fn start(backend: SharedBackend, signal: Signal) -> Self {
+	pub fn start(backend: SharedBackend, signal: Signal) -> Self {
 		let capture = Arc::new(Mutex::new(None));
 		let playback = Arc::new(Mutex::new(None));
 		let signal = Arc::new(Mutex::new(signal));

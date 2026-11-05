@@ -1,6 +1,6 @@
 //! Everything loaded from disk before the service starts.
 
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 use relay_config::avatar::AvatarCache;
 use relay_config::fsx::WriterLock;
@@ -12,6 +12,7 @@ use relay_net::identity::{Identity, PublicKey};
 
 use super::error::DaemonError;
 use super::settings::FileSettings;
+use crate::peers::{ConfigTrust, SharedTrust};
 use crate::service::{ControlHandle, GateReader};
 
 /// Process-wide facts and stores handed to the adapter factory.
@@ -30,8 +31,12 @@ pub struct Environment {
 	pub identity: StoredIdentity,
 	/// Where the identity lives, for display.
 	pub identity_storage: &'static str,
+	/// The local identity as the secure transport uses it.
+	pub transport_identity: Arc<Identity>,
 	/// Persistent trust store sharing the writer lock.
-	pub trust: Arc<Mutex<TrustStore>>,
+	pub trust: SharedTrust,
+	/// The engine incarnation clients see; peers and media echo it.
+	pub incarnation: [u8; 16],
 	/// Preferences and avatar persistence.
 	pub settings: Arc<FileSettings>,
 	/// Avatar cache (shared with peers for received avatars).
@@ -51,7 +56,8 @@ pub(super) struct Loaded {
 	pub local: DeviceKeyId,
 	pub identity: StoredIdentity,
 	pub identity_storage: &'static str,
-	pub trust: Arc<Mutex<TrustStore>>,
+	pub transport_identity: Arc<Identity>,
+	pub trust: SharedTrust,
 	pub settings: Arc<FileSettings>,
 	pub avatars: Arc<AvatarCache>,
 }
@@ -94,7 +100,11 @@ pub(super) fn load(
 			.as_bytes(),
 	);
 
-	let trust = TrustStore::open(&storage.database)?;
+	let trust = SharedTrust::new(ConfigTrust::new(TrustStore::open(&storage.database)?));
+	let transport_identity = Arc::new(
+		Identity::from_secret_bytes(*identity.secret.expose())
+			.map_err(|e| DaemonError::Identity(e.to_string()))?,
+	);
 
 	let avatars = Arc::new(AvatarCache::new(&storage.database));
 	let settings = Arc::new(FileSettings::new(
@@ -110,7 +120,8 @@ pub(super) fn load(
 		notices,
 		local,
 		identity,
-		trust: Arc::new(Mutex::new(trust)),
+		transport_identity,
+		trust,
 		settings,
 		avatars,
 	})

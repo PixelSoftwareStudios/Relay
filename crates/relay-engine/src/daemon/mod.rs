@@ -1,125 +1,64 @@
-//! The engine process: loads configuration and identity, serves the local
-//! API on an owner-only socket and shuts down gracefully.
+//! The engine process: loads configuration and identity, wires the peer and
+//! media adapters, serves the local API and shuts down gracefully.
 
+mod assemble;
 mod channel_store;
 mod env;
 mod error;
+mod glue;
+mod notice;
+mod options;
 mod settings;
+mod transport;
 
-use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use relay_api::pb::Problem;
-use relay_api::{
-	ApiLimits, ClientValidator, UdsListener, current_uid, default_socket_path, serve_unix,
-};
-use relay_config::identity::IdentityStore;
-use relay_config::{Notice, Paths};
-use relay_core::Limits;
+use relay_api::{ClientValidator, Endpoint};
+use relay_config::Notice;
+use relay_core::DeviceKeyId;
 use tokio::sync::oneshot;
 use tokio::task::JoinHandle;
 
 pub use channel_store::SqliteChannelStore;
 pub use env::Environment;
 pub use error::DaemonError;
+pub use options::{
+	AdapterFactory, AudioSetup, BackendFactory, NetworkOptions, RunOptions, Transport,
+};
 pub use settings::FileSettings;
 
-use crate::service::{
-	ControlHandle, Entropy, GateReader, Ports, Service, ServiceBuilder, ServiceConfig,
-};
+use crate::service::{ControlHandle, GateReader, Service, ServiceBuilder, ServiceConfig};
 
 /// How long open streams get to finish after the service stopped.
 const SERVER_DRAIN: Duration = Duration::from_secs(2);
-
-/// Builds the adapters once the environment (and the control handle they
-/// report to) exists.
-pub type AdapterFactory = Box<dyn FnOnce(&Environment) -> Ports + Send>;
-
-/// Everything the daemon needs to start.
-pub struct RunOptions {
-	/// Where configuration and data live.
-	pub paths: Paths,
-	/// Socket to bind; `None` uses the per-user default.
-	pub socket: Option<PathBuf>,
-	/// Identity storage override; `None` follows the preferences.
-	pub identity_store: Option<Box<dyn IdentityStore>>,
-	/// Adapter factory; `None` serves settings only and reports every other
-	/// capability as unsupported.
-	pub adapters: Option<AdapterFactory>,
-	/// Domain limits (may only tighten the design ceilings).
-	pub limits: Limits,
-	/// Transport limits.
-	pub api: ApiLimits,
-	/// Quiet time after which a client without streams is detached.
-	pub idle_client_ttl: Duration,
-	/// Identifier randomness; `None` uses the OS.
-	pub entropy: Option<Arc<dyn Entropy>>,
-}
-
-impl RunOptions {
-	/// Defaults for the given directories.
-	pub fn new(paths: Paths) -> Self {
-		Self {
-			paths,
-			socket: None,
-			identity_store: None,
-			adapters: None,
-			limits: Limits::default(),
-			api: ApiLimits::DEFAULT,
-			idle_client_ttl: Duration::from_secs(300),
-			entropy: None,
-		}
-	}
-}
-
-fn notice_problem(notice: &Notice) -> Problem {
-	let (code, message) = match notice {
-		Notice::PreferencesRecoveredFromBackup => (
-			"PREFERENCES_RECOVERED",
-			"Preferences were damaged; the backup was used and the microphone selection cleared."
-				.to_owned(),
-		),
-		Notice::PreferencesReset { .. } => (
-			"PREFERENCES_RESET",
-			"Preferences were unreadable and were reset; no microphone is selected.".to_owned(),
-		),
-		Notice::TrustRecoveredFromBackup => (
-			"TRUST_RECOVERED",
-			"The trust store was damaged; recent entries may need re-verification.".to_owned(),
-		),
-		Notice::TrustStoreLost { .. } => (
-			"TRUST_LOST",
-			"The trust store was lost; every peer must be verified again.".to_owned(),
-		),
-	};
-	Problem {
-		code: code.to_owned(),
-		message,
-		retryable: false,
-		recovery_action: "review".to_owned(),
-	}
-}
+/// Time for the final hangup messages to leave before links close.
+const SIGNAL_FLUSH: Duration = Duration::from_millis(100);
 
 /// A running daemon, for tests and embedding.
 pub struct DaemonHandle {
-	socket: PathBuf,
+	endpoint: Endpoint,
+	leftover: std::path::PathBuf,
 	service: Service,
+	adapters: Option<assemble::Adapters>,
 	shutdown: oneshot::Sender<()>,
 	server: JoinHandle<Result<(), relay_api::ApiError>>,
 	control: ControlHandle,
 	gates: GateReader,
 	notices: Vec<Notice>,
-	local: relay_core::DeviceKeyId,
+	local: DeviceKeyId,
+	listen: Option<std::net::SocketAddr>,
 }
 
 impl DaemonHandle {
-	/// Loads state, binds the socket and starts serving.
+	/// Loads state, starts the adapters, binds the endpoint and serves.
 	pub async fn start(options: RunOptions) -> Result<Self, DaemonError> {
 		let RunOptions {
 			paths,
-			socket,
+			transport,
 			identity_store,
+			network,
+			audio,
 			adapters,
 			limits,
 			api,
@@ -131,7 +70,7 @@ impl DaemonHandle {
 		config.limits = limits;
 		config.api = api;
 		config.idle_client_ttl = idle_client_ttl;
-		config.warnings = loaded.notices.iter().map(notice_problem).collect();
+		config.warnings = loaded.notices.iter().map(notice::problem).collect();
 		if let Some(entropy) = entropy {
 			config.entropy = entropy;
 		}
@@ -140,6 +79,9 @@ impl DaemonHandle {
 		let gates = builder.gates();
 		let registry = builder.registry();
 
+		// Claim the endpoint first: a second engine fails before it touches
+		// the network or the audio devices.
+		let bound = transport::bind(&transport).await?;
 		let notices = loaded.notices.clone();
 		let local = loaded.local;
 		let environment = Environment {
@@ -147,60 +89,56 @@ impl DaemonHandle {
 			lock: loaded.lock,
 			preferences: loaded.preferences,
 			notices: loaded.notices,
-			local: loaded.local,
+			local,
 			identity: loaded.identity,
 			identity_storage: loaded.identity_storage,
+			transport_identity: loaded.transport_identity,
 			trust: loaded.trust,
+			incarnation: registry.incarnation(),
 			settings: loaded.settings,
 			avatars: loaded.avatars,
 			handle: control.clone(),
 			gates: gates.clone(),
 		};
-		let ports = match adapters {
-			Some(factory) => factory(&environment),
+		let (ports, adapters, listen) = match adapters {
+			Some(factory) => (factory(&environment), None, None),
 			None => {
-				let mut ports = Ports::unwired();
-				ports.settings = environment.settings.clone();
-				ports
+				let (ports, adapters) = assemble::assemble(&environment, network, audio).await?;
+				let listen = Some(adapters.listen_addr());
+				(ports, Some(adapters), listen)
 			}
 		};
-
-		let socket = match socket {
-			Some(path) => path,
-			None => default_socket_path(
-				std::env::var_os("XDG_RUNTIME_DIR"),
-				&std::env::temp_dir(),
-				current_uid()?,
-			),
-		};
-		let listener = UdsListener::bind(&socket).await?;
 		let service = builder.start(ports)?;
+		let endpoint = bound.endpoint();
+		let leftover = bound.leftover();
 		let (shutdown, signal) = oneshot::channel();
 		let validator: Arc<dyn ClientValidator> = registry;
-		let server = tokio::spawn(serve_unix(
-			service.api.clone(),
-			listener,
-			validator,
-			api,
-			async {
-				let _ = signal.await;
-			},
-		));
+		let server = bound.serve(service.api.clone(), validator, api, async {
+			let _ = signal.await;
+		});
 		Ok(Self {
-			socket,
+			endpoint,
+			leftover,
 			service,
+			adapters,
 			shutdown,
 			server,
 			control,
 			gates,
 			notices,
 			local,
+			listen,
 		})
 	}
 
-	/// The socket clients connect to.
-	pub fn socket_path(&self) -> &std::path::Path {
-		&self.socket
+	/// Where clients connect.
+	pub fn endpoint(&self) -> &Endpoint {
+		&self.endpoint
+	}
+
+	/// The peer-link address other engines dial, once the real adapters run.
+	pub fn listen_addr(&self) -> Option<std::net::SocketAddr> {
+		self.listen
 	}
 
 	/// Handle for injecting adapter events (tests, embedding).
@@ -214,7 +152,7 @@ impl DaemonHandle {
 	}
 
 	/// This device's identity digest.
-	pub fn local_peer(&self) -> relay_core::DeviceKeyId {
+	pub fn local_peer(&self) -> DeviceKeyId {
 		self.local
 	}
 
@@ -223,24 +161,30 @@ impl DaemonHandle {
 		&self.notices
 	}
 
-	/// Stops the control actor (closing every gate and releasing every
-	/// client), then the server, and removes the socket.
+	/// Stops the control actor (closing every gate, releasing every client
+	/// and ending every call), then the adapters and the server, and removes
+	/// the endpoint files.
 	pub async fn shutdown(self) -> Result<(), DaemonError> {
 		let Self {
-			socket,
+			leftover,
 			service,
+			adapters,
 			shutdown,
 			mut server,
 			..
 		} = self;
 		service.stop().await;
+		if let Some(adapters) = adapters {
+			tokio::time::sleep(SIGNAL_FLUSH).await;
+			adapters.shutdown();
+		}
 		let _ = shutdown.send(());
 		match tokio::time::timeout(SERVER_DRAIN, &mut server).await {
 			Ok(Ok(served)) => served?,
 			Ok(Err(_)) => {}
 			Err(_) => server.abort(),
 		}
-		let _ = std::fs::remove_file(&socket);
+		let _ = std::fs::remove_file(&leftover);
 		Ok(())
 	}
 }
@@ -248,10 +192,21 @@ impl DaemonHandle {
 /// Runs the engine until SIGINT or SIGTERM.
 pub async fn run(options: RunOptions) -> Result<(), DaemonError> {
 	let daemon = DaemonHandle::start(options).await?;
-	tracing::info!(socket = %daemon.socket_path().display(), "engine listening");
+	tracing::info!(
+		endpoint = %relay_client_describe(daemon.endpoint()),
+		"engine listening"
+	);
 	wait_for_signal().await?;
 	tracing::info!("shutting down");
 	daemon.shutdown().await
+}
+
+fn relay_client_describe(endpoint: &Endpoint) -> String {
+	match endpoint {
+		#[cfg(unix)]
+		Endpoint::Unix(path) => path.display().to_string(),
+		Endpoint::LoopbackTcp { profile_path } => format!("tcp via {}", profile_path.display()),
+	}
 }
 
 #[cfg(unix)]

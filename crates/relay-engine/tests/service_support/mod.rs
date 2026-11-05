@@ -11,7 +11,7 @@ use relay_api::{Endpoint, RelayClient};
 use relay_config::Paths;
 use relay_config::identity::MemoryStore;
 use relay_core::{CallId, DeviceKeyId, PeerEvent, PeerMessage, SessionId, SystemEvent};
-use relay_engine::daemon::{DaemonHandle, RunOptions};
+use relay_engine::daemon::{DaemonHandle, RunOptions, Transport};
 use relay_engine::service::fakes::FakePorts;
 use tempfile::TempDir;
 
@@ -39,7 +39,7 @@ impl Rig {
 		let fakes = FakePorts::default();
 		let ports = fakes.ports();
 		let mut options = RunOptions::new(Paths::under(dir.path().join("cfg")));
-		options.socket = Some(socket.clone());
+		options.transport = Transport::Unix(Some(socket.clone()));
 		options.identity_store = Some(Box::new(MemoryStore::default()));
 		options.adapters = Some(Box::new(move |_| ports));
 		tune(&mut options);
@@ -66,8 +66,12 @@ impl Rig {
 }
 
 pub fn ctx(client: &RelayClient, op: u8) -> MutationContext {
+	mctx(client.context(), op)
+}
+
+pub fn mctx(client: Option<relay_api::pb::ClientContext>, op: u8) -> MutationContext {
 	MutationContext {
-		client: client.context(),
+		client,
 		operation_id: vec![op; 16],
 		expected_revision: None,
 	}

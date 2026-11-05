@@ -16,6 +16,12 @@ pub enum DaemonError {
 	/// The control service rejected its configuration.
 	#[error("service: {0}")]
 	Service(#[from] ServiceError),
+	/// The peer manager could not start.
+	#[error("peers: {0}")]
+	Peers(#[from] crate::peers::PeerError),
+	/// The media system could not start.
+	#[error("media: {0}")]
+	Media(std::io::Error),
 	/// The identity key could not be created or read.
 	#[error("identity: {0}")]
 	Identity(String),

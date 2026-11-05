@@ -63,7 +63,9 @@ impl MediaControl for MediaSystem {
 
 	fn set_microphone_gain(&self, gain: f32) -> Result<(), PortError> {
 		if !gain.is_finite() || !(0.0..=4.0).contains(&gain) {
-			return Err(PortError::Invalid("gain must be within 0.0..=4.0".to_owned()));
+			return Err(PortError::Invalid(
+				"gain must be within 0.0..=4.0".to_owned(),
+			));
 		}
 		self.inner
 			.capture

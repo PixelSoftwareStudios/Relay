@@ -1,0 +1,154 @@
+//! Tasks that carry adapter output into the control actor and surface what
+//! needs the user's attention.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use relay_api::pb::Problem;
+use tokio::sync::mpsc;
+use tokio::task::JoinHandle;
+
+use crate::media::{EventSink, MediaEvent, MediaSystem};
+use crate::peers::{PeerAdapter, PeerOutput, fingerprint};
+use crate::service::ControlHandle;
+use crate::service::ports::{DeviceControl, PeerControl, PeerInfo, PeerTrust};
+
+const DEVICE_POLL: Duration = Duration::from_secs(1);
+
+fn problem(code: &str, message: String, recovery: &str) -> Problem {
+	Problem {
+		code: code.to_owned(),
+		message,
+		retryable: false,
+		recovery_action: recovery.to_owned(),
+	}
+}
+
+fn flagged(peer: relay_core::PeerId, name: String, trust: PeerTrust) -> PeerInfo {
+	PeerInfo {
+		display_name: name,
+		trust,
+		..PeerInfo::bare(peer)
+	}
+}
+
+/// A media sink that never blocks the worker calling it, and the task that
+/// delivers its events to the control actor.
+pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>) {
+	let (tx, mut rx) = mpsc::unbounded_channel::<MediaEvent>();
+	let sink: EventSink = Arc::new(move |event| {
+		let _ = tx.send(event);
+	});
+	let task = tokio::spawn(async move {
+		while let Some(event) = rx.recv().await {
+			let sent = match event {
+				MediaEvent::System(event) => handle.system(event).await,
+				MediaEvent::Peer(event) => handle.peer(event).await,
+				MediaEvent::OutputLost => {
+					let warning = problem(
+						"OUTPUT_DEVICE_LOST",
+						"The playback device went away; remote audio is paused.".to_owned(),
+						"select_output_device",
+					);
+					handle.attention(None, warning).await
+				}
+			};
+			if sent.is_err() {
+				break;
+			}
+		}
+	});
+	(sink, task)
+}
+
+/// Routes peer-manager output to the domain, to media and to the API.
+pub(super) fn peer_output(
+	mut output: mpsc::Receiver<PeerOutput>,
+	handle: ControlHandle,
+	media: MediaSystem,
+	adapter: Arc<PeerAdapter>,
+) -> JoinHandle<()> {
+	tokio::spawn(async move {
+		while let Some(item) = output.recv().await {
+			let refresh = matches!(
+				item,
+				PeerOutput::Profile { .. }
+					| PeerOutput::AvatarReady { .. }
+					| PeerOutput::Core(
+						relay_core::PeerEvent::LinkUp(_) | relay_core::PeerEvent::LinkDown(_)
+					)
+			);
+			let delivered = match item {
+				PeerOutput::Core(event) => handle.peer(event).await,
+				PeerOutput::Media { peer, signal } => {
+					media.handle_signal(peer, signal);
+					Ok(())
+				}
+				PeerOutput::TrustRequired { peer, name, .. } => {
+					let warning = problem(
+						"TRUST_REQUIRED",
+						format!(
+							"`{name}` ({}) is waiting for a trust decision",
+							fingerprint(peer).short()
+						),
+						"decide_peer_trust",
+					);
+					let info = flagged(peer, name, PeerTrust::Unknown);
+					handle.attention(Some(info), warning).await
+				}
+				PeerOutput::KeyChanged {
+					peer,
+					name,
+					previous,
+				} => {
+					let warning = problem(
+						"PEER_KEY_CHANGED",
+						format!(
+							"`{name}` presented key {} instead of the pinned {}; the link was refused",
+							fingerprint(peer).short(),
+							fingerprint(previous).short()
+						),
+						"verify_out_of_band",
+					);
+					let info = flagged(peer, name, PeerTrust::KeyChanged);
+					handle.attention(Some(info), warning).await
+				}
+				PeerOutput::AvatarRejected { peer, reason, .. } => {
+					let warning = problem(
+						"AVATAR_REJECTED",
+						format!(
+							"avatar from {} refused: {reason}",
+							fingerprint(peer).short()
+						),
+						"",
+					);
+					handle.attention(None, warning).await
+				}
+				PeerOutput::Profile { .. } | PeerOutput::AvatarReady { .. } => Ok(()),
+			};
+			if delivered.is_err() {
+				break;
+			}
+			if refresh && handle.peers_changed(adapter.peers()).await.is_err() {
+				break;
+			}
+		}
+	})
+}
+
+/// Publishes device list changes; the device thread only exposes a listing.
+pub(super) fn device_watch(media: MediaSystem, handle: ControlHandle) -> JoinHandle<()> {
+	tokio::spawn(async move {
+		let mut known = media.devices();
+		loop {
+			tokio::time::sleep(DEVICE_POLL).await;
+			let now = media.devices();
+			if now != known {
+				known.clone_from(&now);
+				if handle.devices_changed(now).await.is_err() {
+					break;
+				}
+			}
+		}
+	})
+}

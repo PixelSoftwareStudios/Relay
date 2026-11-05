@@ -3,64 +3,167 @@
 
 #[macro_use]
 mod service_support;
+mod support_daemon;
 
 use std::time::Duration;
 
 use relay_api::pb::{
-	AcquireControllerRequest, SelectDevicesRequest, SetProfileRequest, StartCallRequest,
+	AcquireControllerRequest, SelectDevicesRequest, SetGlobalControlsRequest,
+	SetNoiseSuppressionRequest, SetProfileRequest, StartCallRequest, StartMicTestRequest,
 	TelemetryRequest, UploadAvatarRequest, start_call_request::Target,
 };
-use relay_api::{Endpoint, RelayClient, WatchOptions};
+use relay_api::{RelayClient, WatchOptions};
 use relay_config::Paths;
-use relay_config::identity::{InsecureFileStore, MemoryStore};
+use relay_config::identity::InsecureFileStore;
 use relay_config::prefs::{KeyStorage, PreferenceStore};
-use relay_engine::daemon::{DaemonError, DaemonHandle, RunOptions};
+use relay_engine::daemon::{DaemonError, DaemonHandle, RunOptions, Transport};
 use service_support::*;
+use support_daemon::{Sim, engine_options};
 use tonic::Code;
 
-fn options(dir: &std::path::Path, socket: &str) -> RunOptions {
-	let mut options = RunOptions::new(Paths::under(dir.join("cfg")));
-	options.socket = Some(dir.join(socket));
-	options.identity_store = Some(Box::new(MemoryStore::default()));
-	options
+fn options(dir: &std::path::Path, socket: &str) -> (RunOptions, Sim) {
+	let (mut options, sim) = engine_options(dir, 440.0);
+	options.transport = Transport::Unix(Some(dir.join(socket)));
+	(options, sim)
+}
+
+async fn start(dir: &std::path::Path, socket: &str) -> (DaemonHandle, Sim) {
+	let (options, sim) = options(dir, socket);
+	(DaemonHandle::start(options).await.expect("start"), sim)
+}
+
+async fn connect(daemon: &DaemonHandle) -> RelayClient {
+	let mut client = RelayClient::connect(daemon.endpoint())
+		.await
+		.expect("connect");
+	client
+		.register("relay-cli", "test", &[])
+		.await
+		.expect("register");
+	client
 }
 
 #[tokio::test]
-async fn capabilities_owned_by_other_modules_report_unimplemented() {
+async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 	let dir = tempfile::Builder::new()
 		.prefix("rly")
 		.tempdir_in("/tmp")
 		.expect("dir");
-	let daemon = DaemonHandle::start(options(dir.path(), "e.sock"))
-		.await
-		.expect("start");
-	let mut cli = RelayClient::connect(&Endpoint::Unix(daemon.socket_path().to_path_buf()))
-		.await
-		.expect("connect");
-	cli.register("relay-cli", "test", &[])
-		.await
-		.expect("register");
+	let (daemon, _sim) = start(dir.path(), "e.sock").await;
+	let mut cli = connect(&daemon).await;
 
-	let request = SelectDevicesRequest {
-		context: Some(ctx(&cli, 1)),
-		input_device_id: "mic".to_owned(),
+	// The fake hardware is listed; a real id selects, a made-up one fails loudly.
+	let devices = eventually!(
+		Some(cli.snapshot().await.expect("snapshot").devices).filter(|d| !d.is_empty())
+	);
+	let mic = devices
+		.iter()
+		.find(|d| d.direction == relay_api::pb::DeviceDirection::Input as i32)
+		.expect("a microphone")
+		.device_id
+		.clone();
+	let me = cli.context();
+	let select = |op: u8, input: &str| SelectDevicesRequest {
+		context: Some(mctx(me.clone(), op)),
+		input_device_id: input.to_owned(),
 		output_device_id: String::new(),
+	};
+	let request = select(1, &mic);
+	assert_applied(
+		&cli.raw()
+			.select_devices(request)
+			.await
+			.expect("rpc")
+			.into_inner(),
+	);
+	let request = select(2, "in:ghost:nothing");
+	assert_failed(
+		&cli.raw()
+			.select_devices(request)
+			.await
+			.expect("rpc")
+			.into_inner(),
+		"NOT_FOUND",
+	);
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert_eq!(settings.input_device_id, mic);
+
+	// Noise suppression: off is a bypass; an unqualified backend is refused.
+	let noise = |op: u8, id: &str| SetNoiseSuppressionRequest {
+		context: Some(mctx(me.clone(), op)),
+		qualified_backend_id: id.to_owned(),
+	};
+	let request = noise(3, "off");
+	assert_applied(
+		&cli.raw()
+			.set_noise_suppression(request)
+			.await
+			.expect("rpc")
+			.into_inner(),
+	);
+	let request = noise(4, "rnnoise");
+	assert_failed(
+		&cli.raw()
+			.set_noise_suppression(request)
+			.await
+			.expect("rpc")
+			.into_inner(),
+		"UNAVAILABLE",
+	);
+
+	// Microphone gain is applied to capture and shown in settings.
+	let request = SetGlobalControlsRequest {
+		context: Some(ctx(&cli, 5)),
+		muted: None,
+		deafened: None,
+		microphone_gain: Some(0.5),
+		playback_gain: None,
+	};
+	assert_applied(
+		&cli.raw()
+			.set_global_controls(request)
+			.await
+			.expect("rpc")
+			.into_inner(),
+	);
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert!((settings.microphone_gain - 0.5).abs() < 1e-3);
+
+	// A manual address nobody answers at: the dial starts, the call waits.
+	let request = StartCallRequest {
+		context: Some(ctx(&cli, 6)),
+		target: Some(Target::ManualLocalAddress("127.0.0.1:9".to_owned())),
+		allow_parallel_same_peer: false,
 	};
 	let error = cli
 		.raw()
-		.select_devices(request)
+		.start_call(request)
 		.await
-		.expect_err("unwired");
-	assert_eq!(error.code(), Code::Unimplemented);
+		.expect_err("not known yet");
+	assert_eq!(error.code(), Code::FailedPrecondition);
 
-	let request = StartCallRequest {
-		context: Some(ctx(&cli, 2)),
-		target: Some(Target::ManualLocalAddress("192.168.1.9:7000".to_owned())),
-		allow_parallel_same_peer: false,
+	// Owned by nobody yet.
+	let request = StartMicTestRequest {
+		context: Some(ctx(&cli, 7)),
+		local_playback: false,
+		confirmed_feedback_warning: false,
 	};
-	let error = cli.raw().start_call(request).await.expect_err("unwired");
+	let error = cli
+		.raw()
+		.start_mic_test(request)
+		.await
+		.expect_err("mic test");
 	assert_eq!(error.code(), Code::Unimplemented);
-
 	let request = TelemetryRequest {
 		client: cli.context(),
 		call_ids: Vec::new(),
@@ -74,12 +177,6 @@ async fn capabilities_owned_by_other_modules_report_unimplemented() {
 		.map(|_| ())
 		.expect_err("telemetry");
 	assert_eq!(error.code(), Code::Unimplemented);
-
-	// Nothing was recorded for the refused operations: a retry after wiring works.
-	assert_eq!(
-		code_of(&cli.get_operation(&[1; 16]).await.expect_err("unrecorded")),
-		Code::NotFound
-	);
 	daemon.shutdown().await.expect("shutdown");
 }
 
@@ -89,15 +186,8 @@ async fn profile_changes_persist_and_bad_avatars_fail_visibly() {
 		.prefix("rly")
 		.tempdir_in("/tmp")
 		.expect("dir");
-	let daemon = DaemonHandle::start(options(dir.path(), "e.sock"))
-		.await
-		.expect("start");
-	let mut cli = RelayClient::connect(&Endpoint::Unix(daemon.socket_path().to_path_buf()))
-		.await
-		.expect("connect");
-	cli.register("relay-cli", "test", &[])
-		.await
-		.expect("register");
+	let (daemon, _sim) = start(dir.path(), "e.sock").await;
+	let mut cli = connect(&daemon).await;
 
 	let request = SetProfileRequest {
 		context: Some(ctx(&cli, 1)),
@@ -152,17 +242,19 @@ async fn identity_survives_restart_and_one_process_owns_the_config() {
 		.expect("dir");
 	let key_file = dir.path().join("identity.key");
 	let make = |socket: &str| {
-		let mut options = options(dir.path(), socket);
+		let (mut options, sim) = options(dir.path(), socket);
 		options.identity_store = Some(Box::new(
 			InsecureFileStore::new(&key_file, KeyStorage::InsecureFile).expect("store"),
 		));
-		options
+		(options, sim)
 	};
-	let first = DaemonHandle::start(make("a.sock")).await.expect("first");
+	let (first_options, _sim_a) = make("a.sock");
+	let first = DaemonHandle::start(first_options).await.expect("first");
 	let local = first.local_peer();
 
 	// A second engine on the same configuration is refused, not interleaved.
-	let Err(error) = DaemonHandle::start(make("b.sock")).await else {
+	let (second_options, _sim_b) = make("b.sock");
+	let Err(error) = DaemonHandle::start(second_options).await else {
 		panic!("second writer must be refused");
 	};
 	assert!(
@@ -174,7 +266,8 @@ async fn identity_survives_restart_and_one_process_owns_the_config() {
 	);
 	first.shutdown().await.expect("shutdown");
 
-	let second = DaemonHandle::start(make("a.sock")).await.expect("restart");
+	let (third_options, _sim_c) = make("a.sock");
+	let second = DaemonHandle::start(third_options).await.expect("restart");
 	assert_eq!(second.local_peer(), local);
 	second.shutdown().await.expect("shutdown");
 }
@@ -182,7 +275,7 @@ async fn identity_survives_restart_and_one_process_owns_the_config() {
 #[tokio::test]
 async fn a_second_engine_cannot_take_over_a_live_socket() {
 	let first = Rig::start().await;
-	let mut other = options(first.dir.path(), "e.sock");
+	let (mut other, _sim) = options(first.dir.path(), "e.sock");
 	other.paths = Paths::under(first.dir.path().join("other"));
 	let Err(error) = DaemonHandle::start(other).await else {
 		panic!("live socket must not be stolen");
@@ -266,15 +359,8 @@ async fn name_defaults_to_the_hostname_and_the_avatar_is_normalized() {
 		.prefix("rly")
 		.tempdir_in("/tmp")
 		.expect("dir");
-	let daemon = DaemonHandle::start(options(dir.path(), "e.sock"))
-		.await
-		.expect("start");
-	let mut cli = RelayClient::connect(&Endpoint::Unix(daemon.socket_path().to_path_buf()))
-		.await
-		.expect("connect");
-	cli.register("relay-cli", "test", &[])
-		.await
-		.expect("register");
+	let (daemon, _sim) = start(dir.path(), "e.sock").await;
+	let mut cli = connect(&daemon).await;
 
 	let host = gethostname::gethostname().to_string_lossy().into_owned();
 	let settings = cli
