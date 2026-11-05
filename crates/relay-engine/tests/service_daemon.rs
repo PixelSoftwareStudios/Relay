@@ -135,14 +135,9 @@ async fn profile_changes_persist_and_bad_avatars_fail_visibly() {
 	assert_failed(&failed, "INVALID_REQUEST");
 
 	daemon.shutdown().await.expect("shutdown");
-	let lock = std::sync::Arc::new(
-		relay_config::fsx::WriterLock::acquire(
-			&Paths::under(dir.path().join("cfg")).writer_lock_file(),
-		)
-		.expect("lock released on shutdown"),
-	);
-	let paths = Paths::under(dir.path().join("cfg"));
-	let loaded = PreferenceStore::open(paths.preferences_file(), lock)
+	let storage = relay_config::Storage::open(&Paths::under(dir.path().join("cfg")))
+		.expect("lock released on shutdown");
+	let loaded = PreferenceStore::open(&storage.database)
 		.expect("open")
 		.load()
 		.expect("load");

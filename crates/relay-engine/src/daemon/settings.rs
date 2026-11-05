@@ -8,7 +8,7 @@ use relay_net::discovery::sanitize_display_name;
 
 use crate::service::ports::{PortError, SettingsChange, SettingsStore, StoredSettings};
 
-/// [`SettingsStore`] backed by the preference file and the avatar cache.
+/// [`SettingsStore`] backed by the per-user SQLite preferences and avatar cache.
 #[derive(Debug)]
 pub struct FileSettings {
 	store: PreferenceStore,
@@ -51,13 +51,15 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl FileSettings {
-	/// Wraps an open store with the preferences it loaded.
+	/// Wraps an open store with the preferences it loaded. The local avatar hash
+	/// persisted by an earlier run is restored if its bytes are still cached.
 	pub fn new(store: PreferenceStore, avatars: AvatarCache, loaded: Preferences) -> Self {
+		let avatar = avatars.local().ok().flatten();
 		Self {
 			store,
 			avatars,
 			current: Mutex::new(loaded),
-			avatar: Mutex::new(None),
+			avatar: Mutex::new(avatar),
 		}
 	}
 }
@@ -109,6 +111,9 @@ impl SettingsStore for FileSettings {
 		let avatar = process_avatar(encoded).map_err(|e| PortError::Invalid(e.to_string()))?;
 		self.avatars
 			.put(&avatar)
+			.map_err(|e| PortError::Unavailable(e.to_string()))?;
+		self.avatars
+			.set_local(&avatar.hash)
 			.map_err(|e| PortError::Unavailable(e.to_string()))?;
 		*lock(&self.avatar) = Some(avatar.hash);
 		Ok(avatar.hash)

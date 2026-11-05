@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use relay_config::db::Database;
 use relay_config::fsx::WriterLock;
 use relay_config::identity::TrustStore as ConfigStore;
 use relay_engine::peers::{ConfigTrust, KeyedTrustStore};
@@ -9,9 +10,9 @@ use relay_net::identity::{
 
 fn open(dir: &std::path::Path) -> ConfigTrust {
 	let lock = Arc::new(WriterLock::acquire(&dir.join("writer.lock")).unwrap());
-	let (store, notices) = ConfigStore::open(dir.join("trust.toml"), lock).unwrap();
-	assert!(notices.is_empty());
-	ConfigTrust::new(store)
+	let opened = Database::open(dir.join("relay.db"), lock).unwrap();
+	assert!(opened.notices.is_empty());
+	ConfigTrust::new(ConfigStore::open(&opened.database).unwrap())
 }
 
 fn record(identity: &Identity, name: &str, state: TrustState) -> TrustRecord {

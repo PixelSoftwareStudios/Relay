@@ -6,7 +6,7 @@ use relay_config::avatar::AvatarCache;
 use relay_config::fsx::WriterLock;
 use relay_config::identity::{IdentityStore, Secret32, StoredIdentity, TrustStore, open_store};
 use relay_config::prefs::{PreferenceStore, Preferences};
-use relay_config::{Notice, Paths};
+use relay_config::{Notice, Paths, Storage};
 use relay_core::DeviceKeyId;
 use relay_net::identity::{Identity, PublicKey};
 
@@ -68,10 +68,12 @@ pub(super) fn load(
 	paths: Paths,
 	identity_store: Option<Box<dyn IdentityStore>>,
 ) -> Result<Loaded, DaemonError> {
-	let lock = Arc::new(WriterLock::acquire(&paths.writer_lock_file())?);
-	let prefs_store = PreferenceStore::open(paths.preferences_file(), Arc::clone(&lock))?;
+	let storage = Storage::open(&paths)?;
+	let lock = Arc::clone(&storage.lock);
+	let prefs_store = PreferenceStore::open(&storage.database)?;
 	let loaded = prefs_store.load()?;
-	let mut notices = loaded.notices;
+	let mut notices = storage.notices.clone();
+	notices.extend(loaded.notices);
 	let preferences = loaded.preferences;
 
 	let store = match identity_store {
@@ -92,13 +94,12 @@ pub(super) fn load(
 			.as_bytes(),
 	);
 
-	let (trust, trust_notices) = TrustStore::open(paths.trust_file(), Arc::clone(&lock))?;
-	notices.extend(trust_notices);
+	let trust = TrustStore::open(&storage.database)?;
 
-	let avatars = Arc::new(AvatarCache::open(paths.avatar_cache_dir())?);
+	let avatars = Arc::new(AvatarCache::new(&storage.database));
 	let settings = Arc::new(FileSettings::new(
 		prefs_store,
-		AvatarCache::open(paths.avatar_cache_dir())?,
+		AvatarCache::new(&storage.database),
 		preferences.clone(),
 	));
 	Ok(Loaded {
