@@ -3,6 +3,7 @@
 #![allow(dead_code, unused_imports)]
 
 pub mod chat;
+pub mod chat_watch;
 pub mod control;
 #[cfg(unix)]
 pub mod engine;

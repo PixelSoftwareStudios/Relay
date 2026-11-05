@@ -33,6 +33,7 @@ pub struct FakeControl {
 	/// Session messaging semantics shared with the socket engine.
 	pub chat: super::chat::ChatState,
 	/// One entry per `open_session_watch`; an exhausted list opens a watch holding only the list.
+	pub on_watch_open: VecDeque<Box<dyn FnOnce(&mut super::chat::ChatState) + Send>>,
 	pub session_watches: VecDeque<Vec<Result<relay_api::SessionItem, ApiError>>>,
 }
 
@@ -57,6 +58,7 @@ impl FakeControl {
 			secrets: Vec::new(),
 			invite_failure: None,
 			chat: super::chat::ChatState::new(),
+			on_watch_open: VecDeque::new(),
 			session_watches: VecDeque::new(),
 		}
 	}
@@ -288,6 +290,9 @@ impl Messaging for FakeControl {
 		after: Option<u64>,
 	) -> Result<Self::Watch, ApiError> {
 		self.chat.log.push(format!("watch after={after:?}"));
+		if let Some(setup) = self.on_watch_open.pop_front() {
+			setup(&mut self.chat);
+		}
 		let items = self.session_watches.pop_front().unwrap_or_else(|| {
 			let list = self.chat.list();
 			vec![Ok(relay_api::SessionItem::List(SessionList {

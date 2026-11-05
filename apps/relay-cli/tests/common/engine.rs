@@ -14,7 +14,8 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
-use super::chat::{self, ChatState};
+use super::chat::ChatState;
+use super::chat_watch;
 use super::fixtures;
 
 type Resp<T> = Result<Response<T>, Status>;
@@ -410,7 +411,7 @@ impl Engine for FakeEngine {
 		self.chat(r.client.as_ref(), |_| ())?;
 		let (tx, rx) = mpsc::channel(64);
 		let incarnation = self.registry.incarnation().to_vec();
-		tokio::spawn(chat::serve_watch(
+		tokio::spawn(chat_watch::serve_watch(
 			Arc::clone(&self.chat),
 			incarnation,
 			r.after_revision,
