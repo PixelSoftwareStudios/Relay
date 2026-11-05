@@ -18,6 +18,7 @@ async fn toggle(client: &mut RelayClient, op: u8, muted: bool) {
 		playback_gain: None,
 		ptt_release_delay_ms: None,
 		autostart_daemon: None,
+		..Default::default()
 	};
 	client
 		.raw()

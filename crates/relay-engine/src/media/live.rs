@@ -146,7 +146,7 @@ impl MediaSystem {
 				.commands
 				.send(DeviceCmd::CloseCapture(TEST_GENERATION));
 		}
-		if self.state().calls.is_empty() {
+		if self.state().calls.is_empty() && !self.tone_wanted() {
 			self.state().playback_open = false;
 			let _ = inner.devices.commands.send(DeviceCmd::ClosePlayback);
 		}

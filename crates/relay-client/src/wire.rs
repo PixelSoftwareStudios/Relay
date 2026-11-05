@@ -159,9 +159,30 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				playback_gain,
 				ptt_release_delay_ms,
 				autostart_daemon: None,
+				ringtone_enabled: None,
+				ringtone_volume: None,
+				ringback_enabled: None,
+				call_sounds_enabled: None,
 			})
 			.await
 		}
+		Command::SetRingPreferences {
+			ringtone_enabled,
+			ringtone_volume,
+			ringback_enabled,
+			call_sounds_enabled,
+		} => {
+			rpc.set_global_controls(SetGlobalControlsRequest {
+				context: Some(context),
+				ringtone_enabled,
+				ringtone_volume,
+				ringback_enabled,
+				call_sounds_enabled,
+				..SetGlobalControlsRequest::default()
+			})
+			.await
+		}
+		Command::PreviewTone => rpc.preview_tone(context).await,
 		Command::SelectDevices {
 			input_id,
 			output_id,

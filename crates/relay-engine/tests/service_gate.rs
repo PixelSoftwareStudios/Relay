@@ -195,6 +195,7 @@ async fn explicit_release_and_global_mute_close_the_gate() {
 		playback_gain: None,
 		ptt_release_delay_ms: None,
 		autostart_daemon: None,
+		..Default::default()
 	};
 	talk.cli
 		.raw()

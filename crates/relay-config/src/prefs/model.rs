@@ -12,7 +12,10 @@ const MAX_DEVICE_ID_BYTES: usize = 512;
 const MAX_GAIN: f32 = 4.0;
 
 /// Writes an `f32` as its shortest decimal (`0.7`, not `0.699999988079071`).
-fn short_f32<S: serde::Serializer>(value: &f32, serializer: S) -> std::result::Result<S::Ok, S::Error> {
+fn short_f32<S: serde::Serializer>(
+	value: &f32,
+	serializer: S,
+) -> std::result::Result<S::Ok, S::Error> {
 	let text = value.to_string();
 	serializer.serialize_f64(text.parse().unwrap_or_else(|_| f64::from(*value)))
 }

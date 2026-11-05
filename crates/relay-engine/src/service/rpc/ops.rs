@@ -17,6 +17,7 @@ use crate::service::convert::{Mutation, peer_id};
 use crate::service::error::ServiceError;
 use crate::service::handle::ServiceOp;
 use crate::service::ports::{PeerTrust, TrustRequest};
+use crate::service::tones::RingUpdate;
 
 const MAX_NAME_CHARS: usize = 64;
 const MAX_DEVICE_ID_BYTES: usize = 512;
@@ -75,11 +76,18 @@ pub(super) async fn global_controls(
 			}
 		})
 		.transpose()?;
+	let ring = RingUpdate {
+		ringtone_enabled: body.ringtone_enabled,
+		ringtone_volume: body.ringtone_volume.map(volume).transpose()?,
+		ringback_enabled: body.ringback_enabled,
+		call_sounds_enabled: body.call_sounds_enabled,
+	};
 	let domain = service.run(mutation, command, None).await?;
 	if domain.get_ref().problem.is_some()
 		|| (microphone.is_none()
 			&& body.ptt_release_delay_ms.is_none()
-			&& body.autostart_daemon.is_none())
+			&& body.autostart_daemon.is_none()
+			&& ring.is_empty())
 	{
 		return Ok(domain);
 	}
@@ -87,6 +95,7 @@ pub(super) async fn global_controls(
 		microphone_gain: microphone,
 		release_delay_ms: body.ptt_release_delay_ms,
 		autostart_daemon: body.autostart_daemon,
+		ring,
 	};
 	service_op(service, mutation, body, op).await
 }
@@ -134,6 +143,22 @@ pub(super) async fn start_mic_test(
 		local_playback: body.local_playback,
 	};
 	service_op(service, mutation, body, op).await
+}
+
+fn volume(value: f32) -> Result<f32, ServiceError> {
+	if value.is_finite() && (0.0..=1.0).contains(&value) {
+		Ok(value)
+	} else {
+		Err(invalid("ringtone volume out of range"))
+	}
+}
+
+pub(super) async fn preview_tone(
+	service: &EngineService,
+	mutation: &Mutation,
+	body: &MutationContext,
+) -> Result<Response<Operation>, Status> {
+	service_op(service, mutation, body, ServiceOp::PreviewTone).await
 }
 
 pub(super) async fn stop_mic_test(

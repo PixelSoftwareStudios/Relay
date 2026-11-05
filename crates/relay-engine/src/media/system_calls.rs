@@ -202,7 +202,9 @@ impl MediaSystem {
 			} else if let Some(peer) = state.peers.get(&media.peer) {
 				peer.socket.endpoint.unbind_call(&call.to_bytes());
 			}
-			let none_left = state.calls.is_empty() && !self.inner.mic_test.wants_playback();
+			let none_left = state.calls.is_empty()
+				&& !self.inner.mic_test.wants_playback()
+				&& !self.tone_wanted();
 			if none_left {
 				state.playback_open = false;
 			}

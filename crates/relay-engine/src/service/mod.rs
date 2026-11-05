@@ -18,6 +18,7 @@ pub mod presence;
 mod rpc;
 mod runtime;
 pub mod telemetry;
+mod tones;
 
 pub use clients::Capability;
 pub use error::ServiceError;
@@ -31,3 +32,4 @@ pub use ports::{
 };
 pub use rpc::EngineService;
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};
+pub use tones::{RingPrefs, RingUpdate, ToneCommand, ToneDriver, ToneInput};

@@ -8,6 +8,7 @@ use relay_config::prefs::{
 };
 use relay_net::discovery::sanitize_display_name;
 
+use crate::service::RingPrefs;
 use crate::service::ports::{
 	AdvertMode, InboundPolicy, PortError, SettingsChange, SettingsStore, StoredSettings,
 };
@@ -94,6 +95,12 @@ impl SettingsStore for FileSettings {
 				prefs::AdvertMode::Visible => AdvertMode::Visible,
 				prefs::AdvertMode::Hidden => AdvertMode::Hidden,
 			},
+			ring: RingPrefs {
+				ringtone_enabled: audio.ringtone_enabled,
+				ringtone_volume: audio.ringtone_volume,
+				ringback_enabled: audio.ringback_enabled,
+				call_sounds_enabled: audio.call_sounds_enabled,
+			},
 		}
 	}
 
@@ -124,6 +131,12 @@ impl SettingsStore for FileSettings {
 					AdvertMode::Visible => prefs::AdvertMode::Visible,
 					AdvertMode::Hidden => prefs::AdvertMode::Hidden,
 				};
+			}
+			SettingsChange::Ring(ring) => {
+				next.audio.ringtone_enabled = ring.ringtone_enabled;
+				next.audio.ringtone_volume = ring.ringtone_volume;
+				next.audio.ringback_enabled = ring.ringback_enabled;
+				next.audio.call_sounds_enabled = ring.call_sounds_enabled;
 			}
 		}
 		self.store

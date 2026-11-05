@@ -13,6 +13,8 @@ use relay_core::{
 };
 use thiserror::Error;
 
+use super::tones::{RingPrefs, ToneCommand};
+
 /// Why an adapter refused or could not perform a request.
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 pub enum PortError {
@@ -206,6 +208,8 @@ pub enum SettingsChange {
 		/// How the device appears in discovery.
 		advert: AdvertMode,
 	},
+	/// Ring, ringback and call-sound preferences.
+	Ring(RingPrefs),
 }
 
 /// Persisted preferences the engine needs at start-up.
@@ -233,6 +237,8 @@ pub struct StoredSettings {
 	pub inbound_policy: InboundPolicy,
 	/// How the device appears in discovery.
 	pub advert_mode: AdvertMode,
+	/// Ring, ringback and call-sound preferences.
+	pub ring: RingPrefs,
 }
 
 /// Capture, playback and per-call media resources.
@@ -264,6 +270,9 @@ pub trait MediaControl: Send + Sync {
 	fn start_mic_test(&self, local_playback: bool) -> Result<(), PortError>;
 	/// Stops a running microphone test.
 	fn stop_mic_test(&self) -> Result<(), PortError>;
+	/// Drives the tone player: ring, ringback and blips are mixed into the
+	/// local playback only and never reach a peer.
+	fn tone(&self, _command: ToneCommand) {}
 }
 
 /// Discovery, secure links and call signaling.

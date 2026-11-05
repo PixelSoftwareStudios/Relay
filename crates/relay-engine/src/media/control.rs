@@ -8,6 +8,7 @@ use relay_core::{AudioGeneration, CallId, ReceiveMix, SessionId};
 use super::capture_worker::CaptureCmd;
 use super::devices::Selection;
 use super::system::{MediaSystem, PrepareError};
+use crate::service::ToneCommand;
 use crate::service::ports::{
 	DeviceControl, DeviceDirection, DeviceInfo, MediaControl, MediaTelemetry, PortError,
 };
@@ -86,6 +87,10 @@ impl MediaControl for MediaSystem {
 
 	fn telemetry(&self) -> MediaTelemetry {
 		MediaSystem::telemetry(self)
+	}
+
+	fn tone(&self, command: ToneCommand) {
+		MediaSystem::tone(self, command);
 	}
 }
 

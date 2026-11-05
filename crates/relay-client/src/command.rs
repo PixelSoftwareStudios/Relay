@@ -112,6 +112,19 @@ pub enum Command {
 		/// Push-to-talk release delay in milliseconds (0 to 2000).
 		ptt_release_delay_ms: Option<u32>,
 	},
+	/// Ring, ringback and call-sound preferences; `None` is unchanged.
+	SetRingPreferences {
+		/// Ring for an incoming call while a client is attached.
+		ringtone_enabled: Option<bool>,
+		/// Ring volume, 0.0 to 1.0 (applies to a ring that plays).
+		ringtone_volume: Option<f32>,
+		/// Ringback while an outgoing call rings.
+		ringback_enabled: Option<bool>,
+		/// Connect and hang-up blips.
+		call_sounds_enabled: Option<bool>,
+	},
+	/// Play the ring on this device's own output for about two seconds.
+	PreviewTone,
 	/// Select input and output devices.
 	SelectDevices {
 		/// Input device id.

@@ -89,6 +89,13 @@ async fn every_other_command_reaches_its_rpc() {
 			playback_gain: None,
 			ptt_release_delay_ms: Some(150),
 		},
+		Command::SetRingPreferences {
+			ringtone_enabled: Some(false),
+			ringtone_volume: Some(0.5),
+			ringback_enabled: None,
+			call_sounds_enabled: Some(true),
+		},
+		Command::PreviewTone,
 		Command::SelectDevices {
 			input_id: "mic".into(),
 			output_id: "spk".into(),
@@ -124,7 +131,10 @@ async fn every_other_command_reaches_its_rpc() {
 			"start_call peer=aaaa".to_owned(),
 			"start_call addr=10.0.0.2:7000".into(),
 			"call_controls muted=Some(true) gain=Some(0.5)".into(),
-			"global muted=None mic=Some(2.0) ptt_delay=Some(150)".into(),
+			"global muted=None mic=Some(2.0) ptt_delay=Some(150) ring=None/None/None/None".into(),
+			"global muted=None mic=None ptt_delay=None ring=Some(false)/Some(0.5)/None/Some(true)"
+				.into(),
+			"preview_tone".into(),
 			"devices mic spk".into(),
 			"ns rnn".into(),
 			"profile Ada".into(),

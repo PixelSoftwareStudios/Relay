@@ -9,6 +9,7 @@ use super::ports::{
 	PeerControl, PeerInfo, PortError, Ports, SettingsChange, SettingsStore, StoredSettings,
 	TrustRequest,
 };
+use super::tones::ToneCommand;
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 	mutex.lock().unwrap_or_else(|e| e.into_inner())
@@ -33,6 +34,8 @@ pub enum MediaCall {
 	MicTestStart(bool),
 	/// `stop_mic_test`.
 	MicTestStop,
+	/// `tone`.
+	Tone(ToneCommand),
 }
 
 /// Records every media request and accepts them all.
@@ -90,6 +93,9 @@ impl MediaControl for FakeMedia {
 	fn stop_mic_test(&self) -> Result<(), PortError> {
 		self.push(MediaCall::MicTestStop);
 		Ok(())
+	}
+	fn tone(&self, command: ToneCommand) {
+		self.push(MediaCall::Tone(command));
 	}
 }
 
@@ -244,6 +250,7 @@ impl SettingsStore for MemorySettings {
 				stored.inbound_policy = *inbound;
 				stored.advert_mode = *advert;
 			}
+			SettingsChange::Ring(ring) => stored.ring = *ring,
 		}
 		Ok(())
 	}

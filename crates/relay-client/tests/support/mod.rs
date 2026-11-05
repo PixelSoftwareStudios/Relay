@@ -221,8 +221,14 @@ impl Engine for FakeEngine {
 		self.op(
 			r.context.as_ref(),
 			format!(
-				"global muted={:?} mic={:?} ptt_delay={:?}",
-				r.muted, r.microphone_gain, r.ptt_release_delay_ms
+				"global muted={:?} mic={:?} ptt_delay={:?} ring={:?}/{:?}/{:?}/{:?}",
+				r.muted,
+				r.microphone_gain,
+				r.ptt_release_delay_ms,
+				r.ringtone_enabled,
+				r.ringtone_volume,
+				r.ringback_enabled,
+				r.call_sounds_enabled
 			),
 		)
 	}
@@ -247,6 +253,10 @@ impl Engine for FakeEngine {
 	async fn stop_mic_test(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(Some(&r), "mic_test_stop".into())
+	}
+	async fn preview_tone(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(Some(&r), "preview_tone".into())
 	}
 	async fn set_profile(&self, r: Request<SetProfileRequest>) -> Resp<Operation> {
 		let r = r.into_inner();

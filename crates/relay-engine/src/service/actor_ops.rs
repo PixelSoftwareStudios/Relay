@@ -128,6 +128,7 @@ impl Actor {
 				self.ports.media.start_mic_test(local_playback)?;
 			}
 			ServiceOp::StopMicTest => self.ports.media.stop_mic_test()?,
+			ServiceOp::PreviewTone => self.tones.preview(tokio::time::Instant::now()),
 			ServiceOp::Profile(name) => {
 				self.ports
 					.settings
@@ -162,7 +163,13 @@ impl Actor {
 				microphone_gain,
 				release_delay_ms,
 				autostart_daemon,
+				ring,
 			} => {
+				if !ring.is_empty() {
+					let next = ring.apply(self.directory.aux.ring);
+					self.ports.settings.save(&SettingsChange::Ring(next))?;
+					self.directory.aux.ring = next;
+				}
 				if let Some(on) = autostart_daemon {
 					self.ports
 						.settings

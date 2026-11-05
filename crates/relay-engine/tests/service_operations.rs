@@ -176,6 +176,7 @@ async fn stale_settings_revision_fails_without_changing_anything() {
 		playback_gain: None,
 		ptt_release_delay_ms: None,
 		autostart_daemon: None,
+		..Default::default()
 	};
 	let request = change(1, Some(0), true);
 	assert_applied(

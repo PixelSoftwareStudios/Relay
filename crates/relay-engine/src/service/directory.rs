@@ -9,6 +9,7 @@ use super::convert::{device_to_pb, peer_to_pb};
 use super::ports::{
 	AdvertMode, DeviceInfo, InboundPolicy, LocalProfile, PeerInfo, PeerTrust, StoredSettings,
 };
+use super::tones::RingPrefs;
 use crate::channels::ChannelView;
 
 const MAX_FLAGGED: usize = 16;
@@ -35,6 +36,8 @@ pub struct Aux {
 	pub advert_mode: AdvertMode,
 	/// The desktop app starts the daemon by itself.
 	pub autostart_daemon: bool,
+	/// Ring, ringback and call-sound preferences.
+	pub ring: RingPrefs,
 }
 
 impl Aux {
@@ -60,6 +63,7 @@ impl From<StoredSettings> for Aux {
 			autostart_daemon: stored.autostart_daemon,
 			inbound_policy: stored.inbound_policy,
 			advert_mode: stored.advert_mode,
+			ring: stored.ring,
 		}
 	}
 }

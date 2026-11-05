@@ -25,6 +25,7 @@ service Engine {
   rpc SetNoiseSuppression(SetNoiseSuppressionRequest) returns (Operation);
   rpc StartMicTest(StartMicTestRequest) returns (Operation);
   rpc StopMicTest(MutationContext) returns (Operation);
+  rpc PreviewTone(MutationContext) returns (Operation); // plays the ring on this device's own output for 2 s
   rpc SetProfile(SetProfileRequest) returns (Operation);
   rpc UploadAvatar(UploadAvatarRequest) returns (Operation);
   rpc DecidePeerTrust(DecidePeerTrustRequest) returns (Operation);
@@ -193,6 +194,10 @@ message Settings {
   AdvertMode advert_mode = 12;
   uint32 ptt_release_delay_ms = 13; // 0..=2000; gate hold after an ordinary key-up
   bool autostart_daemon = 14; // the desktop app starts/restarts the daemon by itself
+  bool ringtone_enabled = 15; // ring for an incoming call while a client is attached
+  float ringtone_volume = 16; // 0.0..=1.0
+  bool ringback_enabled = 17; // ringback while an outgoing call rings
+  bool call_sounds_enabled = 18; // connect and hang-up blips
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -271,6 +276,10 @@ message SetGlobalControlsRequest {
   optional float playback_gain = 5;
   optional uint32 ptt_release_delay_ms = 6; // 0..=2000, applies live and is persisted
   optional bool autostart_daemon = 7; // persisted; read by the desktop app
+  optional bool ringtone_enabled = 8; // persisted; disabling stops a ring that plays
+  optional float ringtone_volume = 9; // 0.0..=1.0, persisted, applies to a playing ring at once
+  optional bool ringback_enabled = 10; // persisted
+  optional bool call_sounds_enabled = 11; // persisted
 }
 message SelectDevicesRequest { MutationContext context = 1; string input_device_id = 2; string output_device_id = 3; }
 message SetNoiseSuppressionRequest { MutationContext context = 1; string qualified_backend_id = 2; }

@@ -105,6 +105,7 @@ pub(super) struct Inner {
 	pub(super) board: Arc<GateBoard>,
 	pub(super) capture: Inbox<CaptureCmd>,
 	pub(super) render: Inbox<RenderCmd>,
+	pub(super) tones: super::tones::Tones,
 	pub(super) devices: DeviceThread,
 	pub(super) meters: Arc<Meters>,
 	pub(super) mic_test: Arc<MicTest>,
@@ -232,6 +233,7 @@ impl MediaSystem {
 			render.clone(),
 			Arc::clone(&events),
 		)?;
+		let (tones, tone_player) = super::tones::Tones::new();
 		let input_selected = config.selection.input.is_some();
 		let board = config
 			.gates
@@ -244,6 +246,7 @@ impl MediaSystem {
 				board,
 				capture,
 				render,
+				tones,
 				devices,
 				meters,
 				mic_test,
@@ -259,6 +262,7 @@ impl MediaSystem {
 				state: Mutex::new(State::default()),
 			}),
 		};
+		system.install_tone_player(tone_player);
 		system
 			.inner
 			.runtime
@@ -329,24 +333,6 @@ impl MediaSystem {
 		if self.inner.render.push(RenderCmd::Mix(mix)).is_err() {
 			tracing::warn!("render queue full; receive mix dropped");
 		}
-	}
-
-	/// Hands the render worker the tone player, built on the caller's thread.
-	pub fn set_tone_player(&self, player: relay_audio::tones::TonePlayer) {
-		if self
-			.inner
-			.render
-			.push(RenderCmd::SetTones(Box::new(player)))
-			.is_err()
-		{
-			tracing::warn!("render queue full; tone player dropped");
-		}
-	}
-
-	/// Wakes the render worker after a tone was started through its control
-	/// handle, so an idle worker begins ticking at once.
-	pub fn wake_render(&self) {
-		self.inner.render.wake();
 	}
 
 	/// Current load as admission sees it.

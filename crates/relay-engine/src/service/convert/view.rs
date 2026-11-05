@@ -172,6 +172,10 @@ pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
 		inbound_policy: inbound_to_pb(aux.inbound_policy) as i32,
 		advert_mode: advert_to_pb(aux.advert_mode) as i32,
 		autostart_daemon: aux.autostart_daemon,
+		ringtone_enabled: aux.ring.ringtone_enabled,
+		ringtone_volume: aux.ring.ringtone_volume,
+		ringback_enabled: aux.ring.ringback_enabled,
+		call_sounds_enabled: aux.ring.call_sounds_enabled,
 		ptt_release_delay_ms: u32::try_from(global.ptt_release_delay.as_millis())
 			.unwrap_or(u32::MAX),
 	}

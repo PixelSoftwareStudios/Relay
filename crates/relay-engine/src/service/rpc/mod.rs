@@ -350,6 +350,14 @@ impl Engine for EngineService {
 		ops::stop_mic_test(self, &mutation, &body).await
 	}
 
+	async fn preview_tone(
+		&self,
+		request: Request<MutationContext>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| Some(b))?;
+		ops::preview_tone(self, &mutation, &body).await
+	}
+
 	async fn set_profile(
 		&self,
 		request: Request<SetProfileRequest>,

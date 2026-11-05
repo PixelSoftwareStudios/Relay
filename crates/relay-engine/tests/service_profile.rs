@@ -288,6 +288,7 @@ async fn the_desktop_autostart_preference_defaults_on_and_persists() {
 		playback_gain: None,
 		ptt_release_delay_ms: None,
 		autostart_daemon: Some(false),
+		..Default::default()
 	};
 	assert_applied(
 		&cli.raw()

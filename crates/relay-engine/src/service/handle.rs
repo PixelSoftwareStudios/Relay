@@ -13,6 +13,7 @@ use super::feed::FeedItem;
 use super::gates::GateReader;
 use super::ledger::Fingerprint;
 use super::ports::{AdvertMode, DeviceInfo, InboundPolicy, PeerInfo, TrustRequest};
+use super::tones::RingUpdate;
 use crate::channels::ChannelView;
 
 /// Work that is executed by an adapter rather than the domain core.
@@ -48,7 +49,11 @@ pub enum ServiceOp {
 		release_delay_ms: Option<u32>,
 		/// Whether the desktop app starts the daemon by itself, if changing.
 		autostart_daemon: Option<bool>,
+		/// Ring, ringback and call-sound preferences, if changing.
+		ring: RingUpdate,
 	},
+	/// Play the ring on this device's own output for a moment.
+	PreviewTone,
 	/// Change who may ring this device and how it appears in discovery.
 	Privacy {
 		/// New inbound policy, if changing.

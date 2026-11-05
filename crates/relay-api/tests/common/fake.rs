@@ -292,6 +292,9 @@ impl Engine for FakeEngine {
 	async fn stop_mic_test(&self, _: Request<MutationContext>) -> Resp<Operation> {
 		unsupported()
 	}
+	async fn preview_tone(&self, _: Request<MutationContext>) -> Resp<Operation> {
+		unsupported()
+	}
 	async fn set_profile(&self, _: Request<SetProfileRequest>) -> Resp<Operation> {
 		unsupported()
 	}

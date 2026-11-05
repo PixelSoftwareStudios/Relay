@@ -125,6 +125,7 @@ async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 		playback_gain: None,
 		ptt_release_delay_ms: None,
 		autostart_daemon: None,
+		..Default::default()
 	};
 	assert_applied(
 		&cli.raw()

@@ -21,6 +21,7 @@ mod state;
 mod supervise;
 mod system;
 mod system_calls;
+mod tones;
 
 use thiserror::Error;
 
