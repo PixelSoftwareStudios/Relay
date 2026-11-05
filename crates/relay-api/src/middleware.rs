@@ -9,6 +9,7 @@ use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
 
+use subtle::ConstantTimeEq;
 use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 use tonic::Status;
 use tonic::body::Body;
@@ -152,19 +153,11 @@ fn check_token(headers: &HeaderMap, token: &str) -> Result<(), Status> {
 		.and_then(|v| v.to_str().ok())
 		.and_then(|v| v.strip_prefix("Bearer "))
 		.ok_or_else(|| Status::unauthenticated("missing bearer token"))?;
-	if constant_time_eq(supplied.as_bytes(), token.as_bytes()) {
+	if bool::from(supplied.as_bytes().ct_eq(token.as_bytes())) {
 		Ok(())
 	} else {
 		Err(Status::unauthenticated("invalid bearer token"))
 	}
-}
-
-pub(crate) fn constant_time_eq(a: &[u8], b: &[u8]) -> bool {
-	let mut diff = a.len() ^ b.len();
-	for (i, byte) in a.iter().enumerate() {
-		diff |= usize::from(*byte ^ b.get(i).copied().unwrap_or(0));
-	}
-	diff == 0
 }
 
 /// The 5-byte gRPC frame prefix is not counted; this is only an early reject

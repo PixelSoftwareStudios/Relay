@@ -1,7 +1,5 @@
 //! Channel, avatar, privacy and connection-info helpers on [`RelayClient`].
 
-use uuid::Uuid;
-
 use crate::pb::{
 	AdvertMode, AvatarImage, ChannelInfo, ChannelPolicy, ConnectionInfo, CreateChannelRequest,
 	CreateInviteRequest, CreateInviteResponse, GetAvatarRequest, InboundPolicy, JoinChannelRequest,
@@ -24,7 +22,7 @@ impl RelayClient {
 	pub fn new_mutation(&self) -> Result<MutationContext, ApiError> {
 		Ok(MutationContext {
 			client: Some(self.require_context()?),
-			operation_id: Uuid::new_v4().as_bytes().to_vec(),
+			operation_id: relay_io::entropy::random_bytes::<16>().to_vec(),
 			expected_revision: None,
 		})
 	}

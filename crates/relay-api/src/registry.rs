@@ -1,8 +1,8 @@
+use relay_io::LockExt;
 use std::collections::HashSet;
 use std::sync::Mutex;
 
 use tonic::Status;
-use uuid::Uuid;
 
 /// Opaque 16-byte client identifier. An identifier, never a credential.
 pub type ClientId = [u8; 16];
@@ -25,7 +25,7 @@ impl ClientRegistry {
 	/// Create a registry with a fresh random incarnation.
 	pub fn new(max_clients: usize) -> Self {
 		Self {
-			incarnation: *Uuid::new_v4().as_bytes(),
+			incarnation: relay_io::entropy::random_bytes::<16>(),
 			max_clients,
 			clients: Mutex::new(HashSet::new()),
 		}
@@ -38,26 +38,23 @@ impl ClientRegistry {
 
 	/// Allocate a new client id, failing with `RESOURCE_EXHAUSTED` at the cap.
 	pub fn register(&self) -> Result<ClientId, Status> {
-		let mut clients = self.clients.lock().unwrap_or_else(|e| e.into_inner());
+		let mut clients = self.clients.lock_unpoisoned();
 		if clients.len() >= self.max_clients {
 			return Err(Status::resource_exhausted("client limit reached"));
 		}
-		let id = *Uuid::new_v4().as_bytes();
+		let id = relay_io::entropy::random_bytes::<16>();
 		clients.insert(id);
 		Ok(id)
 	}
 
 	/// Detach a client.
 	pub fn remove(&self, client: &ClientId) {
-		self.clients
-			.lock()
-			.unwrap_or_else(|e| e.into_inner())
-			.remove(client);
+		self.clients.lock_unpoisoned().remove(client);
 	}
 
 	/// Number of attached clients.
 	pub fn len(&self) -> usize {
-		self.clients.lock().unwrap_or_else(|e| e.into_inner()).len()
+		self.clients.lock_unpoisoned().len()
 	}
 
 	/// True when no client is attached.
@@ -73,11 +70,7 @@ impl ClientValidator for ClientRegistry {
 		{
 			return Err(Status::failed_precondition("ENGINE_INCARNATION_CHANGED"));
 		}
-		let known = self
-			.clients
-			.lock()
-			.unwrap_or_else(|e| e.into_inner())
-			.contains(client);
+		let known = self.clients.lock_unpoisoned().contains(client);
 		if known {
 			Ok(())
 		} else {

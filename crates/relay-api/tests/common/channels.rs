@@ -157,7 +157,7 @@ impl Channels {
 		let channel = all
 			.iter_mut()
 			.find(|c| c.joined && c.info.role == "owner" && c.info.channel_id == req.channel_id)?;
-		let invite = format!("RLYI1{}", hex::encode(uuid::Uuid::new_v4().as_bytes()));
+		let invite = format!("RLYI1{}", relay_io::entropy::random_hex::<16>());
 		channel.invites.push(invite.clone());
 		Some(CreateInviteResponse {
 			invite,

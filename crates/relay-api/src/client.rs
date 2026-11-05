@@ -1,5 +1,6 @@
 //! `RelayClient`: connect, register, snapshot/watch and operation polling.
 
+use relay_io::RwLockExt;
 use std::path::PathBuf;
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
@@ -49,7 +50,7 @@ impl Interceptor for ContextInterceptor {
 				.map_err(|_| Status::internal("bad token"))?;
 			meta.insert(AUTHORIZATION_HEADER, value);
 		}
-		let ctx = self.0.context.read().unwrap_or_else(|e| e.into_inner());
+		let ctx = self.0.context.read_unpoisoned();
 		if let Some(ctx) = ctx.as_ref() {
 			let id = hex::encode(&ctx.client_id)
 				.parse()
@@ -112,21 +113,13 @@ impl RelayClient {
 
 	/// The registered context, if any.
 	pub fn context(&self) -> Option<ClientContext> {
-		self.shared
-			.context
-			.read()
-			.unwrap_or_else(|e| e.into_inner())
-			.clone()
+		self.shared.context.read_unpoisoned().clone()
 	}
 
 	/// Reuse a context issued earlier (for example cached across a reconnect).
 	/// The engine still validates it on every request.
 	pub fn adopt_context(&mut self, context: ClientContext) {
-		*self
-			.shared
-			.context
-			.write()
-			.unwrap_or_else(|e| e.into_inner()) = Some(context);
+		*self.shared.context.write_unpoisoned() = Some(context);
 	}
 
 	pub(crate) fn require_context(&self) -> Result<ClientContext, ApiError> {
@@ -154,11 +147,7 @@ impl RelayClient {
 			.context
 			.clone()
 			.ok_or(ApiError::InvalidResponse("session without context"))?;
-		*self
-			.shared
-			.context
-			.write()
-			.unwrap_or_else(|e| e.into_inner()) = Some(context);
+		*self.shared.context.write_unpoisoned() = Some(context);
 		Ok(session)
 	}
 

@@ -9,7 +9,6 @@ use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 
 use tokio::net::TcpListener;
-use uuid::Uuid;
 
 use crate::ApiError;
 
@@ -70,7 +69,7 @@ impl TcpProfile {
 /// (created 0600 on Unix; Windows ACL hardening is an unmet gate).
 pub async fn bind_loopback(profile_path: &Path) -> Result<(TcpListener, TcpProfile), ApiError> {
 	let listener = TcpListener::bind((IpAddr::V4(Ipv4Addr::LOCALHOST), 0)).await?;
-	let token = format!("{}{}", Uuid::new_v4().simple(), Uuid::new_v4().simple());
+	let token = relay_io::entropy::random_hex::<32>();
 	let profile = TcpProfile {
 		addr: listener.local_addr()?,
 		token,

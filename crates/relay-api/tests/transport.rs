@@ -131,6 +131,12 @@ async fn tcp_fallback_requires_the_token() {
 	let (listener, profile) = bind_loopback(&path).await.expect("bind");
 	assert_eq!(mode(&path), 0o600);
 	assert!(profile.addr.ip().is_loopback());
+	assert_eq!(profile.token.len(), 64);
+	assert!(profile.token.bytes().all(|b| b.is_ascii_hexdigit()));
+	let (_second, other) = bind_loopback(&dir.path().join("other.tcp"))
+		.await
+		.expect("bind");
+	assert_ne!(profile.token, other.token);
 
 	let registry = Arc::new(ClientRegistry::new(8));
 	let engine = FakeEngine::new(Arc::clone(&registry), ApiLimits::DEFAULT);
