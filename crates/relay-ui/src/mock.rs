@@ -2,14 +2,17 @@
 //! go through the same [`Controller`](crate::controller::Controller)
 //! validation as live ones and mutate the hub directly.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
 use relay_client::Secret;
+use relay_io::LockExt;
 
 use crate::controller::SessionSlot;
-use crate::engine::{Command, EngineError, Operations, Outcome};
+use crate::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
+use crate::hotkey_settings::{KEY_ACCELERATOR, KEY_RELEASE_DELAY};
 use crate::hub::Hub;
 use crate::model::{
 	Advert, AppState, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
@@ -115,6 +118,8 @@ pub fn seed() -> AppState {
 
 struct MockOps {
 	hub: Arc<Hub>,
+	/// The hotkey text the mock "stores"; read at the next start, like the daemon.
+	hotkey: std::sync::Mutex<String>,
 }
 
 impl MockOps {
@@ -305,6 +310,55 @@ impl Operations for MockOps {
 	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
 		Ok(crate::avatar::DEFAULT_PNG.to_vec())
 	}
+
+	async fn get_settings(&self) -> Result<BTreeMap<String, String>, EngineError> {
+		let delay = self
+			.hub
+			.read(|s| s.settings.as_ref().map_or(0, |g| g.ptt_release_delay_ms));
+		Ok(BTreeMap::from([
+			(
+				KEY_ACCELERATOR.to_owned(),
+				self.hotkey.lock_unpoisoned().clone(),
+			),
+			(KEY_RELEASE_DELAY.to_owned(), delay.to_string()),
+		]))
+	}
+
+	async fn set_settings(
+		&self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, EngineError> {
+		let mut results = Vec::new();
+		for (key, value) in values {
+			let (outcome, reason) = match key.as_str() {
+				KEY_ACCELERATOR => {
+					*self.hotkey.lock_unpoisoned() = value;
+					(
+						SettingOutcome::SavedNeedsRestart,
+						"read when the hotkey backend starts",
+					)
+				}
+				KEY_RELEASE_DELAY => match value.parse::<u32>() {
+					Ok(ms) if ms <= 2000 => {
+						self.hub.update(|s| {
+							if let Some(g) = s.settings.as_mut() {
+								g.ptt_release_delay_ms = ms;
+							}
+						});
+						(SettingOutcome::AppliedLive, "")
+					}
+					_ => (SettingOutcome::Rejected, "must be 0 to 2000"),
+				},
+				_ => (SettingOutcome::Rejected, "unknown key"),
+			};
+			results.push(SettingResult {
+				key,
+				outcome,
+				reason: reason.to_owned(),
+			});
+		}
+		Ok(results)
+	}
 }
 
 const MOCK_FINGERPRINT: &str = "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12";
@@ -336,7 +390,10 @@ pub fn meters_at(state: &AppState, t: f32) -> Meters {
 /// Seed the hub, accept commands, and feed meters until dropped.
 pub async fn run(hub: Arc<Hub>, slot: Arc<SessionSlot>) {
 	hub.update(|s| *s = seed());
-	slot.set(Arc::new(MockOps { hub: hub.clone() }));
+	slot.set(Arc::new(MockOps {
+		hub: hub.clone(),
+		hotkey: std::sync::Mutex::new("Ctrl+Alt+Space".to_owned()),
+	}));
 	let started = tokio::time::Instant::now();
 	loop {
 		tokio::time::sleep(Duration::from_millis(100)).await;

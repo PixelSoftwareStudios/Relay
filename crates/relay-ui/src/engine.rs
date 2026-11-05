@@ -136,6 +136,26 @@ pub struct Outcome {
 	pub invite: Option<Secret>,
 }
 
+/// How the engine treated one key of a settings change.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SettingOutcome {
+	/// In effect now.
+	AppliedLive,
+	/// Stored; read at the next start of the daemon (or the app using it).
+	SavedNeedsRestart,
+	/// Not stored; see the reason.
+	Rejected,
+}
+
+/// The engine's answer for one key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SettingResult {
+	pub key: String,
+	pub outcome: SettingOutcome,
+	/// Why the key was rejected, or why it needs a restart. May be empty.
+	pub reason: String,
+}
+
 #[async_trait]
 pub trait Operations: Send + Sync {
 	async fn run(&self, command: Command) -> Result<Outcome, EngineError>;
@@ -147,6 +167,21 @@ pub trait Operations: Send + Sync {
 
 	/// The canonical PNG for an avatar hash.
 	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		Err(unsupported())
+	}
+
+	/// Every preference as flat `section.key` text (`GetSettings`).
+	async fn get_settings(
+		&self,
+	) -> Result<std::collections::BTreeMap<String, String>, EngineError> {
+		Err(unsupported())
+	}
+
+	/// Change preferences (`SetSettings`); one result per key.
+	async fn set_settings(
+		&self,
+		_values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, EngineError> {
 		Err(unsupported())
 	}
 }

@@ -1,5 +1,6 @@
 //! Real engine adapter over `relay_api::RelayClient`.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,7 +15,8 @@ use tonic::Code;
 
 use crate::convert::{self, advert_to_wire, inbound_to_wire, mode_to_wire};
 use crate::engine::{
-	Command, Connection, Engine, EngineError, EventSource, Operations, Outcome, TelemetrySource,
+	Command, Connection, Engine, EngineError, EventSource, Operations, Outcome, SettingOutcome,
+	SettingResult, TelemetrySource,
 };
 use crate::model::ConnectionView;
 
@@ -314,6 +316,34 @@ impl Operations for Ops {
 	async fn avatar(&self, sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
 		let image = self.client.lock().await.get_avatar(&sha256).await;
 		image.map(|i| i.image).map_err(map_error)
+	}
+
+	async fn get_settings(&self) -> Result<BTreeMap<String, String>, EngineError> {
+		let dump = self.client.lock().await.get_settings().await;
+		dump.map_err(map_error)
+	}
+
+	async fn set_settings(
+		&self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<SettingResult>, EngineError> {
+		let reply = self.client.lock().await.set_settings(values).await;
+		let reply = reply.map_err(map_error)?;
+		Ok(reply.results.into_iter().map(setting_result).collect())
+	}
+}
+
+fn setting_result(result: pb::SettingResult) -> SettingResult {
+	let outcome = match pb::SettingOutcome::try_from(result.outcome) {
+		Ok(pb::SettingOutcome::AppliedLive) => SettingOutcome::AppliedLive,
+		Ok(pb::SettingOutcome::SavedNeedsRestart) => SettingOutcome::SavedNeedsRestart,
+		// An unknown outcome is never shown as success.
+		_ => SettingOutcome::Rejected,
+	};
+	SettingResult {
+		key: result.key,
+		outcome,
+		reason: result.reason,
 	}
 }
 

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use egui::TextureHandle;
 
+use crate::hotkey_settings::HotkeyPanel;
 use crate::inbox::Invite;
 use crate::model::ConnectionView;
 
@@ -50,6 +51,8 @@ pub struct Local {
 
 	/// A call card asked to show that call's messages (hex call id).
 	pub open_messages: Option<String>,
+
+	pub hotkey: HotkeyPanel,
 
 	pub new_channel: NewChannel,
 	pub join_target: String,

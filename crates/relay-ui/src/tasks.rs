@@ -3,6 +3,7 @@
 //! drops its result into the [`Inbox`](crate::inbox::Inbox) and wakes the UI.
 
 use crate::actions::Actions;
+use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::{avatar_check, decode_for_texture};
 use crate::inbox::{Invite, Picked};
 use crate::shell::PickedFile;
@@ -81,6 +82,47 @@ impl Actions {
 				.await
 				.map_err(|e| e.to_string());
 			shared.inbox.set_connection(result);
+			shell.request_repaint();
+		});
+	}
+
+	/// Read the hotkey preferences (`GetSettings`) for the settings panel.
+	pub fn fetch_hotkey_settings(&self) {
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = controller
+				.hotkey_settings()
+				.await
+				.map_err(|e| e.to_string());
+			shared.inbox.set_hotkey_loaded(result);
+			shell.request_repaint();
+		});
+	}
+
+	/// Send the changed hotkey keys (`SetSettings`), then read them back.
+	pub fn save_hotkey_settings(&self, stored: HotkeyValues, wanted: HotkeyValues) {
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = controller
+				.save_hotkey_settings(&stored, &wanted)
+				.await
+				.map_err(|e| e.to_string());
+			let sent = result.is_ok();
+			shared.inbox.set_hotkey_saved(result);
+			if sent {
+				let reread = controller.hotkey_settings().await;
+				shared
+					.inbox
+					.set_hotkey_loaded(reread.map_err(|e| e.to_string()));
+			}
 			shell.request_repaint();
 		});
 	}

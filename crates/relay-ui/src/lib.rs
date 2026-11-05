@@ -16,6 +16,7 @@ pub mod engine;
 pub mod fonts;
 pub mod format;
 pub mod host_options;
+pub mod hotkey_settings;
 pub mod hub;
 pub mod imaging;
 pub mod inbox;

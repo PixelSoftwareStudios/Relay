@@ -5,6 +5,7 @@
 mod channels;
 mod connection;
 mod host_switches;
+mod hotkey;
 mod local;
 pub mod messages;
 mod nav;
@@ -125,6 +126,12 @@ impl RelayApp {
 				texture,
 			});
 		}
+		if let Some(result) = inbox.take_hotkey_loaded() {
+			self.local.hotkey.loaded(result);
+		}
+		if let Some(result) = inbox.take_hotkey_saved() {
+			self.local.hotkey.saved(result);
+		}
 		if let Some(invite) = inbox.take_invite() {
 			self.local.invite = Some(invite);
 		}
@@ -213,6 +220,7 @@ impl RelayApp {
 		}
 		if show(Page::Settings) {
 			connection::connection(ui, actions, local);
+			hotkey::hotkey(ui, actions, local);
 		}
 		if show(Page::People) {
 			sections::peers(ui, &rows, actions, local, textures);

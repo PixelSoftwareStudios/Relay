@@ -7,6 +7,8 @@ use relay_io::LockExt;
 
 use relay_client::Secret;
 
+use crate::engine::SettingResult;
+use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::Decoded;
 use crate::model::ConnectionView;
 
@@ -29,6 +31,8 @@ pub struct Inbox {
 	connection: Mutex<Option<Result<ConnectionView, String>>>,
 	picked: Mutex<Option<Picked>>,
 	invite: Mutex<Option<Invite>>,
+	hotkey_loaded: Mutex<Option<Result<HotkeyValues, String>>>,
+	hotkey_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 }
 
 /// Decoded avatars queued before the UI catches up; older results drop.
@@ -65,6 +69,22 @@ impl Inbox {
 
 	pub fn set_invite(&self, invite: Invite) {
 		*self.invite.lock_unpoisoned() = Some(invite);
+	}
+
+	pub fn set_hotkey_loaded(&self, result: Result<HotkeyValues, String>) {
+		*self.hotkey_loaded.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_hotkey_loaded(&self) -> Option<Result<HotkeyValues, String>> {
+		self.hotkey_loaded.lock_unpoisoned().take()
+	}
+
+	pub fn set_hotkey_saved(&self, result: Result<Vec<SettingResult>, String>) {
+		*self.hotkey_saved.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_hotkey_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
+		self.hotkey_saved.lock_unpoisoned().take()
 	}
 
 	pub fn take_invite(&self) -> Option<Invite> {
