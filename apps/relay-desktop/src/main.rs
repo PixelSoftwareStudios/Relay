@@ -10,7 +10,7 @@ use relay_desktop::ui::{self, RelayApp};
 use relay_desktop::{mock, supervisor, tray};
 
 /// Embedded from the repo-root assets folder.
-const LOGO_PNG: &[u8] = include_bytes!("../../../assets/relay-mark.png");
+const LOGO_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark.png");
 
 fn main() -> eframe::Result {
 	tracing_subscriber::fmt()
