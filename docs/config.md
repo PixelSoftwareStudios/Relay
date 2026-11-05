@@ -121,6 +121,7 @@ CLI-facing helpers (for `relay config get|set|export|import`):
 |---|---|
 | `prefs::flat::keys()` | Settable keys, sorted |
 | `PreferenceStore::get(key)` / `set(key, text)` | One setting; string settings are taken literally, other types parse as TOML (`2.5`, `false`, `rnnoise`); validated before saving |
+| `hotkeys.push_to_talk` | Global push-to-talk accelerator (default `Ctrl+Alt+Space`; empty disables); read by `relay hotkey` and `relay tui` |
 | `PreferenceStore::read_only(&Paths)` | Read without the lock, recovery or writes (for `doctor`, `config get` next to a running daemon) |
 | `Storage::open(&Paths)` | Lock + open + recover + import; returns `database`, `lock`, `notices` |
 

@@ -215,3 +215,18 @@ fn privacy_choices_default_open_and_persist() {
 		relay_config::prefs::AdvertMode::Hidden
 	);
 }
+
+#[test]
+fn push_to_talk_hotkey_is_a_validated_text_setting() {
+	let prefs = Preferences::default();
+	assert_eq!(
+		flat::get(&prefs, "hotkeys.push_to_talk").unwrap(),
+		"Ctrl+Alt+Space"
+	);
+	let changed = flat::set(&prefs, "hotkeys.push_to_talk", "Ctrl+Shift+F9").unwrap();
+	assert_eq!(changed.hotkeys.push_to_talk, "Ctrl+Shift+F9");
+	let disabled = flat::set(&prefs, "hotkeys.push_to_talk", "").unwrap();
+	assert!(disabled.hotkeys.push_to_talk.is_empty());
+	let long = "x".repeat(65);
+	assert!(flat::set(&prefs, "hotkeys.push_to_talk", &long).is_err());
+}

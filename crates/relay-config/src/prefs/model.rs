@@ -188,6 +188,25 @@ pub struct Identity {
 	pub key_storage: KeyStorage,
 }
 
+/// Global hotkey bindings. An empty accelerator disables the binding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Hotkeys {
+	/// Push-to-talk accelerator such as `Ctrl+Alt+Space`.
+	pub push_to_talk: String,
+}
+
+/// Longest accepted accelerator text.
+const MAX_ACCELERATOR_CHARS: usize = 64;
+
+impl Default for Hotkeys {
+	fn default() -> Self {
+		Self {
+			push_to_talk: "Ctrl+Alt+Space".to_owned(),
+		}
+	}
+}
+
 /// All user preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -199,6 +218,7 @@ pub struct Preferences {
 	pub network: Network,
 	pub diagnostics: Diagnostics,
 	pub identity: Identity,
+	pub hotkeys: Hotkeys,
 }
 
 impl Default for Preferences {
@@ -211,6 +231,7 @@ impl Default for Preferences {
 			network: Network::default(),
 			diagnostics: Diagnostics::default(),
 			identity: Identity::default(),
+			hotkeys: Hotkeys::default(),
 		}
 	}
 }
@@ -238,6 +259,10 @@ impl Preferences {
 			if id.len() > MAX_DEVICE_ID_BYTES {
 				return bad("device id too long");
 			}
+		}
+		let hotkey = &self.hotkeys.push_to_talk;
+		if hotkey.chars().count() > MAX_ACCELERATOR_CHARS || hotkey.chars().any(char::is_control) {
+			return bad("push_to_talk hotkey must be at most 64 printable characters");
 		}
 		Ok(())
 	}
