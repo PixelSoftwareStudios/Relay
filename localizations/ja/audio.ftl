@@ -1,4 +1,28 @@
 # Relay desktop UI catalog, Japanese (ja), section: Audio, levels and ringing.
-# Not translated yet. Add only ids that exist in localizations/en/audio.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Project Fluent. Same ids and $variables as localizations/en/audio.ftl. See docs/i18n.md.
+
+duration-ms = { $millis } ms
+release-delay-off = オフ(すぐに閉じる)
+level-dbfs = { $value } dBFS
+level-no-data = 信号データなし
+gain-percent = { $value }%
+audio-heading = オーディオ
+audio-none = オーディオ設定はデーモンに接続すると表示されます。
+device-default = (システムの既定)
+audio-microphone = マイク
+audio-speakers = スピーカー
+audio-mic-level = マイクのレベル
+audio-mic-gain = マイクのゲイン
+audio-playback-gain = 再生ゲイン
+audio-unmute-all = すべてミュート解除
+audio-undeafen-all = すべてスピーカーミュート解除
+ring-volume = 着信音の音量
+ring-incoming = 着信時に鳴らす
+ring-back = 発信中に呼び出し音を鳴らす
+ring-sounds = 接続音と終了音
+ring-test = 着信音をテスト
+ring-test-hover = このコンピューターで着信音を2秒間再生します。
+meter-hover = { $label }: { $level }
+slider-release-delay = プッシュトゥトークの解除遅延
+audio-mute-all = すべてミュート
+audio-deafen-all = すべてスピーカーミュート

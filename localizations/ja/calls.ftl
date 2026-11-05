@@ -1,4 +1,55 @@
 # Relay desktop UI catalog, Japanese (ja), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Project Fluent. Same ids and $variables as localizations/en/calls.ftl. See docs/i18n.md.
+
+phase-preparing = 準備中
+phase-ringing = 呼び出し中
+phase-incoming = 着信
+phase-connecting = 接続中
+phase-connected = 接続済み
+phase-interrupted = 中断
+phase-ending = 終了中
+phase-ended = 終了
+phase-failed = 失敗
+phase-declined = 拒否されました
+phase-cancelled = キャンセルされました
+transmit-listening = 聞くだけ
+transmit-listening-detail = マイクの音声は送信されません。
+transmit-no-consent = マイクは許可されていません
+transmit-no-consent-detail = この通話では送信の許可がまだ与えられていません。
+transmit-releasing = 解除中
+transmit-releasing-detail = キーは離されました。文末が途切れないよう、マイクはしばらくオンのままです。
+transmit-how-open = オープンマイク
+transmit-how-key = プッシュトゥトークのキーを押下中
+transmitting = 送信中
+transmit-live-detail = マイクはオンです({ $how })。
+transmit-open-armed = オープンマイク待機中、送信していません
+transmit-open-armed-detail = エンジンは現在、音声を送信していません。
+transmit-ptt-armed = プッシュトゥトーク待機中
+transmit-ptt-armed-detail = エンジン側の入力ソースからのキー操作を待っています。
+engine-reason = エンジンの理由: { $reason }。
+trust-unknown = 不明
+trust-tofu = 以前に接続済み、未確認
+trust-verified = 確認済み
+trust-key-changed = 鍵が変更されました。信頼しないでください
+trust-blocked = ブロック中
+call-speaking = 発話中
+mode-listen = 聞くだけ
+mode-ptt = プッシュトゥトーク
+mode-open = オープンマイク
+calls-heading = 通話
+calls-none = 通話はありません。
+meter-incoming = { $name } からの受信レベル
+call-accept = 応答
+call-decline = 拒否
+call-accept-note = 応答してもマイクはオンになりません。
+trust-line = { $trust }。
+trust-line-key = { $trust }。デバイスの鍵 { $fingerprint }(デバイスの区別用で、確認用ではありません)。
+call-end = 通話を終了
+call-messages-hover = この通話のテキスト、画像、ファイル
+call-unmute = ミュート解除(通話)
+call-undeafen = スピーカーミュート解除(通話)
+call-their-volume = 相手の音量 { $value }
+call-your-mic = この通話でのマイク
+call-consent = 自分のマイクの音声を { $name } に送信することを許可する
+call-mute = ミュート(通話)
+call-deafen = スピーカーミュート(通話)

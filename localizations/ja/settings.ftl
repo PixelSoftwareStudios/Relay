@@ -1,4 +1,99 @@
 # Relay desktop UI catalog, Japanese (ja), section: Settings: this app, hotkey, profile, daemon, language.
-# Not translated yet. Add only ids that exist in localizations/en/settings.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Project Fluent. Same ids and $variables as localizations/en/settings.ftl. See docs/i18n.md.
+
+link-starting = Relay デーモンを起動中
+link-connecting = Relay デーモンに接続中
+link-connected = 接続済み
+link-reconnecting = デーモンとの接続が切れました。再接続中
+link-offline = デーモンが起動していません
+avatar-size-refusal = プロフィール画像は 1 バイトから 1 MiB まで(PNG、JPEG、WebP、GIF、BMP、TIFF)にしてください
+hotkey-note = このアプリはグローバルホットキーを登録せず、画面上の送話ボタンもまだありません。プッシュトゥトークは、エンジン側の入力ソース(CLI など)がキーを押している間だけ送信します。
+close-tray = ウィンドウを閉じるとトレイに隠れます。通話は続きます。
+close-no-tray = このプラットフォームにはトレイアイコンがないため、ウィンドウを閉じるとアプリが終了します。
+quit-note = このアプリを終了すると、このアプリが開始または応答した通話は切断されますが、Relay デーモンは動作を続けます。このアプリからデーモンを停止することはできません。
+calls-active =
+    { $count ->
+       *[other] { $count } 件の通話が進行中です。
+    }
+quit-prompt = このアプリを終了しますか?
+quit-prompt-calls =
+    { $count ->
+       *[other] このアプリを終了しますか? 通話中の { $count } 件が切断されます。
+    }
+daemon-stopped-again = 起動直後に再び停止しました。
+daemon-keeps-stopping = Relay デーモンが停止を繰り返すため、自動での再起動は行いません。{ $why }
+avatar-bad-format = プロフィール画像を拒否しました: 対応していない、または認識できない画像形式です(PNG、JPEG、WebP、GIF、BMP、TIFF を使用してください)
+avatar-zero-size = プロフィール画像を拒否しました: 幅または高さが 0 です
+avatar-too-large = プロフィール画像を拒否しました: 画像サイズ { $width }x{ $height } が上限の { $limit } ピクセルを超えています
+avatar-undecodable = プロフィール画像を拒否しました: 画像をデコードできませんでした: { $error }
+daemon-started = Relay デーモンを起動しました。
+daemon-already-running = Relay デーモンはすでに起動しています。
+daemon-not-found = Relay デーモン({ $binary })が見つかりません。このアプリと同じ場所か PATH 上にインストールするか、{ $env } でその場所を指定してください。
+daemon-start-failed = Relay デーモンを起動できませんでした: { $reason }。
+daemon-start-failed-log = Relay デーモンを起動できませんでした: { $reason }。最後のログ行: { $last }
+daemon-stop-failed = Relay デーモンを停止できませんでした: { $error }
+daemon-stopped = Relay デーモンを停止しました。
+notify-off = オフ: このウィンドウが隠れている、またはバックグラウンドにあるときの着信は、トレイのツールチップへの表示と、デーモンの着信音でのみ通知されます。
+notify-on = このウィンドウが隠れている、または前面にないときに着信があると、発信者名を表示します(メッセージの内容は表示しません)。
+notify-refused = システムが直前の通知を拒否しました({ $reason })。着信は引き続きデーモン経由で鳴り、このウィンドウとトレイのツールチップに表示されます。
+login-unsupported = ここでは利用できません: { $reason }
+login-off = オフ。オンにすると、このアプリがシステムに登録され、ログイン時にウィンドウが開きます。デーモンは、アプリが必要とするまで起動しません。
+login-on = オン: ログイン時にシステムがこのアプリを起動します(ウィンドウが開きます)。登録を削除するには、ここでオフにしてください。
+login-failed = ログイン項目を読み取れない、または変更できませんでした: { $reason }
+banner-mock = モックデータ: この画面は Relay デーモンに接続されていません。
+link-offline-auto = 自動的に起動します。
+daemon-starting-button = デーモンを起動中...
+daemon-start-button = デーモンを起動
+app-heading = このアプリ
+app-hide = ウィンドウを隠す
+app-quit = このアプリを終了(デーモンは動作を続けます)
+app-hang-up-quit = 通話を終了してアプリを終了
+autostart-label = デーモンを自動的に起動する
+autostart-hover = デーモンが起動していないとき、Relay アプリが起動します。アプリを開いている間だけ、ローカルネットワークで自分の存在を知らせます。
+daemon-heading = Relay デーモン
+daemon-not-connected = デーモンに接続されていません。
+daemon-paused = 自動起動は、「デーモンを起動」を押すまで一時停止されています。
+daemon-keeps-running = このアプリを閉じても、デーモンは動作を続けます。アプリを終了すると、すべての通話が終了し、マイクが解放されます。
+daemon-quit-ask = デーモンを終了...
+daemon-quit-confirm = デーモンを今すぐ終了しますか? 進行中の通話は終了します。
+daemon-quit = デーモンを終了
+profile-heading = プロフィール
+profile-name-hint = 表示名
+profile-save-name = 名前を保存
+profile-image-note = PNG、JPEG、WebP、GIF、BMP、TIFF 形式で、1 MiB 以下、2048 x 2048 以下。エンジンが縮小し、信頼しているピアと共有します。削除すると、表示をやめるよう相手に伝えます。
+profile-choose-image = 画像を選択…
+profile-upload = アップロード
+profile-discard = 破棄
+profile-remove = 画像を削除
+hotkey-heading = プッシュトゥトークのホットキー
+hotkey-intro = 通話がプッシュトゥトークモードのとき、どこでもこのキーを押している間だけ話せます。
+hotkey-field = ホットキー
+hotkey-hint = Ctrl+Alt+Space(空欄でオフ)
+hotkey-delay = 解除遅延
+hotkey-delay-hover = キーを離してからマイクがオンのままになる時間です。
+hotkey-nothing = 変更する項目がありません。
+notify-label = 着信を通知する
+login-label = ログイン時にこのアプリを起動する
+login-error = ログイン時の起動: { $reason }
+dialog-profile-image = プロフィール画像を選択
+dialog-image-filter = 画像
+dialog-export = 通話の記録を書き出す
+login-no-mechanism = このシステムには、対応するログイン項目の仕組みがありません
+login-no-exe = このプログラムが見つかりません: { $error }
+login-bad-path = プログラムのパスが有効なテキストではありません
+login-set-unavailable = 利用できません: { $reason }
+options-save-failed = 選択を保存できませんでした: { $error }
+language-label = 言語
+language-experimental = この言語は試験的です。テキストレンダラーがデーヴァナーガリー文字を連結できないため、一部の語が印刷された字形と異なって見えます。
+link-offline-manual = デーモンを起動してください。このウィンドウは自動的に再接続します。
+hotkey-applied = { $label }: 適用しました
+hotkey-check-accelerator = ホットキーは表示可能な文字で 64 文字以内にしてください
+hotkey-check-delay = 解除遅延は 0 から 2000 ms の間で指定してください
+hotkey-label-accelerator = プッシュトゥトークのホットキー
+hotkey-label-delay = 解除遅延
+hotkey-missing-key = デーモンが { $key } を報告しませんでした
+hotkey-bad-value = デーモンが不正な { $key } を報告しました: { $value }
+hotkey-rejected = { $label }: 拒否されました
+hotkey-rejected-reason = { $label }: 拒否されました({ $reason })
+hotkey-saved = { $label }: 保存しました。再起動後に反映されます
+hotkey-saved-reason = { $label }: 保存しました。再起動後に反映されます({ $reason })

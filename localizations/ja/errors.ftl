@@ -1,4 +1,46 @@
 # Relay desktop UI catalog, Japanese (ja), section: Errors the UI words itself.
-# Not translated yet. Add only ids that exist in localizations/en/errors.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Project Fluent. Same ids and $variables as localizations/en/errors.ftl. See docs/i18n.md.
+
+err-not-connected = Relay デーモンに接続されていません
+err-release-delay = 解除遅延は 0 から 2000 ms の間で指定してください
+err-gain = ゲインは 0 から 4 の間の有限の数値で指定してください
+err-bad-call-id = 通話 ID の形式が正しくありません
+err-unknown-call = 不明な通話です
+err-no-lease = エンジンが制御権を返しませんでした
+err-bad-peer-id = ピア ID の形式が正しくありません
+err-unknown-peer = 不明なピアです
+err-consent-required = 送信にはマイクの許可が必要です
+err-ring-volume = 着信音の音量は 0 から 1 の間で指定してください
+err-unknown-device = 不明、または利用できないオーディオデバイスです
+err-display-name = 表示名は表示可能な文字で 1 から 64 文字にしてください
+err-avatar-media-type = プロフィール画像にはメディアタイプが必要です
+conn-scheme = 接続文字列は relay:// で始まります
+err-invite-malformed = その招待トークンの形式が正しくありません
+err-join-target = 招待トークン、または 32 文字のチャンネル ID を入力してください
+err-bad-channel-id = チャンネル ID の形式が正しくありません
+err-unknown-channel = 不明なチャンネルです
+err-channel-name = チャンネル名は表示可能な文字で 1 から 32 文字にしてください
+err-channel-needs-password = パスワード付きチャンネルにはパスワードが必要です
+err-enter-password = チャンネルのパスワードを入力してください
+err-invite-admin-only = 招待を作成できるのはオーナーまたは管理者のみです
+err-invite-range = 招待の有効期間または使用回数が範囲外です
+err-no-invite = エンジンが招待を返しませんでした
+err-revoke-admin-only = メンバーを削除できるのはオーナーまたは管理者のみです
+err-not-member = そのピアはチャンネルのメンバーとして確認されていません
+err-nothing-to-change = 変更する項目がありません
+err-bad-avatar-hash = プロフィール画像のハッシュの形式が正しくありません
+conn-missing-fingerprint = 接続文字列に #フィンガープリント の部分がありません。
+conn-bad-fingerprint = フィンガープリントは 16 進数 64 文字にしてください。
+conn-bad-address = アドレスは名前ではなく、ip:port の形式で直接指定してください。
+watch-resync = エンジンから再同期を要求されました: { $reason }
+watch-closed = デーモンが接続を閉じました
+err-unsupported = このエンジンはその要求に対応していません
+err-daemon-unreachable = Relay デーモンに接続できません: { $reason }
+err-engine-timeout = エンジンが時間内に応答しませんでした
+err-connection = 接続の問題: { $reason }
+err-unreadable-image = そのファイルは読み取れる画像ではありません。
+err-engine-rejected = エンジンが要求を拒否しました
+err-no-paths = このデバイスでは、Relay デーモン用のファイルやフォルダーを選択できません。
+err-cannot-start-daemon = このデバイスでは Relay デーモンを起動できません。
+err-cannot-stop-daemon = このデバイスでは Relay デーモンを停止できません。
+err-read-file = ファイルを読み取れません: { $error }
