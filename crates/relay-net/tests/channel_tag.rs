@@ -1,8 +1,13 @@
 use relay_core::channel::{ChannelName, Policy};
 use relay_net::channel::tag::{self, ChannelAdvert, blind, epoch_of, hidden_instance_id};
 use relay_net::channel::{ChannelId, limits};
+use relay_net::identity::{Fingerprint, Identity};
 
 const INSTANCE: [u8; 16] = [7; 16];
+
+fn fp(n: u8) -> Fingerprint {
+	Fingerprint::from_bytes([n; 32])
+}
 const EPOCH: u64 = 500_000;
 
 fn id(n: u8) -> ChannelId {
@@ -21,46 +26,60 @@ const HIDDEN: Policy = Policy {
 
 fn advert(ids: &[ChannelId], instance: &[u8; 16], epoch: u64, policy: &Policy) -> ChannelAdvert {
 	let n = name();
-	ChannelAdvert::build(ids.iter().map(|i| (i, &n, policy)), epoch, instance)
+	ChannelAdvert::build(ids.iter().map(|i| (i, &n, policy)), epoch, instance, &fp(1))
 }
 
 #[test]
 fn members_recognise_their_channel_and_only_it() {
 	let ad = advert(&[id(1), id(2)], &INSTANCE, EPOCH, &HIDDEN);
-	let found = ad.recognise(&[id(1), id(2), id(3)], &INSTANCE, EPOCH);
-	assert_eq!(found, vec![id(1), id(2)]);
+	let found = ad.recognise(&[id(1), id(2), id(3)], &INSTANCE, &[fp(1)], EPOCH);
+	let channels: Vec<_> = found.iter().map(|r| r.channel).collect();
+	assert_eq!(channels, vec![id(1), id(2)]);
+	assert!(found.iter().all(|r| r.fingerprint == fp(1)));
 }
 
 #[test]
 fn outsiders_recognise_nothing() {
 	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &HIDDEN);
-	assert!(ad.recognise(&[id(9), id(10)], &INSTANCE, EPOCH).is_empty());
+	assert!(
+		ad.recognise(&[id(9), id(10)], &INSTANCE, &[fp(1)], EPOCH)
+			.is_empty()
+	);
 }
 
 #[test]
 fn recognition_tolerates_one_epoch_of_clock_skew_but_no_more() {
 	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &HIDDEN);
-	assert!(!ad.recognise(&[id(1)], &INSTANCE, EPOCH + 1).is_empty());
-	assert!(!ad.recognise(&[id(1)], &INSTANCE, EPOCH - 1).is_empty());
-	assert!(ad.recognise(&[id(1)], &INSTANCE, EPOCH + 2).is_empty());
+	assert!(
+		!ad.recognise(&[id(1)], &INSTANCE, &[fp(1)], EPOCH + 1)
+			.is_empty()
+	);
+	assert!(
+		!ad.recognise(&[id(1)], &INSTANCE, &[fp(1)], EPOCH - 1)
+			.is_empty()
+	);
+	assert!(
+		ad.recognise(&[id(1)], &INSTANCE, &[fp(1)], EPOCH + 2)
+			.is_empty()
+	);
 }
 
 #[test]
 fn tags_are_unlinkable_across_devices_and_epochs() {
 	// Same channel: different device or hour gives a different tag, so a sniffer cannot tell
 	// that two adverts belong to the same group.
-	let base = blind(&id(1), EPOCH, &INSTANCE);
-	assert_ne!(base, blind(&id(1), EPOCH, &[8; 16]));
-	assert_ne!(base, blind(&id(1), EPOCH + 1, &INSTANCE));
-	assert_ne!(base, blind(&id(2), EPOCH, &INSTANCE));
-	assert_eq!(base, blind(&id(1), EPOCH, &INSTANCE));
+	let base = blind(&id(1), EPOCH, &INSTANCE, &fp(1));
+	assert_ne!(base, blind(&id(1), EPOCH, &[8; 16], &fp(1)));
+	assert_ne!(base, blind(&id(1), EPOCH + 1, &INSTANCE, &fp(1)));
+	assert_ne!(base, blind(&id(2), EPOCH, &INSTANCE, &fp(1)));
+	assert_eq!(base, blind(&id(1), EPOCH, &INSTANCE, &fp(1)));
 }
 
 #[test]
 fn an_advert_replayed_from_another_instance_does_not_match() {
 	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &HIDDEN);
 	// A forger re-publishing the tags under a different instance id is not recognised.
-	assert!(ad.recognise(&[id(1)], &[8; 16], EPOCH).is_empty());
+	assert!(ad.recognise(&[id(1)], &[8; 16], &[fp(1)], EPOCH).is_empty());
 }
 
 #[test]
@@ -153,4 +172,58 @@ fn epoch_function_is_hourly() {
 	assert_eq!(epoch_of(3599), 0);
 	assert_eq!(epoch_of(3600), 1);
 	let _ = tag::epoch_of;
+}
+
+#[test]
+fn tags_are_bound_to_the_advertisers_fingerprint() {
+	assert_ne!(
+		blind(&id(1), EPOCH, &INSTANCE, &fp(1)),
+		blind(&id(1), EPOCH, &INSTANCE, &fp(2))
+	);
+	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &HIDDEN);
+	// A member that does not know the advertiser's fingerprint recognises nothing.
+	assert!(
+		ad.recognise(&[id(1)], &INSTANCE, &[fp(2), fp(3)], EPOCH)
+			.is_empty()
+	);
+	// With the right one known, the result names the fingerprint to pin.
+	let hit = ad.recognise(&[id(1)], &INSTANCE, &[fp(2), fp(1)], EPOCH);
+	assert_eq!(hit.len(), 1);
+	assert_eq!(hit[0].fingerprint, fp(1));
+}
+
+#[tokio::test]
+async fn a_replayed_advertisement_only_leads_to_a_dial_that_fails_pinned() {
+	use relay_net::handshake::{HandshakeError, initiate, respond};
+	use tokio::net::{TcpListener, TcpStream};
+
+	// The real member advertises; an outsider copies the TXT record verbatim and answers on
+	// its own address. The recogniser yields the real member's fingerprint, so the dial pins it.
+	let member = Identity::generate().unwrap();
+	let outsider = Identity::generate().unwrap();
+	let me = Identity::generate().unwrap();
+	let ad = ChannelAdvert::build(
+		[(&id(1), &name(), &HIDDEN)],
+		EPOCH,
+		&INSTANCE,
+		&member.fingerprint(),
+	);
+	let copied = ChannelAdvert::from_map(&ad.to_txt().into_iter().collect()).unwrap();
+	let hit = copied.recognise(&[id(1)], &INSTANCE, &[member.fingerprint()], EPOCH);
+	assert_eq!(hit.len(), 1);
+	let expected = hit[0].fingerprint;
+	assert_ne!(expected, outsider.fingerprint());
+
+	let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+	let addr = listener.local_addr().unwrap();
+	let serve = async {
+		let (mut s, _) = listener.accept().await.unwrap();
+		let _ = respond(&mut s, &outsider).await;
+	};
+	let dial = async {
+		let mut s = TcpStream::connect(addr).await.unwrap();
+		initiate(&mut s, &me, Some(&expected)).await
+	};
+	let (_, result) = tokio::join!(serve, dial);
+	assert!(matches!(result, Err(HandshakeError::UnexpectedPeer)));
 }

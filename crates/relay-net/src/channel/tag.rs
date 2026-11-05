@@ -1,6 +1,6 @@
 //! Blinded per-channel discovery tags and their mDNS TXT form.
 //!
-//! `tag = keyed_blake3(tag_key(channel_id), epoch || instance_id)[..8]`. Members recompute it;
+//! `tag = keyed_blake3(tag_key(channel_id), epoch || instance_id || fingerprint)[..8]`. Members recompute it;
 //! outsiders without the channel id cannot recognise, link or enumerate it, and the tag differs
 //! per device and per hour. A tag is unauthenticated (anyone who knows the id can forge one),
 //! so a match is a hint, never proof of membership.
@@ -11,6 +11,7 @@ use super::ids::{ct_eq, random, tag_key};
 use super::limits::{
 	LISTED_ADVERTISED_MAX, TAG_BYTES, TAG_EPOCH_SECS, TAG_SLOTS_LARGE, TAG_SLOTS_SMALL,
 };
+use crate::identity::Fingerprint;
 
 const TAG_LABEL: &[u8] = b"tag";
 const PSEUDONYM_DOMAIN: &str = "relay-net 2026 hidden instance id v1";
@@ -34,11 +35,17 @@ pub const fn epoch_of(unix_secs: u64) -> u64 {
 }
 
 /// The tag a member of `id` advertises from `instance_id` during `epoch`.
-pub fn blind(id: &ChannelId, epoch: u64, instance_id: &[u8; 16]) -> Tag {
+///
+/// The advertiser's device fingerprint is part of the input, so a member can only recognise a
+/// tag for a fingerprint it already knows. A copied advertisement then yields the *advertiser's*
+/// fingerprint, and dialling the copier's address with that fingerprint pinned fails before our
+/// static key is revealed.
+pub fn blind(id: &ChannelId, epoch: u64, instance_id: &[u8; 16], fingerprint: &Fingerprint) -> Tag {
 	let mut hasher = blake3::Hasher::new_keyed(&tag_key(id));
 	hasher.update(TAG_LABEL);
 	hasher.update(&epoch.to_le_bytes());
 	hasher.update(instance_id);
+	hasher.update(fingerprint.as_bytes());
 	let mut tag = [0u8; TAG_BYTES];
 	tag.copy_from_slice(&hasher.finalize().as_bytes()[..TAG_BYTES]);
 	Tag(tag)
@@ -77,12 +84,13 @@ impl ChannelAdvert {
 		channels: impl IntoIterator<Item = (&'a ChannelId, &'a ChannelName, &'a Policy)>,
 		epoch: u64,
 		instance_id: &[u8; 16],
+		fingerprint: &Fingerprint,
 	) -> Self {
 		let mut tags = Vec::new();
 		let mut listed = Vec::new();
 		for (id, name, policy) in channels {
 			if tags.len() < TAG_SLOTS_LARGE {
-				tags.push(blind(id, epoch, instance_id));
+				tags.push(blind(id, epoch, instance_id, fingerprint));
 			}
 			if policy.listed && listed.len() < LISTED_ADVERTISED_MAX {
 				listed.push(ListedChannel {
@@ -173,33 +181,49 @@ impl ChannelAdvert {
 		})
 	}
 
-	/// Channels among `local` that this advert probably belongs to. The advert's epoch must be
-	/// within one period of `now_epoch`; only then is each local channel tested against every
-	/// tag for epochs `epoch-1..=epoch+1`, in constant time per comparison.
+	/// Members this advert probably belongs to: for each channel in `local` and each already
+	/// known (`known`) device fingerprint, whether a tag matches. The advert's epoch must be
+	/// within one period of `now_epoch`; then epochs `epoch-1..=epoch+1` are tested, in constant
+	/// time per comparison. The result carries the fingerprint the advertiser must present, to be
+	/// passed to the handshake as the expected key. A device not in `known` is never recognised,
+	/// so a replayed tag can only ever lead to a pinned (and therefore failing) dial.
 	pub fn recognise(
 		&self,
 		local: &[ChannelId],
 		instance_id: &[u8; 16],
+		known: &[Fingerprint],
 		now_epoch: u64,
-	) -> Vec<ChannelId> {
+	) -> Vec<Recognised> {
 		if self.epoch.abs_diff(now_epoch) > 1 {
 			return Vec::new();
 		}
 		let mut found = Vec::new();
 		for id in local {
-			let mut hit = false;
-			for epoch in self.epoch.saturating_sub(1)..=self.epoch.saturating_add(1) {
-				let expected = blind(id, epoch, instance_id);
-				for tag in &self.tags {
-					hit |= ct_eq(&expected.0, &tag.0);
+			for fingerprint in known {
+				let mut hit = false;
+				for epoch in self.epoch.saturating_sub(1)..=self.epoch.saturating_add(1) {
+					let expected = blind(id, epoch, instance_id, fingerprint);
+					for tag in &self.tags {
+						hit |= ct_eq(&expected.0, &tag.0);
+					}
 				}
-			}
-			if hit {
-				found.push(*id);
+				if hit {
+					found.push(Recognised {
+						channel: *id,
+						fingerprint: *fingerprint,
+					});
+				}
 			}
 		}
 		found
 	}
+}
+
+/// A recognised advertisement: the channel it hints at and the device it claims to be.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Recognised {
+	pub channel: ChannelId,
+	pub fingerprint: Fingerprint,
 }
 
 fn hex(bytes: impl IntoIterator<Item = u8>) -> String {
