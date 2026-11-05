@@ -1,6 +1,7 @@
 //! Media: capture, send and receive pipelines, playback and resource admission.
 
 mod capture_worker;
+mod control;
 mod devices;
 mod events;
 mod gate;
@@ -18,6 +19,7 @@ mod system;
 use thiserror::Error;
 
 pub use capture_worker::{CaptureCmd, CaptureInput, spawn as spawn_capture_worker};
+pub use control::device_id;
 pub use devices::{BackendFactory, DeviceCmd, DeviceSetup, DeviceThread, Selection};
 pub use events::{EventSink, MediaEvent};
 pub use gate::{FrameStamp, GateBoard, GateCell};

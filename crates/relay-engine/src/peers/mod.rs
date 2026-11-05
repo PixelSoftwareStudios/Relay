@@ -2,6 +2,7 @@
 //! election, reconnect and the mapping to domain events.
 
 mod backoff;
+mod control;
 mod election;
 mod handle;
 mod link;
@@ -13,6 +14,7 @@ mod start;
 mod trust;
 
 pub use backoff::BackoffConfig;
+pub use control::PeerAdapter;
 pub use election::{LinkFacts, Verdict, elect};
 pub use handle::{
 	DiscoverySetup, LinkInfo, PeerConfig, PeerError, PeerHandle, PeerOutput, PeerSnapshot,

@@ -52,6 +52,9 @@ pub struct MediaConfig {
 	pub bind_ip: IpAddr,
 	/// Address policy for media paths.
 	pub policy: AddressPolicy,
+	/// The control actor's published gates; when set, send paths read them
+	/// directly and `GateBoard::publish` is not needed.
+	pub gates: Option<crate::service::GateReader>,
 }
 
 impl MediaConfig {
@@ -66,6 +69,7 @@ impl MediaConfig {
 			playout_target_ms: 20,
 			bind_ip: IpAddr::from([0, 0, 0, 0]),
 			policy: AddressPolicy::lan_only(),
+			gates: None,
 		}
 	}
 }
@@ -168,11 +172,15 @@ impl MediaSystem {
 			render.clone(),
 			Arc::clone(&events),
 		)?;
+		let board = config
+			.gates
+			.clone()
+			.map_or_else(GateBoard::new, GateBoard::following);
 		Ok(Self {
 			inner: Arc::new(Inner {
 				config,
 				events,
-				board: GateBoard::new(),
+				board,
 				capture,
 				render,
 				devices,

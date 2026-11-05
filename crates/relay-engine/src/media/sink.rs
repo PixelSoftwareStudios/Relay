@@ -17,6 +17,8 @@ pub struct RenderSink {
 	drift: DriftEstimator,
 	device_rate: u32,
 	ticks: u32,
+	/// FIFO fill just before the latest frame was written.
+	before_write: usize,
 }
 
 impl RenderSink {
@@ -33,12 +35,14 @@ impl RenderSink {
 			drift: DriftEstimator::new(config, target),
 			device_rate,
 			ticks: 0,
+			before_write: 0,
 		})
 	}
 
 	/// Resamples one mixed frame into the FIFO and, periodically, updates
 	/// the drift correction.
 	pub fn write(&mut self, frame: &[f32]) -> Result<()> {
+		self.before_write = self.writer.occupancy();
 		let writer = &mut self.writer;
 		self.resampler.push(frame, |block| {
 			writer.write(block);
@@ -52,7 +56,11 @@ impl RenderSink {
 	}
 
 	fn update_drift(&mut self) -> Result<()> {
-		let occupancy = u32::try_from(self.writer.occupancy()).unwrap_or(u32::MAX);
+		// The fill is a sawtooth: it peaks right after a frame is written and
+		// is lowest right before. Half a frame above the minimum is the mean,
+		// which is what the target describes.
+		let mean = self.before_write + self.device_rate as usize / 200;
+		let occupancy = u32::try_from(mean).unwrap_or(u32::MAX);
 		let elapsed = self.device_rate / 100 * DRIFT_PERIOD_TICKS;
 		let ppm = self.drift.update(occupancy, elapsed);
 		// The estimator reports "consume input faster" when the buffer is too

@@ -5,10 +5,13 @@
 //! deny takes effect without waiting for any queue.
 
 use std::collections::{HashMap, VecDeque};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
 use relay_core::{AudioGeneration, CallId, GateSnapshot, Revision, RouteGeneration};
+
+use crate::service::GateReader;
 
 const PENDING_MAX: usize = 64;
 
@@ -21,7 +24,12 @@ struct Versioned {
 /// The latest gate of one call. Cheap to read from a worker thread.
 #[derive(Debug)]
 pub struct GateCell {
+	call: CallId,
 	latest: ArcSwap<Versioned>,
+	/// When set, the domain's published table is the source of truth and
+	/// `latest` is ignored.
+	external: Option<GateReader>,
+	retired: AtomicBool,
 }
 
 /// What a frame was captured under.
@@ -43,13 +51,31 @@ impl GateCell {
 			route: RouteGeneration::ZERO,
 			capture: AudioGeneration::ZERO,
 		};
-		Self::with(gate, Revision::ZERO)
+		Self::with(gate, Revision::ZERO, None)
 	}
 
-	fn with(gate: GateSnapshot, revision: Revision) -> Self {
+	fn with(gate: GateSnapshot, revision: Revision, external: Option<GateReader>) -> Self {
 		Self {
+			call: gate.call,
 			latest: ArcSwap::from_pointee(Versioned { gate, revision }),
+			external,
+			retired: AtomicBool::new(false),
 		}
+	}
+
+	fn deny_all(&self) -> GateSnapshot {
+		GateSnapshot {
+			call: self.call,
+			open: false,
+			deny: None,
+			route: RouteGeneration::ZERO,
+			capture: AudioGeneration::ZERO,
+		}
+	}
+
+	/// Permanently closes the cell.
+	pub fn retire(&self) {
+		self.retired.store(true, Ordering::Release);
 	}
 
 	/// Installs `gate` unless a newer revision is already current.
@@ -65,7 +91,17 @@ impl GateCell {
 
 	/// The latest snapshot (one atomic load, no allocation).
 	pub fn load(&self) -> GateSnapshot {
-		self.latest.load().gate
+		if self.retired.load(Ordering::Acquire) {
+			return self.deny_all();
+		}
+		match &self.external {
+			Some(reader) => reader
+				.load()
+				.get(self.call)
+				.copied()
+				.unwrap_or_else(|| self.deny_all()),
+			None => self.latest.load().gate,
+		}
 	}
 
 	/// The route generation a frame read now would be stamped with.
@@ -85,6 +121,7 @@ impl GateCell {
 #[derive(Debug, Default)]
 pub struct GateBoard {
 	inner: Mutex<BoardInner>,
+	external: Option<GateReader>,
 }
 
 #[derive(Debug, Default)]
@@ -95,9 +132,18 @@ struct BoardInner {
 }
 
 impl GateBoard {
-	/// A shared, empty board.
+	/// A shared, empty board fed by `publish`.
 	pub fn new() -> Arc<Self> {
 		Arc::new(Self::default())
+	}
+
+	/// A board that reads the control actor's published table instead of
+	/// being published to: every packet sees the actor's latest gate.
+	pub fn following(reader: GateReader) -> Arc<Self> {
+		Arc::new(Self {
+			inner: Mutex::default(),
+			external: Some(reader),
+		})
 	}
 
 	fn lock(&self) -> std::sync::MutexGuard<'_, BoardInner> {
@@ -140,8 +186,12 @@ impl GateBoard {
 			return Arc::clone(cell);
 		}
 		let cell = Arc::new(match inner.pending.remove(&call) {
-			Some(v) => GateCell::with(v.gate, v.revision),
-			None => GateCell::closed(call),
+			Some(v) => GateCell::with(v.gate, v.revision, self.external.clone()),
+			None => {
+				let mut cell = GateCell::closed(call);
+				cell.external = self.external.clone();
+				cell
+			}
 		});
 		inner.order.retain(|c| *c != call);
 		inner.cells.insert(call, Arc::clone(&cell));
@@ -153,9 +203,7 @@ impl GateBoard {
 	pub fn remove(&self, call: CallId) {
 		let mut inner = self.lock();
 		if let Some(cell) = inner.cells.remove(&call) {
-			let mut gate = cell.load();
-			gate.open = false;
-			cell.publish(gate, Revision::new(u64::MAX));
+			cell.retire();
 		}
 		inner.pending.remove(&call);
 		inner.order.retain(|c| *c != call);
