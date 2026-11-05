@@ -57,8 +57,8 @@ impl Fingerprint {
 			return Err(FingerprintParseError::Length);
 		}
 		let mut out = [0u8; 32];
-		for (byte, pair) in out.iter_mut().zip(digits.chunks_exact(2)) {
-			*byte = pair[0] << 4 | pair[1];
+		for (i, byte) in out.iter_mut().enumerate() {
+			*byte = digits[2 * i] << 4 | digits[2 * i + 1];
 		}
 		Ok(Self(out))
 	}

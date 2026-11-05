@@ -1,4 +1,8 @@
 //! LAN discovery, device identity and the secure peer transport for Relay.
+//!
+//! The crate moves opaque bytes: control records carry `relay.peer.v1` envelopes and media
+//! datagrams carry opaque payloads. Neither discovery nor a completed handshake grants trust,
+//! call acceptance or microphone authority.
 
 mod address;
 pub mod control;
