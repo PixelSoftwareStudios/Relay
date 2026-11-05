@@ -1,0 +1,134 @@
+# Android feasibility spike
+
+Status: **spike, not a commitment.** This records what was tried on one Mac on 2026-11-05, with evidence. Nothing here promises an app. Anything not listed under "Observed" is unverified.
+
+The spike lives in `apps/relay-android/` (experimental, not a workspace member: it has its own `[workspace]` table and `Cargo.lock`). No shared crate was edited; required source changes are listed under "Required changes in shared crates".
+
+## Environment (inventory)
+
+| Item | Found |
+|---|---|
+| Host | macOS 14 (Darwin 23.6), Apple Silicon |
+| Rust | 1.99.1 (`rust-toolchain.toml`); targets were only apple/linux/windows/wasm |
+| Installed by the spike | `rustup target add aarch64-linux-android x86_64-linux-android`; `cargo install cargo-ndk --locked` (4.1.2); NDK r28c (`ndk;28.2.13676358`) into a scratch SDK root via `sdkmanager --sdk_root=<scratch>` (the user's SDK was not modified) |
+| Already present | Android SDK at `~/Library/Android/sdk` (platform android-36.1, build-tools 35.0.0, emulator, platform-tools), AVD `Medium_Phone_API_35` (Android 15, arm64-v8a, Google Play image), Temurin JDK 21 |
+| Absent | Gradle on PATH (only stale `~/.gradle` caches), Kotlin toolchain, `cargo-apk`, `xbuild` |
+
+No Gradle/Kotlin build was attempted, so **no Kotlin shell exists in the spike**. The APK was assembled without Gradle (`apps/relay-android/build-apk.sh`: cargo-ndk, `aapt2 link`, `zip`, `zipalign`, `apksigner` with a throwaway debug key). A real shell needs Gradle, which was not available (not tried).
+
+## Cross-compile results
+
+Command: `ANDROID_NDK_HOME=<ndk> cargo ndk -t arm64-v8a -P 26 check -p <crate>` from the repo root (API level 26 = minSdk). Build dir was a scratch `CARGO_TARGET_DIR`. Other agents were editing shared crates concurrently; a snapshot that was mid-edit failed twice (see note) and passed when rerun.
+
+| Crate | aarch64 `check` | Notes |
+|---|---|---|
+| relay-core | compiled | blake3 builds its C/asm via NDK clang fine |
+| relay-protocol | compiled | |
+| relay-audio | compiled | cpal 0.18.2 on Android pulls `ndk` + `jni` (AAudio host, no oboe, no extra C++). `opus` builds libopus from source via `opusic-sys` with NDK clang: no system lib needed |
+| relay-net | compiled | `mdns-sd`, `snow`, `argon2`, `spake2` all pure Rust |
+| relay-config | compiled, **runtime unverified** | `rusqlite` bundled compiles with NDK clang. `keyring` 4.2 compiles but has no default store on Android unless one is registered (see below) |
+| relay-api | compiled | tonic over UDS is fine; protoc is vendored |
+| relay-client | compiled | |
+| relay-ui | compiled | egui without eframe |
+| relay-engine (lib) | compiled | `cargo ndk build -p relay-engine -p relay-ui` for arm64-v8a ok |
+| relay-platform | compiled | global-hotkey is a no-op on Android; not needed there |
+
+Also: `cargo ndk -t x86_64 ... build --release --features engine` for the spike crate (links the engine into a cdylib) succeeded, so the x86_64 emulator ABI builds too (an earlier x86_64 engine attempt failed only on in-flight edits by other agents: missing `PttUpdate::immediate`, `ptt_release_delay`, `Reject::InvalidReleaseDelay`; not an Android issue).
+
+`cargo ndk check` only proves type-checking plus build scripts. The stronger check: the spike cdylib with feature `engine` calls `DaemonHandle::start`, so opus, sqlite, cpal, mdns, snow and tonic cannot be dead-stripped; it **linked** (arm64 release `librelay_android.so`, 26 MB unstripped; 12 MB without the engine). That engine path was **never run** on a device.
+
+## Hello APK (relay-ui compact layout, mock mode)
+
+`apps/relay-android`: `cdylib` with `android_main`, eframe 0.37 (`glow`, `android-native-activity`), `android-activity` 0.6, relay-ui in mock mode with a stub `Shell`. Build:
+
+```
+export ANDROID_NDK_HOME=<scratch sdk>/ndk/28.2.13676358 ANDROID_HOME=~/Library/Android/sdk
+OUT=<scratch dir> apps/relay-android/build-apk.sh        # ABIS="arm64-v8a x86_64" for both
+```
+
+Result: 4.0 MB APK, signature verified by `apksigner`, `aapt2 dump badging` shows minSdk 26 / targetSdk 35.
+
+### Observed (emulator `Medium_Phone_API_35`, arm64, headless, swiftshader GPU, 1080x2400 @ 420 dpi)
+
+- Installs and launches; `librelay_android.so` loads; renders with GLES (EGL_emulation); no crash in logcat.
+- The compact layout selected itself: one column, bottom nav (Calls, People, Channels, Settings), mock data and banner, call card with Accept/Decline.
+- Touch: an adb tap on the Settings tab switched the page.
+- Soft keyboard: tapping the profile name field showed the Gboard IME (`mInputShown=true`); `adb input text abc` appended to the field. This is key-event injection, not real IME composition.
+- Home then relaunch: same pid, same screen afterwards (the activity was backgrounded and resumed; no crash). Not an explicit surface-loss stress test.
+
+### Defects seen in the screenshots (all in the spike or relay-ui, not fixed)
+
+1. No safe-area/inset handling: the header sits under the status bar and the bottom nav overlaps the gesture bar (target 35 is edge-to-edge).
+2. Cards and long labels run off the right edge (text clipped, card border missing on the right): the layout assumes more width than the window gives on this density or `available_width` is exceeded by non-wrapping rows. Needs investigation in relay-ui at ~411 dp width.
+3. The "Channels" tab label wraps to "Channel/s".
+4. The soft keyboard does not push content up (no resize/inset handling); the focused field stayed visible here by luck.
+5. Settings copy still says "no tray", "no on-screen button" (accurate, but desktop wording).
+
+### Not verified
+
+Real device, touch-screen gestures and scrolling feel, IME composition/predictive text/IME actions, rotation, process death and restore, explicit `Surface` destroy/recreate and GL context loss, 120 Hz or low-end GPUs, idle zero-repaint on device, CPU/battery/RSS (the mobile resource gate in `docs/ui.md` stays unmeasured), accessibility (eframe's `accesskit` is not available with NativeActivity: it is a `compile_error!`), any audio, any networking, the engine running on Android, real-device Wi-Fi/multicast.
+
+## Android-only shell needs
+
+Boundary proposal: the Rust cdylib owns engine + UI; Kotlin owns anything that needs the Android framework. Prefer UniFFI (generated Kotlin, async-friendly) for the engine-control surface and plain `jni` calls (already a transitive dependency via cpal) for tiny leaf calls. Sizes are rough Kotlin line counts for a working version, unmeasured.
+
+NativeActivity cannot host a foreground service, runtime-permission dialogs, SAF intents or a proper IME bridge without Java. **Recommendation: use `GameActivity` (android-game-activity, needs Gradle + the Jetpack games-activity AAR) or a small Kotlin `Activity` that embeds the Rust surface.** The spike used NativeActivity only because Gradle was missing.
+
+| Need | Mechanism | Boundary | Kotlin size |
+|---|---|---|---|
+| Foreground service, type `microphone`, with notification (call, mute, hang up actions) | `Service` + `startForeground(id, n, FOREGROUND_SERVICE_TYPE_MICROPHONE)`; manifest `FOREGROUND_SERVICE` and `FOREGROUND_SERVICE_MICROPHONE`; start only while a call is up and mic permission is held (Android 14+ throws otherwise). The engine runs in this service's process | Service calls `Engine.start(paths)` / `stop()`; notification actions call engine commands | ~150 |
+| `RECORD_AUDIO`, `POST_NOTIFICATIONS` (13+) | `ActivityResultContracts.RequestPermission`; deny states shown by UI | Kotlin passes `granted` to Rust; the engine's per-call transmit consent stays in the engine | ~60 |
+| Multicast + Wi-Fi locks | `WifiManager.MulticastLock` (needed to receive mDNS), `WifiLock` (`WIFI_MODE_FULL_LOW_LATENCY`, API 29+) held for the service lifetime; permissions `CHANGE_WIFI_MULTICAST_STATE`, `ACCESS_WIFI_STATE`, `WAKE_LOCK` | Service acquires/releases; no Rust call | ~40 |
+| NsdManager alternative | `NsdManager.discoverServices("_praxis-relay._tcp")`/`registerService`; use if `mdns-sd` multicast is unreliable on some OEMs. Results go to Rust as peer hints | `engine.push_discovered(ip, port, txt)`; needs a new discovery adapter on the Rust side | ~120 + Rust adapter |
+| Identity key in Keystore | The Noise static key must be exportable to Rust, so Keystore cannot hold it directly: wrap it (AES-GCM key in Keystore, ciphertext in app files). Implements `IdentityStore` | `RunOptions::identity_store` and `channel_vault` already accept injected stores. Kotlin exposes `wrap(bytes)`/`unwrap(bytes)` over JNI; a Rust `AndroidKeystoreStore` calls it | ~100 + ~80 Rust |
+| SAF/content-URI picker | `ActivityResultContracts.OpenDocument("image/*")`; read size from `OpenableColumns.SIZE` before reading (1 MiB limit), then bytes | Fits `FilePicker::pick_image`: Rust passes a request id, Kotlin completes it with `PickedFile{name,bytes}` or cancel (JNI callback into a oneshot) | ~60 |
+| Clipboard | `ClipboardManager.setPrimaryClip`; Android 13+ shows its own toast | `Shell::copy_text` -> JNI static call | ~15 |
+| Push-to-talk | On-screen hold button is a relay-ui widget (already works with touch). Volume keys: override `dispatchKeyEvent` while the activity is foreground (cannot be global without an accessibility service: not recommended) | Key down/up -> existing PTT command stream | ~30 |
+| Lifecycle | `onStop`/`onStart` -> `Shell::window_visible`; surface loss handled by android-activity/winit; call survives via the service | small JNI setter | ~30 |
+| Battery / doze | Foreground service exempts the app during a call; idle (no call) should keep nothing running. Do **not** request battery-optimization exemption by default. Incoming calls while idle are not possible on a LAN-only design without a running discovery; this is a product limit to state, not engineer around | n/a | n/a |
+| Wi-Fi power save | `WIFI_MODE_FULL_LOW_LATENCY` lock is the lever (API 29+); effect on jitter is **unmeasured** | | in locks above |
+| AEC | Open capture with `VOICE_COMMUNICATION` source so the platform AEC/NS/AGC apply. cpal's AAudio host selects the input preset only via its own API: **unverified whether cpal 0.18 exposes it**; otherwise relay-audio needs its own AAudio/Oboe stream or JNI `AudioRecord`. Also route output with `USAGE_VOICE_COMMUNICATION` and set `AudioManager.MODE_IN_COMMUNICATION` | Kotlin sets mode/`AudioManager` routing; Rust opens stream | ~50 + Rust change |
+| Audio focus / headset / Bluetooth routing | `AudioManager` focus and `setCommunicationDevice` (31+) | JNI | ~100 |
+
+Total Kotlin: roughly 700-900 lines for the above, excluding Gradle setup and tests (estimate).
+
+## Required changes in shared crates (recorded, not made)
+
+Ranked by effort, smallest first.
+
+1. **keyring on Android (small, runtime-blocking).** `relay-config` uses `keyring::Entry::new`. keyring 4.x delegates to `keyring-core` stores; without a registered default store it returns `NoDefaultStore`. On Android either enable the `android-native-keyring-store` feature and initialise it from Java, or (preferred) use `cfg(target_os = "android")` to skip `KeyringVault` and require an injected `SecretVault`. `RunOptions::channel_vault` and `identity_store` already allow injection, so the engine needs no change; `relay-config` needs a cfg gate or a feature `os-keyring` (default on) that Android builds turn off. Unverified at runtime.
+2. **Paths.** `Paths::platform()` uses `directories::ProjectDirs`, which has no Android home. Use `Paths::new` with the app's `filesDir` (already supported by `RunOptions::new(paths)`); no change, but do not call `platform()`.
+3. **Transport.** `Transport::Unix(Some(path))` in `filesDir` is expected to work on Android; the default path must not be used. An in-process option is cleaner: expose the tonic service through an in-memory duplex (`tonic` `Server::serve_with_incoming` over a channel) so the UI links `relay-client` to the engine without a socket. This is a new `Transport::InProcess`-style entry plus an `Endpoint` variant in `relay-client` (medium; touches relay-engine, relay-api, relay-client). Not needed for a first spike because UDS in app storage should work (unverified).
+4. **In-process entry point / FFI surface.** A single `start(paths, vault, identity, transport) -> handle` and `stop()` for UniFFI. `DaemonHandle::start`/`shutdown` already have this shape (medium, mostly wrapper code in a new crate, no edits to existing crates required).
+5. **cpal capture options.** Verify or add the VOICE_COMMUNICATION input preset for AAudio (relay-audio, medium, may need a custom backend behind the existing `AudioBackend` trait).
+6. **Discovery adapter for NsdManager** (relay-net or engine, medium, optional).
+7. **relay-ui layout defects** above (insets, overflow, tab label), and a `Shell` method for safe-area insets (small-medium).
+8. **Debug/dev features.** `global-hotkey`, `tray-icon`, `rfd`, `arboard` are not pulled in by the Android build path today: the spike's lockfile contains none of them (relay-ui is clean). `relay-platform` compiles but should not be a dependency of the Android app.
+
+## Recommended architecture
+
+- One Android app. The engine runs **in-process** inside a foreground microphone service; the UI (egui, relay-ui) runs in the activity in the same process. First step: loopback over a UDS in `filesDir`, later an in-memory transport.
+- Kotlin: Activity (GameActivity or Kotlin Activity hosting a Surface), `RelayService`, permission/SAF/clipboard/Keystore/lock helpers. Rust: one cdylib crate (`relay-android`) depending on `relay-engine`, `relay-ui`, `relay-client`.
+- Keep the engine as the owner of consent and calls: Kotlin never starts capture on its own.
+- Build: cargo-ndk to `jniLibs`, Gradle for the app; aarch64 for devices, x86_64 for emulators.
+
+## Effort estimate (single experienced developer, rough, low confidence)
+
+| Piece | Estimate |
+|---|---|
+| Gradle project, GameActivity/Surface, insets, IME, lifecycle, signing | 1-2 weeks |
+| Foreground service, permissions, notification, locks | 1 week |
+| Engine in-process on device: paths, vault/Keystore, UDS or in-memory transport, first call on two phones | 2-3 weeks (largest uncertainty: audio, see below) |
+| Audio: AAudio via cpal, latency, AEC, routing, Bluetooth | 2-4 weeks, may need custom backend |
+| Picker, clipboard, PTT, UI polish for touch | 1 week |
+| Device testing across vendors, doze, Wi-Fi power save, mDNS quirks, resource gate | 2-4 weeks |
+
+About 9-15 weeks to a trustworthy beta; confidence is low because audio latency/AEC behaviour and Wi-Fi multicast behaviour on real devices are unmeasured. Treat as plus or minus 50%.
+
+## Unmet gates
+
+- Mobile resource gate (CPU, RSS, battery): not measured.
+- Real-device run, real audio, real mDNS, real call between two devices: none done.
+- Security review of the Keystore wrapping scheme: not designed in detail.
+- The engine has never been run on Android; only linked.
+- Gradle/Kotlin toolchain: not available here, so the shell design is paper only.
