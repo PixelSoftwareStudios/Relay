@@ -15,13 +15,14 @@ fn main() {
 	let mut args = std::env::args().skip(1);
 	let mut socket = None;
 	let mut mode = "ok".to_owned();
-	let (mut spawn_log, mut lock) = (None, None);
+	let (mut spawn_log, mut lock, mut idle) = (None, None, "none".to_owned());
 	while let Some(arg) = args.next() {
 		match arg.as_str() {
 			"--socket" => socket = args.next(),
 			"--mode" => mode = args.next().unwrap_or_default(),
 			"--spawn-log" => spawn_log = args.next(),
 			"--lock" => lock = args.next(),
+			"--idle-exit" => idle = args.next().unwrap_or_default(),
 			_ => {}
 		}
 	}
@@ -32,7 +33,7 @@ fn main() {
 			.append(true)
 			.open(path)
 			.expect("spawn log");
-		writeln!(file, "started {}", std::process::id()).expect("write");
+		writeln!(file, "started {} idle={idle}", std::process::id()).expect("write");
 	}
 	match mode.as_str() {
 		"die" => {

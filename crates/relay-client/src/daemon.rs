@@ -78,6 +78,13 @@ pub fn locate(explicit: Option<&Path>) -> Result<PathBuf, Vec<PathBuf>> {
 	)
 }
 
+/// Seconds of no attached client after which an auto-started daemon stops by
+/// itself; `0` turns that off.
+pub const IDLE_EXIT_ENV: &str = "RELAY_IDLE_EXIT_SECS";
+
+/// How long an auto-started daemon lingers with nobody attached.
+pub const DEFAULT_IDLE_EXIT: Duration = Duration::from_secs(300);
+
 /// Overrides [`default_log_path`].
 pub const LOG_ENV: &str = "RELAY_DAEMON_LOG";
 
@@ -115,6 +122,8 @@ pub struct Launch {
 	pub log_file: Option<PathBuf>,
 	/// Extra arguments for `relayd`.
 	pub extra_args: Vec<OsString>,
+	/// `relayd --idle-exit`: stop after this long with no client attached.
+	pub idle_exit: Option<Duration>,
 	/// How long to wait for the endpoint to come up.
 	pub timeout: Duration,
 }
@@ -127,6 +136,7 @@ impl Launch {
 			binary: None,
 			log_file: None,
 			extra_args: Vec::new(),
+			idle_exit: None,
 			timeout: Duration::from_secs(10),
 		}
 	}
@@ -276,6 +286,10 @@ async fn start_unguarded(launch: &Launch) -> Started {
 	};
 	let from = file.metadata().map_or(0, |meta| meta.len());
 	let mut args = endpoint_args(&launch.endpoint).to_vec();
+	if let Some(idle) = launch.idle_exit {
+		args.push("--idle-exit".into());
+		args.push(idle.as_secs().to_string().into());
+	}
 	args.extend(launch.extra_args.iter().cloned());
 	let child = detached(&binary, &args, &file).and_then(|mut command| command.spawn());
 	let mut child = match child {
@@ -388,6 +402,8 @@ pub struct StartOptions {
 	pub log_file: Option<PathBuf>,
 	/// Extra arguments for `relayd`.
 	pub extra_args: Vec<OsString>,
+	/// Have the daemon stop after this long with nobody attached.
+	pub idle_exit: Option<Duration>,
 	/// How long to wait for a launched daemon to accept connections.
 	pub ready_timeout: Duration,
 	/// How long to wait for another client that is already starting it.
@@ -400,19 +416,45 @@ impl Default for StartOptions {
 			binary: None,
 			log_file: None,
 			extra_args: Vec::new(),
+			idle_exit: None,
 			ready_timeout: Duration::from_secs(10),
 			lock_timeout: Duration::from_secs(15),
 		}
 	}
 }
 
+/// The idle-exit for a daemon this program starts on its own:
+/// [`IDLE_EXIT_ENV`] if set (`0` disables), else [`DEFAULT_IDLE_EXIT`].
+pub fn autostart_idle_exit() -> Option<Duration> {
+	idle_exit_from(std::env::var(IDLE_EXIT_ENV).ok().as_deref())
+}
+
+/// [`autostart_idle_exit`] with the variable's value passed in.
+pub fn idle_exit_from(value: Option<&str>) -> Option<Duration> {
+	match value.map(|v| v.trim().parse::<u64>()) {
+		Some(Ok(0)) => None,
+		Some(Ok(secs)) => Some(Duration::from_secs(secs)),
+		_ => Some(DEFAULT_IDLE_EXIT),
+	}
+}
+
 impl StartOptions {
+	/// Options for starting a daemon on a client's own initiative: it will
+	/// exit by itself when nobody uses it.
+	pub fn autostart() -> Self {
+		Self {
+			idle_exit: autostart_idle_exit(),
+			..Self::default()
+		}
+	}
+
 	/// The launch these options describe for `endpoint`.
 	pub fn launch(&self, endpoint: &Endpoint) -> Launch {
 		let mut launch = Launch::new(endpoint.clone());
 		launch.binary.clone_from(&self.binary);
 		launch.log_file.clone_from(&self.log_file);
 		launch.extra_args.clone_from(&self.extra_args);
+		launch.idle_exit = self.idle_exit;
 		launch.timeout = self.ready_timeout;
 		launch
 	}

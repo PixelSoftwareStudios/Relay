@@ -44,6 +44,10 @@ pub struct Args {
 	/// TCP port for inbound peer links (default: the `network.listen_port` preference).
 	#[arg(long, value_name = "PORT")]
 	pub listen_port: Option<u16>,
+	/// Stop gracefully after this many seconds with no client attached (default: never).
+	/// Clients that start the daemon for you pass it, so an unused daemon does not linger.
+	#[arg(long, value_name = "SECONDS")]
+	pub idle_exit: Option<u64>,
 	/// Do not advertise or browse on the LAN (manual addresses only).
 	#[arg(long, hide = true)]
 	pub no_discovery: bool,
@@ -68,6 +72,7 @@ impl Args {
 		if let Some(port) = self.listen_port {
 			options.network.listen = Some(SocketAddr::from(([0, 0, 0, 0], port)));
 		}
+		options.idle_exit = self.idle_exit.map(std::time::Duration::from_secs);
 		if self.no_discovery {
 			options.network.discovery = None;
 		}

@@ -44,6 +44,7 @@ impl Home {
 				"--spawn-log".into(),
 				self.spawn_log().into(),
 			],
+			idle_exit: None,
 			ready_timeout: Duration::from_secs(5),
 			lock_timeout: Duration::from_secs(10),
 		}
@@ -170,4 +171,33 @@ async fn a_failed_start_carries_the_log_tail() {
 	// The lock was released: the next caller is not stuck behind the failure.
 	let again = daemon::ensure_running(&home.endpoint(), &home.options("ok")).await;
 	assert!(matches!(again, Ok(Ensure::Started { .. })), "{again:?}");
+}
+
+#[tokio::test]
+async fn an_auto_started_daemon_is_told_to_exit_when_unused() {
+	let home = Home::new();
+	let mut options = home.options("ok");
+	options.idle_exit = Some(Duration::from_secs(7));
+	daemon::ensure_running(&home.endpoint(), &options)
+		.await
+		.expect("started");
+	let log = std::fs::read_to_string(home.spawn_log()).expect("log");
+	assert!(log.contains("idle=7"), "{log}");
+}
+
+#[test]
+fn the_idle_exit_of_an_auto_started_daemon_can_be_overridden() {
+	assert_eq!(
+		daemon::idle_exit_from(None),
+		Some(daemon::DEFAULT_IDLE_EXIT)
+	);
+	assert_eq!(
+		daemon::idle_exit_from(Some("60")),
+		Some(Duration::from_secs(60))
+	);
+	assert_eq!(daemon::idle_exit_from(Some("0")), None, "0 turns it off");
+	assert_eq!(
+		daemon::idle_exit_from(Some("soon")),
+		Some(daemon::DEFAULT_IDLE_EXIT)
+	);
 }
