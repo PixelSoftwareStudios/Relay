@@ -132,7 +132,12 @@ fn media_type_is_advisory_and_executables_flagged() {
 	assert!(!looks_executable("notes.txt"));
 }
 
+const WS: &str =
+	"[ \\t\\n\\u{a0}\\u{85}\\u{2000}-\\u{200a}\\u{2028}\\u{2029}\\u{3000}a-zé.]{0,150}";
+
 proptest! {
+	#![proptest_config(ProptestConfig::with_cases(4000))]
+
 	#[test]
 	fn text_sanitizer_is_idempotent(s in "\\PC{0,200}|[\\x00-\\x20\\u{200B}-\\u{202E}a-z]{0,50}") {
 		if let Ok(once) = sanitize_text(&s) {
@@ -160,5 +165,22 @@ proptest! {
 		prop_assert!(n.len() <= 64);
 		prop_assert!(!n.chars().any(|c| c.is_control() || is_format_char(c)));
 		prop_assert_eq!(sanitize_display_name(&n), n);
+	}
+
+	#[test]
+	fn unicode_whitespace_cases_are_idempotent(s in WS) {
+		let d = sanitize_display_name(&s);
+		prop_assert_eq!(sanitize_display_name(&d), d.clone());
+		prop_assert!(d == d.trim() && d.len() <= 64);
+		let f = sanitize_file_name(&s);
+		prop_assert_eq!(sanitize_file_name(f.as_str()), f);
+		if let Ok(t) = sanitize_text(&s) {
+			prop_assert_eq!(sanitize_text(&t), Ok(t.clone()));
+		}
+		let long = format!("{s}{}", "é ".repeat(40));
+		let d = sanitize_display_name(&long);
+		prop_assert_eq!(sanitize_display_name(&d), d);
+		let f = sanitize_file_name(&format!("{long}.{s}"));
+		prop_assert_eq!(sanitize_file_name(f.as_str()), f);
 	}
 }

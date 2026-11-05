@@ -88,7 +88,10 @@ async fn a_call_by_name_is_listed_and_can_be_ended() {
 	// takes its ownership on purpose, and says so.
 	let call = call_prefix(&status);
 	let out = engine.run(&["end", &call]).await.unwrap();
-	assert!(out.contains("applied") && out.contains("taking over"), "{out}");
+	assert!(
+		out.contains("applied") && out.contains("taking over"),
+		"{out}"
+	);
 	engine.daemon.shutdown().await.unwrap();
 }
 

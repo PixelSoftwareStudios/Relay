@@ -88,7 +88,10 @@ pub fn sanitize_display_name(input: &str) -> String {
 		.filter(|c| !c.is_control() && !is_format_char(*c))
 		.collect();
 	let joined = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
+	// Truncation can expose a trailing space, so trim again to stay idempotent.
 	truncate_chars(&joined, MAX_DISPLAY_NAME_BYTES)
+		.trim_end()
+		.to_owned()
 }
 
 fn truncate_chars(s: &str, max: usize) -> String {
