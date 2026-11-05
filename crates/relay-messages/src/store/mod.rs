@@ -1,6 +1,5 @@
 //! `SessionStore`: one session's transcript with budget, pins, search, clear and export.
 
-mod base64;
 mod compose;
 mod export;
 mod query;

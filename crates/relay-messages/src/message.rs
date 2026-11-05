@@ -16,20 +16,16 @@ pub struct SessionId(pub [u8; 16]);
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PeerFingerprint(pub [u8; 32]);
 
-fn hex(b: &[u8]) -> String {
-	b.iter().map(|x| format!("{x:02x}")).collect()
-}
-
 impl SessionId {
 	/// Lowercase hex.
 	pub fn to_hex(&self) -> String {
-		hex(&self.0)
+		hex::encode(self.0)
 	}
 }
 impl PeerFingerprint {
 	/// Lowercase hex.
 	pub fn to_hex(&self) -> String {
-		hex(&self.0)
+		hex::encode(self.0)
 	}
 }
 impl fmt::Debug for SessionId {
@@ -107,7 +103,7 @@ pub struct OfferId(pub u128);
 impl OfferId {
 	/// Lowercase hex.
 	pub fn to_hex(&self) -> String {
-		format!("{:032x}", self.0)
+		hex::encode(self.0.to_be_bytes())
 	}
 }
 impl fmt::Debug for OfferId {

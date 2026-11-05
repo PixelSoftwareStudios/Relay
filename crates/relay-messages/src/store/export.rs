@@ -1,8 +1,10 @@
 //! Versioned JSON export: the only thing that ever persists.
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use serde::{Deserialize, Serialize};
 
-use super::{SessionStore, base64};
+use super::SessionStore;
 use crate::markdown;
 use crate::message::{Delivery, Direction, FailReason, MessageBody, OfferStatus};
 
@@ -146,7 +148,7 @@ impl Export {
 			ExportContent::Image {
 				data_base64: Some(d),
 				..
-			} => base64::decode(d),
+			} => STANDARD.decode(d).ok(),
 			_ => None,
 		}
 	}
@@ -185,14 +187,14 @@ impl SessionStore {
 						height: i.info.height,
 						frames: i.info.frames,
 						bytes_len: i.bytes.len() as u64,
-						data_base64: opts.embed_images.then(|| base64::encode(&i.bytes)),
+						data_base64: opts.embed_images.then(|| STANDARD.encode(&i.bytes)),
 					},
 					MessageBody::File(o) => ExportContent::FileOffer {
 						offer_id: o.id.to_hex(),
 						name: o.name.as_str().to_owned(),
 						size: o.size,
 						media_type: o.media_type.to_owned(),
-						blake3: o.hash.iter().map(|b| format!("{b:02x}")).collect(),
+						blake3: hex::encode(o.hash),
 						status: o.status,
 						preview: o.preview.clone(),
 					},

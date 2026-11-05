@@ -222,11 +222,7 @@ impl<'a> Builder<'a> {
 
 /// Parses `input` into a bounded document. Never fails, never panics.
 pub fn parse(input: &str) -> Document {
-	let mut end = input.len().min(MAX_INPUT);
-	while !input.is_char_boundary(end) {
-		end -= 1;
-	}
-	let src = &input[..end];
+	let src = &input[..input.floor_char_boundary(MAX_INPUT)];
 	let mut b = Builder {
 		src,
 		blocks: Vec::new(),

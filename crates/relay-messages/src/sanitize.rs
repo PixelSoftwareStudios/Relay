@@ -98,11 +98,7 @@ fn truncate_chars(s: &str, max: usize) -> String {
 	if s.len() <= max {
 		return s.to_owned();
 	}
-	let mut end = max;
-	while !s.is_char_boundary(end) {
-		end -= 1;
-	}
-	s[..end].to_owned()
+	s[..s.floor_char_boundary(max)].to_owned()
 }
 
 /// A file name that is safe as a single path component.

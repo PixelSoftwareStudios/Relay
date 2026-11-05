@@ -7,7 +7,9 @@ license.workspace = true
 description = "Sans-IO session messaging: messages, safe markdown, history budgets, images and file offers"
 
 [dependencies]
+base64.workspace = true
 blake3.workspace = true
+hex.workspace = true
 idna.workspace = true
 linkify.workspace = true
 pulldown-cmark.workspace = true
@@ -17,6 +19,7 @@ thiserror.workspace = true
 unicode-security.workspace = true
 
 [dev-dependencies]
+base64.workspace = true
 proptest.workspace = true
 
 [lints]
