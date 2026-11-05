@@ -53,6 +53,47 @@ pub enum Received {
 	},
 }
 
+/// [`Received`] borrowing the caller's scratch buffer: no allocation per datagram.
+#[derive(Debug, PartialEq, Eq)]
+pub enum ReceivedRef<'a> {
+	Audio {
+		call_id: CallId,
+		generation: u32,
+		payload: &'a [u8],
+		epoch: LinkEpoch,
+	},
+	PathChallenge {
+		challenge: [u8; CHALLENGE_BYTES],
+		epoch: LinkEpoch,
+	},
+	PathResponse {
+		challenge: [u8; CHALLENGE_BYTES],
+		epoch: LinkEpoch,
+	},
+}
+
+impl ReceivedRef<'_> {
+	fn into_owned(self) -> Received {
+		match self {
+			Self::Audio {
+				call_id,
+				generation,
+				payload,
+				epoch,
+			} => Received::Audio {
+				call_id,
+				generation,
+				payload: payload.to_vec(),
+				epoch,
+			},
+			Self::PathChallenge { challenge, epoch } => {
+				Received::PathChallenge { challenge, epoch }
+			}
+			Self::PathResponse { challenge, epoch } => Received::PathResponse { challenge, epoch },
+		}
+	}
+}
+
 struct EpochSlot {
 	session: Arc<SecureSession>,
 	window: ReplayWindow,
@@ -124,6 +165,19 @@ impl MediaReceiver {
 	}
 
 	pub fn receive(&mut self, datagram: &[u8], now: Instant) -> Result<Received, RejectReason> {
+		let mut scratch = vec![0u8; datagram.len()];
+		self.receive_ref(datagram, now, &mut scratch)
+			.map(ReceivedRef::into_owned)
+	}
+
+	/// [`Self::receive`] without allocating: the payload borrows `scratch`, which must be at
+	/// least as long as `datagram`.
+	pub fn receive_ref<'a>(
+		&mut self,
+		datagram: &[u8],
+		now: Instant,
+		scratch: &'a mut [u8],
+	) -> Result<ReceivedRef<'a>, RejectReason> {
 		if datagram.len() > UDP_RECORD_MAX_BYTES || datagram.len() < sealed_len(0) {
 			return Err(RejectReason::Length);
 		}
@@ -144,29 +198,29 @@ impl MediaReceiver {
 		}
 		let opened = slot
 			.session
-			.open(&header, datagram)
+			.open_into(&header, datagram, scratch)
 			.map_err(|_| RejectReason::Authentication)?;
 		let epoch = *header.epoch();
 		let received = match opened.kind {
 			RecordKind::Audio => {
 				let (call_id, generation, payload) =
-					decode_audio(&opened.body).map_err(|_| RejectReason::Body)?;
+					decode_audio(opened.body).map_err(|_| RejectReason::Body)?;
 				if !self.bound.contains(&(call_id, generation)) {
 					return Err(RejectReason::UnboundStream);
 				}
-				Received::Audio {
+				ReceivedRef::Audio {
 					call_id,
 					generation,
-					payload: payload.to_vec(),
+					payload,
 					epoch,
 				}
 			}
-			RecordKind::PathChallenge => Received::PathChallenge {
-				challenge: decode_probe(&opened.body).map_err(|_| RejectReason::Body)?,
+			RecordKind::PathChallenge => ReceivedRef::PathChallenge {
+				challenge: decode_probe(opened.body).map_err(|_| RejectReason::Body)?,
 				epoch,
 			},
-			RecordKind::PathResponse => Received::PathResponse {
-				challenge: decode_probe(&opened.body).map_err(|_| RejectReason::Body)?,
+			RecordKind::PathResponse => ReceivedRef::PathResponse {
+				challenge: decode_probe(opened.body).map_err(|_| RejectReason::Body)?,
 				epoch,
 			},
 			RecordKind::Envelope => return Err(RejectReason::Header),

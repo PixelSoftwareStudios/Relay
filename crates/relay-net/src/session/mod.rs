@@ -12,7 +12,9 @@ use thiserror::Error;
 pub use epoch::LinkEpoch;
 
 use crate::identity::{Fingerprint, PublicKey};
-use crate::limits::{AEAD_TAG_BYTES, REKEY_MAX_AGE, REKEY_MAX_RECORDS};
+use crate::limits::{
+	AEAD_TAG_BYTES, RECORD_HEADER_BYTES, REKEY_MAX_AGE, REKEY_MAX_RECORDS, UDP_RECORD_MAX_BYTES,
+};
 use crate::record::{INNER_PREFIX_BYTES, RecordHeader, RecordKind, sealed_len};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +53,14 @@ pub struct Opened {
 	pub header: RecordHeader,
 	pub kind: RecordKind,
 	pub body: Vec<u8>,
+}
+
+/// [`Opened`] borrowing the caller's scratch buffer.
+#[derive(Debug)]
+pub struct OpenedRef<'a> {
+	pub header: RecordHeader,
+	pub kind: RecordKind,
+	pub body: &'a [u8],
 }
 
 /// One epoch's keys. Send counters are owned here and never reset: a fresh epoch means a
@@ -120,57 +130,118 @@ impl SecureSession {
 
 	/// Encrypts `body` into a complete record (public header followed by ciphertext).
 	pub fn seal(&self, kind: RecordKind, body: &[u8]) -> Result<Vec<u8>, SealError> {
-		let lane = kind.lane();
+		let mut record = vec![0u8; sealed_len(body.len())];
 		if sealed_len(body.len()) > snow_limit() {
 			return Err(SealError::TooLarge);
 		}
+		let (header, header_bytes) = self.next_header(kind)?;
+		record[..header_bytes.len()].copy_from_slice(&header_bytes);
+		let mut plaintext = Vec::with_capacity(INNER_PREFIX_BYTES + body.len());
+		plaintext.extend_from_slice(&header_bytes);
+		plaintext.push(kind as u8);
+		plaintext.extend_from_slice(body);
+		let written = self.encrypt(&header, &plaintext, &mut record)?;
+		record.truncate(header_bytes.len() + written);
+		Ok(record)
+	}
+
+	/// Allocation-free [`Self::seal`] for datagram-sized bodies: the body is the
+	/// concatenation of `parts`, the record is written to `out` and its length returned.
+	/// The wire format is identical to `seal`.
+	pub fn seal_into(
+		&self,
+		kind: RecordKind,
+		parts: &[&[u8]],
+		out: &mut [u8],
+	) -> Result<usize, SealError> {
+		let body_len: usize = parts.iter().map(|p| p.len()).sum();
+		let total = sealed_len(body_len);
+		if total > UDP_RECORD_MAX_BYTES || total > out.len() {
+			return Err(SealError::TooLarge);
+		}
+		let (header, header_bytes) = self.next_header(kind)?;
+		out[..header_bytes.len()].copy_from_slice(&header_bytes);
+		let mut plaintext = [0u8; UDP_RECORD_MAX_BYTES];
+		plaintext[..header_bytes.len()].copy_from_slice(&header_bytes);
+		plaintext[header_bytes.len()] = kind as u8;
+		let mut at = INNER_PREFIX_BYTES;
+		for part in parts {
+			plaintext[at..at + part.len()].copy_from_slice(part);
+			at += part.len();
+		}
+		let written = self.encrypt(&header, &plaintext[..at], out)?;
+		Ok(header_bytes.len() + written)
+	}
+
+	fn next_header(
+		&self,
+		kind: RecordKind,
+	) -> Result<(RecordHeader, [u8; RECORD_HEADER_BYTES]), SealError> {
+		let lane = kind.lane();
 		let sequence = self.next_sequence[lane.index()].fetch_add(1, Ordering::Relaxed);
 		if sequence >= REKEY_MAX_RECORDS || self.created.elapsed() >= REKEY_MAX_AGE {
 			return Err(SealError::Exhausted);
 		}
 		let header = RecordHeader::new(lane, self.epoch, sequence);
-		let header_bytes = header.encode();
+		let bytes = header.encode();
+		Ok((header, bytes))
+	}
 
-		let mut plaintext = Vec::with_capacity(INNER_PREFIX_BYTES + body.len());
-		plaintext.extend_from_slice(&header_bytes);
-		plaintext.push(kind as u8);
-		plaintext.extend_from_slice(body);
-
-		let mut record = vec![0u8; sealed_len(body.len())];
-		record[..header_bytes.len()].copy_from_slice(&header_bytes);
-		let written = self
-			.transport
+	fn encrypt(
+		&self,
+		header: &RecordHeader,
+		plaintext: &[u8],
+		record: &mut [u8],
+	) -> Result<usize, SealError> {
+		self.transport
 			.write_message(
 				header.nonce(),
-				&plaintext,
-				&mut record[header_bytes.len()..],
+				plaintext,
+				&mut record[RECORD_HEADER_BYTES..],
 			)
-			.map_err(|_| SealError::Crypto)?;
-		record.truncate(header_bytes.len() + written);
-		Ok(record)
+			.map_err(|_| SealError::Crypto)
 	}
 
 	/// Authenticates and decrypts a record already parsed to `header`. This takes `&self`
 	/// and touches no replay state: the caller commits ordering only after this succeeds.
 	pub fn open(&self, header: &RecordHeader, record: &[u8]) -> Result<Opened, OpenError> {
+		let mut scratch = vec![0u8; record.len()];
+		let opened = self.open_into(header, record, &mut scratch)?;
+		Ok(Opened {
+			header: opened.header,
+			kind: opened.kind,
+			body: opened.body.to_vec(),
+		})
+	}
+
+	/// Allocation-free [`Self::open`]: decrypts into `scratch` (at least as long as `record`)
+	/// and returns a body that borrows it.
+	pub fn open_into<'a>(
+		&self,
+		header: &RecordHeader,
+		record: &[u8],
+		scratch: &'a mut [u8],
+	) -> Result<OpenedRef<'a>, OpenError> {
 		if header.epoch() != &self.epoch {
 			return Err(OpenError::WrongEpoch);
 		}
 		let ciphertext = record
-			.get(crate::limits::RECORD_HEADER_BYTES..)
+			.get(RECORD_HEADER_BYTES..)
 			.ok_or(OpenError::Malformed)?;
 		if ciphertext.len() < AEAD_TAG_BYTES + INNER_PREFIX_BYTES {
 			return Err(OpenError::Malformed);
 		}
-		let mut plaintext = vec![0u8; ciphertext.len()];
+		let plaintext = scratch
+			.get_mut(..ciphertext.len())
+			.ok_or(OpenError::Malformed)?;
 		let n = self
 			.transport
-			.read_message(header.nonce(), ciphertext, &mut plaintext)
+			.read_message(header.nonce(), ciphertext, plaintext)
 			.map_err(|_| OpenError::Authentication)?;
-		plaintext.truncate(n);
+		let plaintext = &plaintext[..n];
 
 		// Compare the complete inner and outer headers before acting on anything else.
-		let (inner_header, rest) = plaintext.split_at(crate::limits::RECORD_HEADER_BYTES);
+		let (inner_header, rest) = plaintext.split_at(RECORD_HEADER_BYTES);
 		if inner_header != header.encode() {
 			return Err(OpenError::Authentication);
 		}
@@ -178,10 +249,10 @@ impl SecureSession {
 		if kind.lane() != header.lane() {
 			return Err(OpenError::Malformed);
 		}
-		Ok(Opened {
+		Ok(OpenedRef {
 			header: *header,
 			kind,
-			body: rest[1..].to_vec(),
+			body: &rest[1..],
 		})
 	}
 

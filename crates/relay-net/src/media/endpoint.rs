@@ -1,4 +1,5 @@
 use std::net::SocketAddr;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Instant;
 
@@ -9,8 +10,8 @@ use tokio::time::timeout;
 
 use super::datagram::{BodyError, CallId};
 use super::path::{PathValidator, ResponseLimiter};
-use super::receiver::{MediaReceiver, Received};
-use super::{seal_audio, seal_probe};
+use super::receiver::{MediaReceiver, ReceivedRef};
+use super::{seal_audio_into, seal_probe};
 use crate::address::{AddressError, AddressPolicy};
 use crate::limits::{UDP_PATH_TIMEOUT, UDP_RECORD_MAX_BYTES};
 use crate::record::RecordKind;
@@ -42,6 +43,21 @@ pub struct AudioPacket {
 	pub payload: Vec<u8>,
 }
 
+/// Authenticated binding of an audio payload copied into the caller's buffer.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AudioMeta {
+	pub call_id: CallId,
+	pub generation: u32,
+	pub len: usize,
+}
+
+enum Inbound {
+	Drop,
+	Audio(AudioMeta),
+	Challenge([u8; 16], crate::session::LinkEpoch),
+	Validated(bool),
+}
+
 struct State {
 	send_session: Arc<SecureSession>,
 	receiver: MediaReceiver,
@@ -55,6 +71,7 @@ pub struct MediaEndpoint {
 	socket: UdpSocket,
 	state: Mutex<State>,
 	validated: watch::Sender<u64>,
+	resets: AtomicU64,
 	policy: AddressPolicy,
 }
 
@@ -76,12 +93,18 @@ impl MediaEndpoint {
 			socket,
 			state: Mutex::new(state),
 			validated: watch::channel(0).0,
+			resets: AtomicU64::new(0),
 			policy,
 		})
 	}
 
 	pub fn local_addr(&self) -> Result<SocketAddr, MediaError> {
 		Ok(self.socket.local_addr()?)
+	}
+
+	/// Receive errors that were ICMP-unreachable echoes, not socket failures.
+	pub fn benign_resets(&self) -> u64 {
+		self.resets.load(Ordering::Relaxed)
 	}
 
 	fn lock(&self) -> MutexGuard<'_, State> {
@@ -160,6 +183,14 @@ impl MediaEndpoint {
 		Ok(())
 	}
 
+	fn audio_route(&self) -> Result<(Arc<SecureSession>, SocketAddr), MediaError> {
+		let state = self.lock();
+		Ok((
+			Arc::clone(&state.send_session),
+			state.path.validated().ok_or(MediaError::PathNotValidated)?,
+		))
+	}
+
 	/// Seals and sends one audio payload to the validated path.
 	pub async fn send_audio(
 		&self,
@@ -167,54 +198,102 @@ impl MediaEndpoint {
 		generation: u32,
 		payload: &[u8],
 	) -> Result<(), MediaError> {
-		let (session, dest) = {
-			let state = self.lock();
-			(
-				Arc::clone(&state.send_session),
-				state.path.validated().ok_or(MediaError::PathNotValidated)?,
-			)
-		};
-		let datagram = seal_audio(&session, call_id, generation, payload)?;
-		self.socket.send_to(&datagram, dest).await?;
+		let (session, dest) = self.audio_route()?;
+		let mut datagram = [0u8; UDP_RECORD_MAX_BYTES];
+		let n = seal_audio_into(&session, call_id, generation, payload, &mut datagram)?;
+		self.socket.send_to(&datagram[..n], dest).await?;
+		Ok(())
+	}
+
+	/// Seals and sends without waiting: callable from any thread, no allocation. A full
+	/// socket buffer returns `Io(WouldBlock)`; real-time callers drop the packet.
+	pub fn try_send_audio(
+		&self,
+		call_id: &CallId,
+		generation: u32,
+		payload: &[u8],
+	) -> Result<(), MediaError> {
+		let (session, dest) = self.audio_route()?;
+		let mut datagram = [0u8; UDP_RECORD_MAX_BYTES];
+		let n = seal_audio_into(&session, call_id, generation, payload, &mut datagram)?;
+		self.socket.try_send_to(&datagram[..n], dest)?;
 		Ok(())
 	}
 
 	/// Receives until an audio packet is accepted. Probes are handled internally; datagrams
 	/// that fail any check are dropped silently with no reply.
 	pub async fn recv(&self) -> Result<AudioPacket, MediaError> {
+		let mut payload = [0u8; UDP_RECORD_MAX_BYTES];
+		let meta = self.recv_into(&mut payload).await?;
+		Ok(AudioPacket {
+			call_id: meta.call_id,
+			generation: meta.generation,
+			payload: payload[..meta.len].to_vec(),
+		})
+	}
+
+	/// [`Self::recv`] that copies the payload into `out` (at least
+	/// [`super::MAX_PAYLOAD_BYTES`] long) instead of allocating.
+	pub async fn recv_into(&self, out: &mut [u8]) -> Result<AudioMeta, MediaError> {
 		let mut buf = [0u8; UDP_RECORD_MAX_BYTES + 1];
+		let mut scratch = [0u8; UDP_RECORD_MAX_BYTES + 1];
 		loop {
-			let (len, from) = self.socket.recv_from(&mut buf).await?;
-			let outcome = self.lock().receiver.receive(&buf[..len], Instant::now());
-			let received = match outcome {
+			let (len, from) = match self.socket.recv_from(&mut buf).await {
 				Ok(received) => received,
-				Err(reason) => {
-					tracing::debug!(%from, %reason, "dropped media datagram");
+				// A previous send provoked an ICMP unreachable (Windows reports it on the
+				// next receive): benign, not a dead socket.
+				Err(error) if is_benign_reset(&error) => {
+					self.resets.fetch_add(1, Ordering::Relaxed);
 					continue;
 				}
+				Err(error) => return Err(error.into()),
 			};
-			match received {
-				Received::Audio {
-					call_id,
-					generation,
-					payload,
-					..
-				} => {
-					return Ok(AudioPacket {
+			let action = {
+				let mut state = self.lock();
+				match state
+					.receiver
+					.receive_ref(&buf[..len], Instant::now(), &mut scratch)
+				{
+					Err(reason) => {
+						tracing::debug!(%from, %reason, "dropped media datagram");
+						Inbound::Drop
+					}
+					Ok(ReceivedRef::Audio {
 						call_id,
 						generation,
 						payload,
-					});
+						..
+					}) => match out.get_mut(..payload.len()) {
+						Some(dest) => {
+							dest.copy_from_slice(payload);
+							Inbound::Audio(AudioMeta {
+								call_id,
+								generation,
+								len: payload.len(),
+							})
+						}
+						None => Inbound::Drop,
+					},
+					Ok(ReceivedRef::PathChallenge { challenge, epoch }) => {
+						Inbound::Challenge(challenge, epoch)
+					}
+					Ok(ReceivedRef::PathResponse { challenge, epoch }) => {
+						let accepted =
+							state
+								.path
+								.on_response(&challenge, from, &epoch, Instant::now());
+						Inbound::Validated(accepted.is_some())
+					}
 				}
-				Received::PathChallenge { challenge, epoch } => {
-					self.answer_challenge(&challenge, &epoch, from).await
+			};
+			match action {
+				Inbound::Drop => {}
+				Inbound::Audio(meta) => return Ok(meta),
+				Inbound::Challenge(challenge, epoch) => {
+					self.answer_challenge(&challenge, &epoch, from).await;
 				}
-				Received::PathResponse { challenge, epoch } => {
-					let accepted =
-						self.lock()
-							.path
-							.on_response(&challenge, from, &epoch, Instant::now());
-					if accepted.is_some() {
+				Inbound::Validated(accepted) => {
+					if accepted {
 						self.validated.send_modify(|n| *n += 1);
 					}
 				}
@@ -246,4 +325,11 @@ impl MediaEndpoint {
 			let _ = self.socket.send_to(&datagram, from).await;
 		}
 	}
+}
+
+fn is_benign_reset(error: &std::io::Error) -> bool {
+	matches!(
+		error.kind(),
+		std::io::ErrorKind::ConnectionReset | std::io::ErrorKind::ConnectionRefused
+	)
 }
