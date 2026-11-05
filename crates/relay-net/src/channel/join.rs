@@ -287,6 +287,10 @@ impl AdmissionService {
 		let Some(guard) = SlotGuard::acquire(&self.inner) else {
 			return Begin::Denied(denied());
 		};
+		// A locked-out peer is refused before any store read or record clone.
+		if self.limiter().check(mono, remote, &UNKNOWN).is_err() {
+			return Begin::Denied(denied());
+		}
 		let found = self.find(binding, channel_ref);
 		let key = found.as_ref().map_or(UNKNOWN, |r| r.id);
 		if self.limiter().check(mono, remote, &key).is_err() {
