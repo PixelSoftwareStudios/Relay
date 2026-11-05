@@ -2,9 +2,9 @@
 //! peer-credential enforcement.
 
 use std::ffi::OsString;
-use std::fs::{self, DirBuilder, Permissions};
+use std::fs;
 use std::io;
-use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, PermissionsExt};
+use std::os::unix::fs::{FileTypeExt, MetadataExt};
 use std::path::{Path, PathBuf};
 
 use tokio::net::{UnixListener, UnixStream};
@@ -14,48 +14,21 @@ use crate::ApiError;
 
 const SOCKET_NAME: &str = "engine.sock";
 
-/// The effective uid of this process, read from a socketpair's peer
-/// credentials. Needs a tokio runtime context for IO registration.
+/// The effective uid of this process.
 pub fn current_uid() -> io::Result<u32> {
-	let (a, _b) = UnixStream::pair()?;
-	Ok(a.peer_cred()?.uid())
+	Ok(relay_io::fs::current_uid())
 }
 
 /// Resolve the per-user socket path: `$XDG_RUNTIME_DIR/relay/engine.sock`, or
 /// `<tmp>/relay-<uid>/engine.sock` where no runtime dir exists (macOS).
 pub fn default_socket_path(xdg_runtime_dir: Option<OsString>, tmp: &Path, uid: u32) -> PathBuf {
-	match xdg_runtime_dir.map(PathBuf::from) {
-		Some(dir) if dir.is_absolute() => dir.join("relay").join(SOCKET_NAME),
-		_ => tmp.join(format!("relay-{uid}")).join(SOCKET_NAME),
-	}
+	relay_io::paths::runtime_dir_from(xdg_runtime_dir, tmp, uid).join(SOCKET_NAME)
 }
 
 /// Create (0700) or verify the directory holding the endpoint. Refuses
 /// symlinks, foreign owners and, unless fixable by the owner, loose modes.
 pub fn prepare_runtime_dir(dir: &Path) -> Result<(), ApiError> {
-	let uid = current_uid()?;
-	match fs::symlink_metadata(dir) {
-		Err(e) if e.kind() == io::ErrorKind::NotFound => {
-			DirBuilder::new().recursive(true).mode(0o700).create(dir)?;
-		}
-		Err(e) => return Err(e.into()),
-		Ok(_) => {}
-	}
-	let meta = fs::symlink_metadata(dir)?;
-	let insecure = |reason| ApiError::InsecurePath {
-		path: dir.to_path_buf(),
-		reason,
-	};
-	if !meta.is_dir() {
-		return Err(insecure("not a directory (symlinks are refused)"));
-	}
-	if meta.uid() != uid {
-		return Err(insecure("owned by another user"));
-	}
-	if meta.mode() & 0o077 != 0 {
-		fs::set_permissions(dir, Permissions::from_mode(0o700))?;
-	}
-	Ok(())
+	Ok(relay_io::fs::ensure_owned_private_dir(dir)?)
 }
 
 /// A bound, owner-only listener that removes its socket file on drop.
@@ -76,7 +49,7 @@ impl UdsListener {
 		prepare_runtime_dir(dir)?;
 		reclaim_if_stale(path, uid).await?;
 		let listener = UnixListener::bind(path)?;
-		fs::set_permissions(path, Permissions::from_mode(0o600))?;
+		relay_io::fs::restrict_file(path)?;
 		Ok(Self {
 			listener,
 			path: path.to_path_buf(),

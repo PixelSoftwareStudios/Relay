@@ -7,6 +7,7 @@ license.workspace = true
 build = "build.rs"
 
 [dependencies]
+relay-io.workspace = true
 tonic.workspace = true
 tonic-prost.workspace = true
 prost.workspace = true

@@ -74,6 +74,23 @@ pub enum ApiError {
 	InvalidResponse(&'static str),
 }
 
+impl From<relay_io::IoError> for ApiError {
+	fn from(error: relay_io::IoError) -> Self {
+		use relay_io::IoError;
+		match error {
+			IoError::Io { source, .. } => Self::Io(source),
+			IoError::Insecure { path, reason } => Self::InsecurePath { path, reason },
+			IoError::Locked(path) => Self::Io(io::Error::new(
+				io::ErrorKind::WouldBlock,
+				format!("{} is locked by another process", path.display()),
+			)),
+			other @ (IoError::TooLarge { .. } | IoError::NoPlatformDir) => {
+				Self::Io(io::Error::other(other.to_string()))
+			}
+		}
+	}
+}
+
 impl From<tonic::Status> for ApiError {
 	fn from(status: tonic::Status) -> Self {
 		Self::Status(Box::new(status))

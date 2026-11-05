@@ -5,8 +5,6 @@
 //! carry `authorization: Bearer <token>`. Loopback is not authentication; a
 //! same-user hostile process can read the profile and is out of scope.
 
-use std::fs::{self, OpenOptions};
-use std::io::Write;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::path::{Path, PathBuf};
 
@@ -14,6 +12,8 @@ use tokio::net::TcpListener;
 use uuid::Uuid;
 
 use crate::ApiError;
+
+const PROFILE_MAX_BYTES: u64 = 4096;
 
 /// Address and bearer token a client needs to reach a loopback engine.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,34 +54,15 @@ impl TcpProfile {
 
 	/// Read a profile file, refusing group/world-accessible files on Unix.
 	pub fn load(path: &Path) -> Result<Self, ApiError> {
-		#[cfg(unix)]
-		{
-			use std::os::unix::fs::PermissionsExt;
-			if fs::metadata(path)?.permissions().mode() & 0o077 != 0 {
-				return Err(ApiError::InsecurePath {
-					path: path.to_path_buf(),
-					reason: "profile file is group/world accessible",
-				});
-			}
-		}
-		Self::parse(&fs::read_to_string(path)?)
+		relay_io::fs::check_private_file(path)?;
+		Self::parse(&relay_io::fs::read_string_limited(path, PROFILE_MAX_BYTES)?)
 	}
 
 	fn write(&self, path: &Path) -> Result<(), ApiError> {
-		match fs::remove_file(path) {
-			Ok(()) => {}
-			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-			Err(e) => return Err(e.into()),
-		}
-		let mut options = OpenOptions::new();
-		options.write(true).create_new(true);
-		#[cfg(unix)]
-		{
-			use std::os::unix::fs::OpenOptionsExt;
-			options.mode(0o600);
-		}
-		options.open(path)?.write_all(self.render().as_bytes())?;
-		Ok(())
+		Ok(relay_io::fs::write_private_fresh(
+			path,
+			self.render().as_bytes(),
+		)?)
 	}
 }
 
