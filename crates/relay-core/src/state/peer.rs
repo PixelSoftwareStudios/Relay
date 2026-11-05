@@ -168,6 +168,16 @@ impl State {
 			return Ok(Reply::Done);
 		}
 		self.link_up(peer, now);
+		if !self.attached {
+			// Nobody is home: answer as busy, ring nothing, open nothing.
+			let message = PeerMessage::Decline {
+				call,
+				session,
+				busy: true,
+			};
+			self.push_effect(Effect::Peer { peer, message });
+			return Err(Reject::NotAttached);
+		}
 		if !parallel && let Some(local) = self.glare_candidate(peer) {
 			return Ok(self.resolve_glare(local, call, session, peer, now));
 		}

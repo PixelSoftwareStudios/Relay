@@ -214,6 +214,12 @@ pub enum SystemEvent {
 		/// The generation that was running.
 		generation: AudioGeneration,
 	},
+	/// Whether any client is attached (watching, or controlling a call). While
+	/// none is, inbound invitations are declined as busy and nothing rings.
+	PresenceChanged {
+		/// A client is attached.
+		attached: bool,
+	},
 	/// Local media resources for a call are ready.
 	MediaPrepared {
 		/// The call.

@@ -20,6 +20,10 @@ impl State {
 				self.complete_open(generation, CaptureState::Lost)
 			}
 			SystemEvent::CaptureLost { generation } => self.capture_lost(generation),
+			SystemEvent::PresenceChanged { attached } => {
+				self.attached = attached;
+				Ok(Reply::Done)
+			}
 			SystemEvent::MediaPrepared { call, session } => {
 				let id = self.checked_session(call, session)?;
 				let entry = self.calls.get_mut(&id).ok_or(Reject::UnknownCall(call))?;

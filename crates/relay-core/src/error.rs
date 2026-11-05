@@ -31,6 +31,9 @@ pub enum Reject {
 	/// The operation ID was reused with a different request body.
 	#[error("operation id reused with a different request")]
 	OperationIdReused,
+	/// Nobody is attached to this engine, so an inbound call is not rung.
+	#[error("no client is attached")]
+	NotAttached,
 	/// The call does not exist.
 	#[error("unknown call {0}")]
 	UnknownCall(CallId),

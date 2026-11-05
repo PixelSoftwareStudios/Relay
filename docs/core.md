@@ -9,6 +9,7 @@ snapshot + watch contract with no gaps. No I/O, no clock reads, no Tokio.
 
 `State::apply(Input, MonoTime) -> Outcome { result, revision, duplicate, effects }`
 
+- `SystemEvent::PresenceChanged { attached }`: while no client is attached, an inbound invite is answered with the existing busy decline (`Reject::NotAttached`), creates no call and opens no capture. Calls already running are untouched. The default is attached (hosts without presence, tests); the engine reports it explicitly.
 - `Input`: `Client(Request)`, `Disconnected`, `Peer(PeerEvent)`, `System(SystemEvent)`, `Tick`.
 - `Request { client, operation, command }`: deduplicated per `(client, operation)`.
 - `Effect`: adapter work (`GateUpdate`, `ReceiveMix`, `OpenCapture`/`CloseCapture`,

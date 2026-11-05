@@ -88,6 +88,9 @@ pub struct State {
 	pub(crate) revision: Revision,
 	pub(crate) globals: Globals,
 	pub(crate) session: SessionFlags,
+	/// A client is attached. Hosts that have no notion of presence stay
+	/// attached (the default); the engine reports it explicitly.
+	pub(crate) attached: bool,
 	pub(crate) capture: Capture,
 	pub(crate) clients: BTreeMap<ClientId, ClientSession>,
 	pub(crate) links: BTreeSet<PeerId>,
@@ -122,6 +125,7 @@ impl State {
 				settings: SettingsRevision::ZERO,
 			},
 			session: SessionFlags::default(),
+			attached: true,
 			capture: Capture {
 				state: CaptureState::Closed,
 				generation: AudioGeneration::ZERO,
