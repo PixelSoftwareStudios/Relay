@@ -19,6 +19,7 @@ The desktop crate holds only what needs a window or the OS; everything else is i
 - `src/main.rs`: tracing, the tokio runtime (2 workers), window icon and viewport, wiring of hub, controller, emitter and supervisor (or the mock), eframe `run_native`.
 - `src/app.rs`: `DesktopApp`, the `eframe::App` wrapper. It owns the runtime and the tray, hides to the tray on close, applies tray updates, and calls `RelayApp::begin_frame` / `RelayApp::ui`.
 - `src/host.rs`: `DesktopShell`, the `relay_ui::shell::Shell` implementation (egui clipboard and viewport commands, the `rfd` dialog with the size check before reading).
+- `src/host.rs` also implements the messaging dialogs: `pick_directory` (download folder), `save_as` (export), `pick_file` (file offer) with `rfd`, returning paths only, and `open_url` (egui `OpenUrl`, after the link confirmation).
 - `src/tray.rs`: `tray-icon` menu, three glyph states, Show / Quit.
 - Images used here come from `assets/icon/`: window icon `relay-mark-256.png` and tray glyphs `tray-{idle,call,muted}[@2x].png`. The header logo and `default-avatar.png` are embedded by `relay-ui`. No fonts are bundled.
 - Tests in `apps/relay-desktop/tests`: tray glyphs and the picker's bounded read. All logic and UI tests live in `crates/relay-ui/tests`.
@@ -71,3 +72,6 @@ A call is shown as transmitting only when the engine reports `effective_transmit
 - Revoke assumes the peer id is the member fingerprint the engine expects; confirm against the engine.
 - Linux and Windows builds are untried. Windows uses the loopback profile until the `relay-api` named pipe exists.
 - Root `Cargo.lock` changes for `qrcode` and `rfd` are not committed by this work package (the file is being edited by other agents).
+
+## Session messaging
+`main` spawns `relay_ui::messaging::supervisor::supervise` (own connection, `messages` capability only, opt-in) next to the state supervisor, or `messaging::mock::run` with `--mock`. The Messages panel is a right side panel at 600 points and wider and a bottom-nav page below; the default 520 pt window therefore shows the page form. See `docs/ui.md` ("Session messaging UI"). Not verified by a person: native folder/save/file dialogs, clipboard paste (`ViewportCommand::RequestPaste`) and opening links in a browser; only window-less frames and the mock were run. Link opening is the one place `open_url` is called, after the host confirmation.
