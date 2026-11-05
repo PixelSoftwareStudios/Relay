@@ -201,6 +201,9 @@ async fn live_values_are_validated_before_the_engine_sees_them() {
 		("ptt.release_delay_ms", "fast"),
 		("privacy.inbound_policy", "nobody"),
 		("privacy.advert_mode", "shy"),
+		("audio.ringtone_volume", "1.5"),
+		("audio.ringtone_volume", "-0.1"),
+		("audio.ringtone_enabled", "maybe"),
 	] {
 		let err = set_live(&mut c, key, value, &mut out).await.unwrap_err();
 		assert_eq!(err.exit_code(), exit::USAGE, "{key}");
@@ -236,6 +239,37 @@ async fn release_delay_is_a_live_setting_sent_as_a_global_control() {
 	);
 	assert!(
 		c.log[1].contains("ptt_release_delay_ms: Some(0)"),
+		"{:?}",
+		c.log
+	);
+}
+
+#[tokio::test]
+async fn ring_settings_are_live_global_controls() {
+	for key in [
+		"audio.ringtone_enabled",
+		"audio.ringtone_volume",
+		"audio.ringback_enabled",
+		"audio.call_sounds_enabled",
+	] {
+		assert!(LIVE_KEYS.contains(&key));
+	}
+	let mut c = FakeControl::new();
+	let mut buffer = Vec::new();
+	let mut out = Out::new(false, &mut buffer);
+	set_live(&mut c, "audio.ringtone_volume", "0.5", &mut out)
+		.await
+		.unwrap();
+	set_live(&mut c, "audio.ringtone_enabled", "false", &mut out)
+		.await
+		.unwrap();
+	assert!(
+		c.log[0].contains("ringtone_volume: Some(0.5)"),
+		"{:?}",
+		c.log
+	);
+	assert!(
+		c.log[1].contains("ringtone_enabled: Some(false)"),
 		"{:?}",
 		c.log
 	);

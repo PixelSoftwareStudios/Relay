@@ -32,6 +32,8 @@ pub struct Local {
 	pub gain_edits: HashMap<String, Option<f32>>,
 	/// In-flight drag of the push-to-talk release delay slider.
 	pub release_delay_edit: Option<u32>,
+	/// In-flight drag of the ringtone volume slider.
+	pub ring_volume_edit: Option<f32>,
 	pub revoke_confirm: Option<(String, String)>,
 	pub leave_confirm: Option<String>,
 	/// The "Quit daemon" confirmation is showing.

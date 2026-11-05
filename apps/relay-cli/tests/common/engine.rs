@@ -224,6 +224,10 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(Some(&r), "mic_test_stop".into())
 	}
+	async fn preview_tone(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(Some(&r), "preview_tone".into())
+	}
 	async fn set_profile(&self, r: Request<SetProfileRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(r.context.as_ref(), format!("profile {}", r.display_name))

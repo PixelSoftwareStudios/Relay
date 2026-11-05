@@ -144,6 +144,14 @@ pub struct Settings {
 	pub ptt_release_delay_ms: u32,
 	/// The app starts the daemon by itself when none runs.
 	pub autostart_daemon: bool,
+	/// Ring for an incoming call while an app is attached.
+	pub ringtone_enabled: bool,
+	/// Ring volume, 0.0 to 1.0.
+	pub ringtone_volume: f32,
+	/// Ringback while an outgoing call rings.
+	pub ringback_enabled: bool,
+	/// Connect and hang-up blips.
+	pub call_sounds_enabled: bool,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,

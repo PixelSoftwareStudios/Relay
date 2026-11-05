@@ -220,6 +220,18 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			playback_gain,
 			ptt_release_delay_ms,
 		},
+		Command::SetRingPreferences {
+			ringtone_enabled,
+			ringtone_volume,
+			ringback_enabled,
+			call_sounds_enabled,
+		} => WireCommand::SetRingPreferences {
+			ringtone_enabled,
+			ringtone_volume,
+			ringback_enabled,
+			call_sounds_enabled,
+		},
+		Command::PreviewTone => WireCommand::PreviewTone,
 		Command::SelectDevices {
 			input_id,
 			output_id,
@@ -336,6 +348,7 @@ impl Ops {
 					playback_gain: None,
 					ptt_release_delay_ms: None,
 					autostart_daemon: Some(enabled),
+					..pb::SetGlobalControlsRequest::default()
 				};
 				let operation = client
 					.raw()

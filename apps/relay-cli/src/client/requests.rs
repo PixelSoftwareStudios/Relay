@@ -24,6 +24,37 @@ pub struct GlobalControls {
 	pub playback_gain: Option<f32>,
 	/// Push-to-talk release delay in milliseconds (0 to 2000).
 	pub ptt_release_delay_ms: Option<u32>,
+	/// Ring for an incoming call while a client is attached.
+	pub ringtone_enabled: Option<bool>,
+	/// Ring volume (0.0 to 1.0).
+	pub ringtone_volume: Option<f32>,
+	/// Ringback while an outgoing call rings.
+	pub ringback_enabled: Option<bool>,
+	/// Connect and hang-up blips.
+	pub call_sounds_enabled: Option<bool>,
+}
+
+impl GlobalControls {
+	/// Whether any ring preference is being changed.
+	pub fn has_ring(&self) -> bool {
+		self.ringtone_enabled.is_some()
+			|| self.ringtone_volume.is_some()
+			|| self.ringback_enabled.is_some()
+			|| self.call_sounds_enabled.is_some()
+	}
+
+	/// Whether anything but ring preferences is being changed.
+	pub fn has_other(&self) -> bool {
+		*self
+			!= Self {
+				muted: None,
+				deafened: None,
+				microphone_gain: None,
+				playback_gain: None,
+				ptt_release_delay_ms: None,
+				..*self
+			}
+	}
 }
 
 /// A trust change for one peer.

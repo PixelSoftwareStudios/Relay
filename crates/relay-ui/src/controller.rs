@@ -266,6 +266,34 @@ impl Controller {
 		.map(drop)
 	}
 
+	/// Sets the ring preferences; the daemon applies them to a playing ring at once.
+	pub async fn set_ring_preferences(
+		&self,
+		ringtone_enabled: Option<bool>,
+		ringtone_volume: Option<f32>,
+		ringback_enabled: Option<bool>,
+		call_sounds_enabled: Option<bool>,
+	) -> Result<(), ControlError> {
+		if ringtone_volume.is_some_and(|v| !v.is_finite() || !(0.0..=1.0).contains(&v)) {
+			return Err(ControlError::Invalid(
+				"ringtone volume must be between 0 and 1",
+			));
+		}
+		self.run(Command::SetRingPreferences {
+			ringtone_enabled,
+			ringtone_volume,
+			ringback_enabled,
+			call_sounds_enabled,
+		})
+		.await
+		.map(drop)
+	}
+
+	/// Plays the ring on this device's own output for about two seconds.
+	pub async fn preview_tone(&self) -> Result<(), ControlError> {
+		self.run(Command::PreviewTone).await.map(drop)
+	}
+
 	/// Whether this app starts the daemon by itself. The daemon stores it.
 	pub async fn set_autostart(&self, enabled: bool) -> Result<(), ControlError> {
 		self.run(Command::SetAutostart { enabled }).await.map(drop)

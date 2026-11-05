@@ -359,6 +359,7 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 		) {
 			actions.run(|c| async move { c.set_ptt_release_delay(ms).await });
 		}
+		super::ring::ring_controls(ui, settings, actions, local);
 		ui.horizontal(|ui| {
 			let (m, d) = (settings.global_muted, settings.global_deafened);
 			if ui

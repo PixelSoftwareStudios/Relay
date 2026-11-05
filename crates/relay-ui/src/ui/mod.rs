@@ -7,6 +7,7 @@ mod connection;
 mod local;
 mod nav;
 mod profile;
+mod ring;
 mod sections;
 mod textures;
 mod widgets;

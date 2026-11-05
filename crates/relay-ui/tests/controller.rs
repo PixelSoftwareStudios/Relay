@@ -196,3 +196,35 @@ async fn release_delay_is_bounded_and_sent_as_a_global_control() {
 		.collect();
 	assert_eq!(sent, vec![Some(0), Some(2000)]);
 }
+
+#[tokio::test]
+async fn ring_preferences_are_bounded_and_preview_is_a_command() {
+	let (ctl, _hub, ops) = controller_with(mine(), 0);
+	assert!(
+		ctl.set_ring_preferences(None, Some(1.5), None, None)
+			.await
+			.is_err()
+	);
+	assert!(
+		ctl.set_ring_preferences(None, Some(f32::NAN), None, None)
+			.await
+			.is_err()
+	);
+	assert!(ops.recorded().is_empty());
+	ctl.set_ring_preferences(Some(false), Some(0.25), None, None)
+		.await
+		.unwrap();
+	ctl.preview_tone().await.unwrap();
+	assert_eq!(
+		ops.recorded(),
+		vec![
+			Command::SetRingPreferences {
+				ringtone_enabled: Some(false),
+				ringtone_volume: Some(0.25),
+				ringback_enabled: None,
+				call_sounds_enabled: None,
+			},
+			Command::PreviewTone,
+		]
+	);
+}

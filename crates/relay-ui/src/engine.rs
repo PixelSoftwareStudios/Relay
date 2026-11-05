@@ -68,6 +68,15 @@ pub enum Command {
 		playback_gain: Option<f32>,
 		ptt_release_delay_ms: Option<u32>,
 	},
+	/// Ring, ringback and call-sound preferences; `None` is unchanged.
+	SetRingPreferences {
+		ringtone_enabled: Option<bool>,
+		ringtone_volume: Option<f32>,
+		ringback_enabled: Option<bool>,
+		call_sounds_enabled: Option<bool>,
+	},
+	/// Play the ring on the daemon's own output for about two seconds.
+	PreviewTone,
 	/// Whether the app starts the daemon by itself (stored by the daemon).
 	SetAutostart {
 		enabled: bool,

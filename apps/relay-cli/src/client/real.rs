@@ -187,6 +187,24 @@ impl Control for RealClient {
 		&mut self,
 		controls: GlobalControls,
 	) -> Result<Operation, ApiError> {
+		let ring = if controls.has_ring() {
+			Some(
+				self.run_command(Command::SetRingPreferences {
+					ringtone_enabled: controls.ringtone_enabled,
+					ringtone_volume: controls.ringtone_volume,
+					ringback_enabled: controls.ringback_enabled,
+					call_sounds_enabled: controls.call_sounds_enabled,
+				})
+				.await?,
+			)
+		} else {
+			None
+		};
+		if let Some(ring) = ring
+			&& !controls.has_other()
+		{
+			return Ok(ring);
+		}
 		self.run_command(Command::SetGlobalControls {
 			muted: controls.muted,
 			deafened: controls.deafened,

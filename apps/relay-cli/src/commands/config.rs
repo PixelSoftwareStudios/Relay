@@ -25,13 +25,17 @@ const IMPORT_MAX_BYTES: u64 = 1024 * 1024;
 const MAX_RELEASE_DELAY_MS: u32 = relay_config::prefs::MAX_RELEASE_DELAY_MS;
 
 /// Settings the engine can change while it runs.
-pub const LIVE_KEYS: [&str; 6] = [
+pub const LIVE_KEYS: [&str; 10] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
 	"ptt.release_delay_ms",
 	"privacy.inbound_policy",
 	"privacy.advert_mode",
+	"audio.ringtone_enabled",
+	"audio.ringtone_volume",
+	"audio.ringback_enabled",
+	"audio.call_sounds_enabled",
 ];
 
 /// One setting.
@@ -198,6 +202,10 @@ pub async fn set_live<C: Control + Manage>(
 			.filter(|g| g.is_finite() && (0.0..=4.0).contains(g))
 			.ok_or_else(|| CliError::Usage("gain must be a number from 0.0 to 4.0".into()))
 	};
+	let switch = |text: &str| {
+		text.parse::<bool>()
+			.map_err(|_| CliError::Usage("use `true` or `false`".into()))
+	};
 	let op = match key {
 		"profile.display_name" => client.set_profile(value).await?,
 		"audio.microphone_gain" => {
@@ -226,6 +234,41 @@ pub async fn set_live<C: Control + Manage>(
 				})?;
 			let controls = GlobalControls {
 				ptt_release_delay_ms: Some(delay),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
+		"audio.ringtone_enabled" => {
+			let controls = GlobalControls {
+				ringtone_enabled: Some(switch(value)?),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
+		"audio.ringback_enabled" => {
+			let controls = GlobalControls {
+				ringback_enabled: Some(switch(value)?),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
+		"audio.call_sounds_enabled" => {
+			let controls = GlobalControls {
+				call_sounds_enabled: Some(switch(value)?),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
+		"audio.ringtone_volume" => {
+			let volume = value
+				.parse::<f32>()
+				.ok()
+				.filter(|v| v.is_finite() && (0.0..=1.0).contains(v))
+				.ok_or_else(|| {
+					CliError::Usage("ringtone volume must be a number from 0.0 to 1.0".into())
+				})?;
+			let controls = GlobalControls {
+				ringtone_volume: Some(volume),
 				..GlobalControls::default()
 			};
 			client.set_global_controls(controls).await?

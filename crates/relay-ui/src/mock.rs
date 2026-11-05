@@ -98,6 +98,10 @@ pub fn seed() -> AppState {
 			playback_gain: 1.0,
 			ptt_release_delay_ms: 200,
 			autostart_daemon: true,
+			ringtone_enabled: true,
+			ringtone_volume: 0.7,
+			ringback_enabled: true,
+			call_sounds_enabled: true,
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,
@@ -194,6 +198,20 @@ impl Operations for MockOps {
 					}
 				});
 			}
+			Command::SetRingPreferences {
+				ringtone_enabled,
+				ringtone_volume,
+				ringback_enabled,
+				call_sounds_enabled,
+			} => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.ringtone_enabled = ringtone_enabled.unwrap_or(g.ringtone_enabled);
+					g.ringtone_volume = ringtone_volume.unwrap_or(g.ringtone_volume);
+					g.ringback_enabled = ringback_enabled.unwrap_or(g.ringback_enabled);
+					g.call_sounds_enabled = call_sounds_enabled.unwrap_or(g.call_sounds_enabled);
+				}
+			}),
+			Command::PreviewTone => {}
 			Command::SetAutostart { enabled } => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {
 					g.autostart_daemon = enabled;
