@@ -1,7 +1,7 @@
 //! The desktop implementation of `relay_ui::shell::Shell`: egui viewport
 //! commands, the egui clipboard and the native (rfd) file dialog.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use relay_ui::daemon_control;
@@ -42,6 +42,33 @@ impl FilePicker for DesktopShell {
 			}
 		})
 	}
+
+	fn pick_directory(&self, title: &str) -> BoxFuture<'_, Result<Option<PathBuf>, String>> {
+		let dialog = rfd::AsyncFileDialog::new().set_title(title).pick_folder();
+		Box::pin(dialog_path(dialog))
+	}
+
+	fn save_as(&self, suggested_name: &str) -> BoxFuture<'_, Result<Option<PathBuf>, String>> {
+		let dialog = rfd::AsyncFileDialog::new()
+			.set_title("Export the transcript")
+			.set_file_name(suggested_name)
+			.add_filter("JSON", &["json"])
+			.save_file();
+		Box::pin(dialog_path(dialog))
+	}
+
+	fn pick_file(&self, title: &str) -> BoxFuture<'_, Result<Option<PathBuf>, String>> {
+		let dialog = rfd::AsyncFileDialog::new().set_title(title).pick_file();
+		Box::pin(dialog_path(dialog))
+	}
+}
+
+/// Native folder, save and file dialogs for messaging. The dialogs return
+/// paths only: the daemon opens, writes and verifies the files itself.
+async fn dialog_path(
+	dialog: impl std::future::Future<Output = Option<rfd::FileHandle>>,
+) -> Result<Option<PathBuf>, String> {
+	Ok(dialog.await.map(|h| h.path().to_path_buf()))
 }
 
 /// Check the size before reading so a huge file is never loaded.
@@ -64,6 +91,10 @@ pub async fn read_picked(path: &Path) -> Result<PickedFile, String> {
 }
 
 impl Shell for DesktopShell {
+	fn open_url(&self, url: &str) {
+		self.ctx.open_url(egui::OpenUrl::new_tab(url));
+	}
+
 	fn copy_text(&self, text: &str) {
 		self.ctx.copy_text(text.to_owned());
 	}
