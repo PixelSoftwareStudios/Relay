@@ -1,48 +1,15 @@
 //! Secret text (channel passwords, invite tokens) and where it is read from.
 //!
 //! Secrets never come from argv. They are read from a hidden terminal prompt or
-//! from one line of stdin, held in a type whose `Debug` is redacted, and wiped
-//! when dropped.
+//! from one line of stdin, held in `relay_client::Secret` (redacted `Debug`, wiped
+//! on drop).
 
-use std::fmt;
 use std::io::BufRead;
 
+pub use relay_client::Secret;
 use zeroize::Zeroize;
 
 use crate::cli::CliError;
-
-/// Secret text. Never printed by `Debug`; zeroed on drop.
-#[derive(Clone, PartialEq, Eq)]
-pub struct Secret(String);
-
-impl Secret {
-	/// Wrap secret text.
-	pub fn new(text: impl Into<String>) -> Self {
-		Self(text.into())
-	}
-
-	/// The text; call only where it goes on the wire.
-	pub fn expose(&self) -> &str {
-		&self.0
-	}
-
-	/// Whether nothing was entered.
-	pub fn is_empty(&self) -> bool {
-		self.0.is_empty()
-	}
-}
-
-impl fmt::Debug for Secret {
-	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-		f.write_str("Secret(<redacted>)")
-	}
-}
-
-impl Drop for Secret {
-	fn drop(&mut self) {
-		self.0.zeroize();
-	}
-}
 
 /// How the user supplies a secret.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -94,5 +61,5 @@ fn non_empty(mut text: String) -> Result<Secret, CliError> {
 		text.zeroize();
 		return Err(CliError::Usage("no secret was entered".into()));
 	}
-	Ok(Secret(text))
+	Ok(Secret::new(text))
 }
