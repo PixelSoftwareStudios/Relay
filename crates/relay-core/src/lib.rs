@@ -6,6 +6,7 @@
 //! audio buffers, so every trace is replayable in tests.
 
 pub mod call;
+pub mod channel;
 pub mod command;
 pub mod effect;
 pub mod engine;
