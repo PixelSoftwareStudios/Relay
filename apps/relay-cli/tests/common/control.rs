@@ -8,6 +8,9 @@ use relay_cli::client::*;
 
 use super::fixtures;
 
+/// Runs when a session watch opens: what the engine did while the stream was down.
+pub type WatchSetup = Box<dyn FnOnce(&mut super::chat::ChatState) + Send>;
+
 /// Items a scripted stream yields, then `Ok(None)`.
 pub struct Script<T>(pub VecDeque<Result<T, ApiError>>);
 
@@ -33,7 +36,7 @@ pub struct FakeControl {
 	/// Session messaging semantics shared with the socket engine.
 	pub chat: super::chat::ChatState,
 	/// One entry per `open_session_watch`; an exhausted list opens a watch holding only the list.
-	pub on_watch_open: VecDeque<Box<dyn FnOnce(&mut super::chat::ChatState) + Send>>,
+	pub on_watch_open: VecDeque<WatchSetup>,
 	pub session_watches: VecDeque<Vec<Result<relay_api::SessionItem, ApiError>>>,
 }
 

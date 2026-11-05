@@ -48,6 +48,7 @@ fn shape(updates: &[Update]) -> Vec<String> {
 			},
 			Update::Telemetry(_) => "telemetry".into(),
 			Update::Hotkey(_) => "hotkey".into(),
+			Update::Messages(_) => "messages".into(),
 		})
 		.collect()
 }

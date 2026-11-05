@@ -75,7 +75,7 @@ async fn a_resync_marks_the_link_and_reloads_what_was_missed() {
 	c.session_watches.push_back(vec![
 		Ok(SessionItem::List(SessionList {
 			sessions: list.sessions.clone(),
-			settings: list.settings.clone(),
+			settings: list.settings,
 		})),
 		Ok(SessionItem::Resync(SessionResync {
 			current_revision: 99,

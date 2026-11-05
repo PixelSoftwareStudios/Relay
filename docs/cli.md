@@ -12,8 +12,9 @@ Living notes for `apps/relay-cli` (binary `relay`). Terminal only: no WebView de
 | `src/secret.rs` | `Secret` (redacted `Debug`, zeroed on drop), hidden-prompt and stdin sources |
 | `src/cli/` | clap definitions (`args`), `CliError`, `exit` codes, endpoint resolution |
 | `src/client/` | `Control` (request/response), `Manage` (channels, privacy, avatar, connection info) and `Subscribe` (streams) traits; `RealClient` over `relay_api::RelayClient`; resyncing feeds |
-| `src/commands/` | One module per command family; `views` (JSON/text), `resolve` (names to ids), `names` |
-| `src/tui/` | `model` (pure state), `keys` (key to `TuiCommand`), `exec`, `view/` (Ratatui), `app` (event loop) |
+| `src/commands/` | One module per command family; `views` (JSON/text), `resolve` (names to ids), `names`; `messages/` for `relay messages` (`target`, `send`, `read`, `files`, `manage`, `watch`, `view`) |
+| `src/client/messaging.rs`, `session_feed.rs` | The `Messaging` trait (session RPCs over the `messages` capability) and the TUI's reopening session feed |
+| `src/tui/` | `model` (pure state), `keys` (key to `TuiCommand`), `exec`, `view/` (Ratatui), `app` (event loop), `messages/` (the Messages tab: `state`, `keys`, `render`, `view`, `exec`) |
 | `tests/` | Fake `Control`, in-process engine over a real Unix socket, TestBackend snapshots, binary exit codes |
 
 Commands are generic over `Control`/`Manage`, so they run unchanged against a scripted fake. `commands::execute` is the seam tests use; `commands::run` adds connecting.
@@ -45,6 +46,14 @@ relay channel leave|invite|revoke <channel> ...   (invite: --ttl-seconds, --uses
 relay channel list
 relay config get [key] | set <key> <value> | export [file] | import <file>
 relay avatar set <file.png|jpg> | clear
+relay messages send <text|->  [--call C]     text into a call session ('-' reads stdin)
+relay messages watch | log [--since N] [--limit N] | search <q>
+relay messages pin|unpin <msg> | clear [--yes] | export [--out FILE] [--embed-images]
+relay messages copy <msg> | copy code-block <N>  [--print]
+relay messages perms [--messages on|off] [--files on|off]
+relay messages image send <file> | offer <path> | offers
+relay messages accept <offer> [--dest DIR] [--name NAME] | reject|cancel <offer>
+relay messages preview request|approve <offer> [--deny]
 relay hotkey [--binding KEYS]          run the global push-to-talk key
 relay hotkey status | set <keys>
 relay tui [--no-hotkey | --binding KEYS]
@@ -68,6 +77,25 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 
 ### Settings (`relay config`)
 `get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `ptt.release_delay_ms`, `privacy.inbound_policy`, `privacy.advert_mode`, `audio.ringtone_enabled`, `audio.ringtone_volume`, `audio.ringback_enabled`, `audio.call_sounds_enabled`; for example `relay config set audio.ringtone_volume 0.5` changes a ring that is playing); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
+
+### Session messaging (`relay messages`)
+
+Text, inline images and file offers inside a call session (`docs/api.md`, `docs/session-messages.md`). The daemon owns the transcripts, so the desktop app and the CLI see the same session. Messages exist only for the life of a call and in the daemon's RAM; the only thing that ever persists is an explicit `export`.
+
+- **Least privilege.** These commands (and the TUI's messages connection) register with the `messages` capability and nothing else; every other command never asks for it, so a daemon refuses messaging to them. Auto-start works as for other commands (`--no-autostart`, `RELAY_NO_AUTOSTART`).
+- **Targeting.** `--call <id|name>` takes a call id prefix, session id prefix or peer name (exact before prefix, any case). Without it the only *active* session is used; none, or several, is an error listing the candidates (exit 5), never a guess. A retained (ended) transcript is readable (`log`, `search`, `copy`, `export`, `clear`) but must be named with `--call`.
+- **`send <text|->`** sends exactly the text (`-` reads stdin, one trailing newline removed). Empty text and text over 4096 bytes are refused locally (exit 2).
+- **Message numbers.** `log` prints each entry as `#<n>` (the session ordinal, never reused, surviving a clear), time (UTC), direction, delivery state (`sending`, `delivered`, `failed (reason)`) and `[pinned]`. `pin`, `unpin` and `copy` take that number.
+- **Code blocks and links.** Fenced blocks in received text are listed under their message as `[code <N>: <language>, <lines> lines]`; `N` counts blocks across the whole session in transcript order, so it is the same in `log`, `watch` and `copy code-block N`. Links are parsed with the daemon's own safe parser and **never opened**: each is printed with its ASCII host, and a lookalike host (internationalised, mixed-script or invalid punycode) adds a `WARNING`. Control characters in received text are replaced before printing.
+- **`copy`** uses the clipboard helper of `relay address --copy` (`arboard`); `--print` also prints the text (and with a clipboard failure the text is still printed and the command exits 1).
+- **`watch`** prints new entries, delivery changes, offer progress, permission changes, pins and session start/end as lines (`--json`: one object per line with an `event` tag). History is `log`'s job. When the daemon answers `SessionResync`, or a gap, overflow or new incarnation is detected, it prints `-- resync: <reason>`, opens a fresh watch and reads each transcript from the last ordinal printed, so nothing repeats and nothing is lost; the engine closing the stream is an error (exit 1). Ctrl-C stops.
+- **`log --limit N`** is the first `N` entries from `--since`; when more remain it says how to continue.
+- **`clear`** asks first (`[y/N]` on stderr, stdin) unless `--yes`; an active session is emptied, an ended one removed; local only.
+- **`export`** prints the export JSON (always JSON); `--out FILE` makes the path absolute against the current directory (`.`/`..` folded) and has the daemon create it, owner-only. An existing file is refused locally and by the daemon. Over about 960 KiB the daemon requires `--out`.
+- **`image send`** accepts a regular file of at most 15 KiB (`PNG`, `JPEG`, `WebP`, `GIF`; the daemon validates the header); larger images are refused with a pointer to `offer`.
+- **File offers.** `offer <path>` makes the path absolute locally; **the daemon opens the file** (same user, same machine) and nothing moves until the peer accepts. `offers` lists each offer with id prefix, message number, direction, name, size, state, progress (`50% of 10.0 MiB`) and notes (executable-looking name, preview pending, saved name, failure). `accept <offer>` saves into `--dest DIR` (an existing directory, default the current one) with an optional suggested `--name`; the daemon sanitizes the name and never overwrites (`name (1).ext`). `reject`, `cancel` and `preview request|approve [--deny]` take the same id prefix; an ambiguous prefix lists candidates.
+- **Permissions and budget.** `perms` shows the session's `messages`/`files` switches, message count and transcript budget; with flags it changes them (the host's choice is pushed to the guest, the guest's stays local). A full budget is stated with the way out (`export`, then `clear`).
+- **Problem codes** (`MESSAGES_DISABLED`, `SESSION_PERMISSION_OFF`, `HISTORY_FULL`, `FILE_REFUSED`, ...) become `error.code` with exit 4; some carry a hint (what to run next). Message text, file names and paths are never logged at any level and never appear in an error.
 
 ## Output
 
@@ -99,11 +127,19 @@ Checks, in order: endpoint, engine reachability and version, input and output de
 
 ## TUI
 
-`relay tui` opens three registered connections: one for commands, one for the state watch, one for telemetry. The state feed (`client::run_state_feed`) reopens the watch, which begins with a snapshot, on revision gaps, stale revisions, incarnation changes, subscription overflow, an engine `Resync`, or a closed stream; the header shows `live`, `resyncing (...)` or `offline (...)` meanwhile. Telemetry is best-effort and reopens after errors.
+`relay tui` opens registered connections: one for commands, one for the state watch, one for telemetry (plus two `messages`-only ones, below). The state feed (`client::run_state_feed`) reopens the watch, which begins with a snapshot, on revision gaps, stale revisions, incarnation changes, subscription overflow, an engine `Resync`, or a closed stream; the header shows `live`, `resyncing (...)` or `offline (...)` meanwhile. Telemetry is best-effort and reopens after errors.
 
-Screens: Peers, Calls (cards), Devices, Settings. Header: link state, revision, microphone meter, mute/deafen, noise suppression. Call cards show peer, state, speaking indicator, route, consent, the engine's `effective_transmitting` ("TRANSMITTING" or "mic closed"), `blocked_reason`, receive meter and transport stats.
+Screens: Peers, Calls (cards), Devices, Settings, Messages. Header: link state, revision, microphone meter, mute/deafen, noise suppression. Call cards show peer, state, speaking indicator, route, consent, the engine's `effective_transmitting` ("TRANSMITTING" or "mic closed"), `blocked_reason`, receive meter and transport stats.
 
-Keys: `tab`/`1-4` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle route (receive-only, push-to-talk, open mic; transmitting modes ask `y` first), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings (and the PTT release delay row, in 50 ms steps from 0 to 2000), `q` quit.
+Keys: `tab`/`1-5` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle route (receive-only, push-to-talk, open mic; transmitting modes ask `y` first), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings (and the PTT release delay row, in 50 ms steps from 0 to 2000), `q` quit.
+
+### Messages tab
+
+`relay tui` opens two more registered connections for messaging, with the `messages` capability only: one for commands and one for the session watch. If it cannot be opened (or the daemon refuses the capability) the rest of the UI works and the tab says `Messages are unavailable: <reason>`. The session feed (`client::run_session_feed`) opens `WatchSession`, loads each session's transcript (at most 8 pages), and on `SessionResync`, a gap, an overflow, a new incarnation or a closed stream reopens it and reloads, with the header showing `live`, `resyncing (...)` or `offline (...)`. The pane keeps at most 1000 rows per session and 16 sessions; bursts of events are applied between two redraws.
+
+One pane per call, `[` and `]` switch (ended calls stay as read-only transcripts). Rows show time (UTC), who, delivery state (`sending`, `delivered`, `FAILED (reason)`), `[pinned]`, text with bold/italic/inline code, numbered code blocks (`+- code N: lang`), links (underlined, never opened, lookalike hosts flagged in red with the real host), images as a one-line summary, and file offers with a progress bar and warnings. Header lines state `messages on/off  files on/off`, counts and the transcript budget; honest states: permissions off ("turned off for this call"), budget full (`e` export, `X` clear), call ended (read-only), no call, link lost.
+
+Browse keys (the compose box and prompts take every key while open, so tab switching and `q` only apply while browsing): `i`/`enter` write (Enter sends, Ctrl-J new line, Esc leaves; the draft is dropped only after the daemon accepted it), `j/k` move, `g/G` first/newest, `/` search then `n/N` jump between matches, `p` pin, `b` choose a code block in the selected message, `Ctrl-Y` or `y` copy it, `o` offer a file (path prompt), `a` accept the selected incoming offer (directory prompt, default the current directory), `r` reject, `c` cancel, `v` request a preview (or approve the peer's request), `e` export to a new file (path prompt), `X` empty the transcript (`y` confirms). These keys shadow the global `a/c/e/m/d/...` only on this tab.
 
 The Settings tab lists the microphone and playback gain, mute, deafen and the **PTT release delay** (how long the gate stays open after the key is released, 0 to 2000 ms; `relay config set ptt.release_delay_ms 300` does the same). While the delay runs the call shows the engine's `releasing` state; nothing is assumed locally.
 
@@ -122,7 +158,7 @@ The platform backend (`relay-platform`) must be created on the process main thre
 
 ## Testing
 
-`cargo test -p relay-cli`. `FakeControl` (scripted, records calls; implements `Control`, `Subscribe`, `Manage`) covers command logic, secrets and the TUI drive loop; `EngineHarness` serves a fake `Engine` over a Unix socket for wire-level behavior (lease generation, consent bits, secrets on the wire, rejection mapping, live `config set`); `tests/real_engine.rs` runs against the real service layer with recording adapters; `tests/daemon_cmd.rs` builds `relayd` and runs start, status, restart and stop against it; `tests/hotkey.rs` drives `supervise` with `relay_platform::testing` fakes; TUI snapshots use ratatui `TestBackend`; binary tests check exit codes and `hotkey status`.
+`cargo test -p relay-cli`. `FakeControl` (scripted, records calls; implements `Control`, `Subscribe`, `Manage`) covers command logic, secrets and the TUI drive loop; `EngineHarness` serves a fake `Engine` over a Unix socket for wire-level behavior (lease generation, consent bits, secrets on the wire, rejection mapping, live `config set`); `tests/real_engine.rs` runs against the real service layer with recording adapters; `tests/messages_*.rs` cover the `relay messages` commands against the scripted fake (`tests/common/chat.rs` holds the messaging semantics shared with the socket engine), `tests/messages_wire.rs` the capability and a TRACE-level log capture proving text and file names never reach a log, `tests/tui_messages.rs` the Messages tab on a `TestBackend`, `tests/messages_feed.rs` the feed, and `tests/real_chat.rs` two real daemons in a call (text both ways, a file offer accepted and verified byte for byte; it includes the engine's own harness by path); `tests/daemon_cmd.rs` builds `relayd` and runs start, status, restart and stop against it; `tests/hotkey.rs` drives `supervise` with `relay_platform::testing` fakes; TUI snapshots use ratatui `TestBackend`; binary tests check exit codes and `hotkey status`.
 
 ## The daemon is a separate program
 

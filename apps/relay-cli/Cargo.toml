@@ -44,6 +44,11 @@ tracing-subscriber.workspace = true
 [dev-dependencies]
 relay-engine.workspace = true
 relay-core.workspace = true
+# The engine's own two-daemon test harness is included by path (tests/real_chat.rs).
+relay-audio.workspace = true
+relay-protocol.workspace = true
+image.workspace = true
+blake3.workspace = true
 tempfile.workspace = true
 
 [lints]
