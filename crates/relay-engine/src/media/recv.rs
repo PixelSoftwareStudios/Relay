@@ -1,7 +1,7 @@
 //! The per-call receive path: validate, schedule, decode and conceal.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 use relay_audio::FRAME_SAMPLES;
 use relay_audio::codec::CallDecoder;
@@ -9,6 +9,7 @@ use relay_core::CallId;
 use relay_protocol::jitter::{JitterBuffer, JitterConfig, PacketMeta, Playout};
 use relay_protocol::rtp::RtpProfile;
 
+use super::meters::{Level, SPEAKING_DBFS, SPEAKING_HOLD_FRAMES, level_dbfs};
 use super::packet::{Ingress, PacketBuf};
 
 /// Identifies the network task a packet came from. A receiver accepts packets
@@ -18,6 +19,10 @@ pub type SourceId = u64;
 /// Counters of one call's receive path, readable from any thread.
 #[derive(Debug, Default)]
 pub struct RecvStats {
+	/// Level of the latest rendered frame.
+	pub level: Level,
+	/// The remote voice is audibly active (with a short hold).
+	pub speaking: AtomicBool,
 	/// Packets stored in the jitter buffer.
 	pub accepted: AtomicU64,
 	/// Packets rejected for a wrong source, call, generation or SSRC.
@@ -65,6 +70,7 @@ pub struct CallReceiver {
 	decoder: CallDecoder,
 	stats: Arc<RecvStats>,
 	needs_reset: bool,
+	hold: u8,
 }
 
 impl CallReceiver {
@@ -79,6 +85,7 @@ impl CallReceiver {
 			decoder: CallDecoder::new()?,
 			stats: Arc::new(RecvStats::default()),
 			needs_reset: false,
+			hold: 0,
 		})
 	}
 
@@ -168,7 +175,7 @@ impl CallReceiver {
 		self.note(Rendered::Concealed, out)
 	}
 
-	fn note(&self, rendered: Rendered, out: &mut [f32; FRAME_SAMPLES]) -> Rendered {
+	fn note(&mut self, rendered: Rendered, out: &mut [f32; FRAME_SAMPLES]) -> Rendered {
 		let counter = match rendered {
 			Rendered::Voice => &self.stats.voice,
 			Rendered::Concealed => &self.stats.concealed,
@@ -178,6 +185,19 @@ impl CallReceiver {
 			}
 		};
 		counter.fetch_add(1, Ordering::Relaxed);
+		self.measure(rendered, out);
 		rendered
+	}
+
+	/// Publishes the frame's level and whether the remote is speaking.
+	fn measure(&mut self, rendered: Rendered, out: &[f32; FRAME_SAMPLES]) {
+		let level = level_dbfs(out);
+		self.stats.level.set(level);
+		if rendered == Rendered::Voice && level > SPEAKING_DBFS {
+			self.hold = SPEAKING_HOLD_FRAMES;
+		} else {
+			self.hold = self.hold.saturating_sub(1);
+		}
+		self.stats.speaking.store(self.hold > 0, Ordering::Relaxed);
 	}
 }

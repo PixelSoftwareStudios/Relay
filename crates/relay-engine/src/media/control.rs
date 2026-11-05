@@ -8,7 +8,9 @@ use relay_core::{AudioGeneration, CallId, ReceiveMix, SessionId};
 use super::capture_worker::CaptureCmd;
 use super::devices::Selection;
 use super::system::{MediaSystem, PrepareError};
-use crate::service::ports::{DeviceControl, DeviceDirection, DeviceInfo, MediaControl, PortError};
+use crate::service::ports::{
+	DeviceControl, DeviceDirection, DeviceInfo, MediaControl, MediaTelemetry, PortError,
+};
 
 impl MediaControl for MediaSystem {
 	fn open_capture(&self, generation: AudioGeneration) -> Result<(), PortError> {
@@ -73,12 +75,17 @@ impl MediaControl for MediaSystem {
 			.map_err(|_| PortError::Unavailable("capture queue is full".to_owned()))
 	}
 
-	fn start_mic_test(&self, _local_playback: bool) -> Result<(), PortError> {
-		Err(PortError::Unsupported("microphone test"))
+	fn start_mic_test(&self, local_playback: bool) -> Result<(), PortError> {
+		MediaSystem::start_mic_test(self, local_playback)
 	}
 
 	fn stop_mic_test(&self) -> Result<(), PortError> {
-		Err(PortError::Unsupported("microphone test"))
+		MediaSystem::stop_mic_test(self);
+		Ok(())
+	}
+
+	fn telemetry(&self) -> MediaTelemetry {
+		MediaSystem::telemetry(self)
 	}
 }
 

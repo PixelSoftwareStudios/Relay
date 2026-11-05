@@ -21,6 +21,7 @@ use rtrb::Consumer;
 use super::events::{EventSink, MediaEvent};
 use super::gate::FrameStamp;
 use super::load::LoadMeter;
+use super::meters::{Meters, MonitorTx, level_dbfs};
 use super::send::CallSender;
 
 const IDLE_WAIT: Duration = Duration::from_millis(2);
@@ -66,6 +67,8 @@ struct Worker {
 	frame: [f32; FRAME_SAMPLES],
 	timeline: Timeline,
 	gain: f32,
+	meters: Arc<Meters>,
+	monitor: MonitorTx,
 }
 
 /// Tracks the capture sample index of the frame being encoded.
@@ -81,6 +84,8 @@ pub fn spawn(
 	suppressor: Box<dyn NoiseSuppressor>,
 	events: EventSink,
 	load: Arc<LoadMeter>,
+	meters: Arc<Meters>,
+	monitor: MonitorTx,
 	stop: Arc<AtomicBool>,
 ) -> std::io::Result<JoinHandle<()>> {
 	let mut worker = Worker {
@@ -96,6 +101,8 @@ pub fn spawn(
 		frame: [0.0; FRAME_SAMPLES],
 		timeline: Timeline::default(),
 		gain: 1.0,
+		meters,
+		monitor,
 	};
 	thread::Builder::new()
 		.name("relay-capture".to_owned())
@@ -124,9 +131,12 @@ impl Worker {
 			frame,
 			timeline,
 			gain,
+			meters,
+			monitor,
 			..
 		} = self;
 		let Some(input) = input.as_mut() else {
+			meters.microphone.clear();
 			return;
 		};
 		// Stamp once per poll, before any frame of the batch is processed:
@@ -145,17 +155,25 @@ impl Worker {
 			};
 			let produced = progress.produced.min(denoised.len());
 			apply_gain(&mut denoised[..produced], *gain);
+			meters.microphone.set(level_dbfs(&denoised[..produced]));
 			if assembler.push(&denoised[..produced]).is_err() {
 				assembler.clear();
 				return;
 			}
 			while assembler.pop_frame(frame) {
+				if meters.monitor.load(Ordering::Relaxed) {
+					// A full queue means the speaker side is behind: drop, never wait.
+					let _ = monitor.push(*frame);
+				}
 				for (sender, stamp) in senders.iter_mut().zip(stamps.iter()) {
 					sender.emit(frame, *stamp, timeline.next_sample);
 				}
 				timeline.next_sample += FRAME_SAMPLES as u64;
 			}
 		});
+		meters
+			.capture_overruns
+			.store(input.shared.overrun_frames(), Ordering::Relaxed);
 		if let Ok(stats) = polled
 			&& stats.frames_emitted > 0
 		{
@@ -174,6 +192,7 @@ impl Worker {
 		}
 		let generation = input.generation;
 		self.input = None;
+		self.meters.microphone.clear();
 		(self.events)(MediaEvent::System(SystemEvent::CaptureLost { generation }));
 		true
 	}

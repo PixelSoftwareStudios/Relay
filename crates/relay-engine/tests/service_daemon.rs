@@ -152,31 +152,40 @@ async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 		.expect_err("not known yet");
 	assert_eq!(error.code(), Code::FailedPrecondition);
 
-	// Owned by nobody yet.
+	// The microphone test is local and runs on the selected microphone.
 	let request = StartMicTestRequest {
 		context: Some(ctx(&cli, 7)),
 		local_playback: false,
 		confirmed_feedback_warning: false,
 	};
-	let error = cli
-		.raw()
-		.start_mic_test(request)
-		.await
-		.expect_err("mic test");
-	assert_eq!(error.code(), Code::Unimplemented);
+	assert_applied(
+		&cli.raw()
+			.start_mic_test(request)
+			.await
+			.expect("mic test")
+			.into_inner(),
+	);
 	let request = TelemetryRequest {
 		client: cli.context(),
 		call_ids: Vec::new(),
 		meters_hz: 0,
 		stats_hz: 0,
 	};
-	let error = cli
+	let mut stream = cli
 		.raw()
 		.watch_telemetry(request)
 		.await
-		.map(|_| ())
-		.expect_err("telemetry");
-	assert_eq!(error.code(), Code::Unimplemented);
+		.expect("telemetry")
+		.into_inner();
+	assert!(stream.message().await.expect("sample").is_some());
+	let stop = ctx(&cli, 8);
+	assert_applied(
+		&cli.raw()
+			.stop_mic_test(stop)
+			.await
+			.expect("stop")
+			.into_inner(),
+	);
 	daemon.shutdown().await.expect("shutdown");
 }
 

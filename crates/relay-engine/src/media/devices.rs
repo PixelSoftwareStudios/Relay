@@ -239,6 +239,7 @@ impl Thread {
 		let output = Box::new(RenderOutput {
 			sink,
 			health: stream.health,
+			shared: stream.shared,
 		});
 		self.render
 			.push(RenderCmd::Attach(output))

@@ -12,12 +12,14 @@ use std::time::{Duration, Instant};
 
 use relay_audio::device::{Direction, Recovery, StreamHealth, recovery_for};
 use relay_audio::mixer::{CallSlot, Mixer};
+use relay_audio::playback::PlaybackShared;
 use relay_audio::{FRAME_SAMPLES, MAX_CALLS};
 use relay_core::{CallId, ReceiveMix};
 use rtrb::Consumer;
 
 use super::events::{EventSink, MediaEvent};
 use super::load::LoadMeter;
+use super::meters::{Meters, MonitorRx};
 use super::packet::Ingress;
 use super::recv::{CallReceiver, Rendered, SourceId};
 use super::sink::RenderSink;
@@ -33,6 +35,8 @@ pub struct RenderOutput {
 	pub sink: RenderSink,
 	/// Device health published by the stream's error callback.
 	pub health: StreamHealth,
+	/// Callback-side counters.
+	pub shared: Arc<PlaybackShared>,
 }
 
 /// Commands accepted by the render worker.
@@ -70,6 +74,8 @@ struct Worker {
 	frame: [f32; FRAME_SAMPLES],
 	mixed: [f32; FRAME_SAMPLES],
 	next_tick: Instant,
+	meters: Arc<Meters>,
+	monitor: MonitorRx,
 }
 
 /// Starts the render worker thread.
@@ -77,6 +83,8 @@ pub fn spawn(
 	commands: Consumer<RenderCmd>,
 	events: EventSink,
 	load: Arc<LoadMeter>,
+	meters: Arc<Meters>,
+	monitor: MonitorRx,
 	stop: Arc<AtomicBool>,
 ) -> std::io::Result<JoinHandle<()>> {
 	let mut worker = Worker {
@@ -90,6 +98,8 @@ pub fn spawn(
 		frame: [0.0; FRAME_SAMPLES],
 		mixed: [0.0; FRAME_SAMPLES],
 		next_tick: Instant::now(),
+		meters,
+		monitor,
 	};
 	thread::Builder::new()
 		.name("relay-render".to_owned())
@@ -112,7 +122,8 @@ impl Worker {
 		if self.lost() {
 			return;
 		}
-		if self.output.is_none() || self.calls.is_empty() {
+		let monitoring = self.meters.monitor.load(Ordering::Relaxed);
+		if self.output.is_none() || (self.calls.is_empty() && !monitoring) {
 			self.next_tick = Instant::now();
 			return;
 		}
@@ -137,6 +148,8 @@ impl Worker {
 			frame,
 			mixed,
 			output,
+			meters,
+			monitor,
 			..
 		} = self;
 		let Some(output) = output.as_mut() else {
@@ -150,8 +163,16 @@ impl Worker {
 			}
 		}
 		if mixer.finish(mixed).is_ok() {
+			if meters.monitor.load(Ordering::Relaxed) {
+				mix_monitor(monitor, mixed);
+			} else {
+				while monitor.pop().is_ok() {}
+			}
 			let _ = output.sink.write(mixed);
 		}
+		meters
+			.render_underruns
+			.store(output.shared.underrun_frames(), Ordering::Relaxed);
 		self.load
 			.record(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
 	}
@@ -225,6 +246,20 @@ impl Worker {
 		{
 			call.audible = mix.audible;
 			let _ = self.mixer.set_call_gain(call.slot, permille(mix.gain));
+		}
+	}
+}
+
+/// Adds one queued monitor frame to the mix. Anything older is discarded, so
+/// the local echo never lags behind by more than a frame.
+fn mix_monitor(monitor: &mut MonitorRx, mixed: &mut [f32; FRAME_SAMPLES]) {
+	let mut latest = None;
+	while let Ok(frame) = monitor.pop() {
+		latest = Some(frame);
+	}
+	if let Some(frame) = latest {
+		for (out, sample) in mixed.iter_mut().zip(frame) {
+			*out = (*out + sample).clamp(-1.0, 1.0);
 		}
 	}
 }

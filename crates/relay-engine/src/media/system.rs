@@ -23,7 +23,9 @@ use super::devices::{BackendFactory, DeviceCmd, DeviceSetup, DeviceThread, Selec
 use super::events::{EventSink, MediaEvent};
 use super::gate::GateBoard;
 use super::inbox::Inbox;
+use super::live::{MicTest, filter_events};
 use super::load::{AdmissionLimits, LoadMeter, LoadSnapshot, Refusal};
+use super::meters::{Meters, monitor_pair};
 use super::net::{EndpointSink, PeerSocket};
 
 use super::render_worker::{self, RenderCmd};
@@ -55,6 +57,8 @@ pub struct MediaConfig {
 	/// The control actor's published gates; when set, send paths read them
 	/// directly and `GateBoard::publish` is not needed.
 	pub gates: Option<crate::service::GateReader>,
+	/// How long a microphone test runs before it stops by itself.
+	pub mic_test_max: std::time::Duration,
 }
 
 impl MediaConfig {
@@ -70,6 +74,7 @@ impl MediaConfig {
 			bind_ip: IpAddr::from([0, 0, 0, 0]),
 			policy: AddressPolicy::lan_only(),
 			gates: None,
+			mic_test_max: super::live::MIC_TEST_MAX,
 		}
 	}
 }
@@ -94,6 +99,12 @@ pub(super) struct Inner {
 	pub(super) capture: Inbox<CaptureCmd>,
 	pub(super) render: Inbox<RenderCmd>,
 	pub(super) devices: DeviceThread,
+	pub(super) meters: Arc<Meters>,
+	pub(super) mic_test: Arc<MicTest>,
+	/// A domain-owned capture generation is open or requested.
+	pub(super) domain_capture: AtomicBool,
+	/// A microphone is selected; there is no default fallback.
+	pub(super) input_selected: AtomicBool,
 	capture_load: Arc<LoadMeter>,
 	render_load: Arc<LoadMeter>,
 	stop: Arc<AtomicBool>,
@@ -144,6 +155,10 @@ impl MediaSystem {
 			Arc::new(LoadMeter::default()),
 			Arc::new(LoadMeter::default()),
 		);
+		let meters = Arc::new(Meters::default());
+		let mic_test = Arc::new(MicTest::default());
+		let events = filter_events(events, Arc::clone(&mic_test), Arc::clone(&meters));
+		let (monitor_tx, monitor_rx) = monitor_pair();
 		let (capture, capture_rx) = Inbox::new(COMMAND_DEPTH);
 		let (render, render_rx) = Inbox::new(COMMAND_DEPTH);
 		let workers = vec![
@@ -152,12 +167,16 @@ impl MediaSystem {
 				suppressor,
 				Arc::clone(&events),
 				Arc::clone(&capture_load),
+				Arc::clone(&meters),
+				monitor_tx,
 				Arc::clone(&stop),
 			)?,
 			render_worker::spawn(
 				render_rx,
 				Arc::clone(&events),
 				Arc::clone(&render_load),
+				Arc::clone(&meters),
+				monitor_rx,
 				Arc::clone(&stop),
 			)?,
 		];
@@ -172,6 +191,7 @@ impl MediaSystem {
 			render.clone(),
 			Arc::clone(&events),
 		)?;
+		let input_selected = config.selection.input.is_some();
 		let board = config
 			.gates
 			.clone()
@@ -184,6 +204,10 @@ impl MediaSystem {
 				capture,
 				render,
 				devices,
+				meters,
+				mic_test,
+				domain_capture: AtomicBool::new(false),
+				input_selected: AtomicBool::new(input_selected),
 				capture_load,
 				render_load,
 				stop,
@@ -216,6 +240,7 @@ impl MediaSystem {
 
 	/// Asks the device thread to open the microphone under `generation`.
 	pub fn open_capture(&self, generation: AudioGeneration) {
+		self.inner.domain_capture.store(true, Ordering::Release);
 		let _ = self
 			.inner
 			.devices
@@ -225,6 +250,7 @@ impl MediaSystem {
 
 	/// Asks the device thread to close the microphone.
 	pub fn close_capture(&self, generation: AudioGeneration) {
+		self.inner.domain_capture.store(false, Ordering::Release);
 		let _ = self
 			.inner
 			.devices
@@ -234,6 +260,9 @@ impl MediaSystem {
 
 	/// Applies an explicit device selection.
 	pub fn select_devices(&self, selection: Selection) {
+		self.inner
+			.input_selected
+			.store(selection.input.is_some(), Ordering::Relaxed);
 		let _ = self
 			.inner
 			.devices
@@ -439,7 +468,7 @@ impl MediaSystem {
 		}))
 	}
 
-	async fn open_playback(&self) -> Result<(), String> {
+	pub(super) async fn open_playback(&self) -> Result<(), String> {
 		if self.state().playback_open {
 			return Ok(());
 		}
