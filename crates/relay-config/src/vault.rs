@@ -5,6 +5,7 @@
 //! store; a 0600 file store exists only when the user explicitly chose
 //! [`KeyStorage::InsecureFile`], exactly like the identity key.
 
+use relay_io::LockExt;
 use std::collections::BTreeMap;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
@@ -156,7 +157,7 @@ pub struct MemoryVault {
 
 impl MemoryVault {
 	fn map(&self) -> std::sync::MutexGuard<'_, Secrets> {
-		self.secrets.lock().unwrap_or_else(|e| e.into_inner())
+		self.secrets.lock_unpoisoned()
 	}
 
 	/// Number of stored secrets (tests assert nothing is orphaned).

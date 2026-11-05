@@ -6,6 +6,7 @@
 //! avatar is pinned and never evicted. If the cache file is lost the local avatar
 //! reads as absent until it is uploaded again.
 
+use relay_io::LockExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -62,7 +63,7 @@ impl AvatarCache {
 	}
 
 	fn store(&self) -> MutexGuard<'_, Store> {
-		self.store.lock().unwrap_or_else(|e| e.into_inner())
+		self.store.lock_unpoisoned()
 	}
 
 	fn pinned(&self) -> Result<Option<[u8; 32]>> {

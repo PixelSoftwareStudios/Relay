@@ -7,6 +7,7 @@ mod backup;
 mod migrate;
 mod open;
 
+use relay_io::LockExt;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -44,7 +45,7 @@ pub struct Opened {
 }
 
 fn guard<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-	mutex.lock().unwrap_or_else(|e| e.into_inner())
+	mutex.lock_unpoisoned()
 }
 
 impl Database {
