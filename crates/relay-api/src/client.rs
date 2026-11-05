@@ -119,6 +119,16 @@ impl RelayClient {
 			.clone()
 	}
 
+	/// Reuse a context issued earlier (for example cached across a reconnect).
+	/// The engine still validates it on every request.
+	pub fn adopt_context(&mut self, context: ClientContext) {
+		*self
+			.shared
+			.context
+			.write()
+			.unwrap_or_else(|e| e.into_inner()) = Some(context);
+	}
+
 	fn require_context(&self) -> Result<ClientContext, ApiError> {
 		self.context().ok_or(ApiError::NotRegistered)
 	}

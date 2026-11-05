@@ -33,7 +33,7 @@ pub use watch::{BoundedWatch, StateTracker, StateWatch, WatchItem, WatchOptions}
 #[cfg(unix)]
 pub use server::serve_unix;
 #[cfg(unix)]
-pub use uds::{UdsListener, current_uid, default_socket_path, prepare_runtime_dir};
+pub use uds::{UdsListener, check_peer, current_uid, default_socket_path, prepare_runtime_dir};
 
 /// Metadata key carrying the hex-encoded 16-byte client id.
 pub const CLIENT_ID_HEADER: &str = "relay-client-id";
