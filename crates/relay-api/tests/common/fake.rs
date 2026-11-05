@@ -292,7 +292,7 @@ impl Engine for FakeEngine {
 	async fn stop_mic_test(&self, _: Request<MutationContext>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_profile(&self, request: Request<SetProfileRequest>) -> Resp<Operation> {
+	async fn set_profile(&self, _: Request<SetProfileRequest>) -> Resp<Operation> {
 		unsupported()
 	}
 	async fn upload_avatar(&self, _: Request<UploadAvatarRequest>) -> Resp<Operation> {

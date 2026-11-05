@@ -91,7 +91,7 @@ impl Channels {
 			info: ChannelInfo {
 				channel_id: id,
 				name: req.name.clone(),
-				policy: req.policy.clone(),
+				policy: req.policy,
 				role: "owner".into(),
 				..ChannelInfo::default()
 			},
