@@ -127,10 +127,7 @@ impl ServiceBuilder {
 			ports.devices.devices(),
 			config.warnings,
 		);
-		ports.peers.profile_changed(&super::ports::LocalProfile {
-			display_name: directory.aux.display_name.clone(),
-			avatar: directory.aux.avatar,
-		});
+		ports.peers.profile_changed(&directory.aux.profile());
 		let ledger = Ledger::new(
 			config.limits.operation_cache_per_client,
 			config.limits.operation_cache_global,
@@ -158,6 +155,9 @@ impl ServiceBuilder {
 			limiter: StreamLimiter::new(config.api.max_streams),
 			ids,
 			peers: ports.peers,
+			media: ports.media,
+			settings: ports.settings,
+			started: tokio::time::Instant::now(),
 			api: config.api,
 			limits: config.limits,
 			next_source: AtomicU64::new(1),

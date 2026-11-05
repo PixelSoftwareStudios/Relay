@@ -25,7 +25,7 @@ fn invalid(message: &str) -> ServiceError {
 	ServiceError::InvalidArgument(message.to_owned())
 }
 
-async fn service_op(
+pub(super) async fn service_op(
 	service: &EngineService,
 	mutation: &Mutation,
 	body: &impl Message,

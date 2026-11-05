@@ -11,7 +11,7 @@ use crate::service::clients::Capability;
 use crate::service::error::ServiceError;
 
 const MAX_NAME_CHARS: usize = 64;
-const AVATAR_MAX_BYTES: u32 = 1024 * 1024;
+pub(super) const AVATAR_MAX_BYTES: u32 = 1024 * 1024;
 
 pub(super) fn info(service: &EngineService) -> EngineInfo {
 	let limits = &service.shared.limits;
@@ -28,7 +28,7 @@ pub(super) fn info(service: &EngineService) -> EngineInfo {
 			active_calls: u32::try_from(limits.active_calls).unwrap_or(u32::MAX),
 			clients: u32::try_from(limits.attached_clients).unwrap_or(u32::MAX),
 			avatar_max_bytes: AVATAR_MAX_BYTES,
-			meters_max_hz: 0,
+			meters_max_hz: super::telemetry::MAX_HZ,
 			ptt_lease_max_ms: u32::try_from(limits.ptt_lease_max.as_millis()).unwrap_or(u32::MAX),
 		}),
 	}

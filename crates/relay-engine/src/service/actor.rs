@@ -35,6 +35,8 @@ pub(crate) struct Actor {
 	pub(super) directory: Directory,
 	pub(super) ledger: Ledger,
 	pub(super) incarnation: [u8; 16],
+	/// The client whose microphone test is running, if any.
+	pub(super) mic_test_owner: Option<relay_core::ClientId>,
 	cursor: Cursor,
 	origin: Instant,
 	inbox: mpsc::Receiver<Msg>,
@@ -65,6 +67,7 @@ impl Actor {
 			directory,
 			ledger,
 			incarnation,
+			mic_test_owner: None,
 			cursor,
 			origin: Instant::now(),
 			inbox,
@@ -110,6 +113,10 @@ impl Actor {
 			Msg::Input(input) => {
 				if let Input::Disconnected(client) = &input {
 					self.ledger.purge_client(*client);
+					if self.mic_test_owner == Some(*client) {
+						self.mic_test_owner = None;
+						let _ = self.ports.media.stop_mic_test();
+					}
 				}
 				let _ = self.run_input(input);
 			}
@@ -266,6 +273,7 @@ impl Actor {
 
 	/// Detaches every client and stops every live call before exiting.
 	fn shut_down(&mut self) {
+		let _ = self.ports.media.stop_mic_test();
 		let snapshot = self.engine.state().snapshot();
 		for client in snapshot.clients {
 			let _ = self.apply(Input::Disconnected(client));

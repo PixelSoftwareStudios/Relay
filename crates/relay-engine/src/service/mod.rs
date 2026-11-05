@@ -16,6 +16,7 @@ mod ledger;
 pub mod ports;
 mod rpc;
 mod runtime;
+pub mod telemetry;
 
 pub use clients::Capability;
 pub use error::ServiceError;
@@ -23,8 +24,9 @@ pub use gates::{GateReader, GateTable};
 pub use handle::{ControlHandle, ServiceOp};
 pub use ids::{CounterEntropy, Entropy, Ids, OsEntropy};
 pub use ports::{
-	DeviceControl, DeviceDirection, DeviceInfo, LocalProfile, MediaControl, PeerControl, PeerInfo,
-	PeerTrust, PortError, Ports, SettingsChange, SettingsStore, StoredSettings, TrustRequest,
+	AdvertMode, CallMeter, ConnectionDetails, DeviceControl, DeviceDirection, DeviceInfo,
+	InboundPolicy, LocalProfile, MediaControl, MediaTelemetry, PeerControl, PeerInfo, PeerTrust,
+	PortError, Ports, SettingsChange, SettingsStore, StoredSettings, TrustRequest,
 };
 pub use rpc::EngineService;
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};

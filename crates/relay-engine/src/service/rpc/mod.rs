@@ -1,9 +1,13 @@
 //! The local API: `relay.v1.Engine` implemented over the control actor.
 
+mod avatar;
 mod commands;
+mod connection;
 mod input;
 mod ops;
+mod privacy;
 mod session;
+mod telemetry;
 mod watch;
 
 use std::sync::Arc;
@@ -31,7 +35,7 @@ use super::convert::{Mutation, check_context, check_mutation, client_id, lease_b
 use super::error::ServiceError;
 use super::handle::{Applied, ControlHandle};
 use super::ids::Ids;
-use super::ports::PeerControl;
+use super::ports::{MediaControl, PeerControl, SettingsStore};
 use relay_core::Command;
 
 pub(crate) const API_MAJOR: u32 = 1;
@@ -44,6 +48,9 @@ pub(crate) struct Shared {
 	pub limiter: StreamLimiter,
 	pub ids: Ids,
 	pub peers: Arc<dyn PeerControl>,
+	pub media: Arc<dyn MediaControl>,
+	pub settings: Arc<dyn SettingsStore>,
+	pub started: tokio::time::Instant,
 	pub api: ApiLimits,
 	pub limits: Limits,
 	pub next_source: AtomicU64,
@@ -179,8 +186,8 @@ impl Engine for EngineService {
 		&self,
 		request: Request<TelemetryRequest>,
 	) -> Result<Response<Self::WatchTelemetryStream>, Status> {
-		self.observer(&request, |body| body.client.as_ref())?;
-		Err(ServiceError::Unimplemented("telemetry").into())
+		let caller = self.observer(&request, |body| body.client.as_ref())?;
+		telemetry::open(self, caller, request.into_inner())
 	}
 
 	async fn get_operation(
@@ -396,23 +403,26 @@ impl Engine for EngineService {
 
 	async fn set_privacy(
 		&self,
-		_: Request<SetPrivacyRequest>,
+		request: Request<SetPrivacyRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(ServiceError::Unimplemented("privacy settings").into())
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		privacy::set(self, &mutation, &body).await
 	}
 
 	async fn get_avatar(
 		&self,
-		_: Request<GetAvatarRequest>,
+		request: Request<GetAvatarRequest>,
 	) -> Result<Response<AvatarImage>, Status> {
-		Err(ServiceError::Unimplemented("avatar download").into())
+		self.observer(&request, |body| body.client.as_ref())?;
+		avatar::get(self, request.into_inner()).await
 	}
 
 	async fn get_connection_info(
 		&self,
-		_: Request<ClientContext>,
+		request: Request<ClientContext>,
 	) -> Result<Response<ConnectionInfo>, Status> {
-		Err(ServiceError::Unimplemented("connection info").into())
+		self.observer(&request, |body| Some(body))?;
+		connection::get(self).await
 	}
 
 	type InputControlStream = Stream<InputControlAck>;

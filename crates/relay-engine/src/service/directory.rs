@@ -6,7 +6,9 @@ use relay_api::pb::{Removed, StateEvent, state_event};
 use relay_core::PeerId;
 
 use super::convert::{device_to_pb, peer_to_pb};
-use super::ports::{DeviceInfo, PeerInfo, PeerTrust, StoredSettings};
+use super::ports::{
+	AdvertMode, DeviceInfo, InboundPolicy, LocalProfile, PeerInfo, PeerTrust, StoredSettings,
+};
 
 const MAX_FLAGGED: usize = 16;
 const MAX_WARNINGS: usize = 32;
@@ -26,6 +28,21 @@ pub struct Aux {
 	pub display_name: String,
 	/// Advertised avatar hash.
 	pub avatar: Option<[u8; 32]>,
+	/// Who may ring this device.
+	pub inbound_policy: InboundPolicy,
+	/// How the device appears in discovery.
+	pub advert_mode: AdvertMode,
+}
+
+impl Aux {
+	/// What the peer adapter advertises.
+	pub fn profile(&self) -> LocalProfile {
+		LocalProfile {
+			display_name: self.display_name.clone(),
+			avatar: self.avatar,
+			hidden: self.advert_mode == AdvertMode::Hidden,
+		}
+	}
 }
 
 impl From<StoredSettings> for Aux {
@@ -37,6 +54,8 @@ impl From<StoredSettings> for Aux {
 			microphone_gain: stored.microphone_gain,
 			display_name: stored.display_name,
 			avatar: stored.avatar,
+			inbound_policy: stored.inbound_policy,
+			advert_mode: stored.advert_mode,
 		}
 	}
 }

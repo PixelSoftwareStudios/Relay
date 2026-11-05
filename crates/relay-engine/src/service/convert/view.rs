@@ -10,7 +10,7 @@ use relay_core::{CallState, Event, Gain, GlobalView, RouteMode, Snapshot as Core
 
 use super::lease_bytes;
 use crate::service::directory::{Aux, Directory};
-use crate::service::ports::{DeviceDirection, DeviceInfo, PeerInfo, PeerTrust};
+use crate::service::ports::{self, DeviceDirection, DeviceInfo, PeerInfo, PeerTrust};
 
 fn state_to_pb(state: CallState) -> PbState {
 	match state {
@@ -43,6 +43,20 @@ fn trust_to_pb(trust: PeerTrust) -> TrustState {
 		PeerTrust::Verified => TrustState::Verified,
 		PeerTrust::KeyChanged => TrustState::KeyChanged,
 		PeerTrust::Blocked => TrustState::Blocked,
+	}
+}
+
+fn inbound_to_pb(policy: ports::InboundPolicy) -> InboundPolicy {
+	match policy {
+		ports::InboundPolicy::Anyone => InboundPolicy::Anyone,
+		ports::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+	}
+}
+
+fn advert_to_pb(mode: ports::AdvertMode) -> AdvertMode {
+	match mode {
+		ports::AdvertMode::Visible => AdvertMode::Visible,
+		ports::AdvertMode::Hidden => AdvertMode::Hidden,
 	}
 }
 
@@ -154,8 +168,8 @@ pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
 		playback_gain: gain_to_f32(global.output_gain),
 		display_name: aux.display_name.clone(),
 		avatar_sha256: aux.avatar.map(|h| h.to_vec()).unwrap_or_default(),
-		inbound_policy: InboundPolicy::Unspecified as i32,
-		advert_mode: AdvertMode::Unspecified as i32,
+		inbound_policy: inbound_to_pb(aux.inbound_policy) as i32,
+		advert_mode: advert_to_pb(aux.advert_mode) as i32,
 	}
 }
 

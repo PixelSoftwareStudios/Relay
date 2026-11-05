@@ -5,8 +5,9 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use relay_core::{AudioGeneration, CallId, PeerId, PeerMessage, ReceiveMix, SessionId};
 
 use super::ports::{
-	DeviceControl, DeviceInfo, LocalProfile, MediaControl, PeerControl, PeerInfo, PortError, Ports,
-	SettingsChange, SettingsStore, StoredSettings, TrustRequest,
+	ConnectionDetails, DeviceControl, DeviceInfo, LocalProfile, MediaControl, MediaTelemetry,
+	PeerControl, PeerInfo, PortError, Ports, SettingsChange, SettingsStore, StoredSettings,
+	TrustRequest,
 };
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -38,9 +39,15 @@ pub enum MediaCall {
 #[derive(Debug, Default)]
 pub struct FakeMedia {
 	calls: Mutex<Vec<MediaCall>>,
+	telemetry: Mutex<MediaTelemetry>,
 }
 
 impl FakeMedia {
+	/// Sets what `telemetry()` reports.
+	pub fn set_telemetry(&self, telemetry: MediaTelemetry) {
+		*lock(&self.telemetry) = telemetry;
+	}
+
 	/// Everything requested so far.
 	pub fn calls(&self) -> Vec<MediaCall> {
 		lock(&self.calls).clone()
@@ -77,6 +84,9 @@ impl MediaControl for FakeMedia {
 		self.push(MediaCall::MicTestStart(local_playback));
 		Ok(())
 	}
+	fn telemetry(&self) -> MediaTelemetry {
+		lock(&self.telemetry).clone()
+	}
 	fn stop_mic_test(&self) -> Result<(), PortError> {
 		self.push(MediaCall::MicTestStop);
 		Ok(())
@@ -92,12 +102,18 @@ pub struct FakePeers {
 	profiles: Mutex<Vec<LocalProfile>>,
 	known: Mutex<Vec<PeerInfo>>,
 	addresses: Mutex<Vec<(String, PeerId)>>,
+	connection: Mutex<Option<ConnectionDetails>>,
 }
 
 impl FakePeers {
 	/// Makes `address` resolve to `peer`.
 	pub fn map_address(&self, address: &str, peer: PeerId) {
 		lock(&self.addresses).push((address.to_owned(), peer));
+	}
+
+	/// Sets what `connection_info()` reports.
+	pub fn set_connection(&self, details: ConnectionDetails) {
+		*lock(&self.connection) = Some(details);
 	}
 
 	/// Sets the peers reported by `peers()`.
@@ -152,6 +168,11 @@ impl PeerControl for FakePeers {
 	fn profile_changed(&self, profile: &LocalProfile) {
 		lock(&self.profiles).push(profile.clone());
 	}
+	fn connection_info(&self) -> Result<ConnectionDetails, PortError> {
+		lock(&self.connection)
+			.clone()
+			.ok_or(PortError::Unsupported("connection info"))
+	}
 }
 
 /// A fixed device list that accepts selections of known devices.
@@ -186,6 +207,7 @@ impl DeviceControl for FakeDevices {
 #[derive(Debug)]
 pub struct MemorySettings {
 	stored: Mutex<StoredSettings>,
+	avatars: Mutex<Vec<([u8; 32], Vec<u8>)>>,
 }
 
 impl Default for MemorySettings {
@@ -197,6 +219,7 @@ impl Default for MemorySettings {
 				playback_gain: 1.0,
 				..StoredSettings::default()
 			}),
+			avatars: Mutex::default(),
 		}
 	}
 }
@@ -214,6 +237,10 @@ impl SettingsStore for MemorySettings {
 				stored.output_device.clone_from(output);
 			}
 			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
+			SettingsChange::Privacy { inbound, advert } => {
+				stored.inbound_policy = *inbound;
+				stored.advert_mode = *advert;
+			}
 		}
 		Ok(())
 	}
@@ -223,7 +250,14 @@ impl SettingsStore for MemorySettings {
 		}
 		let hash = *blake3::hash(encoded).as_bytes();
 		lock(&self.stored).avatar = Some(hash);
+		lock(&self.avatars).push((hash, encoded.to_vec()));
 		Ok(hash)
+	}
+	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
+		Ok(lock(&self.avatars)
+			.iter()
+			.find(|(known, _)| known == hash)
+			.map(|(_, bytes)| bytes.clone()))
 	}
 }
 

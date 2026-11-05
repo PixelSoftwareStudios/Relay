@@ -108,6 +108,77 @@ pub struct LocalProfile {
 	pub display_name: String,
 	/// Content hash of the local avatar.
 	pub avatar: Option<[u8; 32]>,
+	/// Advertise in LAN discovery without a name or key hint.
+	pub hidden: bool,
+}
+
+/// Who may ring this device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum InboundPolicy {
+	/// Any trusted peer.
+	#[default]
+	Anyone,
+	/// Only peers proven to share a channel.
+	SharedChannelOnly,
+}
+
+/// How this device appears in LAN discovery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AdvertMode {
+	/// Name and key hint are advertised.
+	#[default]
+	Visible,
+	/// Neither is advertised.
+	Hidden,
+}
+
+/// What another user needs to reach this device.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConnectionDetails {
+	/// Port the peer listener is bound to.
+	pub listen_port: u16,
+	/// Digest of the local static key.
+	pub fingerprint: [u8; 32],
+	/// Eligible LAN addresses, best first.
+	pub addresses: Vec<std::net::IpAddr>,
+	/// The best connection string, if any address is eligible.
+	pub connection_string: Option<String>,
+}
+
+/// One call's live levels and counters.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct CallMeter {
+	/// The call.
+	pub call: Option<CallId>,
+	/// The remote side is audibly speaking.
+	pub speaking: bool,
+	/// Level of the received audio, if any.
+	pub receive_dbfs: Option<f32>,
+	/// Packets stored in the jitter buffer.
+	pub packets_received: u64,
+	/// Packets refused as late, duplicate or too far.
+	pub packets_late: u64,
+	/// Frames the jitter buffer had to conceal.
+	pub packets_missing: u64,
+	/// Samples produced by concealment.
+	pub concealed_samples: u64,
+	/// Playout FIFO target in milliseconds.
+	pub playout_target_ms: f64,
+}
+
+/// Live media measurements, read without blocking the audio threads.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct MediaTelemetry {
+	/// Microphone level while capture is open.
+	pub microphone_dbfs: Option<f32>,
+	/// Frames the capture callback dropped because the ring was full.
+	pub capture_overruns: u64,
+	/// Frames the playback callback filled with silence.
+	pub render_underruns: u64,
+	/// A microphone test is running.
+	pub mic_test_active: bool,
+	/// Per call.
+	pub calls: Vec<CallMeter>,
 }
 
 /// A preference change that must be persisted.
@@ -124,6 +195,13 @@ pub enum SettingsChange {
 	},
 	/// Qualified noise suppression backend id.
 	NoiseBackend(String),
+	/// Inbound policy and discovery visibility.
+	Privacy {
+		/// Who may ring this device.
+		inbound: InboundPolicy,
+		/// How the device appears in discovery.
+		advert: AdvertMode,
+	},
 }
 
 /// Persisted preferences the engine needs at start-up.
@@ -143,6 +221,10 @@ pub struct StoredSettings {
 	pub playback_gain: f32,
 	/// Local avatar hash.
 	pub avatar: Option<[u8; 32]>,
+	/// Who may ring this device.
+	pub inbound_policy: InboundPolicy,
+	/// How the device appears in discovery.
+	pub advert_mode: AdvertMode,
 }
 
 /// Capture, playback and per-call media resources.
@@ -162,9 +244,15 @@ pub trait MediaControl: Send + Sync {
 	fn set_microphone_gain(&self, _gain: f32) -> Result<(), PortError> {
 		Err(PortError::Unsupported("microphone gain"))
 	}
+	/// A snapshot of levels and counters. Reads atomics only.
+	fn telemetry(&self) -> MediaTelemetry {
+		MediaTelemetry::default()
+	}
 	/// Selects a noise suppression backend.
 	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError>;
-	/// Starts a microphone test, optionally with local playback.
+	/// Starts a local-only microphone test: the level is metered and, with
+	/// `local_playback`, heard on the user's own output. Nothing is sent to
+	/// any peer and the test ends by itself.
 	fn start_mic_test(&self, local_playback: bool) -> Result<(), PortError>;
 	/// Stops a running microphone test.
 	fn stop_mic_test(&self) -> Result<(), PortError>;
@@ -186,6 +274,10 @@ pub trait PeerControl: Send + Sync {
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError>;
 	/// The advertised local profile changed.
 	fn profile_changed(&self, profile: &LocalProfile);
+	/// What a remote user needs to reach this device.
+	fn connection_info(&self) -> Result<ConnectionDetails, PortError> {
+		Err(PortError::Unsupported("connection info"))
+	}
 }
 
 /// Device enumeration and selection.
@@ -204,6 +296,8 @@ pub trait SettingsStore: Send + Sync {
 	fn save(&self, change: &SettingsChange) -> Result<(), PortError>;
 	/// Validates, normalizes and stores an avatar, returning its content hash.
 	fn store_avatar(&self, encoded: &[u8]) -> Result<[u8; 32], PortError>;
+	/// The canonical PNG stored under `hash` (local or received), if cached.
+	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError>;
 }
 
 /// The full set of adapters the control actor drives.
@@ -300,5 +394,8 @@ impl SettingsStore for Unwired {
 	}
 	fn store_avatar(&self, _: &[u8]) -> Result<[u8; 32], PortError> {
 		Err(PortError::Unsupported("avatars"))
+	}
+	fn avatar(&self, _: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
+		Ok(None)
 	}
 }

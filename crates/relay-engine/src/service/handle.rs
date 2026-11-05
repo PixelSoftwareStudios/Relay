@@ -12,7 +12,7 @@ use super::error::ServiceError;
 use super::feed::FeedItem;
 use super::gates::GateReader;
 use super::ledger::Fingerprint;
-use super::ports::{DeviceInfo, PeerInfo, TrustRequest};
+use super::ports::{AdvertMode, DeviceInfo, InboundPolicy, PeerInfo, TrustRequest};
 
 /// Work that is executed by an adapter rather than the domain core.
 #[derive(Debug, Clone, PartialEq)]
@@ -41,6 +41,13 @@ pub enum ServiceOp {
 	Trust(TrustRequest),
 	/// Set the microphone gain.
 	MicrophoneGain(f32),
+	/// Change who may ring this device and how it appears in discovery.
+	Privacy {
+		/// New inbound policy, if changing.
+		inbound: Option<InboundPolicy>,
+		/// New advert mode, if changing.
+		advert: Option<AdvertMode>,
+	},
 }
 
 /// A domain request's result.

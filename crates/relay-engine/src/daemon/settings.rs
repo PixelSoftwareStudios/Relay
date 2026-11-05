@@ -3,10 +3,14 @@
 use std::sync::{Mutex, MutexGuard};
 
 use relay_config::avatar::{AvatarCache, process_avatar};
-use relay_config::prefs::{DeviceSelection, NoiseBackend, PreferenceStore, Preferences, Profile};
+use relay_config::prefs::{
+	self, DeviceSelection, NoiseBackend, PreferenceStore, Preferences, Profile,
+};
 use relay_net::discovery::sanitize_display_name;
 
-use crate::service::ports::{PortError, SettingsChange, SettingsStore, StoredSettings};
+use crate::service::ports::{
+	AdvertMode, InboundPolicy, PortError, SettingsChange, SettingsStore, StoredSettings,
+};
 
 /// [`SettingsStore`] backed by the per-user SQLite preferences and avatar cache.
 #[derive(Debug)]
@@ -80,6 +84,14 @@ impl SettingsStore for FileSettings {
 			microphone_gain: audio.microphone_gain,
 			playback_gain: audio.playback_gain,
 			avatar: *lock(&self.avatar),
+			inbound_policy: match prefs.privacy.inbound_policy {
+				prefs::InboundPolicy::Anyone => InboundPolicy::Anyone,
+				prefs::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+			},
+			advert_mode: match prefs.privacy.advert_mode {
+				prefs::AdvertMode::Visible => AdvertMode::Visible,
+				prefs::AdvertMode::Hidden => AdvertMode::Hidden,
+			},
 		}
 	}
 
@@ -99,6 +111,16 @@ impl SettingsStore for FileSettings {
 				}
 			}
 			SettingsChange::NoiseBackend(name) => next.audio.noise_backend = parse_backend(name)?,
+			SettingsChange::Privacy { inbound, advert } => {
+				next.privacy.inbound_policy = match inbound {
+					InboundPolicy::Anyone => prefs::InboundPolicy::Anyone,
+					InboundPolicy::SharedChannelOnly => prefs::InboundPolicy::SharedChannelOnly,
+				};
+				next.privacy.advert_mode = match advert {
+					AdvertMode::Visible => prefs::AdvertMode::Visible,
+					AdvertMode::Hidden => prefs::AdvertMode::Hidden,
+				};
+			}
 		}
 		self.store
 			.save(&next)
@@ -117,5 +139,11 @@ impl SettingsStore for FileSettings {
 			.map_err(|e| PortError::Unavailable(e.to_string()))?;
 		*lock(&self.avatar) = Some(avatar.hash);
 		Ok(avatar.hash)
+	}
+
+	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError> {
+		self.avatars
+			.get(hash)
+			.map_err(|e| PortError::Unavailable(e.to_string()))
 	}
 }

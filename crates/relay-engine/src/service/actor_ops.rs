@@ -9,7 +9,7 @@ use super::convert::{problem_of, service_problem, snapshot_to_pb};
 use super::error::ServiceError;
 use super::handle::{ServiceOp, Subscribed};
 use super::ledger::{Fingerprint, Lookup};
-use super::ports::{LocalProfile, PortError, SettingsChange};
+use super::ports::{PortError, SettingsChange};
 
 fn operation_pb(id: OperationId, state: OperationState, revision: u64) -> Operation {
 	Operation {
@@ -85,8 +85,17 @@ impl Actor {
 			Lookup::Conflict => return Err(ServiceError::OperationReused),
 			Lookup::Miss => {}
 		}
+		let starts_test = matches!(op, ServiceOp::StartMicTest { .. });
+		let stops_test = matches!(op, ServiceOp::StopMicTest);
 		let operation = match self.execute(op) {
-			Ok(()) => operation_pb(id, OperationState::Applied, self.feed.revision()),
+			Ok(()) => {
+				if starts_test {
+					self.mic_test_owner = Some(client);
+				} else if stops_test {
+					self.mic_test_owner = None;
+				}
+				operation_pb(id, OperationState::Applied, self.feed.revision())
+			}
 			Err(PortError::Unsupported(what)) => return Err(ServiceError::Unimplemented(what)),
 			Err(error) => failed(id, service_problem(&error), self.feed.revision()),
 		};
@@ -136,6 +145,19 @@ impl Actor {
 				let events = self.directory.set_peers(self.ports.peers.peers());
 				self.publish(events);
 			}
+			ServiceOp::Privacy { inbound, advert } => {
+				let aux = &self.directory.aux;
+				let (inbound, advert) = (
+					inbound.unwrap_or(aux.inbound_policy),
+					advert.unwrap_or(aux.advert_mode),
+				);
+				self.ports
+					.settings
+					.save(&SettingsChange::Privacy { inbound, advert })?;
+				self.directory.aux.inbound_policy = inbound;
+				self.directory.aux.advert_mode = advert;
+				self.advertise_profile();
+			}
 			ServiceOp::MicrophoneGain(gain) => {
 				self.ports.media.set_microphone_gain(gain)?;
 				self.directory.aux.microphone_gain = gain;
@@ -146,10 +168,9 @@ impl Actor {
 	}
 
 	fn advertise_profile(&mut self) {
-		self.ports.peers.profile_changed(&LocalProfile {
-			display_name: self.directory.aux.display_name.clone(),
-			avatar: self.directory.aux.avatar,
-		});
+		self.ports
+			.peers
+			.profile_changed(&self.directory.aux.profile());
 		self.publish_settings();
 	}
 }
