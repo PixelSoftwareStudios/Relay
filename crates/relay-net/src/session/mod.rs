@@ -1,6 +1,7 @@
 //! A completed Noise handshake turned into directional, nonce-explicit record protection.
 
 mod epoch;
+pub mod switch;
 
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;

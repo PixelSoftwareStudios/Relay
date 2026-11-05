@@ -1,9 +1,11 @@
 //! LAN discovery, device identity and the secure peer transport for Relay.
 
 mod address;
+pub mod control;
 pub mod handshake;
 pub mod identity;
 pub mod limits;
+pub mod media;
 mod noise;
 pub mod record;
 pub mod session;
