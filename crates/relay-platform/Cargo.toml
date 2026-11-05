@@ -5,7 +5,28 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 
+[features]
+# XDG GlobalShortcuts portal backend for Wayland sessions (Linux only).
+wayland = ["dep:ashpd"]
+
 [dependencies]
+relay-api.workspace = true
+tonic.workspace = true
+global-hotkey.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+ashpd = { workspace = true, optional = true }
+
+[target.'cfg(windows)'.dependencies]
+windows-sys.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
 
 [lints]
 workspace = true
