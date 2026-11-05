@@ -43,6 +43,7 @@ pub(super) async fn assemble(
 	env: &Environment,
 	network: NetworkOptions,
 	audio: AudioSetup,
+	mic_test_max: std::time::Duration,
 ) -> Result<(Ports, Adapters), DaemonError> {
 	let stored = env.settings.load();
 	let mut config = PeerConfig::new(&sanitize_display_name(&stored.display_name));
@@ -73,6 +74,7 @@ pub(super) async fn assemble(
 	media_config.bind_ip = network.media_bind;
 	media_config.policy = network.policy;
 	media_config.gates = Some(env.gates.clone());
+	media_config.mic_test_max = mic_test_max;
 	let media = MediaSystem::start(
 		media_config,
 		audio.factory(),
@@ -83,7 +85,11 @@ pub(super) async fn assemble(
 	)
 	.map_err(DaemonError::Media)?;
 
-	let adapter = Arc::new(PeerAdapter::new(peers.clone(), runtime, manual_policy));
+	let mut adapter = PeerAdapter::new(peers.clone(), runtime, network.policy, manual_policy);
+	if let Some(interfaces) = network.interfaces {
+		adapter = adapter.with_interfaces(interfaces);
+	}
+	let adapter = Arc::new(adapter);
 	let tasks = vec![
 		events,
 		glue::peer_output(output, env.handle.clone(), media.clone(), adapter.clone()),

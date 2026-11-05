@@ -13,7 +13,7 @@ use relay_core::Limits;
 use relay_net::AddressPolicy;
 
 use super::Environment;
-use crate::peers::DiscoverySetup;
+use crate::peers::{DiscoverySetup, InterfaceSource};
 use crate::service::{Entropy, Ports};
 
 /// Builds the adapters themselves; replaces the real peers and media wiring.
@@ -34,7 +34,7 @@ pub enum Transport {
 }
 
 /// Where the engine listens and who it talks to.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct NetworkOptions {
 	/// Peer-link listen address; `None` uses `0.0.0.0` and the preferred port.
 	pub listen: Option<SocketAddr>,
@@ -44,6 +44,9 @@ pub struct NetworkOptions {
 	pub media_bind: IpAddr,
 	/// LAN discovery; `None` limits the engine to manual addresses.
 	pub discovery: Option<DiscoverySetup>,
+	/// Lists local interface addresses for connection info; `None` asks the
+	/// operating system.
+	pub interfaces: Option<InterfaceSource>,
 }
 
 impl Default for NetworkOptions {
@@ -56,6 +59,7 @@ impl Default for NetworkOptions {
 				advertise: true,
 				..DiscoverySetup::default()
 			}),
+			interfaces: None,
 		}
 	}
 }
@@ -69,6 +73,7 @@ impl NetworkOptions {
 			policy: AddressPolicy::lan_and_loopback(),
 			media_bind: IpAddr::from([127, 0, 0, 1]),
 			discovery: None,
+			interfaces: None,
 		}
 	}
 }
@@ -112,6 +117,8 @@ pub struct RunOptions {
 	pub idle_client_ttl: Duration,
 	/// Identifier randomness; `None` uses the OS.
 	pub entropy: Option<Arc<dyn Entropy>>,
+	/// How long a microphone test runs before it stops by itself.
+	pub mic_test_max: Duration,
 }
 
 impl RunOptions {
@@ -128,6 +135,7 @@ impl RunOptions {
 			api: ApiLimits::DEFAULT,
 			idle_client_ttl: Duration::from_secs(300),
 			entropy: None,
+			mic_test_max: crate::media::MIC_TEST_MAX,
 		}
 	}
 }

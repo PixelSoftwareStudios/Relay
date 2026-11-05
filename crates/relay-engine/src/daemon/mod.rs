@@ -64,6 +64,7 @@ impl DaemonHandle {
 			api,
 			idle_client_ttl,
 			entropy,
+			mic_test_max,
 		} = options;
 		let loaded = env::load(paths, identity_store)?;
 		let mut config = ServiceConfig::new(loaded.local);
@@ -103,7 +104,7 @@ impl DaemonHandle {
 		let (ports, adapters, listen) = match adapters {
 			Some(factory) => (factory(&environment), None, None),
 			None => {
-				let (ports, adapters) = assemble::assemble(&environment, network, audio).await?;
+				let (ports, adapters) = assemble::assemble(&environment, network, audio, mic_test_max).await?;
 				let listen = Some(adapters.listen_addr());
 				(ports, Some(adapters), listen)
 			}

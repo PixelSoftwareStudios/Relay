@@ -1,12 +1,16 @@
 //! Service port implementation for the peer manager.
 
 use relay_core::{PeerId, PeerMessage};
+use relay_net::connect::LocalAddress;
+use relay_net::discovery::InterfacePolicy;
 use relay_net::identity::TrustState;
+use std::sync::Arc;
 use tokio::runtime::Handle;
 
 use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ports::{
-	LocalProfile as PortProfile, PeerControl, PeerInfo, PeerTrust, PortError, TrustRequest,
+	ConnectionDetails, LocalProfile as PortProfile, PeerControl, PeerInfo, PeerTrust, PortError,
+	TrustRequest,
 };
 use relay_net::connect::ConnectionString;
 
@@ -14,17 +18,51 @@ use relay_net::connect::ConnectionString;
 pub struct PeerAdapter {
 	handle: PeerHandle,
 	runtime: Handle,
+	/// Policy for user-typed addresses (may allow overlay space).
 	policy: relay_net::AddressPolicy,
+	/// The plain LAN policy: what is advertised and shown to other people.
+	lan: relay_net::AddressPolicy,
+	interfaces: InterfaceSource,
+}
+
+/// Lists the addresses of this machine's network interfaces.
+pub type InterfaceSource = Arc<dyn Fn() -> Vec<LocalAddress> + Send + Sync>;
+
+/// The operating system's interface addresses.
+pub fn system_interfaces() -> Vec<LocalAddress> {
+	if_addrs::get_if_addrs()
+		.unwrap_or_default()
+		.into_iter()
+		.map(|interface| LocalAddress {
+			interface: interface.name.clone(),
+			ip: interface.ip(),
+		})
+		.collect()
 }
 
 impl PeerAdapter {
-	/// Wraps a handle; async work is spawned on `runtime`.
-	pub fn new(handle: PeerHandle, runtime: Handle, policy: relay_net::AddressPolicy) -> Self {
+	/// Wraps a handle; async work is spawned on `runtime`. `lan` is the plain
+	/// policy for anything shown or advertised, `manual` the one for addresses
+	/// the user types.
+	pub fn new(
+		handle: PeerHandle,
+		runtime: Handle,
+		lan: relay_net::AddressPolicy,
+		manual: relay_net::AddressPolicy,
+	) -> Self {
 		Self {
 			handle,
 			runtime,
-			policy,
+			policy: manual,
+			lan,
+			interfaces: Arc::new(system_interfaces),
 		}
+	}
+
+	/// Replaces the interface lister (tests).
+	pub fn with_interfaces(mut self, interfaces: InterfaceSource) -> Self {
+		self.interfaces = interfaces;
+		self
 	}
 }
 
@@ -118,6 +156,24 @@ impl PeerControl for PeerAdapter {
 			}
 		});
 		Ok(())
+	}
+
+	fn connection_info(&self) -> Result<ConnectionDetails, PortError> {
+		let port = self.handle.local_addr().port();
+		let fingerprint = self.handle.fingerprint();
+		let found = relay_net::connect::encode(
+			port,
+			&fingerprint,
+			&(self.interfaces)(),
+			&self.lan,
+			&InterfacePolicy::default(),
+		);
+		Ok(ConnectionDetails {
+			listen_port: port,
+			fingerprint: *fingerprint.as_bytes(),
+			addresses: found.iter().map(|target| target.addr.ip()).collect(),
+			connection_string: found.first().map(ToString::to_string),
+		})
 	}
 
 	fn profile_changed(&self, profile: &PortProfile) {

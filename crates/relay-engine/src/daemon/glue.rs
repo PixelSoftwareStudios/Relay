@@ -14,6 +14,7 @@ use crate::service::ControlHandle;
 use crate::service::ports::{DeviceControl, PeerControl, PeerInfo, PeerTrust};
 
 const DEVICE_POLL: Duration = Duration::from_secs(1);
+const DEVICE_FIRST_POLL: Duration = Duration::from_millis(50);
 
 fn problem(code: &str, message: String, recovery: &str) -> Problem {
 	Problem {
@@ -139,9 +140,13 @@ pub(super) fn peer_output(
 /// Publishes device list changes; the device thread only exposes a listing.
 pub(super) fn device_watch(media: MediaSystem, handle: ControlHandle) -> JoinHandle<()> {
 	tokio::spawn(async move {
-		let mut known = media.devices();
+		// Start from nothing: the control actor may have been built from an
+		// earlier listing, and it only reports what actually differs.
+		let mut known = Vec::new();
+		let mut wait = DEVICE_FIRST_POLL;
 		loop {
-			tokio::time::sleep(DEVICE_POLL).await;
+			tokio::time::sleep(wait).await;
+			wait = DEVICE_POLL;
 			let now = media.devices();
 			if now != known {
 				known.clone_from(&now);

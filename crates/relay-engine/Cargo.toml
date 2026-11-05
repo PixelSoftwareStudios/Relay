@@ -26,6 +26,7 @@ blake3.workspace = true
 hex.workspace = true
 prost.workspace = true
 gethostname.workspace = true
+if-addrs.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
