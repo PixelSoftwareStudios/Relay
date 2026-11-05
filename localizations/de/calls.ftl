@@ -1,4 +1,56 @@
 # Relay desktop UI catalog, German (de), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
+
+phase-preparing = Wird vorbereitet
+phase-ringing = Klingelt
+phase-incoming = Eingehender Anruf
+phase-connecting = Verbindung wird aufgebaut
+phase-connected = Verbunden
+phase-interrupted = Unterbrochen
+phase-ending = Wird beendet
+phase-ended = Beendet
+phase-failed = Fehlgeschlagen
+phase-declined = Abgelehnt
+phase-cancelled = Abgebrochen
+transmit-listening = Nur zuhören
+transmit-listening-detail = Dein Mikrofon wird nicht übertragen.
+transmit-no-consent = Mikrofon nicht erlaubt
+transmit-no-consent-detail = Für diesen Anruf wurde keine Erlaubnis zum Senden erteilt.
+transmit-releasing = Wird losgelassen
+transmit-releasing-detail = Die Taste ist losgelassen; das Mikrofon bleibt kurz aktiv, damit das Satzende nicht abgeschnitten wird.
+transmit-how-open = offenes Mikrofon
+transmit-how-key = Push-to-Talk-Taste gedrückt
+transmitting = Sendet
+transmit-live-detail = Das Mikrofon ist aktiv ({ $how }).
+transmit-open-armed = Offenes Mikrofon bereit, sendet nicht
+transmit-open-armed-detail = Die Engine sendet gerade kein Audio.
+transmit-ptt-armed = Push-to-Talk bereit
+transmit-ptt-armed-detail = Wartet auf einen Tastendruck von einer Eingabequelle der Engine.
+engine-reason = Grund der Engine: { $reason }.
+trust-unknown = Unbekannt
+trust-tofu = Schon gesehen, nicht verifiziert
+trust-verified = Verifiziert
+trust-key-changed = Schlüssel geändert: nicht vertrauen
+trust-blocked = Blockiert
+call-speaking = spricht
+mode-listen = Nur zuhören
+mode-ptt = Push-to-Talk
+mode-open = Offenes Mikrofon
+calls-heading = Anrufe
+calls-none = Keine aktiven Anrufe.
+meter-incoming = Eingehender Pegel von { $name }
+call-accept = Annehmen
+call-decline = Ablehnen
+call-accept-note = Annehmen schaltet dein Mikrofon nicht ein.
+trust-line = { $trust }.
+trust-line-key = { $trust }. Geräteschlüssel { $fingerprint } (zur Unterscheidung von Geräten, nicht zur Verifizierung).
+call-end = Auflegen
+call-messages-hover = Text, Bilder und Dateien für diesen Anruf
+call-unmute = Stummschaltung aufheben (Anruf)
+call-undeafen = Ton einschalten (Anruf)
+call-their-volume = Lautstärke der Gegenseite { $value }
+call-your-mic = Dein Mikrofon in diesem Anruf
+call-consent = Ich erlaube, mein Mikrofon an { $name } zu senden
+call-mute = Stummschalten (Anruf)
+call-deafen = Ton ausschalten (Anruf)

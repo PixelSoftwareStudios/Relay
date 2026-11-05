@@ -1,4 +1,47 @@
 # Relay desktop UI catalog, German (de), section: Errors the UI words itself.
-# Not translated yet. Add only ids that exist in localizations/en/errors.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
+
+err-not-connected = nicht mit dem Relay-Daemon verbunden
+err-release-delay = die Nachlaufzeit muss zwischen 0 und 2000 ms liegen
+err-gain = die Verstärkung muss eine endliche Zahl zwischen 0 und 4 sein
+err-bad-call-id = ungültige Anruf-ID
+err-unknown-call = unbekannter Anruf
+err-no-lease = die Engine hat keine Steuerungsberechtigung zurückgegeben
+err-bad-peer-id = ungültige Peer-ID
+err-unknown-peer = unbekannter Peer
+err-consent-required = zum Senden ist die Erlaubnis für das Mikrofon erforderlich
+err-ring-volume = die Klingeltonlautstärke muss zwischen 0 und 1 liegen
+err-unknown-device = unbekanntes oder nicht verfügbares Audiogerät
+err-display-name = der Anzeigename muss aus 1 bis 64 druckbaren Zeichen bestehen
+err-avatar-media-type = das Profilbild braucht einen Medientyp
+conn-scheme = Eine Verbindungszeichenfolge beginnt mit relay://
+err-invite-malformed = dieses Einladungstoken ist ungültig
+err-join-target = gib ein Einladungstoken oder eine Kanal-ID mit 32 Zeichen ein
+err-bad-channel-id = ungültige Kanal-ID
+err-unknown-channel = unbekannter Kanal
+err-channel-name = der Kanalname muss aus 1 bis 32 druckbaren Zeichen bestehen
+err-channel-needs-password = ein passwortgeschützter Kanal braucht ein Passwort
+err-enter-password = gib das Kanalpasswort ein
+err-invite-admin-only = nur Besitzer oder Admins können Einladungen erstellen
+err-invite-range = Gültigkeitsdauer oder Anzahl der Verwendungen der Einladung liegt außerhalb des zulässigen Bereichs
+err-no-invite = die Engine hat keine Einladung zurückgegeben
+err-revoke-admin-only = nur Besitzer oder Admins können Mitglieder entfernen
+err-not-member = dieser Peer ist kein nachgewiesenes Mitglied des Kanals
+err-nothing-to-change = nichts zu ändern
+err-bad-avatar-hash = ungültiger Hash des Profilbilds
+conn-missing-fingerprint = Der Verbindungszeichenfolge fehlt der Teil #fingerprint.
+conn-bad-fingerprint = Der Fingerabdruck muss aus 64 Hexadezimalzeichen bestehen.
+conn-bad-address = Die Adresse muss eine direkte IP:Port-Angabe sein, kein Name.
+watch-resync = die Engine hat eine erneute Synchronisierung angefordert: { $reason }
+watch-closed = der Daemon hat die Verbindung geschlossen
+err-unsupported = diese Engine unterstützt die Anfrage nicht
+err-daemon-unreachable = der Relay-Daemon ist nicht erreichbar: { $reason }
+err-engine-timeout = die Engine hat nicht rechtzeitig geantwortet
+err-connection = Verbindungsproblem: { $reason }
+err-unreadable-image = Diese Datei ist kein lesbares Bild.
+err-engine-rejected = die Engine hat die Anfrage abgelehnt
+err-no-paths = Dieses Gerät kann keine Dateien oder Ordner für den Relay-Daemon auswählen.
+err-cannot-start-daemon = Dieses Gerät kann den Relay-Daemon nicht starten.
+err-cannot-stop-daemon = Dieses Gerät kann den Relay-Daemon nicht beenden.
+err-read-file = Die Datei kann nicht gelesen werden: { $error }

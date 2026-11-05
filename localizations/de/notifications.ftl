@@ -1,4 +1,6 @@
 # Relay desktop UI catalog, German (de), section: Desktop notifications.
-# Not translated yet. Add only ids that exist in localizations/en/notifications.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
+
+notification-title = Eingehender Relay-Anruf
+notification-unknown-caller = Unbekannter Anrufer

@@ -1,4 +1,102 @@
 # Relay desktop UI catalog, German (de), section: Settings: this app, hotkey, profile, daemon, language.
-# Not translated yet. Add only ids that exist in localizations/en/settings.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
+
+link-starting = Relay-Daemon wird gestartet
+link-connecting = Verbindung zum Relay-Daemon wird aufgebaut
+link-connected = Verbunden
+link-reconnecting = Verbindung zum Daemon verloren, neuer Versuch
+link-offline = Daemon läuft nicht
+avatar-size-refusal = Das Profilbild muss zwischen 1 Byte und 1 MiB groß sein (PNG, JPEG, WebP, GIF, BMP oder TIFF)
+hotkey-note = Diese App registriert keinen globalen Hotkey und hat noch keine Sprechtaste im Fenster. Push-to-Talk sendet nur, solange eine Eingabequelle der Engine (zum Beispiel die CLI) die Taste hält.
+close-tray = Beim Schließen wird das Fenster im Infobereich ausgeblendet; Anrufe laufen weiter.
+close-no-tray = Auf dieser Plattform gibt es kein Tray-Symbol, daher beendet das Schließen des Fensters diese App.
+quit-note = Beim Beenden dieser App werden die Anrufe, die sie gestartet oder angenommen hat, aufgelegt; der Relay-Daemon läuft weiter. Diese App kann den Daemon nicht beenden.
+calls-active =
+    { $count ->
+        [one] Ein Anruf ist aktiv.
+       *[other] { $count } Anrufe sind aktiv.
+    }
+quit-prompt = Diese App beenden?
+quit-prompt-calls =
+    { $count ->
+        [one] Diese App beenden? Dein aktiver Anruf wird aufgelegt.
+       *[other] Diese App beenden? Deine { $count } aktiven Anrufe werden aufgelegt.
+    }
+daemon-stopped-again = Er wurde direkt nach dem Start erneut beendet.
+daemon-keeps-stopping = Der Relay-Daemon wird immer wieder beendet und daher nicht automatisch erneut gestartet. { $why }
+avatar-bad-format = Profilbild abgelehnt: nicht unterstütztes oder unbekanntes Bildformat (verwende PNG, JPEG, WebP, GIF, BMP oder TIFF)
+avatar-zero-size = Profilbild abgelehnt: Breite oder Höhe ist null
+avatar-too-large = Profilbild abgelehnt: Die Abmessungen { $width }x{ $height } überschreiten die Grenze von { $limit } Pixeln
+avatar-undecodable = Profilbild abgelehnt: Das Bild konnte nicht dekodiert werden: { $error }
+daemon-started = Der Relay-Daemon wurde gestartet.
+daemon-already-running = Der Relay-Daemon läuft bereits.
+daemon-not-found = Der Relay-Daemon ({ $binary }) wurde nicht gefunden. Installiere ihn neben dieser App oder im PATH, oder setze { $env } auf seinen Speicherort.
+daemon-start-failed = Der Relay-Daemon wurde nicht gestartet: { $reason }.
+daemon-start-failed-log = Der Relay-Daemon wurde nicht gestartet: { $reason }. Letzte Protokollzeile: { $last }
+daemon-stop-failed = Der Relay-Daemon wurde nicht beendet: { $error }
+daemon-stopped = Der Relay-Daemon wurde beendet.
+notify-off = Aus: Ein Anruf, der klingelt, während dieses Fenster ausgeblendet ist oder im Hintergrund liegt, erscheint nur im Tooltip des Tray-Symbols und ist am Klingelton des Daemons zu hören.
+notify-on = Zeigt den Namen des Anrufers (nie Nachrichtentext), wenn ein Anruf klingelt, während dieses Fenster ausgeblendet ist oder nicht im Vordergrund liegt.
+notify-refused = Das System hat die letzte Benachrichtigung abgelehnt ({ $reason }). Anrufe klingeln weiterhin über den Daemon und erscheinen in diesem Fenster und im Tooltip des Tray-Symbols.
+login-unsupported = Hier nicht verfügbar: { $reason }
+login-off = Aus. Wenn aktiviert, wird diese App beim System angemeldet und öffnet bei der Anmeldung ihr Fenster. Der Daemon wird erst gestartet, wenn die App ihn braucht.
+login-on = An: Das System startet diese App bei der Anmeldung (sie öffnet ihr Fenster). Schalte es hier aus, um den Eintrag zu entfernen.
+login-failed = Der Anmeldeeintrag konnte nicht gelesen oder geändert werden: { $reason }
+banner-mock = Testdaten: Diese Ansicht ist nicht mit einem Relay-Daemon verbunden.
+link-offline-auto = Wird automatisch gestartet.
+daemon-starting-button = Daemon wird gestartet...
+daemon-start-button = Daemon starten
+app-heading = Diese App
+app-hide = Fenster ausblenden
+app-quit = Diese App beenden (Daemon läuft weiter)
+app-hang-up-quit = Auflegen und beenden
+autostart-label = Daemon automatisch starten
+autostart-hover = Wenn der Daemon nicht läuft, starten ihn die Relay-Apps. Er ist im lokalen Netzwerk nur sichtbar, solange eine App geöffnet ist.
+daemon-heading = Relay-Daemon
+daemon-not-connected = Der Daemon ist nicht verbunden.
+daemon-paused = Der automatische Start ist pausiert, bis du auf „Daemon starten“ klickst.
+daemon-keeps-running = Der Daemon läuft weiter, wenn du diese App schließt. Beim Beenden werden alle Anrufe beendet und das Mikrofon freigegeben.
+daemon-quit-ask = Daemon beenden...
+daemon-quit-confirm = Daemon jetzt beenden? Aktive Anrufe werden beendet.
+daemon-quit = Daemon beenden
+profile-heading = Dein Profil
+profile-name-hint = Anzeigename
+profile-save-name = Namen speichern
+profile-image-note = PNG, JPEG, WebP, GIF, BMP oder TIFF, bis zu 1 MiB und 2048 x 2048. Die Engine skaliert es und teilt es mit deinen vertrauenswürdigen Peers. Wenn du es entfernst, werden sie angewiesen, es nicht mehr anzuzeigen.
+profile-choose-image = Bild auswählen…
+profile-upload = Hochladen
+profile-discard = Verwerfen
+profile-remove = Profilbild entfernen
+hotkey-heading = Push-to-Talk-Hotkey
+hotkey-intro = Halte diese Taste irgendwo gedrückt, um zu sprechen, solange ein Anruf im Push-to-Talk-Modus ist.
+hotkey-field = Hotkey
+hotkey-hint = Strg+Alt+Leertaste (leer schaltet ihn aus)
+hotkey-delay = Nachlaufzeit
+hotkey-delay-hover = Wie lange das Mikrofon offen bleibt, nachdem du die Taste losgelassen hast.
+hotkey-nothing = Nichts zu ändern.
+notify-label = Bei eingehenden Anrufen benachrichtigen
+login-label = Diese App bei der Anmeldung starten
+login-error = Start bei der Anmeldung: { $reason }
+dialog-profile-image = Profilbild auswählen
+dialog-image-filter = Bild
+dialog-export = Verlauf exportieren
+login-no-mechanism = dieses System hat keinen unterstützten Mechanismus für Anmeldeeinträge
+login-no-exe = dieses Programm wurde nicht gefunden: { $error }
+login-bad-path = der Programmpfad ist kein gültiger Text
+login-set-unavailable = nicht verfügbar: { $reason }
+options-save-failed = die Auswahl konnte nicht gespeichert werden: { $error }
+language-label = Sprache
+language-experimental = Diese Sprache ist experimentell: Der Textrenderer kann Devanagari-Buchstaben nicht verbinden, daher sehen manche Wörter anders aus als im Druck.
+link-offline-manual = Starte den Daemon; dieses Fenster verbindet sich selbst wieder.
+hotkey-applied = { $label }: jetzt übernommen
+hotkey-check-accelerator = der Hotkey darf höchstens 64 druckbare Zeichen lang sein
+hotkey-check-delay = die Nachlaufzeit muss zwischen 0 und 2000 ms liegen
+hotkey-label-accelerator = Push-to-Talk-Hotkey
+hotkey-label-delay = Nachlaufzeit
+hotkey-missing-key = der Daemon hat { $key } nicht gemeldet
+hotkey-bad-value = der Daemon hat einen ungültigen Wert für { $key } gemeldet: { $value }
+hotkey-rejected = { $label }: abgelehnt
+hotkey-rejected-reason = { $label }: abgelehnt ({ $reason })
+hotkey-saved = { $label }: gespeichert, wirksam nach einem Neustart
+hotkey-saved-reason = { $label }: gespeichert, wirksam nach einem Neustart ({ $reason })
