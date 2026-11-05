@@ -9,6 +9,7 @@ use std::time::Duration;
 
 use relay_api::pb::{CreateInviteResponse, Operation};
 use relay_core::{ClientId, OperationId};
+use zeroize::Zeroizing;
 
 const PER_CLIENT: usize = 256;
 const GLOBAL: usize = 4096;
@@ -20,7 +21,43 @@ pub struct Stored {
 	/// The operation as answered.
 	pub operation: Operation,
 	/// The invite answer, kept only so an identical retry gets the same invite.
-	pub invite: Option<CreateInviteResponse>,
+	pub invite: Option<StoredInvite>,
+}
+
+/// A bearer invite held for idempotent retries. Wiped when dropped (expiry, eviction)
+/// and never printed.
+#[derive(Clone)]
+pub struct StoredInvite {
+	token: Zeroizing<String>,
+	expires_unix: u64,
+}
+
+impl StoredInvite {
+	/// Takes ownership of the token.
+	pub fn new(token: String, expires_unix: u64) -> Self {
+		Self {
+			token: Zeroizing::new(token),
+			expires_unix,
+		}
+	}
+
+	/// The answer to send; the copy handed out is the caller's to wipe.
+	pub fn response(&self) -> CreateInviteResponse {
+		CreateInviteResponse {
+			invite: (*self.token).clone(),
+			expires_unix: self.expires_unix,
+			operation: None,
+		}
+	}
+}
+
+impl std::fmt::Debug for StoredInvite {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("StoredInvite")
+			.field("token", &"<redacted>")
+			.field("expires_unix", &self.expires_unix)
+			.finish()
+	}
 }
 
 /// What a lookup found.

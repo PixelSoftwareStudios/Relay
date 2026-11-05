@@ -32,5 +32,5 @@ pub use clock::Clock;
 pub use failure::Failure;
 pub use hub::{ChannelHub, HubParts};
 pub use joining::JoinRequest;
-pub use ledger::{Replay, Stored};
+pub use ledger::{Replay, Stored, StoredInvite};
 pub use view::ChannelView;

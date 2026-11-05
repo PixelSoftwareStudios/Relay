@@ -8,6 +8,7 @@ mod election;
 mod handle;
 mod link;
 mod manager;
+mod names;
 mod profile;
 mod profiling;
 mod sessions;
@@ -24,6 +25,7 @@ pub use handle::{
 	PeerHandle, PeerOutput, PeerSnapshot, SinkHandle, fingerprint, peer_id,
 };
 pub use link::{LinkError, LinkTiming};
+pub use names::disambiguated;
 pub use profile::{CHUNK_BYTES, LocalProfile};
 pub use sessions::SessionTable;
 pub use signaling::{

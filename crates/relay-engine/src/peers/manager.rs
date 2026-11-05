@@ -343,7 +343,7 @@ impl Actor {
 			self.untrusted.release(&old_id);
 		}
 		self.canonical.insert(peer, link.id);
-		let name = link.name.clone();
+		let name = self.shown_name(&peer, &link.name);
 		let (id, source) = (link.id, link.remote_ip);
 		self.links.insert(link.id, Entry { link, trusted });
 		if !trusted {
@@ -458,7 +458,7 @@ impl Actor {
 				.remote_profiles
 				.get(peer)
 				.cloned()
-				.unwrap_or_else(|| (entry.link.name.clone(), None));
+				.unwrap_or_else(|| (self.shown_name(peer, &entry.link.name), None));
 			list.push(PeerSnapshot {
 				id: Some(peer_id(peer)),
 				hint: None,

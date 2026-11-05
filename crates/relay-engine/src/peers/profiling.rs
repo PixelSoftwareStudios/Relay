@@ -60,8 +60,10 @@ impl Actor {
 		for action in actions {
 			match action {
 				Action::Send(peer, envelope) => self.send(peer, envelope).await,
-				Action::Output(output) => {
-					if let PeerOutput::Profile { peer, name, avatar } = &output {
+				Action::Output(mut output) => {
+					if let PeerOutput::Profile { peer, name, avatar } = &mut output {
+						let fingerprint = Fingerprint::from_bytes(*peer.as_bytes());
+						*name = self.shown_name(&fingerprint, name);
 						self.remote_profiles.insert(
 							Fingerprint::from_bytes(*peer.as_bytes()),
 							(name.clone(), *avatar),

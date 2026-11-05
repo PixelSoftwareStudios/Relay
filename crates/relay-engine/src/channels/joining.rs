@@ -83,6 +83,11 @@ impl ChannelHub {
 		Err(Failure::Denied)
 	}
 
+	/// The channel a listed name stands for, if exactly one id has been seen with it.
+	pub fn listed_id(&self, name: &str) -> Option<ChannelId> {
+		self.state().listed_seen.get(name.trim()).copied().flatten()
+	}
+
 	fn resolve(
 		&self,
 		request: &JoinRequest,

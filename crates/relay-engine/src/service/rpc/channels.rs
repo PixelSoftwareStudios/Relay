@@ -15,7 +15,7 @@ use tonic::{Response, Status};
 use zeroize::Zeroizing;
 
 use super::EngineService;
-use crate::channels::{ChannelHub, Failure, JoinRequest, Replay, Stored};
+use crate::channels::{ChannelHub, Failure, JoinRequest, Replay, Stored, StoredInvite};
 use crate::service::convert::Mutation;
 use crate::service::error::ServiceError;
 
@@ -57,7 +57,7 @@ async fn once<T, Fut>(
 	mutation: &Mutation,
 	request: &impl Message,
 	work: impl FnOnce(ChannelHub) -> Fut,
-	invite: impl FnOnce(T) -> Option<CreateInviteResponse>,
+	invite: impl FnOnce(T) -> Option<StoredInvite>,
 ) -> Result<Stored, Status>
 where
 	Fut: Future<Output = Result<T, Failure>>,
@@ -181,16 +181,14 @@ pub(super) async fn invite(
 		mutation,
 		&body,
 		|hub| async move { hub.invite(&id, ttl, uses).await },
-		|(token, expires)| {
-			Some(CreateInviteResponse {
-				invite: token,
-				expires_unix: expires,
-				operation: None,
-			})
-		},
+		|(token, expires)| Some(StoredInvite::new(token, expires)),
 	)
 	.await?;
-	let mut response = stored.invite.unwrap_or_default();
+	let mut response = stored
+		.invite
+		.as_ref()
+		.map(StoredInvite::response)
+		.unwrap_or_default();
 	response.operation = Some(stored.operation);
 	Ok(Response::new(response))
 }
