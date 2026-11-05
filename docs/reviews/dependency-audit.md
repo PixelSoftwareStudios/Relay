@@ -310,6 +310,24 @@ Deferred to part 2 (owned by crates other agents are editing):
 - MAYBEs: `ipnet` for `relay-engine` `Subnet` (4.2), `lru` for the `relay-ui` avatar cache (4.5), `uuid` as random bytes (4.3), the lock helper (4.1).
 - `relay-audio/src/priority*` was not touched; `relay-audio` only gained the `relay-testkit` dev-dependency and its allocation tests were switched.
 
+## 10. Part 2 outcome (relay-engine, relay-api, relay-client, relay-net, relay-config, relay-platform, relay-io)
+
+Done:
+- 2.1 `relay-api` `middleware.rs`: `constant_time_eq` deleted, bearer compare uses `subtle::ConstantTimeEq` (`subtle` added to `relay-api`).
+- 4.3 Loopback TCP token is now 32 OS-random bytes as 64 hex (`relay_io::entropy::random_hex::<32>()`), profile format and 0600 mode unchanged; `transport.rs` checks length, hex alphabet and uniqueness. The other random-bytes `Uuid::new_v4()` sites (`relay-api` client id, incarnation and operation id, `relay-client` `wire.rs`, `relay-platform` PTT source id, one `relay-api` test helper) use `relay_io::entropy::random_bytes::<16>()`; `uuid` left `relay-api`, `relay-client` and `relay-platform`. `relay-io` gained `random_bytes`/`random_hex`. `relay-engine` secrets and instance ids (`instance_secret`, `open_instance`, ledger key, advert `instance_id`) also use it.
+- 4.4 `relay_client::Secret` zeroizes on drop (`Zeroize` + `ZeroizeOnDrop`, `zeroize` derive feature), compares in constant time via `subtle`, keeps the redacted `Debug` and gained `is_empty`. The CLI type is deleted; `apps/relay-cli/src/secret.rs` re-exports `relay_client::Secret` so existing paths keep working. `secrecy` was not adopted (no `PartialEq`).
+- 4.1 `relay_io::LockExt` (`lock_unpoisoned`) and `RwLockExt` (`read_unpoisoned`, `write_unpoisoned`) replace every `lock().unwrap_or_else(|e| e.into_inner())` in `relay-engine`, `relay-client`, `relay-api`, `relay-net`, `relay-config` and `relay-platform` (51 sites; the audit's 91 count included `relay-ui` and the CLI, left to their owner). `relay-net` and `relay-platform` gained a `relay-io` dependency. No site deliberately panicked on poison. Two traits rather than one because `Mutex` and `RwLock` guards differ.
+- 4.2 `ipnet` 2.12.2 backs `relay-engine` `Subnet` (`peers/subnet.rs` 59 -> 36 lines; `same_prefix` and the netmask bit twiddling are gone). Prefixes above the family width are still clamped. Tests in `tests/peers_subnet.rs`.
+- 2.8 `relay-engine` `anyhow` and `bytes` removed (`cargo machete --with-metadata` now lists only the build-script false positives plus `apps/relay-cli` entries owned by the CLI work).
+- Clock dedupe: `relay-net` `channel::clock::SystemClock` now reads `relay_io::clock::unix_secs`.
+- `relay-benches` is no longer a default member (`cargo build`/`cargo test` at the root skip it; `-p relay-benches` still works). CI's headless job runs clippy and tests for it explicitly; `docs/architecture.md` lists it.
+
+Kept, with reasons:
+- `relay-engine/src/peers/backoff.rs` stays. `exponential-backoff` 2.x draws its jitter from an internal `fastrand` generator with no injectable seed or sample, so the deterministic `delay(attempt, jitter)` tests could not be kept, and it would add `fastrand`. `backoff` (RUSTSEC-2025-0012) is not used.
+- `relay-engine/channels/clock.rs` stays as the engine facade (wall clamp plus monotonic offset). It composes `relay-net`'s `UnixClock`/`ClampedClock`/`ManualClock` rather than duplicating them, so there is one clock abstraction per layer.
+- The remaining `Instant::now()` calls in `relay-engine` stay: the media workers, actor and presence code measure real elapsed time and tests use paused tokio time, so an adapter would add churn without making anything more testable. `rand::random` for the backoff jitter and RTP `ssrc`/timestamp base also stay (not secrets, no entropy rule at stake).
+- `apps/relay-cli` `real.rs` still calls `Uuid::new_v4()` for its PTT source id, and `relay-ui` is untouched; both belong to the CLI/UI work.
+
 ## 11. Part 2 outcome (apps/relay-cli, crates/relay-ui, apps/relay-desktop)
 
 Done:
