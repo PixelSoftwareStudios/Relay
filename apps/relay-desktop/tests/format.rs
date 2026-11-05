@@ -33,15 +33,6 @@ fn unknown_readings_render_empty_and_say_so() {
 }
 
 #[test]
-fn initials_and_hue_are_stable_and_bounded() {
-	assert_eq!(initials("ada lovelace byron"), "AL");
-	assert_eq!(initials("  "), "?");
-	assert_eq!(initials("Zoë"), "Z");
-	assert_eq!(hue_from_id("abc"), hue_from_id("abc"));
-	assert!(hue_from_id(&"x".repeat(500)) < 360);
-}
-
-#[test]
 fn avatar_precheck() {
 	assert_eq!(avatar_problem(1000, "image/png"), None);
 	assert_eq!(avatar_problem(MAX_AVATAR_BYTES, "image/jpeg"), None);

@@ -1,6 +1,7 @@
 //! Window-less view model: everything a frame needs, computed from state.
 //! Drawing code only reads these structs, so the logic is testable headless.
 
+use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
 use crate::model::{AppState, Call, CallMeter, Meters, Mode, Peer, Phase, Trust};
 
@@ -9,6 +10,7 @@ pub struct CallCard {
 	pub call_id: String,
 	pub peer_id: String,
 	pub name: String,
+	pub avatar: Avatar,
 	pub phase: Phase,
 	pub subtitle: String,
 	pub incoming: bool,
@@ -24,6 +26,7 @@ pub struct CallCard {
 pub struct PeerRow {
 	pub peer_id: String,
 	pub name: String,
+	pub avatar: Avatar,
 	pub subtitle: String,
 	pub can_call: bool,
 }
@@ -48,11 +51,9 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 		.iter()
 		.filter(|c| !c.phase.is_terminal())
 		.map(|call| {
-			let name = state
-				.peers
-				.iter()
-				.find(|p| p.peer_id == call.peer_id)
-				.map_or_else(|| "Unknown peer".to_owned(), |p| p.display_name.clone());
+			let peer = state.peers.iter().find(|p| p.peer_id == call.peer_id);
+			let name = peer.map_or_else(|| "Unknown peer".to_owned(), |p| p.display_name.clone());
+			let avatar = Avatar::resolve(peer.is_some_and(|p| p.has_avatar));
 			let meter = meter_for(meters, &call.call_id);
 			let connected = call.phase == Phase::Connected;
 			let speaking = connected && meter.is_some_and(|m| m.speaking);
@@ -67,6 +68,7 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 				call_id: call.call_id.clone(),
 				peer_id: call.peer_id.clone(),
 				name,
+				avatar,
 				phase: call.phase,
 				subtitle,
 				incoming: call.phase == Phase::IncomingRinging,
@@ -100,6 +102,7 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 		.map(|p| PeerRow {
 			peer_id: p.peer_id.clone(),
 			name: p.display_name.clone(),
+			avatar: Avatar::resolve(p.has_avatar),
 			subtitle: format!(
 				"{} · {}",
 				if p.reachable {
@@ -124,4 +127,9 @@ pub const MODES: [(&str, Mode); 3] = [
 /// A mode button is enabled when it needs no consent or consent is ticked.
 pub fn mode_enabled(mode: Mode, consent_checked: bool) -> bool {
 	mode == Mode::ReceiveOnly || consent_checked
+}
+
+/// Avatar of the local profile.
+pub fn local_avatar(state: &AppState) -> Avatar {
+	Avatar::resolve(state.settings.as_ref().is_some_and(|s| s.has_avatar))
 }

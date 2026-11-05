@@ -9,7 +9,7 @@ use crate::format::{
 };
 use crate::model::{AppState, Direction, Link, Meters, Mode};
 use crate::shell::Actions;
-use crate::viewmodel::{CallCard, MODES, PeerRow, mode_enabled};
+use crate::viewmodel::{CallCard, MODES, PeerRow, local_avatar, mode_enabled};
 
 use super::widgets::{avatar, banner, gain_slider, meter, tone_color};
 
@@ -67,7 +67,7 @@ pub fn calls(ui: &mut Ui, cards: &[CallCard], actions: &Actions, local: &mut Loc
 fn call_card(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
 	let id = card.call_id.clone();
 	ui.horizontal(|ui| {
-		avatar(ui, &card.name, &card.peer_id, 36.0);
+		avatar(ui, card.avatar, 36.0);
 		ui.vertical(|ui| {
 			ui.label(RichText::new(&card.name).strong());
 			let sub = RichText::new(&card.subtitle);
@@ -190,7 +190,7 @@ pub fn peers(ui: &mut Ui, rows: &[PeerRow], actions: &Actions) {
 		egui::Frame::group(ui.style()).show(ui, |ui| {
 			ui.set_width(ui.available_width());
 			ui.horizontal(|ui| {
-				avatar(ui, &row.name, &row.peer_id, 36.0);
+				avatar(ui, row.avatar, 36.0);
 				ui.vertical(|ui| {
 					ui.label(&row.name);
 					ui.label(RichText::new(&row.subtitle).weak());
@@ -302,11 +302,12 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 	});
 }
 
-pub fn profile(ui: &mut Ui, actions: &Actions, local: &mut Local) {
+pub fn profile(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
 	ui.heading("Your profile");
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
 		ui.horizontal(|ui| {
+			avatar(ui, local_avatar(state), 36.0);
 			ui.add(
 				egui::TextEdit::singleline(&mut local.name_input)
 					.hint_text("Display name")

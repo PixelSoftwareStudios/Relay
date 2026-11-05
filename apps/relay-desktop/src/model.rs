@@ -133,6 +133,8 @@ pub struct Settings {
 	pub global_deafened: bool,
 	pub microphone_gain: f32,
 	pub playback_gain: f32,
+	/// Whether the local profile has an avatar (the engine reports a hash).
+	pub has_avatar: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

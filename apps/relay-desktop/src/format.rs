@@ -36,28 +36,6 @@ pub fn link_label(link: Link) -> &'static str {
 	}
 }
 
-/// Up to two leading letters of a display name.
-pub fn initials(name: &str) -> String {
-	let letters: String = name
-		.split_whitespace()
-		.take(2)
-		.filter_map(|word| word.chars().next())
-		.flat_map(char::to_uppercase)
-		.collect();
-	if letters.is_empty() {
-		"?".to_owned()
-	} else {
-		letters
-	}
-}
-
-/// Stable hue (0..360) derived from an id so each peer keeps its colour.
-pub fn hue_from_id(id: &str) -> u32 {
-	id.chars()
-		.fold(0u32, |h, c| h.wrapping_mul(31).wrapping_add(c as u32))
-		% 360
-}
-
 pub fn gain_percent(gain: f32) -> String {
 	format!("{}%", (gain * 100.0).round())
 }

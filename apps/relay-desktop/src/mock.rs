@@ -93,6 +93,7 @@ pub fn seed() -> AppState {
 			global_deafened: false,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
+			has_avatar: false,
 		}),
 		client_id: MOCK_CLIENT.to_vec(),
 		..AppState::default()

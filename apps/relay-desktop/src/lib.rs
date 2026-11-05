@@ -5,6 +5,7 @@
 //! drawing (`ui`) so it can be tested without a window.
 
 pub mod apply;
+pub mod avatar;
 pub mod controller;
 pub mod convert;
 pub mod emitter;

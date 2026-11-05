@@ -77,3 +77,22 @@ fn mock_seed_is_flagged_and_meters_follow_connected_calls() {
 	s.settings.as_mut().unwrap().global_muted = true;
 	assert_eq!(meters_at(&s, 1.0).microphone_dbfs, None);
 }
+
+#[test]
+fn profiles_without_an_avatar_hash_resolve_to_the_placeholder() {
+	use relay_desktop::avatar::{Avatar, DEFAULT_PNG};
+
+	let mut s = state_with(vec![pb_call(CallState::Connected, None)]);
+	assert_eq!(peer_rows(&s)[0].avatar, Avatar::Placeholder);
+	assert_eq!(
+		call_cards(&s, &Meters::default())[0].avatar,
+		Avatar::Placeholder
+	);
+	assert_eq!(local_avatar(&s), Avatar::Placeholder);
+
+	s.peers[0].has_avatar = true;
+	assert_eq!(peer_rows(&s)[0].avatar, Avatar::Set);
+
+	let img = image::load_from_memory(DEFAULT_PNG).expect("embedded placeholder is a PNG");
+	assert_eq!((img.width(), img.height()), (256, 256));
+}

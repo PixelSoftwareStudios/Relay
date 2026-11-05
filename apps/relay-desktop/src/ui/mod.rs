@@ -109,7 +109,7 @@ impl eframe::App for RelayApp {
 				sections::calls(ui, &cards, &self.actions, &mut self.local);
 				sections::peers(ui, &rows, &self.actions);
 				sections::audio(ui, &state, &meters, &self.actions, &mut self.local);
-				sections::profile(ui, &self.actions, &mut self.local);
+				sections::profile(ui, &state, &self.actions, &mut self.local);
 				sections::app_panel(ui, &self.actions, has_tray);
 			});
 		});

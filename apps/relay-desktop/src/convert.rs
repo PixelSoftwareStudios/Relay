@@ -116,6 +116,7 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		global_deafened: s.global_deafened,
 		microphone_gain: s.microphone_gain,
 		playback_gain: s.playback_gain,
+		has_avatar: !s.avatar_sha256.is_empty(),
 	}
 }
 
