@@ -1,4 +1,21 @@
 # Relay desktop UI catalog, Korean (ko), section: Shared words and buttons.
-# Not translated yet. Add only ids that exist in localizations/en/common.ftl,
-# with the same $variables; anything missing falls back to English.
+# Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
 # See docs/i18n.md.
+
+action-cancel = 취소
+nav-messages = 메시지
+action-close = 닫기
+action-copy = 복사
+action-hide = 숨기기
+action-create = 만들기
+action-join = 참가
+asking-daemon = 데몬에 요청하는 중…
+unit-ms = ms
+action-try-again = 다시 시도
+action-save = 저장
+action-revert = 되돌리기
+nav-people = 사용자
+nav-settings = 설정
+header-engine = 엔진 { $version }
+action-dismiss = 닫기

@@ -1,4 +1,101 @@
 # Relay desktop UI catalog, Korean (ko), section: Settings: this app, hotkey, profile, daemon, language.
-# Not translated yet. Add only ids that exist in localizations/en/settings.ftl,
-# with the same $variables; anything missing falls back to English.
+# Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
 # See docs/i18n.md.
+
+link-starting = Relay 데몬 시작 중
+link-connecting = Relay 데몬에 연결 중
+link-connected = 연결됨
+link-reconnecting = 데몬 연결이 끊겨 다시 연결 중
+link-offline = 데몬이 실행 중이 아님
+avatar-size-refusal = 프로필 사진은 1바이트에서 1 MiB 사이여야 합니다 (PNG, JPEG, WebP, GIF, BMP 또는 TIFF)
+hotkey-note = 이 앱은 전역 단축키를 등록하지 않으며 화면에 말하기 버튼도 아직 없습니다. 푸시 투 토크는 엔진 쪽 입력 소스(예: CLI)가 키를 누르고 있는 동안에만 전송합니다.
+close-tray = 창을 닫으면 트레이로 숨겨지며 통화는 계속됩니다.
+close-no-tray = 이 플랫폼에는 트레이 아이콘이 없으므로 창을 닫으면 앱이 종료됩니다.
+quit-note = 이 앱을 종료하면 앱이 시작하거나 수락한 통화가 끊기고 Relay 데몬은 계속 실행됩니다. 이 앱에서는 데몬을 중지할 수 없습니다.
+calls-active =
+    { $count ->
+       *[other] 통화 { $count }건이 진행 중입니다.
+    }
+quit-prompt = 이 앱을 종료할까요?
+quit-prompt-calls =
+    { $count ->
+       *[other] 이 앱을 종료할까요? 진행 중인 통화 { $count }건이 끊깁니다.
+    }
+daemon-stopped-again = 시작 직후 다시 중지되었습니다.
+daemon-keeps-stopping = Relay 데몬이 계속 중지되어 자동으로 다시 시작하지 않습니다. { $why }
+avatar-bad-format = 프로필 사진이 거부됨: 지원하지 않거나 인식할 수 없는 이미지 형식입니다 (PNG, JPEG, WebP, GIF, BMP 또는 TIFF 사용)
+avatar-zero-size = 프로필 사진이 거부됨: 너비 또는 높이가 0입니다
+avatar-too-large = 프로필 사진이 거부됨: 크기 { $width }x{ $height }이(가) { $limit } 픽셀 제한을 초과합니다
+avatar-undecodable = 프로필 사진이 거부됨: 이미지를 디코딩할 수 없습니다: { $error }
+daemon-started = Relay 데몬이 시작되었습니다.
+daemon-already-running = Relay 데몬이 이미 실행 중입니다.
+daemon-not-found = Relay 데몬({ $binary })을 찾을 수 없습니다. 이 앱과 같은 위치나 PATH에 설치하거나, { $env }에 위치를 지정하세요.
+daemon-start-failed = Relay 데몬을 시작하지 못했습니다: { $reason }.
+daemon-start-failed-log = Relay 데몬을 시작하지 못했습니다: { $reason }. 마지막 로그: { $last }
+daemon-stop-failed = Relay 데몬을 중지하지 못했습니다: { $error }
+daemon-stopped = Relay 데몬이 중지되었습니다.
+notify-off = 꺼짐: 이 창이 숨겨져 있거나 백그라운드에 있을 때 통화가 오면 트레이 툴팁에만 표시되고 데몬의 벨소리만 들립니다.
+notify-on = 이 창이 숨겨져 있거나 앞에 없을 때 통화가 오면 발신자 이름을 표시합니다 (메시지 내용은 표시하지 않음).
+notify-refused = 시스템이 마지막 알림을 거부했습니다({ $reason }). 통화는 계속 데몬을 통해 울리며 이 창과 트레이 툴팁에 표시됩니다.
+login-unsupported = 여기서는 사용할 수 없음: { $reason }
+login-off = 꺼짐. 켜면 이 앱이 시스템에 등록되어 로그인할 때 창이 열립니다. 데몬은 앱이 필요할 때까지 시작되지 않습니다.
+login-on = 켜짐: 로그인할 때 시스템이 이 앱을 시작합니다 (창이 열립니다). 항목을 제거하려면 여기서 끄세요.
+login-failed = 로그인 항목을 읽거나 변경할 수 없습니다: { $reason }
+banner-mock = 모의 데이터: 이 화면은 Relay 데몬에 연결되어 있지 않습니다.
+link-offline-auto = 자동으로 시작합니다.
+daemon-starting-button = 데몬 시작 중...
+daemon-start-button = 데몬 시작
+app-heading = 이 앱
+app-hide = 창 숨기기
+app-quit = 이 앱 종료 (데몬은 계속 실행)
+app-hang-up-quit = 통화 끊고 종료
+autostart-label = 데몬 자동 시작
+autostart-hover = 데몬이 실행 중이 아닐 때 Relay 앱이 시작합니다. 앱이 열려 있는 동안에만 로컬 네트워크에 표시됩니다.
+daemon-heading = Relay 데몬
+daemon-not-connected = 데몬에 연결되어 있지 않습니다.
+daemon-paused = 데몬 시작을 누를 때까지 자동 시작이 일시 중지됩니다.
+daemon-keeps-running = 이 앱을 닫아도 데몬은 계속 실행됩니다. 데몬을 종료하면 모든 통화가 끝나고 마이크가 해제됩니다.
+daemon-quit-ask = 데몬 종료...
+daemon-quit-confirm = 지금 데몬을 종료할까요? 진행 중인 통화가 끝납니다.
+daemon-quit = 데몬 종료
+profile-heading = 내 프로필
+profile-name-hint = 표시 이름
+profile-save-name = 이름 저장
+profile-image-note = PNG, JPEG, WebP, GIF, BMP 또는 TIFF, 최대 1 MiB 및 2048 x 2048. 엔진이 크기를 조정해 신뢰하는 사용자와 공유합니다. 삭제하면 상대에게 더 이상 표시하지 말라고 알립니다.
+profile-choose-image = 이미지 선택…
+profile-upload = 업로드
+profile-discard = 취소
+profile-remove = 사진 삭제
+hotkey-heading = 푸시 투 토크 단축키
+hotkey-intro = 푸시 투 토크 모드인 통화에서 이 키를 어디서든 누르고 있으면 말할 수 있습니다.
+hotkey-field = 단축키
+hotkey-hint = Ctrl+Alt+Space (비우면 꺼짐)
+hotkey-delay = 해제 지연
+hotkey-delay-hover = 키에서 손을 뗀 뒤 마이크가 계속 켜져 있는 시간입니다.
+hotkey-nothing = 변경할 내용이 없습니다.
+notify-label = 수신 통화 알림
+login-label = 로그인 시 이 앱 시작
+login-error = 로그인 시 시작: { $reason }
+dialog-profile-image = 프로필 이미지 선택
+dialog-image-filter = 이미지
+dialog-export = 대화 기록 내보내기
+login-no-mechanism = 이 시스템은 로그인 항목 기능을 지원하지 않습니다
+login-no-exe = 이 프로그램을 찾을 수 없습니다: { $error }
+login-bad-path = 프로그램 경로가 올바른 텍스트가 아닙니다
+login-set-unavailable = 사용할 수 없음: { $reason }
+options-save-failed = 선택을 저장하지 못했습니다: { $error }
+language-label = 언어
+language-experimental = 이 언어는 실험적입니다. 텍스트 렌더러가 데바나가리 글자를 연결하지 못해 일부 단어가 인쇄된 모양과 다르게 보입니다.
+link-offline-manual = 데몬을 시작하세요. 이 창은 자동으로 다시 연결됩니다.
+hotkey-applied = { $label }: 지금 적용됨
+hotkey-check-accelerator = 단축키는 표시 가능한 문자 64자 이하여야 합니다
+hotkey-check-delay = 해제 지연은 0에서 2000 ms 사이여야 합니다
+hotkey-label-accelerator = 푸시 투 토크 단축키
+hotkey-label-delay = 해제 지연
+hotkey-missing-key = 데몬이 { $key }을(를) 알려주지 않았습니다
+hotkey-bad-value = 데몬이 잘못된 { $key } 값을 알려주었습니다: { $value }
+hotkey-rejected = { $label }: 거부됨
+hotkey-rejected-reason = { $label }: 거부됨 ({ $reason })
+hotkey-saved = { $label }: 저장됨, 다시 시작하면 적용됩니다
+hotkey-saved-reason = { $label }: 저장됨, 다시 시작하면 적용됩니다 ({ $reason })
