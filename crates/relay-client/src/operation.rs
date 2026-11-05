@@ -3,28 +3,50 @@
 use std::future::Future;
 use std::time::Duration;
 
-use relay_api::ApiError;
 use relay_api::pb::{Operation, OperationState};
+use relay_api::{ApiError, RelayClient};
+use tokio::sync::Mutex;
 
-/// Poll `fetch` (a `GetOperation` by id) until the operation settles.
-/// An already settled operation is returned without a call. The fetch is a
-/// closure so callers decide how they borrow the client between polls.
-pub async fn settle<F, Fut>(
+/// Anything that can look an operation up by id. Implemented for a client and
+/// for a shared client behind a lock (taken per poll, so slow operations
+/// never block other commands); tests supply fakes.
+pub trait OperationSource {
+	/// `GetOperation` by id.
+	fn get_operation(
+		&mut self,
+		operation_id: &[u8],
+	) -> impl Future<Output = Result<Operation, ApiError>>;
+}
+
+impl OperationSource for RelayClient {
+	fn get_operation(
+		&mut self,
+		operation_id: &[u8],
+	) -> impl Future<Output = Result<Operation, ApiError>> {
+		RelayClient::get_operation(self, operation_id)
+	}
+}
+
+impl OperationSource for &Mutex<RelayClient> {
+	async fn get_operation(&mut self, operation_id: &[u8]) -> Result<Operation, ApiError> {
+		self.lock().await.get_operation(operation_id).await
+	}
+}
+
+/// Poll `source` until the operation settles. An already settled operation is
+/// returned without a call.
+pub async fn settle<S: OperationSource>(
+	source: &mut S,
 	operation: Operation,
 	interval: Duration,
 	timeout: Duration,
-	mut fetch: F,
-) -> Result<Operation, ApiError>
-where
-	F: FnMut(Vec<u8>) -> Fut,
-	Fut: Future<Output = Result<Operation, ApiError>>,
-{
+) -> Result<Operation, ApiError> {
 	if operation.state != OperationState::Accepted as i32 {
 		return Ok(operation);
 	}
 	let deadline = tokio::time::Instant::now() + timeout;
 	loop {
-		let op = fetch(operation.operation_id.clone()).await?;
+		let op = source.get_operation(&operation.operation_id).await?;
 		if op.state != OperationState::Accepted as i32 {
 			return Ok(op);
 		}

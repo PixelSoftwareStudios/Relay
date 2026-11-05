@@ -155,11 +155,9 @@ impl Ops {
 	/// Poll until the engine settles the operation. The lock is held per call
 	/// only, so slow operations never block other commands.
 	async fn settle(&self, operation: pb::Operation) -> Result<Outcome, EngineError> {
-		let operation = settle(operation, OP_POLL, OP_TIMEOUT, |id| async move {
-			self.client.lock().await.get_operation(&id).await
-		})
-		.await
-		.map_err(map_error)?;
+		let operation = settle(&mut &self.client, operation, OP_POLL, OP_TIMEOUT)
+			.await
+			.map_err(map_error)?;
 		match OperationState::try_from(operation.state) {
 			Ok(OperationState::Applied) => Ok(Outcome::default()),
 			_ => Err(problem_error(operation.problem)),
