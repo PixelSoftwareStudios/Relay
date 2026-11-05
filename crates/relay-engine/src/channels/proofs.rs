@@ -303,7 +303,7 @@ fn verifier_view(record: &ChannelRecord) -> ChannelRecord {
 	ChannelRecord {
 		id: record.id,
 		name: record.name.clone(),
-		policy: record.policy.clone(),
+		policy: record.policy,
 		role: record.role,
 		owner_public: record.owner_public,
 		authority: None,
