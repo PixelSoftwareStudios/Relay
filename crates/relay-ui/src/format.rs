@@ -4,6 +4,15 @@ use crate::model::{Call, Link, Phase};
 
 pub const MAX_AVATAR_BYTES: usize = 1024 * 1024;
 
+/// Slider text for the push-to-talk release delay.
+pub fn release_delay_label(millis: u32) -> String {
+	if millis == 0 {
+		"Off (closes at once)".to_owned()
+	} else {
+		format!("{millis} ms")
+	}
+}
+
 pub fn format_dbfs(dbfs: Option<f32>) -> String {
 	match dbfs {
 		Some(v) if v.is_finite() => format!("{v:.0} dBFS"),
@@ -110,6 +119,14 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 			"Microphone not allowed",
 			format!("Transmit consent has not been given for this call.{blocked}"),
 			Tone::Warn,
+		);
+	}
+	if t.effective_transmitting && t.releasing {
+		return status(
+			"Releasing",
+			"The key is up; the microphone stays live briefly so the end of a sentence is not cut."
+				.into(),
+			Tone::Live,
 		);
 	}
 	if t.effective_transmitting {

@@ -84,3 +84,13 @@ async fn mock_channels_invites_and_privacy_work_end_to_end() {
 			.starts_with("relay://")
 	);
 }
+
+#[tokio::test(start_paused = true)]
+async fn mock_release_delay_slider_value_round_trips() {
+	let (ctl, hub) = rig().await;
+	assert_eq!(hub.state().settings.unwrap().ptt_release_delay_ms, 200);
+	ctl.set_ptt_release_delay(750).await.unwrap();
+	assert_eq!(hub.state().settings.unwrap().ptt_release_delay_ms, 750);
+	assert!(ctl.set_ptt_release_delay(5000).await.is_err());
+	assert_eq!(hub.state().settings.unwrap().ptt_release_delay_ms, 750);
+}

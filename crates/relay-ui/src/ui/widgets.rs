@@ -31,6 +31,26 @@ pub fn meter(ui: &mut Ui, dbfs: Option<f32>, label: &str) -> Response {
 		.on_hover_text(format!("{label}: {}", format_dbfs(dbfs)))
 }
 
+/// Integer slider for the push-to-talk release delay, 0 to 2000 ms. The drag
+/// value lives in `edit` until released; returns the value to send.
+pub fn release_delay_slider(ui: &mut Ui, edit: &mut Option<u32>, current: u32) -> Option<u32> {
+	let mut value = edit.unwrap_or(current);
+	let response = ui.add(
+		egui::Slider::new(&mut value, 0..=crate::controller::RELEASE_DELAY_MAX_MS)
+			.step_by(10.0)
+			.suffix(" ms")
+			.text("Push-to-talk release delay"),
+	);
+	if response.dragged() || (response.changed() && edit.is_some()) {
+		*edit = Some(value);
+	}
+	if response.drag_stopped() || (response.changed() && !response.dragged()) {
+		*edit = None;
+		return Some(value);
+	}
+	None
+}
+
 pub fn banner(ui: &mut Ui, text: &str, error: bool) {
 	let color = if error { theme::ERROR } else { theme::WARN };
 	egui::Frame::group(ui.style())

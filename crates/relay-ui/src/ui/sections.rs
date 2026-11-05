@@ -9,7 +9,7 @@ use crate::viewmodel::{CallCard, MODES, PeerRow, mode_enabled};
 
 use super::local::Local;
 use super::textures::Textures;
-use super::widgets::{avatar, banner, gain_slider, meter, tone_color};
+use super::widgets::{avatar, banner, gain_slider, meter, release_delay_slider, tone_color};
 
 pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
 	if state.mock {
@@ -326,6 +326,13 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 		let play = local.gain_edits.entry("play".into()).or_default();
 		if let Some(g) = gain_slider(ui, play, settings.playback_gain, "Playback gain") {
 			actions.run(|c| async move { c.set_global_controls(None, None, None, Some(g)).await });
+		}
+		if let Some(ms) = release_delay_slider(
+			ui,
+			&mut local.release_delay_edit,
+			settings.ptt_release_delay_ms,
+		) {
+			actions.run(|c| async move { c.set_ptt_release_delay(ms).await });
 		}
 		ui.horizontal(|ui| {
 			let (m, d) = (settings.global_muted, settings.global_deafened);

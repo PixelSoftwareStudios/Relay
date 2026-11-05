@@ -212,11 +212,13 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			deafened,
 			microphone_gain,
 			playback_gain,
+			ptt_release_delay_ms,
 		} => WireCommand::SetGlobalControls {
 			muted,
 			deafened,
 			microphone_gain,
 			playback_gain,
+			ptt_release_delay_ms,
 		},
 		Command::SelectDevices {
 			input_id,

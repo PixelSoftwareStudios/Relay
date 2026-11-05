@@ -66,6 +66,7 @@ pub enum Command {
 		deafened: Option<bool>,
 		microphone_gain: Option<f32>,
 		playback_gain: Option<f32>,
+		ptt_release_delay_ms: Option<u32>,
 	},
 	SelectDevices {
 		input_id: String,

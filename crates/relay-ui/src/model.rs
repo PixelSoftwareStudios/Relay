@@ -90,6 +90,8 @@ pub struct Transmit {
 	pub consent_granted: bool,
 	pub effective_transmitting: bool,
 	pub blocked_reason: String,
+	/// The key is already up; the gate stays open for the release delay.
+	pub releasing: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -136,6 +138,8 @@ pub struct Settings {
 	pub global_deafened: bool,
 	pub microphone_gain: f32,
 	pub playback_gain: f32,
+	/// Push-to-talk release delay in milliseconds (0 to 2000).
+	pub ptt_release_delay_ms: u32,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,

@@ -23,6 +23,7 @@ fn tx(mode: Mode, consent: bool, effective: bool, reason: &str) -> Call {
 		consent_granted: consent,
 		effective_transmitting: effective,
 		blocked_reason: reason.into(),
+		releasing: false,
 	})
 }
 
@@ -74,4 +75,30 @@ fn blocked_reason_from_the_engine_is_surfaced() {
 	let s = describe_transmit(&tx(Mode::OpenMic, true, false, "device lost"));
 	assert_eq!(s.tone, Tone::Warn);
 	assert!(s.detail.contains("device lost"));
+}
+
+#[test]
+fn releasing_is_reported_only_while_the_engine_says_the_gate_is_open() {
+	let mut held = tx(Mode::PushToTalk, true, true, "");
+	held.transmit.releasing = true;
+	let status = relay_ui::format::describe_transmit(&held);
+	assert_eq!(status.label, "Releasing");
+	assert_eq!(status.tone, relay_ui::format::Tone::Live);
+	// A releasing flag with a closed gate never claims a live microphone.
+	let mut closed = tx(Mode::PushToTalk, true, false, "ptt idle");
+	closed.transmit.releasing = true;
+	assert_eq!(
+		relay_ui::format::describe_transmit(&closed).label,
+		"Push-to-talk armed"
+	);
+}
+
+#[test]
+fn release_delay_label_names_the_off_state() {
+	assert_eq!(
+		relay_ui::format::release_delay_label(0),
+		"Off (closes at once)"
+	);
+	assert_eq!(relay_ui::format::release_delay_label(200), "200 ms");
+	assert_eq!(relay_ui::format::release_delay_label(2000), "2000 ms");
 }

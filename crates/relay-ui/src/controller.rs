@@ -83,6 +83,18 @@ pub(crate) fn decode_id(
 		.ok_or(ControlError::Invalid(what))
 }
 
+/// Longest push-to-talk release delay, in milliseconds.
+pub const RELEASE_DELAY_MAX_MS: u32 = 2000;
+
+fn check_release_delay(millis: u32) -> Result<(), ControlError> {
+	if millis > RELEASE_DELAY_MAX_MS {
+		return Err(ControlError::Invalid(
+			"release delay must be between 0 and 2000 ms",
+		));
+	}
+	Ok(())
+}
+
 fn check_gain(gain: Option<f32>) -> Result<(), ControlError> {
 	match gain {
 		Some(g) if !g.is_finite() || !(0.0..=GAIN_MAX).contains(&g) => Err(ControlError::Invalid(
@@ -234,6 +246,21 @@ impl Controller {
 			deafened,
 			microphone_gain,
 			playback_gain,
+			ptt_release_delay_ms: None,
+		})
+		.await
+		.map(drop)
+	}
+
+	/// Sets how long the gate stays open after the push-to-talk key is released.
+	pub async fn set_ptt_release_delay(&self, millis: u32) -> Result<(), ControlError> {
+		check_release_delay(millis)?;
+		self.run(Command::SetGlobalControls {
+			muted: None,
+			deafened: None,
+			microphone_gain: None,
+			playback_gain: None,
+			ptt_release_delay_ms: Some(millis),
 		})
 		.await
 		.map(drop)

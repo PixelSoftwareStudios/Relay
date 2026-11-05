@@ -32,6 +32,7 @@ fn call(n: u8, peer: u8, phase: Phase) -> Call {
 			consent_granted: false,
 			effective_transmitting: false,
 			blocked_reason: String::new(),
+			releasing: false,
 		},
 		user_muted: false,
 		user_deafened: false,
@@ -95,6 +96,7 @@ pub fn seed() -> AppState {
 			global_deafened: false,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
+			ptt_release_delay_ms: 200,
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,
@@ -157,6 +159,7 @@ impl Operations for MockOps {
 					consent_granted: consent,
 					effective_transmitting: consent && mode == Mode::OpenMic,
 					blocked_reason: String::new(),
+					releasing: false,
 				};
 			}),
 			Command::SetCallControls {
@@ -177,6 +180,7 @@ impl Operations for MockOps {
 				deafened,
 				microphone_gain,
 				playback_gain,
+				ptt_release_delay_ms,
 			} => {
 				self.hub.update(|s| {
 					if let Some(g) = s.settings.as_mut() {
@@ -184,6 +188,8 @@ impl Operations for MockOps {
 						g.global_deafened = deafened.unwrap_or(g.global_deafened);
 						g.microphone_gain = microphone_gain.unwrap_or(g.microphone_gain);
 						g.playback_gain = playback_gain.unwrap_or(g.playback_gain);
+						g.ptt_release_delay_ms =
+							ptt_release_delay_ms.unwrap_or(g.ptt_release_delay_ms);
 					}
 				});
 			}

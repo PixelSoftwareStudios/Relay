@@ -172,3 +172,27 @@ async fn engine_rejections_reach_the_caller_as_text() {
 	let err = ctl.end_call(&call_hex()).await.unwrap_err();
 	assert_eq!(serde_json::to_string(&err).unwrap(), "\"call is ending\"");
 }
+
+#[tokio::test]
+async fn release_delay_is_bounded_and_sent_as_a_global_control() {
+	let (ctl, _hub, ops) = controller_with(mine(), 0);
+	assert!(ctl.set_ptt_release_delay(2001).await.is_err());
+	assert!(ops.recorded().is_empty());
+	ctl.set_ptt_release_delay(0).await.unwrap();
+	ctl.set_ptt_release_delay(2000).await.unwrap();
+	let sent: Vec<_> = ops
+		.recorded()
+		.into_iter()
+		.map(|c| match c {
+			Command::SetGlobalControls {
+				ptt_release_delay_ms,
+				muted: None,
+				deafened: None,
+				microphone_gain: None,
+				playback_gain: None,
+			} => ptt_release_delay_ms,
+			other => panic!("{other:?}"),
+		})
+		.collect();
+	assert_eq!(sent, vec![Some(0), Some(2000)]);
+}

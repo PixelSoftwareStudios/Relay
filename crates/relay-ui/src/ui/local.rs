@@ -30,6 +30,8 @@ pub struct Local {
 	pub name_seeded: bool,
 	pub consent: HashMap<String, bool>,
 	pub gain_edits: HashMap<String, Option<f32>>,
+	/// In-flight drag of the push-to-talk release delay slider.
+	pub release_delay_edit: Option<u32>,
 	pub revoke_confirm: Option<(String, String)>,
 	pub leave_confirm: Option<String>,
 
