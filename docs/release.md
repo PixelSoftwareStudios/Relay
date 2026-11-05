@@ -24,7 +24,7 @@ shipped artifact. Gate status lives in `docs/gates.md`; measurements in `docs/ev
 |---|---|---|
 | Dependency policy | `cargo deny check` | `cargo install cargo-deny --locked` |
 | Third-party notices | `cargo about generate about.hbs > THIRD_PARTY_LICENSES` | `cargo install cargo-about --locked --features cli`. Config in `about.toml` (accepted list mirrors `deny.toml`) and `about.hbs`. Generated at release time from the tagged revision and shipped with the binaries (attribution is required for distributed binaries, not for the source tree); the output is git-ignored, not committed. |
-| SBOM | `cargo cyclonedx --manifest-path apps/relay-cli/Cargo.toml --format json --describe binaries` | `cargo install cargo-cyclonedx --locked`. Run once on 2026-11-05 (CycloneDX 1.3, 387 components for `relay`); output was not committed because it is tied to one lockfile. It writes `*_bin.cdx.json` next to each binary crate's manifest, including `relay-desktop` and the benches; ship only the files for artifacts that are shipped. |
+| SBOM | `cargo cyclonedx --manifest-path apps/relay-daemon/Cargo.toml --format json --describe binaries` (repeat for `apps/relay-cli` and `apps/relay-desktop`) | `cargo install cargo-cyclonedx --locked`. Run once on 2026-11-05 (CycloneDX 1.3, 387 components for `relay`); output was not committed because it is tied to one lockfile. It writes `*_bin.cdx.json` next to each binary crate's manifest, including `relay-desktop` and the benches; ship only the files for artifacts that are shipped. |
 | Fuzz build | `cd fuzz && cargo +nightly fuzz build` | Needs nightly and `cargo install cargo-fuzz --locked`. |
 | Fuzz run | `cd fuzz && cargo +nightly fuzz run <target> -- -max_total_time=600` | Targets: `rtp_parse`, `record_header`, `control_envelope`, `media_datagram`, `channel_wire`, `channel_text`, `manual_endpoint`, `avatar_decode`. |
 
@@ -42,7 +42,7 @@ as a snapshot but is only authoritative when regenerated at the release revision
    `cargo test`, `cargo deny check`, plus the desktop crate built separately.
 4. **CI green** on the same commit for ubuntu, macos and windows (see `.github/workflows/ci.yml`).
 5. **Build artifacts** from a clean checkout with the pinned toolchain (`rust-toolchain.toml`), using
-   `cargo build --release --locked -p relay-cli` (and `-p relay-desktop` for the GUI). Each target is
+   `cargo build --release --locked -p relay-daemon -p relay-cli` (and `-p relay-desktop` for the GUI). Artifacts are `relayd`, `relay` and `relay-desktop`, installed side by side (`docs/packaging.md`). Each target is
    built on its native runner; there is no cross-compiled artifact unless it is separately qualified.
 6. **Notices and SBOM.** Generate `THIRD_PARTY_LICENSES` and the CycloneDX files from the tagged revision.
 7. **Hash and sign** (below), publish, then record the release in `docs/evidence.md` with the commit,

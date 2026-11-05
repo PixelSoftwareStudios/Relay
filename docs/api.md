@@ -45,6 +45,9 @@ c.register("relay-cli", env!("CARGO_PKG_VERSION"), &["observe"]).await?;
 let (snapshot, mut watch) = c.snapshot_and_watch().await?;
 ```
 
+## Capabilities and `Shutdown`
+A client names the capabilities it wants at `RegisterClient`: `observe` (read state), `call-control` (every mutation and push-to-talk input) and `admin`. Asking for nothing grants the first two; `admin` is granted only when named. `Shutdown(MutationContext)` is the single admin call: it asks the engine to stop gracefully (calls end, microphone released, endpoint removed, process exit 0), is idempotent, and is denied with `PERMISSION_DENIED` otherwise. `RelayClient::shutdown()` wraps it; `relay_client::daemon::stop` registers a separate admin client for it.
+
 ## Engine integration
 Implement `pb::engine_server::Engine`, own a `ClientRegistry` (or a custom `ClientValidator`), bind `UdsListener`, and call `serve_unix` (or `serve_tcp`). `engine_server()` applies message limits when wiring by hand.
 

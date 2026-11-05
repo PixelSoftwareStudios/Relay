@@ -31,7 +31,8 @@ and plug in through the port traits below.
 - `ClientContext` in the body must equal the `relay-client-id` header
   (`INVALID_ARGUMENT`); a foreign incarnation is `FAILED_PRECONDITION`.
 - `RegisterClient` grants `observe` and `call-control` (both when none requested; `call-control`
-  covers every mutation and the push-to-talk stream); handlers check the capability. An observer cannot mutate (`PERMISSION_DENIED`).
+  covers every mutation and the push-to-talk stream) and `admin` only when named; `Shutdown` is the
+  one admin call. Handlers check the capability. An observer cannot mutate (`PERMISSION_DENIED`).
 - Domain mutations (calls, controller, route, controls, global controls) use core's
   idempotency cache. Adapter-executed mutations (devices, noise, mic test, profile, avatar,
   trust, microphone gain) use `Ledger`, keyed by `(client, operation)` plus a hash of the
@@ -76,7 +77,9 @@ hold a `StreamLimiter` slot (96 by default).
 ## Daemon
 
 `daemon::run(RunOptions)` serves until SIGINT/SIGTERM; `DaemonHandle::start` is the same for
-tests and embedding. `relay daemon` is a thin call to `run`.
+tests and embedding. The `relayd` binary (`apps/relay-daemon`) is a thin `clap` front end for `run`; no client embeds the engine. `relayd` takes `--socket`, `--tcp` / `--tcp-profile`, `--home` (config and data under a directory), `--log-level`, `--listen-port` and, hidden for tests, `--no-discovery` and `--identity-store os|file|memory`.
+
+`Shutdown` (admin only) sets a flag the host watches; `run` then stops the same way as on SIGTERM: calls end, the microphone is released, the endpoint is removed, the process exits 0. It is idempotent.
 
 Start-up order: one single-writer lock (shared by preferences and trust), preferences, identity
 (OS credential store unless the preferences say otherwise; no silent fallback), trust store,

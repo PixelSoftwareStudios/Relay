@@ -1,0 +1,22 @@
+# Per-user systemd unit for relayd. Written from the systemd documentation and
+# NOT verified on a Linux machine. Install:
+#   mkdir -p ~/.config/systemd/user
+#   cp relayd.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now relayd.service
+# Logs: journalctl --user -u relayd
+# Adjust ExecStart to wherever relayd is installed. The unit must run inside the
+# user's session so the audio server and the OS credential store are reachable.
+[Unit]
+Description=Relay voice engine (relayd)
+After=sound.target
+
+[Service]
+Type=simple
+ExecStart=%h/.local/bin/relayd
+# A clean stop through the API (`relay daemon stop`) exits 0 and stays stopped.
+Restart=on-failure
+RestartSec=2
+
+[Install]
+WantedBy=default.target

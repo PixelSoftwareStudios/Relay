@@ -21,7 +21,9 @@ Commands are generic over `Control`/`Manage`, so they run unchanged against a sc
 ## Commands
 
 ```
-relay daemon [--tcp]                   host the engine (see Gaps)
+relay daemon start|restart [--binary P] [--log-file P] [--wait S] [-- relayd args]
+relay daemon stop | status | logs [-n N]
+relay daemon run [-- relayd args]      run relayd in this terminal
 relay status | peers
 relay call <peer|ip:port>              never enables the microphone
 relay accept|decline|end [call]
@@ -112,7 +114,18 @@ The platform backend (`relay-platform`) must be created on the process main thre
 
 ## Testing
 
-`cargo test -p relay-cli`. `FakeControl` (scripted, records calls; implements `Control`, `Subscribe`, `Manage`) covers command logic, secrets and the TUI drive loop; `EngineHarness` serves a fake `Engine` over a Unix socket for wire-level behavior (lease generation, consent bits, secrets on the wire, rejection mapping, live `config set`); `tests/real_engine.rs` runs against the real daemon with recording adapters; `tests/hotkey.rs` drives `supervise` with `relay_platform::testing` fakes; TUI snapshots use ratatui `TestBackend`; binary tests check exit codes and `hotkey status`.
+`cargo test -p relay-cli`. `FakeControl` (scripted, records calls; implements `Control`, `Subscribe`, `Manage`) covers command logic, secrets and the TUI drive loop; `EngineHarness` serves a fake `Engine` over a Unix socket for wire-level behavior (lease generation, consent bits, secrets on the wire, rejection mapping, live `config set`); `tests/real_engine.rs` runs against the real service layer with recording adapters; `tests/daemon_cmd.rs` builds `relayd` and runs start, status, restart and stop against it; `tests/hotkey.rs` drives `supervise` with `relay_platform::testing` fakes; TUI snapshots use ratatui `TestBackend`; binary tests check exit codes and `hotkey status`.
+
+## The daemon is a separate program
+
+`relay` never embeds the engine. `relay daemon start` launches the `relayd` binary detached (see
+`docs/packaging.md` for where it is looked for, `RELAY_DAEMON_BIN`) and waits until the endpoint
+accepts connections; it prints `already running` instead of starting a second one. `stop` and
+`restart` register a short-lived client with the `admin` capability and call `Shutdown`; no other
+command requests it. `status` exits 3 when nothing serves the endpoint, like every other command
+(`daemon not running at ...; try relay daemon start`). Nothing is started implicitly. `--socket` and
+`--tcp-profile` choose the endpoint and are passed on to `relayd`. `relay-engine` is only a
+dev-dependency (for `tests/real_engine.rs`).
 
 ## Gaps
 

@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Per-user LaunchAgent for relayd. Written from the launchd documentation and
+  NOT verified on a Mac. Install:
+    cp org.relay.relayd.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/org.relay.relayd.plist
+  Stop and remove:
+    launchctl bootout gui/$(id -u)/org.relay.relayd
+  Adjust the path to wherever relayd is installed.
+-->
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>org.relay.relayd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/local/bin/relayd</string>
+	</array>
+	<key>RunAtLoad</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<!-- Restart after a crash, but not after a clean stop (`relay daemon stop`). -->
+		<key>SuccessfulExit</key>
+		<false/>
+	</dict>
+	<key>ProcessType</key>
+	<string>Interactive</string>
+	<key>StandardErrorPath</key>
+	<string>~/Library/Logs/Relay/relayd.log</string>
+	<key>StandardOutPath</key>
+	<string>~/Library/Logs/Relay/relayd.log</string>
+</dict>
+</plist>

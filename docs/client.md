@@ -9,6 +9,7 @@ Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps
 | `operation` | `settle` polls until an operation leaves `ACCEPTED`, over the `OperationSource` trait (a client, a client behind a lock taken per poll, or a test fake) |
 | `endpoint` | `RELAY_TCP_PROFILE`, `RELAY_SOCKET`, per-user default, `describe`. Flags stay in the CLI |
 | `meter` | dBFS to 0..1 bar fill (60 dB floor) |
+| `daemon` | Launcher for the separate `relayd`: `locate` (explicit, `RELAY_DAEMON_BIN`, next to the executable, `PATH`), `start` (detached: own process group, or `DETACHED_PROCESS` on Windows; output to a log file; waits for the endpoint with a bounded timeout; returns `Launched`, `AlreadyRunning`, `BinaryNotFound` or `FailedToStart` with the log tail), `stop` (registers with `admin`, calls `Shutdown`, waits for the endpoint to vanish), `reachable`, `log_tail`. No dependency on `relay-engine`. |
 
 ## What stays in the apps
 - Validation differs by design (CLI: finite gain 0 or more, non-empty name; desktop: gain 0..4, 1 to 64 printable characters, avatar size and type, known ids), so it is not forced into one rule set.
@@ -18,4 +19,4 @@ Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps
 - Name and id resolution (`commands/resolve.rs`, `names.rs`), view models, transmit text, and hotkey/PTT status (the desktop has no hotkey surface) are single-client.
 
 ## Tests
-`crates/relay-client/tests/`: `wire.rs` runs each command against an in-process engine on a Unix socket, `settle.rs` covers polling and timeout with a fake source, `endpoint.rs` and `meter.rs` the pure helpers. Each app keeps tests for its own UI, CLI and supervisor logic.
+`crates/relay-client/tests/`: `wire.rs` runs each command against an in-process engine on a Unix socket, `settle.rs` covers polling and timeout with a fake source, `endpoint.rs` and `meter.rs` the pure helpers, `daemon.rs` the launcher against a stand-in `fake-relayd` binary (start, already running, missing binary, early exit with log tail, timeout, slow start, own process group, lookup order). Each app keeps tests for its own UI, CLI and supervisor logic.
