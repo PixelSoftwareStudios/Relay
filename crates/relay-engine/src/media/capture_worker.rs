@@ -49,6 +49,8 @@ pub enum CaptureCmd {
 	Detach(AudioGeneration),
 	/// Replaces the noise suppressor (already prepared).
 	SetSuppressor(Box<dyn NoiseSuppressor>),
+	/// Sets the microphone gain applied after the suppressor.
+	SetGain(f32),
 }
 
 struct Worker {
@@ -63,6 +65,7 @@ struct Worker {
 	denoised: Vec<f32>,
 	frame: [f32; FRAME_SAMPLES],
 	timeline: Timeline,
+	gain: f32,
 }
 
 /// Tracks the capture sample index of the frame being encoded.
@@ -92,6 +95,7 @@ pub fn spawn(
 		denoised: vec![0.0; FRAME_SAMPLES * 2],
 		frame: [0.0; FRAME_SAMPLES],
 		timeline: Timeline::default(),
+		gain: 1.0,
 	};
 	thread::Builder::new()
 		.name("relay-capture".to_owned())
@@ -119,6 +123,7 @@ impl Worker {
 			denoised,
 			frame,
 			timeline,
+			gain,
 			..
 		} = self;
 		let Some(input) = input.as_mut() else {
@@ -139,6 +144,7 @@ impl Worker {
 				return;
 			};
 			let produced = progress.produced.min(denoised.len());
+			apply_gain(&mut denoised[..produced], *gain);
 			if assembler.push(&denoised[..produced]).is_err() {
 				assembler.clear();
 				return;
@@ -196,7 +202,18 @@ impl Worker {
 					}
 				}
 				CaptureCmd::SetSuppressor(suppressor) => self.suppressor = suppressor,
+				CaptureCmd::SetGain(gain) => self.gain = gain,
 			}
 		}
+	}
+}
+
+/// Scales samples and keeps them inside the representable range.
+fn apply_gain(samples: &mut [f32], gain: f32) {
+	if (gain - 1.0).abs() < f32::EPSILON {
+		return;
+	}
+	for sample in samples {
+		*sample = (*sample * gain).clamp(-1.0, 1.0);
 	}
 }

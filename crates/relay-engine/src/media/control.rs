@@ -1,8 +1,11 @@
 //! Service port implementations for the media system.
 
+use relay_audio::FRAME_SAMPLES;
 use relay_audio::device::{DeviceDescriptor, DeviceSelection, Direction};
+use relay_audio::dsp::{BackendKind, DspLimits, create_suppressor};
 use relay_core::{AudioGeneration, CallId, ReceiveMix, SessionId};
 
+use super::capture_worker::CaptureCmd;
 use super::devices::Selection;
 use super::system::{MediaSystem, PrepareError};
 use crate::service::ports::{DeviceControl, DeviceDirection, DeviceInfo, MediaControl, PortError};
@@ -34,11 +37,38 @@ impl MediaControl for MediaSystem {
 		MediaSystem::set_receive_mix(self, mix);
 	}
 
+	/// Only `off` is selectable today: every other backend needs a qualified,
+	/// approved model, which `create_suppressor` refuses without one.
 	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError> {
-		match backend {
-			"" | "off" => Ok(()),
-			_ => Err(PortError::Unsupported("noise suppression backend")),
+		let kind = match backend {
+			"" | "off" => BackendKind::Off,
+			"rnnoise" => BackendKind::Rnnoise,
+			"dtln" => BackendKind::Dtln,
+			other => return Err(PortError::Invalid(format!("unknown backend `{other}`"))),
+		};
+		let mut suppressor = create_suppressor(kind, None)
+			.map_err(|error| PortError::Unavailable(error.to_string()))?;
+		let limits = DspLimits {
+			max_block_samples: FRAME_SAMPLES,
+			max_scratch_bytes: suppressor.descriptor().max_scratch_bytes,
+		};
+		suppressor
+			.prepare(&limits)
+			.map_err(|error| PortError::Unavailable(error.to_string()))?;
+		self.inner
+			.capture
+			.push(CaptureCmd::SetSuppressor(suppressor))
+			.map_err(|_| PortError::Unavailable("capture queue is full".to_owned()))
+	}
+
+	fn set_microphone_gain(&self, gain: f32) -> Result<(), PortError> {
+		if !gain.is_finite() || !(0.0..=4.0).contains(&gain) {
+			return Err(PortError::Invalid("gain must be within 0.0..=4.0".to_owned()));
 		}
+		self.inner
+			.capture
+			.push(CaptureCmd::SetGain(gain))
+			.map_err(|_| PortError::Unavailable("capture queue is full".to_owned()))
 	}
 
 	fn start_mic_test(&self, _local_playback: bool) -> Result<(), PortError> {
