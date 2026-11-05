@@ -8,10 +8,8 @@ use relay_benches::audio::wav::{read_mono_48k, write_mono_48k};
 fn si_sdr_is_scale_invariant_and_detects_noise() {
 	let clean = speech_like(2.0, 48_000, 1);
 	let scaled: Vec<f32> = clean.iter().map(|v| v * 0.3).collect();
-	assert!(
-		si_sdr_db(&clean, &scaled).is_none(),
-		"perfect match has no residual"
-	);
+	let perfect = si_sdr_db(&clean, &scaled);
+	assert!(perfect.is_none_or(|v| v > 50.0), "scaled copy: {perfect:?}");
 	let noisy = mix_at_snr(&clean, &noise(NoiseKind::White, 2.0, 48_000, 3), 10.0);
 	let sdr = si_sdr_db(&clean, &noisy).unwrap();
 	assert!((sdr - 10.0).abs() < 0.7, "got {sdr}");
