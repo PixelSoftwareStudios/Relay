@@ -128,6 +128,7 @@ Per channel the advertisement carries only a **blinded tag**:
   record carries no display name and no fingerprint hint and uses a rotating pseudonymous instance
   id (`keyed_blake3(instance_secret, epoch)[..16]`). Names and profile are exchanged only over the
   authenticated link after proof. Listed channels advertise their name in clear (`chl=`), by choice.
+- Channel adverts follow presence: with no client attached the daemon advertises nothing, tags included. First-run defaults are `AdvertMode::Visible` and inbound `anyone` (see `docs/engine.md`); the CLI auto-start note says so.
 - Honest limit: the device is still visible on the LAN (its IP, port, mDNS responses). Hidden mode
   hides *who* and *which groups*, not that something answers. No anonymity claim.
 

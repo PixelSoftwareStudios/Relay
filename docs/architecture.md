@@ -25,5 +25,7 @@ Relay is a LAN-only voice tool. One per-user engine process (`relayd`) owns devi
 
 - Local IPC is control only; PCM never crosses gRPC.
 - Remote peers cannot invoke local engine commands or authorize a microphone.
-- Capture only starts after explicit per-call transmit consent.
+- Capture only starts after explicit per-call transmit consent. Clients may start the daemon; starting grants nothing.
+- A daemon advertises and rings only while a client is attached (an open `WatchState` stream, debounced 2 s); with none it declines invites as busy.
+- A call is owned by the controller-lease holder and ends 3 s after its owner detaches (re-attach or an attached takeover keeps it); observers own nothing.
 - Audio callbacks do not allocate, lock, log or perform I/O.

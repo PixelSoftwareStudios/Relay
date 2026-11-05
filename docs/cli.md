@@ -80,10 +80,18 @@ Text by default. With `--json`, stdout is exactly one JSON value per command (ar
 | 0 | success |
 | 1 | other failure (I/O, a failed `doctor` check, hosted engine error) |
 | 2 | bad usage or a request refused locally (clap errors, missing `--consent`, bad gain or fingerprint) |
-| 3 | engine unreachable (not running, wrong socket, gRPC `UNAVAILABLE`) |
+| 3 | engine unreachable: auto-start is disabled (`--no-autostart`, `RELAY_NO_AUTOSTART`) or failed (the reason and the log tail are printed), or the command never starts one (below), or `daemon stop` ran earlier in this process |
 | 4 | engine rejected the request (failed operation, gRPC error other than below) |
 | 5 | target not found or ambiguous (peer, call, device, gRPC `NOT_FOUND`) |
 | 6 | timed out waiting for an operation |
+
+## Auto-start, presence and ownership
+
+Every command that needs the engine starts `relayd` when none answers (`relay_client::daemon::ensure_running`, which holds a cross-process start lock so concurrent commands start one daemon), prints one line on stderr (never stdout, so `--json` stays clean) and goes on. The line says that the daemon opens no microphone and that the device advertises on the LAN while a client is attached, by default with its name (privacy default `visible`; `relay privacy` hides it). `--no-autostart` or `RELAY_NO_AUTOSTART=1` turns it off, as does the stored `clients.autostart_daemon` preference (changed in the desktop Settings; the CLI has no setter); then an unreachable daemon is exit 3. Never started: `daemon stop|status|logs`, `hotkey status`, `config get|export`, `doctor`. After `daemon stop` the same process never starts one again. A daemon started this way exits after 300 s with no attached client and no call (`--idle-exit`, `RELAY_IDLE_EXIT_SECS`); `relay daemon start` has no idle exit.
+
+A daemon with no attached client (no open `WatchState` stream) neither advertises nor rings: a short-lived command such as `relay peers` attaches, so it counts for the second or so it lives (the engine debounces presence by 2 s).
+
+A call belongs to the client that holds its controller lease. When that client detaches, the call ends after a 3 s grace, unless it re-attaches or another attached client takes over. So `relay call` and `relay accept` stay in the foreground holding a watch; Ctrl-C or `q` hangs up. `relay end` implies takeover. `mute`, `deafen`, `gain` and `talk` on a call another client owns still need `--takeover`; a taken-over call then belongs to the CLI process, so when that command exits the call ends after the grace. Use the desktop app, or `relay call`, to keep a call going.
 
 ## `relay doctor`
 
@@ -123,7 +131,7 @@ The platform backend (`relay-platform`) must be created on the process main thre
 accepts connections; it prints `already running` instead of starting a second one. `stop` and
 `restart` register a short-lived client with the `admin` capability and call `Shutdown`; no other
 command requests it. `status` exits 3 when nothing serves the endpoint, like every other command
-(`daemon not running at ...; try relay daemon start`). Nothing is started implicitly. `--socket` and
+(`daemon not running at ...; try relay daemon start`). `--socket` and
 `--tcp-profile` choose the endpoint and are passed on to `relayd`. `relay-engine` is only a
 dev-dependency (for `tests/real_engine.rs`).
 

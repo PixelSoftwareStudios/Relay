@@ -27,11 +27,22 @@ not make `relay-desktop` depend on `relay`.
 
 ## Starting and stopping
 
-Nothing starts the daemon implicitly.
+Clients start the daemon when none answers: `relay` commands (unless `--no-autostart` or
+`RELAY_NO_AUTOSTART=1`) and the desktop app (unless its "Start daemon automatically" setting is off or
+the same variable is set), through the shared launcher with a start lock. A daemon started this way
+passes `--idle-exit` (300 s, `RELAY_IDLE_EXIT_SECS`), so it exits when no client has been attached
+and no call has been live for that long. Starting never opens a microphone or grants consent. A
+daemon with no attached client does not advertise on the LAN and does not ring, which also holds for
+a service-unit daemon: it stays silent until a client attaches. To have Relay available at login
+without a window, run the daemon from a service unit (`contrib/`, no idle exit); the units remain
+the way to run it at login.
 
 - `relay daemon start` launches `relayd` detached (its own process group, no terminal) and waits for
   the endpoint; `relay daemon status`, `stop`, `restart` and `logs` do the rest. `relay daemon run`
   runs `relayd` in the foreground.
+- The desktop starts the daemon at launch when none answers, restarts one that dies (exponential
+  backoff, at most 3 starts in 60 s, then it shows the failure with the log tail and a manual
+  "Start daemon" button) and does not restart one the user quit with "Quit daemon...".
 - The desktop window offers "Start daemon" when none is reachable and "Quit daemon..." behind a
   confirmation. Closing or quitting the window never stops the daemon.
 - A detached daemon appends its output to `~/Library/Logs/Relay/relayd.log` (macOS),

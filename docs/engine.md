@@ -81,6 +81,8 @@ tests and embedding. The `relayd` binary (`apps/relay-daemon`) is a thin `clap` 
 
 `Shutdown` (admin only) sets a flag the host watches; `run` then stops the same way as on SIGTERM: calls end, the microphone is released, the endpoint is removed, the process exits 0. It is idempotent.
 
+Presence and ownership: `service/presence.rs` is a pure state machine over the clients that hold an open `WatchState` (`PresenceLink`, one `Watcher` guard per stream). It debounces attach and detach by `presence_debounce` (2 s, injectable) and feeds `SystemEvent::TrackPresence` and `Watching` to core, which gates adverts (`AdvertSpec::present`, `PeerControl::presence_changed`) and declines invites as busy with nobody attached, and ends a call `owner_grace` (3 s) after its owner is gone (`EndReason::OwnerGone`). Owner detach closes the gate at once, so the push-to-talk release delay never outlives it. `relayd --idle-exit <secs>` (default off; `RunOptions`) stops the daemon after that long with no client attached and no call. First-run defaults: `privacy.advert_mode` visible, inbound `anyone`, `clients.autostart_daemon` true (`SetGlobalControls.autostart_daemon`).
+
 Start-up order: one single-writer lock (shared by preferences and trust), preferences, identity
 (OS credential store unless the preferences say otherwise; no silent fallback), trust store,
 avatar cache; then the client endpoint is claimed (a second engine fails here, before touching

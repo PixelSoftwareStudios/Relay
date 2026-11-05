@@ -27,6 +27,9 @@ A shell supplies a tokio `Handle` and an `Arc<dyn Shell>`:
 
 Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Controller`, `Shared`, then `Actions { controller, hub, shared, runtime, shell }`; spawn `emitter::run` with a `ShellSink` and either `supervisor::supervise(RelayLink::new(resolve_endpoint), ..)` or `mock::run`. Per frame call `RelayApp::begin_frame(ctx)` then `RelayApp::ui(ui)`.
 
+## Auto-start and quitting
+`autostart::AutoStart` (setting, `RELAY_NO_AUTOSTART`, user quit, 3 starts per 60 s, exponential backoff) is pure and tested without a clock; `supervise` takes the `Shell` and `Arc<AutoStart>` (`Shared.autostart`). `Link::Starting` is the honest "starting" state. `Actions::quit_app` hangs up `format::own_live_calls` (calls with `controlled_by_me`, not ended) for up to 2 s before `Shell::quit`; `format::close_note` and `format::quit_prompt` are the texts and name active calls. `Command::SetAutostart` / `Controller::set_autostart` store the preference.
+
 ## Responsive layout
 `LayoutClass::for_width` picks compact below 600 points (phone: one column, bottom navigation with Calls, People, Channels, Settings, 44 point minimum touch targets and a larger body size) and regular otherwise (desktop: one scrolling column of all sections). The class is chosen in `begin_frame` from the content width; the style is reinstalled only when the class changes (one repaint, no per-frame work). Tests in `crates/relay-ui/tests` cover the breakpoint, touch sizes, themes, every compact page, and run whole frames with a fake `Shell` and no window.
 
