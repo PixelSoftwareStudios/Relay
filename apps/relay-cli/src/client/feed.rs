@@ -7,6 +7,7 @@ use relay_api::{ApiError, WatchItem};
 use tokio::sync::mpsc::Sender;
 
 use super::{Feed, Subscribe};
+use crate::hotkey::HotkeyUpdate;
 
 /// State of the link to the engine as the UI should show it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,6 +27,8 @@ pub enum Update {
 	State(Box<WatchItem>),
 	/// Meter and statistics sample.
 	Telemetry(TelemetrySnapshot),
+	/// Global push-to-talk hotkey state.
+	Hotkey(HotkeyUpdate),
 	/// Link state changed.
 	Connection(ConnectionState),
 }

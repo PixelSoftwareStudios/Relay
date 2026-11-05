@@ -22,7 +22,7 @@ use crate::cli::GlobalArgs;
 
 /// Lease length requested for push-to-talk presses.
 const PTT_LEASE_MS: u32 = 400;
-const POLL_INTERVAL: Duration = Duration::from_millis(50);
+pub(super) const POLL_INTERVAL: Duration = Duration::from_millis(50);
 const CLIENT_NAME: &str = "relay-cli";
 const CAPABILITIES: &[&str] = &["observe", "call-control"];
 
@@ -79,15 +79,20 @@ impl RealClient {
 		})
 	}
 
-	/// Send a command and wait for it to leave `ACCEPTED`.
-	async fn run(&mut self, command: Command) -> Result<Operation, ApiError> {
-		let op = send(&mut self.client, command).await?;
-		settle(&mut self.client, op, POLL_INTERVAL, self.timeout).await
+	/// The underlying API client, for RPCs without a shared command.
+	pub fn client_mut(&mut self) -> &mut RelayClient {
+		&mut self.client
 	}
 
-	/// Take (or keep) the controller lease and return its generation.
-	async fn controller_generation(&mut self, call_id: &[u8]) -> Result<u64, ApiError> {
-		acquire_generation(&mut self.client, call_id, self.takeover).await
+	/// How long operations may take to settle.
+	pub(super) fn timeout(&self) -> Duration {
+		self.timeout
+	}
+
+	/// Send a command and wait for it to leave `ACCEPTED`.
+	pub(super) async fn run_command(&mut self, command: Command) -> Result<Operation, ApiError> {
+		let op = send(&mut self.client, command).await?;
+		settle(&mut self.client, op, POLL_INTERVAL, self.timeout).await
 	}
 
 	async fn input_stream(&mut self) -> Result<&mut InputStream, ApiError> {
@@ -117,12 +122,16 @@ impl Control for RealClient {
 		self.client.info()
 	}
 
+	async fn controller_generation(&mut self, call_id: &[u8]) -> Result<u64, ApiError> {
+		acquire_generation(&mut self.client, call_id, self.takeover).await
+	}
+
 	async fn snapshot(&mut self) -> Result<Snapshot, ApiError> {
 		self.client.snapshot().await
 	}
 
 	async fn start_call(&mut self, target: CallTarget) -> Result<Operation, ApiError> {
-		self.run(Command::StartCall(target)).await
+		self.run_command(Command::StartCall(target)).await
 	}
 
 	async fn call_action(
@@ -131,7 +140,7 @@ impl Control for RealClient {
 		call_id: &[u8],
 	) -> Result<Operation, ApiError> {
 		let generation = self.controller_generation(call_id).await?;
-		self.run(Command::CallAction {
+		self.run_command(Command::CallAction {
 			action,
 			call_id: call_id.to_vec(),
 			generation,
@@ -146,7 +155,7 @@ impl Control for RealClient {
 		consent: bool,
 	) -> Result<Operation, ApiError> {
 		let generation = self.controller_generation(call_id).await?;
-		self.run(Command::SetTransmit {
+		self.run_command(Command::SetTransmit {
 			call_id: call_id.to_vec(),
 			generation,
 			mode,
@@ -161,7 +170,7 @@ impl Control for RealClient {
 		controls: CallControls,
 	) -> Result<Operation, ApiError> {
 		let generation = self.controller_generation(call_id).await?;
-		self.run(Command::SetCallControls {
+		self.run_command(Command::SetCallControls {
 			call_id: call_id.to_vec(),
 			generation,
 			muted: controls.muted,
@@ -175,7 +184,7 @@ impl Control for RealClient {
 		&mut self,
 		controls: GlobalControls,
 	) -> Result<Operation, ApiError> {
-		self.run(Command::SetGlobalControls {
+		self.run_command(Command::SetGlobalControls {
 			muted: controls.muted,
 			deafened: controls.deafened,
 			microphone_gain: controls.microphone_gain,
@@ -185,7 +194,7 @@ impl Control for RealClient {
 	}
 
 	async fn select_devices(&mut self, input: &str, output: &str) -> Result<Operation, ApiError> {
-		self.run(Command::SelectDevices {
+		self.run_command(Command::SelectDevices {
 			input_id: input.to_owned(),
 			output_id: output.to_owned(),
 		})
@@ -193,14 +202,14 @@ impl Control for RealClient {
 	}
 
 	async fn set_noise_suppression(&mut self, backend: &str) -> Result<Operation, ApiError> {
-		self.run(Command::SetNoiseSuppression {
+		self.run_command(Command::SetNoiseSuppression {
 			backend: backend.to_owned(),
 		})
 		.await
 	}
 
 	async fn set_profile(&mut self, display_name: &str) -> Result<Operation, ApiError> {
-		self.run(Command::SetProfile {
+		self.run_command(Command::SetProfile {
 			display_name: display_name.to_owned(),
 		})
 		.await
@@ -211,7 +220,7 @@ impl Control for RealClient {
 		local_playback: bool,
 		confirmed_feedback: bool,
 	) -> Result<Operation, ApiError> {
-		self.run(Command::StartMicTest {
+		self.run_command(Command::StartMicTest {
 			local_playback,
 			confirmed_feedback,
 		})
@@ -219,11 +228,11 @@ impl Control for RealClient {
 	}
 
 	async fn stop_mic_test(&mut self) -> Result<Operation, ApiError> {
-		self.run(Command::StopMicTest).await
+		self.run_command(Command::StopMicTest).await
 	}
 
 	async fn decide_trust(&mut self, decision: TrustDecision) -> Result<Operation, ApiError> {
-		self.run(Command::DecideTrust {
+		self.run_command(Command::DecideTrust {
 			peer_id: decision.peer_id,
 			public_key_sha256: decision.public_key_sha256,
 			requested: decision.requested,

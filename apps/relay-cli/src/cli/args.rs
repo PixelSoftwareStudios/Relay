@@ -81,7 +81,229 @@ pub enum Command {
 	/// Check the setup and optionally write a redacted support bundle.
 	Doctor(DoctorArgs),
 	/// Interactive terminal UI.
-	Tui,
+	Tui(TuiArgs),
+	/// Print the connection string others use to call this device.
+	Address(AddressArgs),
+	/// Global push-to-talk hotkey: run it, check its status, or change the key.
+	Hotkey(HotkeyArgs),
+	/// Who may call you and how you appear on the network.
+	#[command(subcommand)]
+	Privacy(PrivacyCommand),
+	/// Private channels.
+	#[command(subcommand)]
+	Channel(ChannelCommand),
+	/// Read, change, export or import settings.
+	#[command(subcommand)]
+	Config(ConfigCommand),
+	/// Your avatar.
+	#[command(subcommand)]
+	Avatar(AvatarCommand),
+}
+
+impl Command {
+	/// Whether the command registers a global hotkey, which on macOS must
+	/// happen on the main thread while tokio runs elsewhere.
+	pub fn uses_hotkeys(&self) -> bool {
+		match self {
+			Self::Tui(args) => !args.no_hotkey,
+			Self::Hotkey(args) => args.command.is_none(),
+			_ => false,
+		}
+	}
+
+	/// The `--binding` given for this run, if any.
+	pub fn binding_override(&self) -> Option<&str> {
+		match self {
+			Self::Tui(args) => args.binding.as_deref(),
+			Self::Hotkey(args) => args.binding.as_deref(),
+			_ => None,
+		}
+	}
+}
+
+/// Options of `relay tui`.
+#[derive(Debug, Clone, Args)]
+pub struct TuiArgs {
+	/// Do not register the global push-to-talk hotkey.
+	#[arg(long)]
+	pub no_hotkey: bool,
+	/// Push-to-talk accelerator for this run, instead of the saved one.
+	#[arg(long, value_name = "KEYS", conflicts_with = "no_hotkey")]
+	pub binding: Option<String>,
+}
+
+/// Options of `relay address`.
+#[derive(Debug, Clone, Args)]
+pub struct AddressArgs {
+	/// Also copy the connection string to the clipboard.
+	#[arg(long)]
+	pub copy: bool,
+}
+
+/// `relay hotkey [status|set]`; without a subcommand it runs the hotkey.
+#[derive(Debug, Clone, Args)]
+pub struct HotkeyArgs {
+	/// Push-to-talk accelerator for this run, instead of the saved one.
+	#[arg(long, value_name = "KEYS")]
+	pub binding: Option<String>,
+	/// What to do instead of running.
+	#[command(subcommand)]
+	pub command: Option<HotkeyCommand>,
+}
+
+/// `relay hotkey ...`
+#[derive(Debug, Clone, Subcommand)]
+pub enum HotkeyCommand {
+	/// Backend, permissions and the saved binding.
+	Status,
+	/// Save the push-to-talk accelerator (needs the settings lock).
+	Set {
+		/// For example `Ctrl+Alt+Space`; empty disables.
+		accelerator: String,
+	},
+}
+
+/// Inbound policy argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum InboundArg {
+	/// Any trusted peer may ring you.
+	Anyone,
+	/// Only members of a shared channel may ring you.
+	SharedChannel,
+}
+
+/// Advertisement argument.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub enum AdvertArg {
+	/// Name is shown in discovery.
+	Visible,
+	/// Name is not advertised.
+	Hidden,
+}
+
+/// `relay privacy ...`
+#[derive(Debug, Subcommand)]
+pub enum PrivacyCommand {
+	/// Change inbound policy and/or advertisement (at least one).
+	Set {
+		/// Who may ring this device.
+		#[arg(long, value_enum)]
+		inbound: Option<InboundArg>,
+		/// Whether this device is advertised.
+		#[arg(long, value_enum)]
+		advert: Option<AdvertArg>,
+	},
+}
+
+/// `relay channel ...`
+#[derive(Debug, Subcommand)]
+pub enum ChannelCommand {
+	/// Create a channel owned by this device.
+	Create(ChannelCreate),
+	/// Join a channel by name or id.
+	Join(ChannelJoin),
+	/// Leave a channel and delete its local secrets.
+	Leave {
+		/// Channel name or id prefix.
+		channel: String,
+	},
+	/// List your channels.
+	List,
+	/// Mint an invite token (printed once; treat it as a secret).
+	Invite {
+		/// Channel name or id prefix.
+		channel: String,
+		/// Lifetime of the token.
+		#[arg(long, default_value_t = 3600)]
+		ttl_seconds: u32,
+		/// How many times it may be used.
+		#[arg(long, default_value_t = 1)]
+		uses: u32,
+	},
+	/// Revoke a member by identity fingerprint.
+	Revoke {
+		/// Channel name or id prefix.
+		channel: String,
+		/// Member fingerprint (64 hex).
+		fingerprint: String,
+	},
+}
+
+/// Arguments of `relay channel create`.
+#[derive(Debug, Clone, Args)]
+pub struct ChannelCreate {
+	/// Channel name.
+	pub name: String,
+	/// Do not advertise the channel name.
+	#[arg(long)]
+	pub hidden: bool,
+	/// Joining needs an invite token.
+	#[arg(long)]
+	pub invite_only: bool,
+	/// Protect with a password, read from a hidden prompt.
+	#[arg(long, conflicts_with = "password_stdin")]
+	pub password: bool,
+	/// Protect with a password, read from one line of stdin.
+	#[arg(long)]
+	pub password_stdin: bool,
+}
+
+/// Arguments of `relay channel join`.
+#[derive(Debug, Clone, Args)]
+pub struct ChannelJoin {
+	/// Channel name, or its 32-hex id.
+	pub channel: String,
+	/// Password from a hidden prompt.
+	#[arg(long, group = "credential")]
+	pub password: bool,
+	/// Password from one line of stdin.
+	#[arg(long, group = "credential")]
+	pub password_stdin: bool,
+	/// Invite token from a hidden prompt.
+	#[arg(long, group = "credential")]
+	pub invite: bool,
+	/// Invite token from one line of stdin.
+	#[arg(long, group = "credential")]
+	pub invite_stdin: bool,
+}
+
+/// `relay config ...`
+#[derive(Debug, Subcommand)]
+pub enum ConfigCommand {
+	/// Print one setting, or all of them.
+	Get {
+		/// Dotted key such as `audio.microphone_gain`.
+		key: Option<String>,
+	},
+	/// Change one setting (through the engine when it is running).
+	Set {
+		/// Dotted key.
+		key: String,
+		/// New value.
+		value: String,
+	},
+	/// Write all settings as TOML to stdout or a file.
+	Export {
+		/// Destination file.
+		file: Option<PathBuf>,
+	},
+	/// Replace all settings from an exported TOML file (engine must be stopped).
+	Import {
+		/// Source file.
+		file: PathBuf,
+	},
+}
+
+/// `relay avatar ...`
+#[derive(Debug, Subcommand)]
+pub enum AvatarCommand {
+	/// Upload a PNG or JPEG (at most 1 MiB).
+	Set {
+		/// Image file.
+		file: PathBuf,
+	},
+	/// Remove the avatar.
+	Clear,
 }
 
 /// Options of `relay daemon`.

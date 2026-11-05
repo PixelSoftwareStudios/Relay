@@ -12,4 +12,4 @@ pub mod view;
 
 pub use app::{drive, run};
 pub use keys::TuiCommand;
-pub use model::{HotkeyBackend, Model, Prompt, Tab};
+pub use model::{Model, Prompt, Tab};

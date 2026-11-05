@@ -5,6 +5,7 @@
 //! tests supply fakes.
 
 mod feed;
+mod manage;
 mod real;
 mod requests;
 
@@ -15,6 +16,7 @@ use relay_api::pb::{EngineInfo, Operation, Snapshot, TelemetrySnapshot};
 use relay_api::{Endpoint, WatchItem};
 
 pub use feed::{ConnectionState, Update, run_state_feed, run_telemetry_feed};
+pub use manage::{ChannelRef, Credential, Manage};
 pub use real::RealClient;
 pub use relay_client::{CallAction, CallTarget};
 pub use requests::{CallControls, GlobalControls, PttAction, PttRequest, TrustDecision};
@@ -50,6 +52,8 @@ pub trait Subscribe: Send {
 pub trait Control {
 	/// Engine information captured at connect time.
 	fn info(&self) -> &EngineInfo;
+	/// Take (or keep) the controller lease of a call and return its generation.
+	async fn controller_generation(&mut self, call_id: &[u8]) -> Result<u64, ApiError>;
 	/// Current snapshot.
 	async fn snapshot(&mut self) -> Result<Snapshot, ApiError>;
 	/// Start a call to a peer or manual address.

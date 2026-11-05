@@ -8,7 +8,8 @@ use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
 
 use super::meter;
 use crate::client::ConnectionState;
-use crate::tui::model::{HotkeyBackend, Model, Prompt, Tab};
+use crate::hotkey::ptt_label;
+use crate::tui::model::{Model, Prompt, Tab};
 
 pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 	let (link, color) = match &model.connection {
@@ -16,16 +17,12 @@ pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 		ConnectionState::Resyncing(why) => (format!("resyncing ({why})"), Color::Yellow),
 		ConnectionState::Lost(why) => (format!("offline ({why})"), Color::Red),
 	};
-	let hotkeys = match model.hotkey_backend() {
-		HotkeyBackend::Global => "hotkeys: global",
-		HotkeyBackend::TerminalOnly => "hotkeys: terminal only",
-	};
 	let settings = model.snapshot.settings.clone().unwrap_or_default();
 	let mic = model.telemetry.as_ref().and_then(|t| t.microphone_dbfs);
 	let first = Line::from(vec![
 		Span::styled("relay ", Style::new().add_modifier(Modifier::BOLD)),
 		Span::styled(link, Style::new().fg(color)),
-		Span::raw(format!("  rev {}  {hotkeys}", model.snapshot.revision)),
+		Span::raw(format!("  rev {}", model.snapshot.revision)),
 	]);
 	let mic_label = if settings.global_muted {
 		"muted"
@@ -46,8 +43,24 @@ pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 			&settings.ns_backend_id
 		},
 	));
+	let third = Line::from(hotkey_text(model));
 	let block = Block::default().borders(Borders::BOTTOM);
-	frame.render_widget(Paragraph::new(vec![first, second]).block(block), area);
+	frame.render_widget(
+		Paragraph::new(vec![first, second, third]).block(block),
+		area,
+	);
+}
+
+/// The hotkey line: its honest state, and what it is doing when active.
+fn hotkey_text(model: &Model) -> String {
+	let mut text = format!("hotkey: {}", model.hotkey);
+	if model.hotkey.is_active() {
+		text.push_str(&format!("  ptt: {}", ptt_label(&model.ptt)));
+		if let Some(target) = &model.ptt_target {
+			text.push_str(&format!("  ({target})"));
+		}
+	}
+	text
 }
 
 pub fn tabs(frame: &mut Frame, area: Rect, model: &Model) {

@@ -13,7 +13,7 @@ use super::model::{Model, Tab};
 /// Draw the whole screen.
 pub fn draw(frame: &mut Frame, model: &Model) {
 	let [head, tabs, body, foot] = Layout::vertical([
-		Constraint::Length(3),
+		Constraint::Length(4),
 		Constraint::Length(1),
 		Constraint::Min(3),
 		Constraint::Length(1),

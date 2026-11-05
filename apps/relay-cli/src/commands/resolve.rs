@@ -2,7 +2,7 @@
 
 use std::net::SocketAddr;
 
-use relay_api::pb::{Call, Device, DeviceDirection, Peer, Snapshot};
+use relay_api::pb::{Call, ChannelInfo, Device, DeviceDirection, Peer, Snapshot};
 
 use super::names;
 use crate::cli::TargetError;
@@ -143,4 +143,20 @@ pub fn resolve_device<'a>(
 			kind: "device",
 			query: query.to_owned(),
 		})
+}
+
+/// Find one of the user's channels by exact name, id prefix or name prefix.
+pub fn resolve_channel<'a>(
+	channels: &'a [ChannelInfo],
+	query: &str,
+) -> Result<&'a ChannelInfo, TargetError> {
+	let q = query.to_lowercase();
+	pick(
+		"channel",
+		query,
+		channels,
+		|c| c.name.to_lowercase() == q || names::hex_id(&c.channel_id) == q,
+		|c| c.name.to_lowercase().starts_with(&q) || names::hex_id(&c.channel_id).starts_with(&q),
+		|c| format!("{} ({})", c.name, names::short_id(&c.channel_id)),
+	)
 }

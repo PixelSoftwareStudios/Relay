@@ -59,6 +59,9 @@ pub enum CliError {
 	/// The request is refused locally, before talking to the engine.
 	#[error("{0}")]
 	Usage(String),
+	/// The engine API cannot do this yet.
+	#[error("{0}")]
+	Unsupported(String),
 	/// Writing output failed.
 	#[error("output error: {0}")]
 	Io(#[from] std::io::Error),
@@ -92,7 +95,7 @@ impl CliError {
 				_ => exit::REJECTED,
 			},
 			Self::Api(_) => exit::FAILURE,
-			Self::Rejected { .. } => exit::REJECTED,
+			Self::Rejected { .. } | Self::Unsupported(_) => exit::REJECTED,
 			Self::Target(_) => exit::TARGET,
 			Self::Usage(_) => exit::USAGE,
 			Self::Io(_) | Self::Json(_) | Self::Other(_) => exit::FAILURE,
@@ -108,6 +111,7 @@ impl CliError {
 			Self::Rejected { code, .. } => code,
 			Self::Target(_) => "target",
 			Self::Usage(_) => "usage",
+			Self::Unsupported(_) => "unsupported",
 			Self::Io(_) => "io",
 			Self::Json(_) => "json",
 			Self::Other(_) => "failure",

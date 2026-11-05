@@ -1,12 +1,19 @@
 //! Command implementations. Each takes a [`Control`] so tests can fake the engine.
 
+mod address;
+mod avatar;
 mod call;
+mod channel;
+pub mod clipboard;
+pub mod config;
 mod controls;
 mod daemon;
 mod doctor;
+mod hotkey;
 mod mic_test;
 pub mod names;
 mod output;
+mod privacy;
 mod query;
 pub mod resolve;
 pub mod table;
@@ -17,19 +24,29 @@ use std::io::Write;
 
 use relay_api::pb::{Operation, OperationState};
 
+pub use hotkey::{set as hotkey_set, status_view as hotkey_status_view};
 pub use output::Out;
 
 use crate::cli::{Cli, CliError, Command, GlobalArgs};
-use crate::client::{self, Control, Subscribe};
+use crate::client::{self, Control, Manage, Subscribe};
+use crate::hotkey::HotkeyFeed;
 use views::Outcome;
 
-/// Run a parsed command line, writing normal output to `w`.
+/// Run a parsed command line without a global hotkey, writing output to `w`.
 pub async fn run(cli: Cli, w: &mut dyn Write) -> Result<(), CliError> {
+	run_with(cli, HotkeyFeed::off("not started"), w).await
+}
+
+/// Run a parsed command line. `hotkeys` is what `main` got from starting the
+/// platform backend on the main thread; only `hotkey` and `tui` use it.
+pub async fn run_with(cli: Cli, hotkeys: HotkeyFeed, w: &mut dyn Write) -> Result<(), CliError> {
 	let mut out = Out::new(cli.global.json, w);
 	match cli.command {
 		Command::Daemon(args) => daemon::run(&cli.global, &args).await,
 		Command::Doctor(args) => doctor::run(&cli.global, &args, &mut out).await,
-		Command::Tui => crate::tui::run(&cli.global).await,
+		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
+		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
+		Command::Config(cmd) => config::run(&cli.global, cmd, &mut out).await,
 		command => {
 			let mut client = client::connect(&cli.global).await?;
 			execute(&mut client, command, &mut out).await
@@ -38,7 +55,7 @@ pub async fn run(cli: Cli, w: &mut dyn Write) -> Result<(), CliError> {
 }
 
 /// Run a command that needs a connected client.
-pub async fn execute<C: Control + Subscribe>(
+pub async fn execute<C: Control + Subscribe + Manage>(
 	client: &mut C,
 	command: Command,
 	out: &mut Out<'_>,
@@ -63,7 +80,15 @@ pub async fn execute<C: Control + Subscribe>(
 		Command::Profile(cmd) => controls::profile(client, cmd, out).await,
 		Command::Trust(cmd) => trust::run(client, cmd, out).await,
 		Command::MicTest(args) => mic_test::run(client, &args, out).await,
-		Command::Daemon(_) | Command::Doctor(_) | Command::Tui => Err(CliError::Usage(
+		Command::Address(args) => address::run(client, &args, out).await,
+		Command::Privacy(cmd) => privacy::run(client, cmd, out).await,
+		Command::Channel(cmd) => channel::run(client, cmd, out).await,
+		Command::Avatar(cmd) => avatar::run(client, cmd, out).await,
+		Command::Daemon(_)
+		| Command::Doctor(_)
+		| Command::Tui(_)
+		| Command::Hotkey(_)
+		| Command::Config(_) => Err(CliError::Usage(
 			"this command manages its own connection".into(),
 		)),
 	}

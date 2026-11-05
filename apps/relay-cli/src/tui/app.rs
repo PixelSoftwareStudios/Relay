@@ -7,13 +7,14 @@ use std::time::Duration;
 use crossterm::event::{self, Event};
 use ratatui::Terminal;
 use ratatui::backend::Backend;
-use tokio::sync::mpsc;
+use tokio::sync::{mpsc, oneshot};
 
 use super::keys::{self, TuiCommand};
 use super::model::Model;
 use super::{exec, view};
 use crate::cli::{CliError, GlobalArgs};
-use crate::client::{self, Control, Update};
+use crate::client::{self, Control, RealClient, Update};
+use crate::hotkey::{HotkeyFeed, HotkeyReport, HotkeyUpdate, run_against_engine};
 
 /// Interval of the push-to-talk lease renewal and periodic redraw.
 const TICK: Duration = Duration::from_millis(100);
@@ -76,7 +77,7 @@ async fn run_command<C: Control>(client: &mut C, model: &mut Model, command: Tui
 }
 
 /// `relay tui`: connect, subscribe and run the interactive UI.
-pub async fn run(global: &GlobalArgs) -> Result<(), CliError> {
+pub async fn run(global: &GlobalArgs, hotkeys: HotkeyFeed) -> Result<(), CliError> {
 	let mut client = client::connect(global).await?;
 	let state_client = client.duplicate().await?;
 	let telemetry_client = client.duplicate().await?;
@@ -88,16 +89,18 @@ pub async fn run(global: &GlobalArgs) -> Result<(), CliError> {
 	));
 	tokio::spawn(client::run_telemetry_feed(
 		telemetry_client,
-		update_tx,
+		update_tx.clone(),
 		METERS_HZ,
 		RETRY * 2,
 	));
+
+	let (stop_hotkey, hotkey_task) = start_hotkey(&client, hotkeys, update_tx.clone()).await;
 
 	let (event_tx, mut events) = mpsc::channel(64);
 	let stop = Arc::new(AtomicBool::new(false));
 	let reader = spawn_key_reader(event_tx, Arc::clone(&stop));
 
-	let mut model = Model::new(client.info().capabilities.clone());
+	let mut model = Model::new();
 	let mut terminal = ratatui::init();
 	let result = drive(
 		&mut terminal,
@@ -108,6 +111,11 @@ pub async fn run(global: &GlobalArgs) -> Result<(), CliError> {
 	)
 	.await;
 	ratatui::restore();
+	let _ = stop_hotkey.send(());
+	if let Some(task) = hotkey_task {
+		// The driver releases push-to-talk before it returns.
+		let _ = tokio::time::timeout(Duration::from_secs(1), task).await;
+	}
 	stop.store(true, Ordering::Relaxed);
 	let _ = reader.join();
 	result
@@ -131,4 +139,47 @@ fn spawn_key_reader(tx: mpsc::Sender<Event>, stop: Arc<AtomicBool>) -> std::thre
 			}
 		}
 	})
+}
+
+/// Report the hotkey state to the UI and, when keys are flowing, drive push-to-talk
+/// on its own engine connection until the returned sender fires.
+async fn start_hotkey(
+	client: &RealClient,
+	feed: HotkeyFeed,
+	updates: mpsc::Sender<Update>,
+) -> (oneshot::Sender<()>, Option<tokio::task::JoinHandle<()>>) {
+	let (stop_tx, stop_rx) = oneshot::channel();
+	let report = |r| Update::Hotkey(HotkeyUpdate::Report(r));
+	let _ = updates.send(report(feed.report.clone())).await;
+	let Some(keys) = feed.stream else {
+		return (stop_tx, None);
+	};
+	let mut engine = match client.duplicate().await {
+		Ok(engine) => engine,
+		Err(err) => {
+			let failed = HotkeyReport::Failed {
+				backend: "hotkey".into(),
+				reason: err.to_string(),
+			};
+			let _ = updates.send(report(failed)).await;
+			return (stop_tx, None);
+		}
+	};
+	let task = tokio::spawn(async move {
+		let sender = updates.clone();
+		let notify = move |u| {
+			let _ = sender.try_send(Update::Hotkey(u));
+		};
+		let stop = async {
+			let _ = stop_rx.await;
+		};
+		if let Err(err) = run_against_engine(&mut engine, keys, notify, stop).await {
+			let failed = HotkeyReport::Failed {
+				backend: "hotkey".into(),
+				reason: err.to_string(),
+			};
+			let _ = updates.send(report(failed)).await;
+		}
+	});
+	(stop_tx, Some(task))
 }

@@ -4,8 +4,11 @@ use relay_api::WatchItem;
 use relay_api::pb::state_event::Event;
 use relay_api::pb::{Call, Device, OperationState, Peer, Problem, Snapshot, TelemetrySnapshot};
 
+use relay_platform::ptt::PttState;
+
 use crate::client::{ConnectionState, Update};
 use crate::commands::names;
+use crate::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
 
 /// Top-level screens.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,22 +49,18 @@ pub enum Prompt {
 	},
 }
 
-/// Whether global hotkeys are provided by the engine side.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum HotkeyBackend {
-	/// The engine advertises a global hotkey backend.
-	Global,
-	/// Only keys pressed in this terminal work.
-	TerminalOnly,
-}
-
 /// Everything the screens render.
 #[derive(Debug)]
 pub struct Model {
 	pub snapshot: Snapshot,
 	pub synced: bool,
 	pub connection: ConnectionState,
-	pub capabilities: Vec<String>,
+	/// Honest state of the global push-to-talk hotkey.
+	pub hotkey: HotkeyReport,
+	/// What the hotkey's push-to-talk driver is doing.
+	pub ptt: PttState,
+	/// Which call the hotkey controls.
+	pub ptt_target: Option<TargetStatus>,
 	pub tab: Tab,
 	pub selected: [usize; 4],
 	pub telemetry: Option<TelemetrySnapshot>,
@@ -72,14 +71,22 @@ pub struct Model {
 	pub quit: bool,
 }
 
+impl Default for Model {
+	fn default() -> Self {
+		Self::new()
+	}
+}
+
 impl Model {
 	/// An empty model waiting for the first snapshot.
-	pub fn new(capabilities: Vec<String>) -> Self {
+	pub fn new() -> Self {
 		Self {
 			snapshot: Snapshot::default(),
 			synced: false,
 			connection: ConnectionState::Lost("connecting".into()),
-			capabilities,
+			hotkey: HotkeyReport::Disabled("not started".into()),
+			ptt: PttState::Idle,
+			ptt_target: None,
 			tab: Tab::Peers,
 			selected: [0; 4],
 			telemetry: None,
@@ -106,15 +113,6 @@ impl Model {
 			.iter()
 			.find(|p| p.peer_id == peer_id)
 			.map_or_else(|| names::short_id(peer_id), |p| p.display_name.clone())
-	}
-
-	/// Hotkey backend status derived from the engine's advertised capabilities.
-	pub fn hotkey_backend(&self) -> HotkeyBackend {
-		if self.capabilities.iter().any(|c| c == "global-hotkeys") {
-			HotkeyBackend::Global
-		} else {
-			HotkeyBackend::TerminalOnly
-		}
 	}
 
 	/// Number of rows in the current tab's list.
@@ -170,6 +168,11 @@ impl Model {
 		match update {
 			Update::Connection(state) => self.connection = state,
 			Update::Telemetry(sample) => self.telemetry = Some(sample),
+			Update::Hotkey(update) => match update {
+				HotkeyUpdate::Report(report) => self.hotkey = report,
+				HotkeyUpdate::Ptt(state) => self.ptt = state,
+				HotkeyUpdate::Target(target) => self.ptt_target = Some(target),
+			},
 			Update::State(item) => match *item {
 				WatchItem::Snapshot(snapshot) => {
 					self.snapshot = snapshot;
