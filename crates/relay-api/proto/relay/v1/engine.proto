@@ -215,6 +215,7 @@ message StateEvent {
     Operation operation = 5;
     Removed removed = 6;
     Problem warning = 7;
+    ChannelInfo channel = 8;
   }
 }
 message StateEnvelope {
@@ -385,8 +386,9 @@ message CreateInviteRequest {
   uint32 uses = 4;
 }
 message CreateInviteResponse {
-  string invite = 1; // secret
+  string invite = 1; // secret; empty when the operation failed
   uint64 expires_unix = 2;
+  Operation operation = 3; // FAILED with CHANNEL_DENIED etc. when no invite was made
 }
 message RevokeChannelMemberRequest {
   MutationContext context = 1;
@@ -406,9 +408,9 @@ message AvatarImage {
   bytes image = 2; // encoded image file; format given by media_type
   uint32 width = 3;
   uint32 height = 4;
+  string media_type = 5; // always "image/webp" (lossless) today
 }
 
-  string media_type = 5; // always "image/webp" (lossless) today
 // What a remote user needs to reach this device.
 message ConnectionInfo {
   repeated string local_addresses = 1; // eligible LAN IPs, no port

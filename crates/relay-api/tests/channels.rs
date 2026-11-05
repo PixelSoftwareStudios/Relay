@@ -180,6 +180,7 @@ fn secrets_never_appear_in_debug_output() {
 	let resp = CreateInviteResponse {
 		invite: "RLYI1-topsecret".into(),
 		expires_unix: 1,
+		..Default::default()
 	};
 	for text in [
 		format!("{create:?}"),

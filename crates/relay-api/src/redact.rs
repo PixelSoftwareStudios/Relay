@@ -35,6 +35,7 @@ impl fmt::Debug for CreateInviteResponse {
 		f.debug_struct("CreateInviteResponse")
 			.field("invite", &REDACTED)
 			.field("expires_unix", &self.expires_unix)
+			.field("operation", &self.operation)
 			.finish()
 	}
 }
