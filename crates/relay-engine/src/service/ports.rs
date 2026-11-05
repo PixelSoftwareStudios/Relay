@@ -158,6 +158,10 @@ pub trait MediaControl: Send + Sync {
 	fn stop_media(&self, call: CallId, session: SessionId);
 	/// Updates the receive mix of a call.
 	fn set_receive_mix(&self, mix: ReceiveMix);
+	/// Sets the microphone gain (finite, 0.0 to 4.0).
+	fn set_microphone_gain(&self, _gain: f32) -> Result<(), PortError> {
+		Err(PortError::Unsupported("microphone gain"))
+	}
 	/// Selects a noise suppression backend.
 	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError>;
 	/// Starts a microphone test, optionally with local playback.
@@ -173,7 +177,8 @@ pub trait PeerControl: Send + Sync {
 	fn ensure_link(&self, peer: PeerId) -> Result<(), PortError>;
 	/// Sends a signaling message over an up link.
 	fn send(&self, peer: PeerId, message: PeerMessage) -> Result<(), PortError>;
-	/// Turns a manual `ip:port` into a peer identity (may need a handshake).
+	/// Turns a manual `ip:port` into a peer identity. May block on a
+	/// handshake: the service calls it from a blocking thread, never the actor.
 	fn resolve_address(&self, address: &str) -> Result<PeerId, PortError>;
 	/// Currently known peers.
 	fn peers(&self) -> Vec<PeerInfo>;
