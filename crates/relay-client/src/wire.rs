@@ -38,7 +38,7 @@ pub async fn connect_registered(
 pub fn mutation(client: &RelayClient) -> Result<MutationContext, ApiError> {
 	Ok(MutationContext {
 		client: Some(client.context().ok_or(ApiError::NotRegistered)?),
-		operation_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
+		operation_id: relay_io::entropy::random_bytes::<16>().to_vec(),
 		expected_revision: None,
 	})
 }

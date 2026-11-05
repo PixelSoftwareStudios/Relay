@@ -15,9 +15,10 @@ doctest = false
 [dependencies]
 relay-api.workspace = true
 relay-io.workspace = true
+subtle.workspace = true
 tokio.workspace = true
 tonic.workspace = true
-uuid.workspace = true
+zeroize = { workspace = true, features = ["derive"] }
 
 [dev-dependencies]
 hex.workspace = true

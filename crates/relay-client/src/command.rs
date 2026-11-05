@@ -4,10 +4,13 @@
 use std::fmt;
 
 use relay_api::pb::{AdvertMode, InboundPolicy, TransmitMode, TrustState};
+use subtle::ConstantTimeEq;
+use zeroize::{Zeroize, ZeroizeOnDrop};
 
 /// A secret string (channel password, invite token). `Debug` never prints it,
-/// so commands can be logged or stored in view models without leaking.
-#[derive(Clone, PartialEq, Eq)]
+/// so commands can be logged or stored in view models without leaking. The text
+/// is zeroed on drop and compared in constant time.
+#[derive(Clone, Zeroize, ZeroizeOnDrop)]
 pub struct Secret(String);
 
 impl Secret {
@@ -20,7 +23,20 @@ impl Secret {
 	pub fn expose(&self) -> &str {
 		&self.0
 	}
+
+	/// Whether nothing was entered.
+	pub fn is_empty(&self) -> bool {
+		self.0.is_empty()
+	}
 }
+
+impl PartialEq for Secret {
+	fn eq(&self, other: &Self) -> bool {
+		self.0.as_bytes().ct_eq(other.0.as_bytes()).into()
+	}
+}
+
+impl Eq for Secret {}
 
 impl fmt::Debug for Secret {
 	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
