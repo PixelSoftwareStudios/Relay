@@ -319,7 +319,24 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   buffer, `CallDecoder` (decode / PLC with fade), mixer slot, `RenderSink`.
 - Drift: `RenderSink` feeds `DriftEstimator` the playback FIFO fill in device samples every
   500 ms and applies the correction (sign inverted, since the FIFO is the resampler's output)
-  to the output resampler. Tested by simulation only (`media_sink`).
+  to the output resampler. The estimator thresholds are scaled to the device rate. The fill
+  target is `max(20 ms, 1.5 x the largest device callback seen + half a frame)` (the callback
+  publishes it with a relaxed `fetch_max`), and a fill that stays more than half a callback plus
+  half a frame above target for 200 ms sheds one frame at a time. Simulation only
+  (`media_sink`, `media_sink_adapt`); no device was measured.
+- Send gate (RT-02): a frame is sent only if the gate was open at the start of its poll and at
+  the previous poll, the worker was not late by more than 20 ms, and its audio is not older than
+  the last unclean poll (plus conversion and suppressor delay). A press therefore costs about
+  one poll (2 ms) of onset and a stall drops its backlog rather than sending it late. Residual:
+  a close and re-open of the gate inside one poll interval cannot be seen by polling; closing
+  that needs an open epoch in `GateSnapshot` (relay-core), not done.
+- Supervision (RT-01): both workers run under `media/supervise.rs`. A panicking step is caught,
+  the worker is reset (capture: stream dropped, suppressor replaced by pass-through, domain told
+  `CaptureLost`; render: the call being rendered is removed), `MediaEvent::WorkerFailed` is
+  emitted and the daemon shows `MEDIA_WORKER_FAILED`. The fourth panic within 60 s is final.
+  A watchdog reports a worker with no heartbeat for 3 s. Idle workers sleep 500 ms and are woken
+  by their command queue. The UDP send is `try_send_to`: a full socket buffer drops the packet
+  and counts it (`SendStats::send_dropped`).
 - Devices: selection is explicit; the microphone has no default fallback. A lost device
   makes the worker drop the stream and send `CaptureLost` (or `OutputLost`); the domain closes
   the gate, and only `ResumeCapture` opens a device again.
@@ -344,28 +361,28 @@ microphone loss.
 
 - Real hardware: all audio tests use fake devices; nothing here measures latency, wake-up
   jitter, glitch rate or CPU, and the worker timing and admission defaults are unvalidated.
-- No steady-state allocation guarantee end to end: relay-net allocates the sealed datagram
-  (send) and the payload `Vec` (receive) per packet, and the UDP send is driven with
-  `Handle::block_on` from the capture thread. Codec, jitter buffer, mixer and RTP
-  packetization use preallocated buffers.
-- Session lifetime (review F-15): a control session hard-stops after 24 h (`SealError::Exhausted`),
-  which drops the link and redials with a new handshake. `PeerMedia` binds the session it was
-  created with and is not rebuilt, so a call that spans that reconnect keeps sealing with the
-  dead session; the media-side rebuild (and `needs_rekey` wiring) is not done and is a known
-  limit of 24 h calls.
-- `early_ready` in `media/system_calls.rs` is still a 16-entry table without aging; peers now
-  only forward MediaReady for calls the sender owns and at 16 per 10 s, which bounds but does
-  not remove the review F-05 (b) scenario.
-- A link replaced by election after media was bound keeps its media endpoint on the old
-  session (no `switch_epoch` wiring); elections normally finish before any call starts.
+- Allocation: the audio crate, codec, jitter buffer, mixer, RTP packetization, `RenderSink` and
+  now the relay-net media send/receive path (`seal_audio_into`, `try_send_audio`,
+  `recv_into`) allocate nothing per packet in steady state (`relay-net/tests/media_alloc.rs`,
+  `relay-audio/tests/allocations.rs`). Real cpal threads are still not counted.
+- Session lifetime (review F-15): `media/rekey.rs` compares each peer's link session with the one
+  its media endpoint runs on every 500 ms and, when the link was replaced (24 h hard stop and
+  redial, or an election winner), calls `MediaEndpoint::switch_epoch` on the validated path;
+  the remote does the same independently and a switch that times out is retried. The old epoch
+  is accepted for at most the 2 s overlap. Not done: nothing starts a rekey proactively when
+  `needs_rekey` turns true (it only logs); a new link needs a redial initiated by the peers
+  layer. `tests/media_rekey.rs` replaces the link mid-call between two real engines.
+- Early media negotiation (review F-05 b): `media/early.rs` keeps remote `Ready` messages for
+  calls not yet prepared for 10 s, at most 4 per peer and 16 overall.
+- Real-time (review `docs/reviews/realtime-audio.md`): the cpal `realtime` feature is on and
+  the workers call `relay_audio::priority::promote_current_thread` (macOS QoS user-interactive;
+  Windows/Linux through `audio_thread_priority`, without D-Bus so no rtkit); the outcome is
+  logged, a denial is not an error. None of it has been measured on Windows or Linux. The
+  Windows 15.6 ms timer tick is not raised, so a 2 ms capture poll may stretch there; macOS
+  App Nap assertions are not taken. Not measured: any wake jitter, in either direction.
 - `prepare_media` failures after admission (no link, socket bind, playback open) log and retire the
   call without a completion event; the domain's path timeout ends it.
 - `resolve_address` answers from known addresses only; an unknown one starts a background dial
   and reports `Unavailable`. A discovered device has no `PeerId` until its first handshake, so
   `PeerControl::peers()` lists only peers with a known key.
-- Microphone test, microphone gain and non-`off` noise suppression return `Unsupported`.
-- `relay-audio`'s `StreamResampler` is bypassed when device and internal rates are both 48 kHz
-  and then ignores drift correction, so the drift loop only acts on devices running at another
-  rate; a 48 kHz device with a drifting clock is uncorrected until the resampler can run
-  in-place. `media_sink` simulates a 44.1 kHz device for that reason.
 - Avatar bulk-priority is by construction (biased writer); no timing test exists.

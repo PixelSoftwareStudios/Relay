@@ -36,6 +36,12 @@ indices stay exact; playback underflow outputs silence and never replays.
 resampler, codec, mixer, capture chain and a full fake-device loopback step and
 asserts zero steady-state allocations.
 
+Worker threads are promoted by `priority::promote_current_thread` (macOS QoS user-interactive;
+Windows and Linux via `audio_thread_priority`, without D-Bus/rtkit). cpal's `realtime`
+feature is enabled; a refused promotion arrives as `ErrorKind::RealtimeDenied`, is recorded in
+`StreamHealth::realtime_denied` and never pauses the stream. The playback callback publishes its
+largest buffer (`PlaybackShared::max_callback_frames`) with a relaxed `fetch_max`.
+
 ## Timeline and mute
 
 Capture indices count source samples including muted or lost spans. A mute or
@@ -149,6 +155,8 @@ cross-correlation, per-frame timing, CPU time, and a paced worker-thread test.
 - Long-run (hours) capture/playback on real hardware: not run.
 - Callback allocation count on real cpal threads: only the fake-device path is
   proven.
+- Effect of the thread promotion on any OS (wake jitter, glitches), Windows timer resolution,
+  and which callback sizes real Bluetooth/USB/HDMI devices negotiate: not run.
 - Unplug/replug, sleep/resume, Bluetooth and USB-clock-drift acceptance cases:
   not run.
 - Mouth-to-ear latency, worker p99 under load, and any suppressor qualification

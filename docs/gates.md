@@ -47,6 +47,17 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | One-hour loopback and device-removal recovery on qualified hardware | unmet-needs-hardware | Not run. Needs the run recorded with device models, OS and backend. |
 | Measured latency distribution and failure counts, noise suppression off baseline | unmet-needs-hardware | Only stage microbenchmarks exist (`docs/evidence.md`); no mouth-to-ear or round-trip fixture. |
 
+### Real-time audio review (docs/reviews/realtime-audio.md)
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Audio captured before the gate opened is never sent (RT-02), including after a worker stall | met-by-test | relay-engine `media_arming` (four tests, including `a_press_during_a_worker_stall_does_not_release_the_backlog` on the real capture worker). Residual: a close/re-open inside one 2 ms poll interval is not detectable without a gate epoch from relay-core. |
+| A panicking or hung media worker is contained and reported (RT-01) | met-by-test | relay-engine `media_supervision` (panicking suppressor, restart limit, watchdog). Render-worker panics are covered through the shared supervisor, not with a panicking decoder. |
+| Worker priority promotion (RT-03) | unmet-needs-hardware | Implemented (`relay-audio::priority`, cpal `realtime`); relay-audio `priority` only checks that the call reports an outcome. No wake-jitter or glitch measurement on any OS; Windows and Linux paths compile-reviewed only. |
+| No per-packet allocation in relay-net send/receive (RT-10) | met-by-test | relay-net `media_alloc`. |
+| UDP send never blocks the capture thread (RT-04) | simulated | `try_send_audio` plus `media_capture_faults::a_full_socket_buffer_drops_the_packet_and_counts_it`; a congested real socket was not provoked. |
+| Playout target follows the device callback size and a stall is shed (RT-06, RT-07) | simulated | relay-engine `media_sink_adapt` (event-ordered simulation, exact clocks). No device measured. |
+
 ### WP-03 Opus, RTP, jitter, drift
 
 | Gate | Status | Evidence / what is needed |
