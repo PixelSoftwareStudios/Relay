@@ -1,0 +1,30 @@
+# EXPERIMENTAL feasibility spike. Not a member of the root workspace (own
+# [workspace] table, own Cargo.lock). See docs/android.md.
+[package]
+name = "relay-android"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[workspace]
+
+[lib]
+name = "relay_android"
+crate-type = ["cdylib"]
+
+[dependencies]
+relay-ui = { path = "../../crates/relay-ui" }
+egui = { version = "0.37.0", default-features = false }
+eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "android-native-activity"] }
+tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync", "time", "macros"] }
+log = "0.4"
+relay-engine = { path = "../../crates/relay-engine", optional = true }
+relay-config = { path = "../../crates/relay-config", optional = true }
+
+[features]
+engine = ["dep:relay-engine", "dep:relay-config"]
+
+[target.'cfg(target_os = "android")'.dependencies]
+android-activity = { version = "0.6", features = ["native-activity"] }
+android_logger = "0.15"
