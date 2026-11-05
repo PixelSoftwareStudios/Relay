@@ -34,7 +34,7 @@ relay talk on|off|ptt [--call C] [--consent]
 relay devices list | select [--input X] [--output Y]
 relay ns set <backend>
 relay profile set --name <n>
-relay trust list | verify <peer> --fingerprint <hex> | forget <peer>
+relay trust list | verify <peer> --fingerprint <hex> | forget <fingerprint-prefix|name>
 relay mic-test [--seconds N] [--local-playback --accept-feedback]
 relay doctor [--bundle FILE]
 relay address [--copy]                 connection string others use to call you
@@ -45,7 +45,9 @@ relay channel join <name|id> [--password|--password-stdin|--invite|--invite-stdi
 relay channel leave|invite|revoke <channel> ...   (invite: --ttl-seconds, --uses; revoke: <fingerprint>)
 relay channel list
 relay config get [key] | set <key> <value> | export [file] | import <file>
-relay avatar set <file.png|jpg> | clear
+relay avatar set <file> | clear        png, jpg, webp, gif, bmp or tiff
+relay completions <shell>              bash, zsh, fish, elvish, powershell
+relay man [--dir DIR]                  man page to stdout, or one page per command into DIR
 relay messages send <text|->  [--call C]     text into a call session ('-' reads stdin)
 relay messages watch | log [--since N] [--limit N] | search <q>
 relay messages pin|unpin <msg> | clear [--yes] | export [--out FILE] [--embed-images]
@@ -66,17 +68,22 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 ### Consent and safety
 - `talk on` and `talk ptt` fail locally (exit 2, no request sent) without `--consent`; the flag becomes `explicit_microphone_consent`. `talk off` is always allowed.
 - `mic-test --accept-feedback` requires `--local-playback`.
-- `trust verify` needs the 64-hex SHA-256 the user compared out of band (`:` and `-` separators are fine); it sends `out_of_band_verified = true`. `forget` sends `UNKNOWN` with no key hash.
+- `trust verify` needs the 64-hex SHA-256 the user compared out of band (`:` and `-` separators are fine); it sends `out_of_band_verified = true`. `forget` uses `ForgetPeer`: the argument is a hex fingerprint prefix (at least 8 digits; `:`, `-`, spaces and case are ignored, so the short form from `trust list` or its first groups work) or an exact, case-insensitive display name, tried in that order. An unknown or ambiguous argument is exit 5; ambiguity prints the candidates with their short fingerprints and changes nothing. `trust list` and `peers` show each peer's short fingerprint (`A1B2-C3D4-E5F6-0718-293A`, a hint to tell devices apart, never a verification string).
 - Call-scoped mutations first acquire the controller lease (`--takeover` sets `request_explicit_takeover`) and send its generation. Leases are not released explicitly; they expire.
 
 ### Connection strings, privacy, channels, avatar
 - `relay address` prints only the engine's connection string (pipeable); `--json` adds addresses, port and fingerprint. `--copy` uses `arboard` (text only, no image codecs). If the clipboard is unavailable the string is still printed and the command exits 1 with the reason; on X11 clipboard text may vanish when `relay` exits unless a clipboard manager runs.
 - `relay call relay://...` is checked locally with `relay_net::connect::ConnectionString` (scheme, 64-hex fingerprint, literal LAN address, no credentials or path) before anything is sent; failures exit 2. The local check admits overlay (100.64.0.0/10) addresses because the engine holds the opt-in and decides.
 - Channel passwords and invite tokens are never argv: flags are booleans that select a hidden terminal prompt (`rpassword`) or one line of stdin. `create --password` asks twice. Secrets have a redacted `Debug`, are zeroed on drop, never appear in output, errors or logs; the only secret printed is a freshly minted invite (bare token in text mode), which is the command's purpose. Channels are matched by exact name, id or unique prefix; `join` also accepts a 32-hex id.
-- `avatar set` accepts `.png`, `.jpg`, `.jpeg` up to 1 MiB (the engine decodes and validates). `avatar clear` exits 4 with code `unsupported`: the API has no clear operation.
+- `avatar set` accepts PNG, JPEG, WebP, GIF, BMP or TIFF up to 1 MiB and 2048x2048, recognised from the file's bytes (the extension is ignored), and refuses locally (exit 2) with the engine's own wording (`avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)`, `avatar rejected: unsupported or unrecognised image format ...`, `avatar rejected: avatar dimensions WxH exceed the 2048 pixel limit`); the engine stays the authority. `avatar clear` calls `ClearAvatar` (idempotent; trusted peers are sent an empty avatar hash).
 
 ### Settings (`relay config`)
-`get` and `export` read the database without the settings lock, so they work next to a running engine. `set`: with an engine reachable, only settings it can change live are routed through it (`profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `ptt.release_delay_ms`, `privacy.inbound_policy`, `privacy.advert_mode`, `audio.ringtone_enabled`, `audio.ringtone_volume`, `audio.ringback_enabled`, `audio.call_sounds_enabled`; for example `relay config set audio.ringtone_volume 0.5` changes a ring that is playing); anything else exits 2 naming those keys. With no engine, `set` and `import` take the writer lock themselves; a held lock is reported as "locked by another process". `import` needs the engine stopped. `export` without a file prints TOML even with `--json`.
+With a daemon running, `set` and `import` send every key through `SetSettings` and print one line per key (`--json`: an array of `{key, outcome, reason}`): `applied live`, `saved, needs restart (reason)` (read at the next start, for example `network.*`, `hotkeys.*`, `audio.input_*`), or `rejected: <reason>` (unknown key, bad value, out of range). Valid keys are saved even when others are rejected; any rejected key makes the command exit 4 after the report. Only the security-sensitive keys (`identity.*`, `diagnostics.record_raw_audio`, `network.allow_wan`, `network.allow_overlay_manual`) need the daemon stopped: the daemon refuses them over the API, the CLI reports them as `rejected: security-sensitive: change it with the daemon stopped` and still sends the rest (a sensitive key given its current value is a no-op). `import` parses and validates the file locally, then sends only the keys that differ from the daemon's `GetSettings`. With no daemon, `set` and `import` take the writer lock themselves (a held lock is reported as "locked by another process") and `set` prints the stored value.
+
+`get` and `export` ask a running daemon for the live values (`GetSettings`) and otherwise read the database without the settings lock. `export` is the same TOML either way and without a file prints TOML even with `--json`.
+
+### Completions and man page
+`relay completions <shell>` prints a completion script (bash, zsh, fish, elvish, powershell; `clap_complete`). `relay man` prints the `relay(1)` page to stdout; `relay man --dir DIR` writes `relay.1` and one page per subcommand (`relay-trust.1`, ...) into `DIR` (`clap_mangen`). Neither connects to the daemon.
 
 ### Session messaging (`relay messages`)
 
@@ -115,7 +122,7 @@ Text by default. With `--json`, stdout is exactly one JSON value per command (ar
 
 ## Auto-start, presence and ownership
 
-Every command that needs the engine starts `relayd` when none answers (`relay_client::daemon::ensure_running`, which holds a cross-process start lock so concurrent commands start one daemon), prints one line on stderr (never stdout, so `--json` stays clean) and goes on. The line says that the daemon opens no microphone and that the device advertises on the LAN while a client is attached, by default with its name (privacy default `visible`; `relay privacy` hides it). `--no-autostart` or `RELAY_NO_AUTOSTART=1` turns it off, as does the stored `clients.autostart_daemon` preference (changed in the desktop Settings; the CLI has no setter); then an unreachable daemon is exit 3. Never started: `daemon stop|status|logs`, `hotkey status`, `config get|export`, `doctor`. After `daemon stop` the same process never starts one again. A daemon started this way exits after 300 s with no attached client and no call (`--idle-exit`, `RELAY_IDLE_EXIT_SECS`); `relay daemon start` has no idle exit.
+Every command that needs the engine starts `relayd` when none answers (`relay_client::daemon::ensure_running`, which holds a cross-process start lock so concurrent commands start one daemon), prints one line on stderr (never stdout, so `--json` stays clean) and goes on. The line says that the daemon opens no microphone and that the device advertises on the LAN while a client is attached, by default with its name (privacy default `visible`; `relay privacy` hides it). `--no-autostart` or `RELAY_NO_AUTOSTART=1` turns it off, as does the stored `clients.autostart_daemon` preference (changed in the desktop Settings; the CLI has no setter); then an unreachable daemon is exit 3. Never started: `daemon stop|status|logs`, `hotkey status`, `config get|export` (they use a daemon only if one already answers), `doctor`, `completions`, `man`. After `daemon stop` the same process never starts one again. A daemon started this way exits after 300 s with no attached client and no call (`--idle-exit`, `RELAY_IDLE_EXIT_SECS`); `relay daemon start` has no idle exit.
 
 A daemon with no attached client (no open `WatchState` stream) neither advertises nor rings: a short-lived command such as `relay peers` attaches, so it counts for the second or so it lives (the engine debounces presence by 2 s).
 
@@ -152,7 +159,7 @@ Push-to-talk in the TUI has two paths:
 The platform backend (`relay-platform`) must be created on the process main thread on macOS, and the run loop must be serviced there, so `main` starts the backend, then runs tokio on a worker thread and calls `hotkey::run_main_loop` until the command ends (`host.rs`). The daemon is unaffected. `relay hotkey` prints one line per change (`--json`: one object per line with an `event` tag) until Ctrl-C, which releases transmission.
 
 - `relay hotkey status` probes without starting: backend state, saved binding, lock-detection coverage, and on macOS Accessibility and Input Monitoring status. JSON has `state` = `active|disabled|needs_permission|unsupported|failed`.
-- `relay hotkey set <keys>` validates with the platform parser and saves `hotkeys.push_to_talk` (empty disables). It needs the settings lock, which a running engine holds: it then fails telling you to stop the engine, or use `--binding KEYS` for a single run. There is no engine route for this setting.
+- `relay hotkey set <keys>` validates with the platform parser and saves `hotkeys.push_to_talk` (empty disables). With a daemon running it goes through `SetSettings` and prints `saved, needs restart` (the key is read when `relay hotkey` or the desktop app starts; `--binding KEYS` is for a single run). With none running it takes the settings lock itself; a lock held by another process is reported.
 - The key controls the one `Connected` call: once a second the supervisor takes that call's controller lease (`--takeover` to take it from another client) and rebinds the driver when the call or its route generation changes. No connected call: the key is blocked. Several connected calls: it will not guess (`several calls`). Muting, missing consent and gating still decide whether audio flows; the driver shows `held, engine not transmitting`.
 - Permissions on macOS attach to the terminal app that runs `relay`, not the binary.
 
@@ -174,9 +181,8 @@ dev-dependency (for `tests/real_engine.rs`).
 ## Gaps
 
 - Real key delivery is a manual gate (see `docs/platform.md`): `relay hotkey status` was only exercised on macOS here, and press/release through the OS was not.
-- `hotkeys.push_to_talk` cannot be saved while the engine runs (no API route for arbitrary settings); same for `config import` and for any setting outside the live list.
-- `avatar clear` is unsupported by the API. Channel and privacy RPCs depend on the engine; at the time of writing the engine answered some of them `UNIMPLEMENTED`, and the CLI reports that as a rejection (exit 4).
+- `hotkeys.push_to_talk` can be set while the engine runs, but it is read when `relay hotkey` or the desktop app starts (`saved, needs restart`). Channel and privacy RPCs depend on the engine; an `UNIMPLEMENTED` answer is reported as a rejection (exit 4).
 - `relay-client` is being extended with channel and privacy commands by another change; this app calls the generated RPCs for them in `client/manage.rs` and should move to the shared vocabulary once that lands.
-- `trust verify` requires the user to supply the fingerprint because the API's `Peer` carries no key hash; the engine does not accept `UNKNOWN` from clients, so `trust forget` is rejected by it.
+- `trust verify` requires the user to supply the full fingerprint: `Peer` carries only the short form, which is a hint and not enough to verify.
 - No Windows named-pipe endpoint (API gate); on Windows only `--tcp-profile` works.
 - `doctor` cannot report preference-recovery notices (needs the writer lock) and passes no log lines or counters beyond peer/call counts.

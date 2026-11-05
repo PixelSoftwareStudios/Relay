@@ -8,7 +8,7 @@
 | Lints | `cargo clippy -p relay-ui --all-targets --no-deps -- -D warnings` |
 
 ## What lives here
-- Logic, no toolkit: `engine` (port traits), `relay_link` (adapter over `relay-client`), `supervisor`, `apply` / `convert` / `model` (wire to view model), `hub`, `controller` and `channels` (validation), `emitter` (bounded cadence, tray summary), `format`, `viewmodel`, `avatar` (default image, bounded cache), `imaging` (bounded decode), `qr`, `inbox`, `mock`. The engine link stays here (not in `relay-client`) because it implements the UI's `Engine` port; dependency direction is `relay-ui -> relay-client -> relay-api`.
+- Logic, no toolkit: `engine` (port traits), `relay_link` (adapter over `relay-client`), `supervisor`, `apply` / `convert` / `model` (wire to view model), `hub`, `controller` and `channels` (validation), `emitter` (bounded cadence, tray summary), `format`, `viewmodel`, `avatar` (default image, bounded cache), `imaging` (bounded decode, `avatar_check`), `host_options`, `qr`, `inbox`, `mock`. The engine link stays here (not in `relay-client`) because it implements the UI's `Engine` port; dependency direction is `relay-ui -> relay-client -> relay-api`.
 - Shell glue: `shell` (the `Shell` and `FilePicker` traits), `actions` (`Shared`, `ShellSink`, `Actions`), `tasks` (avatar fetch, connection info, invite, picker jobs on the shell's runtime handle).
 - Look and layout: `theme` (colour, spacing and type tokens, light and dark styles; egui's default `ThemePreference::System` follows the OS hint), `layout` (`LayoutClass`, `Page`, touch size).
 - Drawing: `ui/` with `RelayApp`, sections (status, calls and call cards, peers, audio, this app), channels and privacy, connection panel with QR texture, profile, textures (avatar cache), `nav` (bottom bar).
@@ -26,6 +26,7 @@ A shell supplies a tokio `Handle` and an `Arc<dyn Shell>`:
 | `window_visible` | Hint polled once per frame; meters are produced only while true |
 | `show_window`, `hide_window`, `quit` | Window actions; quitting never stops the daemon. Mobile shells may ignore show/hide |
 | `hides_to_tray` | Whether closing hides the window, so the UI can say so |
+| `host_options` | Optional `HostOptions` (call notifications, start at login) drawn in "This app"; `None` on shells without them |
 
 Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Controller`, `Shared`, then `Actions { controller, hub, shared, runtime, shell }`; spawn `emitter::run` with a `ShellSink` and either `supervisor::supervise(RelayLink::new(resolve_endpoint), ..)` or `mock::run`. Per frame call `RelayApp::begin_frame(ctx)` then `RelayApp::ui(ui)`.
 
@@ -33,7 +34,7 @@ Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Cont
 `autostart::AutoStart` (setting, `RELAY_NO_AUTOSTART`, user quit, 3 starts per 60 s, exponential backoff) is pure and tested without a clock; `supervise` takes the `Shell` and `Arc<AutoStart>` (`Shared.autostart`). `Link::Starting` is the honest "starting" state. `Actions::quit_app` hangs up `format::own_live_calls` (calls with `controlled_by_me`, not ended) for up to 2 s before `Shell::quit`; `format::close_note` and `format::quit_prompt` are the texts and name active calls. `Command::SetAutostart` / `Controller::set_autostart` store the preference.
 
 ## Responsive layout
-`LayoutClass::for_width` picks compact below 600 points (phone: one column, bottom navigation with Calls, People, Channels, Settings, 44 point minimum touch targets and a larger body size) and regular otherwise (desktop: one scrolling column of all sections). The class is chosen in `begin_frame` from the content width; the style is reinstalled only when the class changes (one repaint, no per-frame work). Tests in `crates/relay-ui/tests` cover the breakpoint, touch sizes, themes, every compact page, and run whole frames with a fake `Shell` and no window.
+`LayoutClass::for_width` picks compact below 600 points (phone: one column, bottom navigation with Calls, People, Channels, Messages, Settings, 44 point minimum touch targets and a larger body size) and regular otherwise (desktop: one scrolling column of all sections). The class is chosen in `begin_frame` from the content width; the style is reinstalled only when the class changes (one repaint, no per-frame work). Tests in `crates/relay-ui/tests` cover the breakpoint, touch sizes, themes, every compact page, and run whole frames with a fake `Shell` and no window.
 
 ## Rules kept
 - Idle zero repaint: the UI never requests a repaint itself; an idle screen asks for none (tested at phone and desktop widths).
@@ -44,6 +45,9 @@ Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Cont
 - No Android shell exists yet; the touch layout is untested on a device or with a real touch screen. `FilePicker` has no Android implementation (content URIs rather than paths are the expected shape: return the bytes).
 - No on-device or screenshot check of the compact layout; only window-less frames run.
 - The mobile resource gate (CPU, RSS, battery) is unmeasured.
+
+## Profile picture and trust hints
+The picker accepts PNG, JPEG, WebP, GIF, BMP and TIFF by content, 1 MiB, 2048 x 2048, and refuses with the engine's wording (`docs/api.md`, "Avatar refusal texts"). "Discard" drops a pending choice only; "Remove picture" calls `Controller::clear_avatar` (`Command::ClearAvatar`) for the stored one. `Peer.fingerprint_short` (sanitised to hex and dashes, 24 characters) is shown under each peer and on the incoming-call prompt with the trust state, labelled as a way to tell devices apart, not to verify. Preferences the UI edits (display name, ring, release delay, autostart) already change live through their own commands; there is no hotkey panel, so `SetSettings` is not used here.
 
 ## Push-to-talk release delay
 
@@ -60,7 +64,7 @@ Design and daemon contract: `docs/session-messages.md`, `docs/api.md`. Logic is 
 - **Drawing under a lock.** The panel draws while holding the `MsgHub` state lock (transcripts are never cloned) and records `Intent`s, dispatched afterwards by `Actions::dispatch`. Message text, file names and URLs are redacted from `Debug` of every messaging type, `MsgCommand` and `Intent`, and no tracing call includes content (`tests/msg_redaction.rs` greps TRACE output of a full run).
 - **Markdown.** The daemon sends only stored text, so the client parses with `relay_messages::markdown::parse` once when an entry arrives. Bold, italic, inline code, flat lists, fenced code blocks (language label, **Copy** copies `CodeBlock::copy_text` exactly). A link shows the URL, an IDN or mixed-script badge, and clicking only opens a dialog with the real ASCII host, the decoded form, the warning and the full URL; "Open in browser" calls `Shell::open_url` once (`LinkGate`). Nothing opens or loads by itself.
 - **Compose.** Enter sends, Shift+Enter adds a line (`rules::is_plain_enter`), a byte counter against 4096, and when sending is impossible an explanation instead (daemon off, permission off on either side, ended call, history full with **Export JSON** and **Clear** buttons). Failed sends return the draft to the box. **Send clipboard to call** asks the platform for a paste, shows the clipboard size and the destination call name (call id prefix with several calls), has no default with more than one live call, never truncates (over 4096 bytes is refused) and sends only after a button press.
-- **Images.** Only inline images (at most 15 KiB, as the daemon enforces) are decoded: `relay_messages::image::inspect` first (refuses over 16 megapixels), then decode with an allocation limit off the UI thread, scaled to 384 px, textures in a 48-entry LRU (`avatar::TextureCache`; the `lru` crate was not needed).
+- **Images.** Only inline images (at most 15 KiB, as the daemon enforces) are decoded: `relay_messages::image::inspect` first (refuses over 16 megapixels), then decode with an allocation limit off the UI thread, scaled to 384 px, textures in a 48-entry LRU (`avatar::TextureCache`; the `lru` crate was not adopted, see `docs/reviews/dependency-audit.md`).
 - **File offers.** Cards show name, size, type guess, BLAKE3 short form, status and progress, warnings (executable name, large file, over the offer cap, free space needed), and the buttons Download (folder dialog -> `RespondOffer`), Reject, Cancel, Request/Approve/Refuse preview. After the call ends nothing can be downloaded. "Offer file..." sends the absolute path to the daemon, which opens it.
 - **Pins and search** are local: pins go to the daemon as a local flag, search filters the held entries case-insensitively (text, file names, previews).
 - **Honest states:** off (not opted in), connecting, capability denied, daemon unreachable, `messages.enabled = false` (with a button to switch it on), no sessions, call without a session, ended read-only transcript.
