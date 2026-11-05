@@ -9,7 +9,8 @@ mod table;
 use thiserror::Error;
 
 pub use advert::{
-	Advertisement, DiscoveredPeer, FingerprintHint, parse_resolved, sanitize_display_name,
+	AdvertMode, Advertisement, DiscoveredPeer, EXTRA_TXT_MAX, FingerprintHint, parse_resolved,
+	sanitize_display_name,
 };
 pub use interfaces::InterfacePolicy;
 pub use service::{Discovery, DiscoveryEvent};

@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::net::{IpAddr, SocketAddr, SocketAddrV6};
 
 use mdns_sd::{ResolvedService, ScopedIp};
@@ -14,6 +14,11 @@ const INSTANCE_ID_BYTES: usize = 16;
 /// TXT strings are limited to 255 bytes including `n=`.
 const ADVERTISED_NAME_MAX_BYTES: usize = 200;
 const CAPS_MAX_BYTES: usize = 64;
+const RESERVED_KEYS: [&str; 5] = ["v", "n", "id", "fp", "caps"];
+/// Extra TXT entries published, and raw TXT entries retained per discovered peer.
+pub const EXTRA_TXT_MAX: usize = 8;
+const TXT_KEY_MAX_BYTES: usize = 8;
+const TXT_VALUE_MAX_BYTES: usize = 200;
 
 /// Leading bytes of a peer's claimed fingerprint. Only a matching aid: the type is distinct
 /// from [`Fingerprint`] so a hint can never be mistaken for an authenticated identity.
@@ -52,6 +57,19 @@ fn decode_hex<const N: usize>(text: &str) -> Option<[u8; N]> {
 	Some(out)
 }
 
+/// How much identity the record carries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AdvertMode {
+	/// Display name and fingerprint hint are published (the default).
+	#[default]
+	Open,
+	/// Neither the display name nor the fingerprint hint is published, so a LAN observer
+	/// learns neither who the device is nor which channels it is in. Use a rotating
+	/// pseudonymous `instance_id` (`channel::tag::hidden_instance_id`) and re-advertise when
+	/// it changes. The device remains visible as an address; this is not anonymity.
+	Hidden,
+}
+
 /// What the local device publishes. No keys, tokens, paths, call state or avatar bytes.
 #[derive(Debug, Clone)]
 pub struct Advertisement {
@@ -62,6 +80,10 @@ pub struct Advertisement {
 	pub fingerprint: Fingerprint,
 	/// Small capability summary, e.g. `opus-mono-48k-10ms-v1`.
 	pub capabilities: String,
+	pub mode: AdvertMode,
+	/// Additional short TXT entries (e.g. blinded channel tags). Keys are 1 to 8 lowercase
+	/// ASCII letters or digits and must not shadow the core keys; at most 8 entries.
+	pub extra_txt: Vec<(String, String)>,
 }
 
 impl Advertisement {
@@ -75,7 +97,7 @@ impl Advertisement {
 		)
 	}
 
-	pub(super) fn txt(&self) -> Result<HashMap<String, String>, DiscoveryError> {
+	pub fn txt(&self) -> Result<HashMap<String, String>, DiscoveryError> {
 		if self.port == 0 {
 			return Err(DiscoveryError::Advertisement("port must be non-zero"));
 		}
@@ -84,13 +106,11 @@ impl Advertisement {
 				"capability summary must be short ASCII",
 			));
 		}
-		let name = truncate(
-			&sanitize_display_name(&self.display_name),
-			ADVERTISED_NAME_MAX_BYTES,
-		);
-		Ok(HashMap::from([
+		if self.extra_txt.len() > EXTRA_TXT_MAX {
+			return Err(DiscoveryError::Advertisement("too many extra TXT entries"));
+		}
+		let mut map = HashMap::from([
 			("v".to_owned(), PROTOCOL_MAJOR.to_string()),
-			("n".to_owned(), name),
 			(
 				"id".to_owned(),
 				self.instance_id
@@ -98,12 +118,35 @@ impl Advertisement {
 					.map(|b| format!("{b:02x}"))
 					.collect(),
 			),
-			(
+			("caps".to_owned(), self.capabilities.clone()),
+		]);
+		if self.mode == AdvertMode::Open {
+			map.insert(
+				"n".to_owned(),
+				truncate(
+					&sanitize_display_name(&self.display_name),
+					ADVERTISED_NAME_MAX_BYTES,
+				),
+			);
+			map.insert(
 				"fp".to_owned(),
 				FingerprintHint::of(&self.fingerprint).to_hex(),
-			),
-			("caps".to_owned(), self.capabilities.clone()),
-		]))
+			);
+		}
+		for (key, value) in &self.extra_txt {
+			let key_ok = (1..=TXT_KEY_MAX_BYTES).contains(&key.len())
+				&& key
+					.bytes()
+					.all(|b| b.is_ascii_lowercase() || b.is_ascii_digit())
+				&& !RESERVED_KEYS.contains(&key.as_str());
+			if !key_ok || value.len() > TXT_VALUE_MAX_BYTES || !value.is_ascii() {
+				return Err(DiscoveryError::Advertisement("invalid extra TXT entry"));
+			}
+			if map.insert(key.clone(), value.clone()).is_some() {
+				return Err(DiscoveryError::Advertisement("duplicate TXT key"));
+			}
+		}
+		Ok(map)
 	}
 }
 
@@ -117,6 +160,9 @@ pub struct DiscoveredPeer {
 	pub fingerprint_hint: Option<FingerprintHint>,
 	pub capabilities: String,
 	pub addresses: Vec<SocketAddr>,
+	/// Raw TXT entries other than the core keys, bounded and ASCII-only: untrusted input for
+	/// extensions such as channel tags. Never interpreted here.
+	pub txt: BTreeMap<String, String>,
 }
 
 /// Removes control characters, bidi overrides/isolates, zero-width marks and markup
@@ -199,6 +245,18 @@ pub fn parse_resolved(service: &ResolvedService, policy: &AddressPolicy) -> Opti
 		return None;
 	}
 	addresses.sort();
+	let txt = service
+		.txt_properties
+		.iter()
+		.filter(|p| !RESERVED_KEYS.contains(&p.key()))
+		.filter(|p| p.key().len() <= TXT_KEY_MAX_BYTES)
+		.filter_map(|p| {
+			let value = p.val_str();
+			(value.len() <= TXT_VALUE_MAX_BYTES && value.is_ascii())
+				.then(|| (p.key().to_owned(), value.to_owned()))
+		})
+		.take(EXTRA_TXT_MAX)
+		.collect();
 	Some(DiscoveredPeer {
 		fullname: service.fullname.clone(),
 		instance_id,
@@ -206,5 +264,6 @@ pub fn parse_resolved(service: &ResolvedService, policy: &AddressPolicy) -> Opti
 		fingerprint_hint,
 		capabilities,
 		addresses,
+		txt,
 	})
 }

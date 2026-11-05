@@ -4,8 +4,8 @@ use std::net::IpAddr;
 use mdns_sd::{ResolvedService, ServiceInfo};
 use relay_net::AddressPolicy;
 use relay_net::discovery::{
-	Advertisement, DiscoveredPeer, DiscoveryTable, FingerprintHint, InterfacePolicy, SERVICE_TYPE,
-	parse_resolved, sanitize_display_name,
+	AdvertMode, Advertisement, DiscoveredPeer, DiscoveryTable, FingerprintHint, InterfacePolicy,
+	SERVICE_TYPE, parse_resolved, sanitize_display_name,
 };
 use relay_net::identity::Identity;
 
@@ -142,6 +142,7 @@ fn table_is_bounded_and_keyed_by_instance_not_name() {
 		fingerprint_hint: None,
 		capabilities: String::new(),
 		addresses: vec!["192.168.1.1:1".parse().unwrap()],
+		txt: Default::default(),
 	};
 	let mut table = DiscoveryTable::new();
 	table.upsert(mk(0, "Same")).unwrap();
@@ -176,6 +177,8 @@ async fn live_mdns_advertise_and_browse() {
 		port: 4000,
 		fingerprint,
 		capabilities: "opus".into(),
+		mode: Default::default(),
+		extra_txt: Vec::new(),
 	})
 	.unwrap();
 	let browser = Discovery::start(&policy, AddressPolicy::lan_only()).unwrap();
@@ -192,4 +195,84 @@ async fn live_mdns_advertise_and_browse() {
 	.expect("advertisement not seen");
 	assert!(found.fingerprint_hint.unwrap().matches(&fingerprint));
 	host.withdraw().unwrap();
+}
+
+fn advertisement(mode: AdvertMode, extra: &[(&str, &str)]) -> Advertisement {
+	Advertisement {
+		instance_id: [3; 16],
+		display_name: "Alice's laptop".into(),
+		port: 4000,
+		fingerprint: Identity::generate().unwrap().fingerprint(),
+		capabilities: "opus".into(),
+		mode,
+		extra_txt: extra
+			.iter()
+			.map(|(k, v)| ((*k).into(), (*v).into()))
+			.collect(),
+	}
+}
+
+#[test]
+fn hidden_mode_publishes_neither_name_nor_fingerprint_hint() {
+	let open = advertisement(AdvertMode::Open, &[]).txt().unwrap();
+	assert!(open.contains_key("n") && open.contains_key("fp"));
+	let hidden = advertisement(AdvertMode::Hidden, &[("ct", "00ff")])
+		.txt()
+		.unwrap();
+	assert!(!hidden.contains_key("n") && !hidden.contains_key("fp"));
+	assert!(hidden.values().all(|v| !v.contains("Alice")));
+	assert_eq!(hidden["ct"], "00ff");
+}
+
+#[test]
+fn extra_txt_cannot_shadow_core_keys_or_exceed_bounds() {
+	for bad in [
+		("n", "x"),
+		("fp", "x"),
+		("v", "9"),
+		("UPPER", "x"),
+		("", "x"),
+		("toolongkey", "x"),
+		("ok", "é"),
+	] {
+		assert!(
+			advertisement(AdvertMode::Open, &[bad]).txt().is_err(),
+			"{bad:?}"
+		);
+	}
+	assert!(
+		advertisement(AdvertMode::Open, &[("ok", &"x".repeat(201))])
+			.txt()
+			.is_err()
+	);
+	assert!(
+		advertisement(AdvertMode::Open, &[("a", "1"), ("a", "2")])
+			.txt()
+			.is_err()
+	);
+	let many: Vec<(String, String)> = (0..9).map(|i| (format!("k{i}"), "v".into())).collect();
+	let mut ad = advertisement(AdvertMode::Open, &[]);
+	ad.extra_txt = many;
+	assert!(ad.txt().is_err());
+}
+
+#[test]
+fn discovered_peers_expose_bounded_raw_txt_but_not_core_keys() {
+	let record = resolved(
+		&["192.168.1.50".parse().unwrap()],
+		&[
+			("v", "1"),
+			("id", &id_hex()),
+			("ce", "123"),
+			("ct", "00ff00ff00ff00ff"),
+			("junk", &"x".repeat(250)),
+		],
+	);
+	let peer = parse_resolved(&record, &AddressPolicy::lan_only()).unwrap();
+	assert_eq!(peer.txt.get("ce").map(String::as_str), Some("123"));
+	assert!(!peer.txt.contains_key("id") && !peer.txt.contains_key("v"));
+	assert!(
+		!peer.txt.contains_key("junk"),
+		"oversize values are dropped"
+	);
 }

@@ -84,7 +84,7 @@ fn hidden_channels_are_never_named_in_the_txt_record() {
 	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &HIDDEN);
 	let txt = ad.to_txt();
 	assert!(txt.iter().all(|(_, v)| !v.contains("Secret Club")));
-	assert!(txt.iter().all(|(k, _)| k != "chl"));
+	assert!(txt.iter().all(|(k, _)| !k.starts_with("chl")));
 	assert!(txt.iter().all(|(_, v)| v.len() <= 255));
 }
 
@@ -96,18 +96,9 @@ fn listed_channels_advertise_their_name_and_roundtrip() {
 	};
 	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &listed);
 	let txt = ad.to_txt();
-	let get = |k: &str| {
-		txt.iter()
-			.find(|(key, _)| key == k)
-			.map(|(_, v)| v.as_str())
-	};
-	let chl: Vec<&str> = txt
-		.iter()
-		.filter(|(k, _)| k == "chl")
-		.map(|(_, v)| v.as_str())
-		.collect();
-	assert_eq!(chl.len(), 1);
-	let parsed = ChannelAdvert::from_txt(get("ce"), get("ct"), &chl).unwrap();
+	let map: std::collections::BTreeMap<String, String> = txt.iter().cloned().collect();
+	assert!(map.contains_key("chl0"));
+	let parsed = ChannelAdvert::from_map(&map).unwrap();
 	assert_eq!(parsed.tags, ad.tags);
 	assert_eq!(parsed.listed.len(), 1);
 	assert_eq!(parsed.listed[0].name.as_str(), "Secret Club");

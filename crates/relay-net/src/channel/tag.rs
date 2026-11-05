@@ -17,6 +17,7 @@ const PSEUDONYM_DOMAIN: &str = "relay-net 2026 hidden instance id v1";
 const TXT_EPOCH: &str = "ce";
 const TXT_TAGS: &str = "ct";
 const TXT_LISTED: &str = "chl";
+/// Listed entries use keys `chl0`, `chl1`, ... because TXT keys are unique.
 const TXT_VALUE_MAX: usize = 255;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -115,17 +116,29 @@ impl ChannelAdvert {
 		if !self.tags.is_empty() {
 			out.push((TXT_TAGS.to_owned(), hex(self.tags.iter().flat_map(|t| t.0))));
 		}
-		for listed in &self.listed {
+		for (i, listed) in self.listed.iter().enumerate() {
 			let value = format!(
 				"{}:{}",
 				hex(listed.id.as_bytes().iter().copied()),
 				listed.name.as_str()
 			);
 			if value.len() <= TXT_VALUE_MAX {
-				out.push((TXT_LISTED.to_owned(), value));
+				out.push((format!("{TXT_LISTED}{i}"), value));
 			}
 		}
 		out
+	}
+
+	/// Parses the raw TXT map of a discovered peer (`DiscoveredPeer::txt`).
+	pub fn from_map(txt: &std::collections::BTreeMap<String, String>) -> Option<Self> {
+		let listed: Vec<&str> = (0..LISTED_ADVERTISED_MAX)
+			.filter_map(|i| txt.get(&format!("{TXT_LISTED}{i}")).map(String::as_str))
+			.collect();
+		Self::from_txt(
+			txt.get(TXT_EPOCH).map(String::as_str),
+			txt.get(TXT_TAGS).map(String::as_str),
+			&listed,
+		)
 	}
 
 	/// Parses untrusted TXT values. `listed` holds every `chl` value. Malformed pieces are
