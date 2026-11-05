@@ -12,14 +12,14 @@ Living notes for `apps/relay-desktop`: an optional, pure-Rust native window (egu
 | Tests | `cargo test -p relay-desktop` |
 | Lints | `cargo clippy -p relay-desktop --all-targets` |
 
-Dependencies come from `[workspace.dependencies]` (a commented GUI section holds `eframe`, `tray-icon`, `async-trait`). The endpoint is chosen as in the CLI: `RELAY_TCP_PROFILE`, `RELAY_SOCKET`, else the per-user default, re-resolved on every connect attempt.
+Dependencies come from `[workspace.dependencies]` (a commented GUI section holds `eframe`, `tray-icon`, `async-trait`, `qrcode`, `rfd`). The endpoint is chosen as in the CLI: `RELAY_TCP_PROFILE`, `RELAY_SOCKET`, else the per-user default, re-resolved on every connect attempt.
 
 ## Layout
 Logic is kept apart from drawing so it runs window-less in `tests/`.
-- Logic: `engine.rs` (port traits), `relay_link.rs` (adapter over `RelayClient`), `supervisor.rs`, `apply.rs` / `convert.rs` / `model.rs` (wire to view model), `hub.rs`, `controller.rs` (validation), `emitter.rs`, `format.rs` (text, transmit status), `viewmodel.rs` (cards and rows), `mock.rs`.
-- Drawing: `ui/` (`mod.rs` window glue, `sections.rs`, `widgets.rs`), `shell.rs` (tokio to egui glue, `Actions`), `tray.rs`, `main.rs`.
-- Shared client logic (wire commands, operation settling, endpoint resolution, meter scaling) lives in `crates/relay-client`; see `docs/client.md`.
-- `assets/icon/default-avatar.png` is embedded (`avatar.rs`) and drawn for any profile, local or peer, without an avatar hash; it is never sent over the network. The view model resolves this (`Avatar::Placeholder`). The logo `assets/icon/relay-mark.png` (source `assets/icon/relay-mark.svg`) is embedded with `include_bytes!` and used for the window, tray and header. egui's built-in fonts are used; no fonts are bundled.
+- Logic: `engine.rs` (port traits), `relay_link.rs` (adapter over `relay-client`/`RelayClient`), `supervisor.rs`, `apply.rs` / `convert.rs` / `model.rs` (wire to view model), `hub.rs`, `controller.rs` and `channels.rs` (validation), `emitter.rs`, `format.rs`, `viewmodel.rs`, `avatar.rs` (default image, bounded texture cache), `imaging.rs` (bounded decode), `qr.rs`, `inbox.rs`, `mock.rs`.
+- Drawing: `ui/` (`mod.rs` window glue and inbox draining, `sections.rs`, `profile.rs`, `connection.rs`, `channels.rs`, `textures.rs`, `local.rs`, `widgets.rs`), `shell.rs` and `tasks.rs` (tokio to egui glue, background jobs), `tray.rs`, `main.rs`.
+- Shared wire vocabulary lives in `crates/relay-client` (`Command`, `Secret`, `ChannelOptions`, `connection::check`, `wire::send`); the CLI uses the same crate.
+- Images come from `assets/icon/` via `include_bytes!`: window icon `relay-mark-256.png`, header `relay-mark-64.png`, tray glyphs `tray-{idle,call,muted}[@2x].png`, `default-avatar.png`. No fonts are bundled; egui's built-in fonts are used.
 
 ## Threading and repaint
 A tokio runtime (2 worker threads) runs the supervisor, the emitter and every controller call. The UI thread never blocks on the engine: buttons spawn a controller future, and failures land in `Shared` and are shown in a banner. Writers call `egui::Context::request_repaint`; the UI never requests one itself and has no animations, so an idle app is not redrawn.
@@ -34,24 +34,35 @@ A tokio runtime (2 worker threads) runs the supervisor, the emitter and every co
 
 Peer and local avatars arrive from `GetAvatar` as lossless WebP (`AvatarImage.media_type`); `imaging::decode_for_texture` decodes them with the `image` crate (WebP enabled), under the same dimension and allocation limits as other images. The upload picker still offers PNG and JPEG only, although the engine also accepts WebP, GIF, BMP and TIFF.
 
-Not implemented: peer trust decisions, mic test, noise-suppression selection, the `InputControl` stream, latency figures. The profile image is chosen by typing a file path (no native file dialog dependency); there is no preview.
+Not implemented: peer trust decisions, mic test, noise-suppression selection, the `InputControl` stream, latency figures.
 
 ## Window, tray, daemon
 - With a tray icon (macOS, Windows) closing the window hides it; the tray menu has Show and "Quit this app (daemon keeps running)". Tray quit exits the process directly.
+- The tray glyph has three states: idle, in call (ringing or connected), and muted (global mute, shown only while connected; it wins over in-call). They are monochrome template images; macOS gets the `@2x` set and tints them, other platforms the 1x set. The glyph and tooltip are updated only when the tray summary changes, at most once a second.
 - On Linux no tray is built (`tray-icon` needs a GTK main loop this client does not run), so closing the window quits the app. The UI states which behaviour applies.
 - Quitting the app never stops the daemon or ends calls. The API has no shutdown call, so this client cannot stop the daemon; the UI says so.
+
+## Connection panel
+Collapsed by default. While open it asks the daemon once (`GetConnectionInfo`) and shows the connection string (selectable, with a Copy button via egui's `copy_text`), addresses, port and fingerprint, and a QR code. The QR is encoded with `qrcode` (no image feature) and uploaded as a texture only while the panel is open; closing it drops the texture and the cached string. A paste field calls a `relay://` string: `relay_client::connection::check` rejects obvious typos locally (scheme, `#fingerprint` of 64 hex, literal `ip:port`), and the engine applies the real LAN-only policy and key pinning. A connection string grants no trust and never turns a microphone on.
+
+## Avatars
+Peer and own avatars are fetched lazily with `GetAvatar` the first time a hash is drawn (`Textures::texture`), decoded once off the UI thread with size and allocation limits (`imaging.rs`, scaled to at most 256 px), and kept in a 64-entry LRU texture cache. Pending and failed hashes show `default-avatar.png`; a failure is remembered so the engine is not asked again until the entry is evicted. The own profile uses the native file dialog (`rfd`, xdg-portal on Linux), checks the size before reading, previews the picked image, and uploads only on confirmation. The engine has no request to remove an avatar, so "Discard" only drops a pending choice.
+
+## Channels and privacy
+The channel list comes from `Snapshot.channels` and `StateEvent.channel`/`Removed(kind=channel)`. The UI can create (name, listed, password, invite only), join (invite token, or channel id plus password), leave (two-step), mint invites (owner/admin; lifetime and uses from fixed choices; the token is shown until dismissed with a Copy button), and revoke a proven member (two-step; the peer id is used as the member fingerprint). Peers show badges for channels with proven shared membership. Privacy: inbound policy (anyone / only members of my channels) and network visibility (visible / hidden). Passwords and invite tokens are `relay_client::Secret` values: `Debug` prints `Secret(<redacted>)`, they live in form fields only until submitted, and the view model and logs never contain them. The channel security review gate in `docs/channels.md` stays open.
 
 ## Push-to-talk and hotkeys (honest state)
 A call is shown as transmitting only when the engine reports `effective_transmitting`. Push-to-talk shows "armed" until then, with the engine's blocked reason. This app registers no global hotkey (the daemon side owns input so PTT works with the window closed) and has no on-screen talk button. Wayland note for any future in-app hotkey: compositors generally refuse global key grabs from ordinary clients; it would need the XDG GlobalShortcuts portal.
 
 ## Verified here (macOS, Rust 1.99.1)
-- `cargo check`, `cargo clippy -p relay-desktop --all-targets` clean; `cargo test -p relay-desktop`: 42 tests (controller validation and leases, supervisor reconnect and resync, emitter rate bounds and visibility, conversion and bounds, view models, transmit text, mock mode).
-- The release binary starts and stays up.
+- `cargo check`, `cargo clippy -p relay-desktop --all-targets` clean; `cargo test -p relay-desktop`: 74 tests (controller and channel validation, secrets absent from `Debug`, supervisor reconnect and resync, emitter rate bounds, visibility and tray state, texture cache bounds, bounded image decode, QR layout, tray glyphs, view models, mock mode). `cargo test -p relay-client` covers the new wire commands against a fake engine.
+- The debug binary in `--mock` mode starts and stays up for several seconds.
 
 ## Unmet gates
-- **Resource gate: unmet.** Not measured against a real workload. Only an indicative sample exists: release build, no daemon (offline), window not interacted with, `ps` on macOS, about 42 MB RSS and roughly 0.01 s CPU over 10 s after start. Idle with a daemon, and active with calls and meters at the ceiling, are unmeasured; so are GPU, startup time and Linux/Windows. Required before claiming: process CPU and RSS idle (connected, no calls) and active (one connected call, visible), on each platform.
-- No GUI interaction, screenshot or accessibility audit was done; the window, tray and close-to-tray were not observed by a person.
-- `RelayLink` is tested only on the unreachable-daemon path, not against a real engine process.
+- **Resource gate: unmet.** No new measurement was taken for this version. The earlier indicative sample (about 42 MB RSS, roughly 0.01 s CPU in 10 s, release build, no daemon, window untouched) predates the avatar cache, QR, channels and tray states and is not a gate result. Required: process CPU and RSS idle (connected, no calls) and active (one connected call, visible, meters at the cadence ceiling) on each platform, plus texture-cache growth with many peers.
+- No GUI interaction, screenshot or accessibility audit; the window, the native file dialog, the clipboard, the QR, the three tray glyphs and close-to-tray were not observed by a person. macOS template tinting of the `@2x` glyphs is unverified. `rfd` on macOS and Wayland dialogs from a tokio task are untested.
+- Tests use a fake engine and the mock; nothing was run against a real engine for GetAvatar, GetConnectionInfo or the channel RPCs (the engine side was still being built). `RelayLink` itself is covered only on the unreachable-daemon path.
+- The engine offers no way to clear a stored avatar. Channel changes reach the UI only through snapshot and channel events, so counts such as shared peers can lag until the engine emits one.
+- Revoke assumes the peer id is the member fingerprint the engine expects; confirm against the engine.
 - Linux and Windows builds are untried. Windows uses the loopback profile until the `relay-api` named pipe exists.
-- Peer avatars are not shown (the API carries a hash, not bytes); peers show the default avatar.
-- Root `Cargo.lock` additions for eframe are not committed by this work package (the file is being edited by other agents).
+- Root `Cargo.lock` changes for `qrcode` and `rfd` are not committed by this work package (the file is being edited by other agents).
