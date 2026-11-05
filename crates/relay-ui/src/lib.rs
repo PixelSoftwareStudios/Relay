@@ -18,6 +18,7 @@ pub mod hub;
 pub mod imaging;
 pub mod inbox;
 pub mod layout;
+pub mod messaging;
 pub mod mock;
 pub mod model;
 pub mod qr;

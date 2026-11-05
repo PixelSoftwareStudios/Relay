@@ -9,6 +9,7 @@ description = "Toolkit-level Relay UI shared by the desktop and mobile shells (e
 [dependencies]
 relay-api.workspace = true
 relay-client.workspace = true
+relay-messages.workspace = true
 egui.workspace = true
 async-trait.workspace = true
 hex.workspace = true
@@ -22,6 +23,7 @@ tracing.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true
+tracing-subscriber.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
 
 [lints]

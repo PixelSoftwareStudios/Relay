@@ -32,6 +32,8 @@ pub struct Shared {
 	/// When the app starts the daemon by itself.
 	pub autostart: Arc<crate::autostart::AutoStart>,
 	pub inbox: Inbox,
+	/// Session messaging state (separate from `Hub`; transcripts can be large).
+	pub messages: Arc<crate::messaging::hub::MsgHub>,
 }
 
 impl Default for Shared {
@@ -45,6 +47,7 @@ impl Default for Shared {
 			daemon_busy: AtomicBool::new(false),
 			autostart: Arc::new(crate::autostart::AutoStart::default()),
 			inbox: Inbox::default(),
+			messages: Arc::default(),
 		}
 	}
 }

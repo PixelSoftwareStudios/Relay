@@ -63,6 +63,11 @@ fn map_error(error: ApiError) -> EngineError {
 	}
 }
 
+/// Shared with the messaging adapter.
+pub(crate) fn map_api_error(error: ApiError) -> EngineError {
+	map_error(error)
+}
+
 fn status(s: tonic::Status) -> EngineError {
 	map_error(s.into())
 }
