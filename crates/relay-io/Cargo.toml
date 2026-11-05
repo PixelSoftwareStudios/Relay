@@ -1,0 +1,31 @@
+[package]
+name = "relay-io"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "OS-level I/O helpers: filesystem, locks, processes, clocks, entropy and per-user paths"
+
+[dependencies]
+relay-messages.workspace = true
+directories.workspace = true
+rand.workspace = true
+thiserror.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+libc.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { workspace = true, features = ["Win32_Storage_FileSystem"] }
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "io-helper"
+path = "tests/bin/io_helper.rs"
+test = false
+doctest = false
