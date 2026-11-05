@@ -6,6 +6,22 @@ rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
+blake3.workspace = true
+mdns-sd.workspace = true
+prost.workspace = true
+rand.workspace = true
+snow.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+zeroize.workspace = true
+
+[build-dependencies]
+protoc-bin-vendored.workspace = true
+tonic-prost-build.workspace = true
+
+[dev-dependencies]
+proptest.workspace = true
 
 [lints]
 workspace = true
