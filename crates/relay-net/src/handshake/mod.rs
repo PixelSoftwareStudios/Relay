@@ -16,7 +16,7 @@ pub use backoff::AcceptBackoff;
 pub use gate::{HandshakeGate, HandshakePermit};
 pub use untrusted::UntrustedLinks;
 
-use crate::identity::{Fingerprint, Identity, KEY_BYTES, PublicKey};
+use crate::identity::{Fingerprint, Identity, KEY_BYTES, PublicKey, check_remote_key};
 use crate::limits::{
 	EPOCH_BYTES, HANDSHAKE_MESSAGE_MAX_BYTES, HANDSHAKE_TIMEOUT, PREFACE_BYTES, PREFACE_TIMEOUT,
 };
@@ -82,10 +82,15 @@ fn noise_state(
 	.map_err(|_| HandshakeError::Noise)
 }
 
-fn remote_key(state: &snow::HandshakeState) -> Result<PublicKey, HandshakeError> {
+fn remote_key(
+	state: &snow::HandshakeState,
+	identity: &Identity,
+) -> Result<PublicKey, HandshakeError> {
 	let raw = state.get_remote_static().ok_or(HandshakeError::Noise)?;
 	let bytes: [u8; KEY_BYTES] = raw.try_into().map_err(|_| HandshakeError::Noise)?;
-	Ok(PublicKey::from_bytes(bytes))
+	let key = PublicKey::from_bytes(bytes);
+	check_remote_key(identity, &key).map_err(|_| HandshakeError::Noise)?;
+	Ok(key)
 }
 
 /// Writes the next handshake message and sends it.
@@ -118,13 +123,14 @@ async fn recv_step<S: AsyncRead + Unpin>(
 
 fn finish(
 	state: snow::HandshakeState,
+	identity: &Identity,
 	epoch: LinkEpoch,
 	role: Role,
 ) -> Result<SecureSession, HandshakeError> {
 	if !state.is_handshake_finished() {
 		return Err(HandshakeError::Noise);
 	}
-	let remote = remote_key(&state)?;
+	let remote = remote_key(&state, identity)?;
 	let handshake_hash: [u8; 32] = state
 		.get_handshake_hash()
 		.try_into()
@@ -169,12 +175,12 @@ async fn initiate_inner<S: AsyncRead + AsyncWrite + Unpin>(
 	send_step(stream, &mut state).await?;
 	recv_step(stream, &mut state).await?;
 	if let Some(expected) = expected
-		&& &remote_key(&state)?.fingerprint() != expected
+		&& &remote_key(&state, identity)?.fingerprint() != expected
 	{
 		return Err(HandshakeError::UnexpectedPeer);
 	}
 	send_step(stream, &mut state).await?;
-	finish(state, epoch, Role::Initiator)
+	finish(state, identity, epoch, Role::Initiator)
 }
 
 /// Runs the responder side.
@@ -203,7 +209,7 @@ async fn respond_inner<S: AsyncRead + AsyncWrite + Unpin>(
 	recv_step(stream, &mut state).await?;
 	send_step(stream, &mut state).await?;
 	recv_step(stream, &mut state).await?;
-	finish(state, epoch, Role::Responder)
+	finish(state, identity, epoch, Role::Responder)
 }
 
 /// [`respond`] that gives up as soon as the gate evicts `permit` to admit a newcomer.

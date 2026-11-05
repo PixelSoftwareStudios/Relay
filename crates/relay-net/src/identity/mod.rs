@@ -22,6 +22,28 @@ pub enum IdentityError {
 	Generate,
 	#[error("invalid private key")]
 	InvalidKey,
+	#[error("remote static key is non-canonical or a low-order point")]
+	InvalidRemoteKey,
+}
+
+/// Rejects remote static keys that are not a proper identity: a set bit 255 (X25519 ignores it,
+/// so one private key would present as two fingerprints) or a low-order point (the Diffie-Hellman
+/// output with our own key is all zero, so the key authenticates nobody).
+pub fn check_remote_key(local: &Identity, remote: &PublicKey) -> Result<(), IdentityError> {
+	if remote.as_bytes()[KEY_BYTES - 1] & 0x80 != 0 {
+		return Err(IdentityError::InvalidRemoteKey);
+	}
+	let mut dh: Box<dyn Dh> = DefaultResolver
+		.resolve_dh(&snow::params::DHChoice::Curve25519)
+		.ok_or(IdentityError::InvalidKey)?;
+	dh.set(local.secret_bytes());
+	let mut out = [0u8; KEY_BYTES];
+	dh.dh(remote.as_bytes(), &mut out)
+		.map_err(|_| IdentityError::InvalidRemoteKey)?;
+	if out.iter().all(|b| *b == 0) {
+		return Err(IdentityError::InvalidRemoteKey);
+	}
+	Ok(())
 }
 
 /// A remote or local static public key.

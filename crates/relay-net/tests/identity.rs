@@ -227,3 +227,24 @@ proptest::proptest! {
 		proptest::prop_assert_eq!(sanitize_display_name(&clean), clean);
 	}
 }
+
+#[test]
+fn remote_static_keys_must_be_canonical_and_not_low_order() {
+	use relay_net::identity::{IdentityError, PublicKey, check_remote_key};
+	let local = Identity::generate().unwrap();
+	let other = Identity::generate().unwrap();
+	assert!(check_remote_key(&local, other.public()).is_ok());
+	// Bit 255 set: the same private key would present as a second fingerprint.
+	let mut high = *other.public().as_bytes();
+	high[31] |= 0x80;
+	assert!(matches!(
+		check_remote_key(&local, &PublicKey::from_bytes(high)),
+		Err(IdentityError::InvalidRemoteKey)
+	));
+	// Low-order points give an all-zero shared secret.
+	let zero = PublicKey::from_bytes([0u8; 32]);
+	assert!(check_remote_key(&local, &zero).is_err());
+	let mut one = [0u8; 32];
+	one[0] = 1;
+	assert!(check_remote_key(&local, &PublicKey::from_bytes(one)).is_err());
+}
