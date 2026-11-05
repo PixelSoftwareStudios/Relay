@@ -61,10 +61,7 @@ pub struct Manifest {
 }
 
 pub fn sha256_hex(bytes: &[u8]) -> String {
-	Sha256::digest(bytes)
-		.iter()
-		.map(|b| format!("{b:02x}"))
-		.collect()
+	hex::encode(Sha256::digest(bytes))
 }
 
 fn sorted_children(dir: &Path) -> Result<Vec<PathBuf>> {

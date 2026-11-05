@@ -14,10 +14,6 @@ pub fn err(context: &str, e: impl std::fmt::Display) -> BenchError {
 	BenchError::Dsp(format!("{context}: {e}"))
 }
 
-pub fn hex(bytes: &[u8]) -> String {
-	bytes.iter().map(|b| format!("{b:02x}")).collect()
-}
-
 /// Read the committed manifest for `id`.
 pub fn manifest(dir: &Path, id: &str) -> Result<ModelManifest> {
 	let path = dir.join("manifests").join(format!("{id}.json"));
@@ -47,7 +43,7 @@ pub fn load_verified(dir: &Path, id: &str, files: &[&str]) -> Result<(Vec<Vec<u8
 		hasher.update(&bytes);
 		blobs.push(bytes);
 	}
-	let actual = hex(&hasher.finalize());
+	let actual = hex::encode(hasher.finalize());
 	if actual != expected {
 		return Err(err(
 			id,

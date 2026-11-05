@@ -21,6 +21,7 @@ relay-audio.workspace = true
 cpu-time.workspace = true
 hound.workspace = true
 claxon.workspace = true
+hex.workspace = true
 sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
