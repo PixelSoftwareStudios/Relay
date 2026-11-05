@@ -43,14 +43,14 @@ single-writer `WriterLock` (a second process gets `ConfigError::Locked`).
 `PRAGMA user_version` is the schema version (`db::SCHEMA_VERSION`, currently 1). Migrations are
 the entries of a list in `db/migrate.rs`, each run in its own transaction; append, never edit.
 A database with a higher version than the build is refused (`ConfigError::UnsupportedVersion`) and
-left untouched. Before migrating an older schema the previous state is snapshotted to `.bak`.
+left untouched.
 
 | Table | Purpose |
 |---|---|
 | `prefs(key, value)` | One row per setting, dotted key (`audio.microphone_gain`), TOML-encoded typed value |
 | `trust(public_key, display_name, level, first_seen)` | TOFU / Verified peers; `CHECK` on key length and level |
 | `avatars(hash, data, size, last_used)` | Content-addressed avatar blobs, LRU evicted |
-| `state(key, value)` | Small internal flags: local avatar hash, legacy import done |
+| `state(key, value)` | Small internal flags: local avatar hash |
 
 `Preferences::config_version` (currently 1) is the data-model version stored in `prefs`; it is
 separate from the SQL schema version.
@@ -80,21 +80,14 @@ before implementation.
 - A missing explicit device resolves to `DeviceChoice::Unavailable`; there is no fallback.
 - Raw-audio capture needs `diagnostics.record_raw_audio = true`; it is never in a support bundle.
 
-## One-time import of the old TOML files
-
-On the first open of a new database, `config.toml` (config dir) and `trust.toml` (data dir) are
-imported if present, with the previous recovery rules (backup copy with microphone cleared, or
-defaults, always with a notice; a newer `config_version` aborts the import). Existing database
-content is never overwritten. The files are then renamed `*.imported` and are never written again.
-
 ## Export and import as TOML
 
 Settings are not hand-editable in place any more. For humans and support:
 
 - `prefs::export_toml(&Preferences)` / `PreferenceStore::export_toml()` produce TOML with a comment
   header. Preferences only: no keys, tokens or trust data.
-- `prefs::import_toml(text)` / `PreferenceStore::import_toml(text)` parse, migrate old layouts,
-  **reject unknown keys** (typos) and out-of-range values, then save atomically. Importing is an
+- `prefs::import_toml(text)` / `PreferenceStore::import_toml(text)` parse,
+**reject unknown keys** (typos) and out-of-range values, then save atomically. Importing is an
   explicit user action and may select a microphone.
 
 CLI-facing helpers (for `relay config get|set|export|import`):

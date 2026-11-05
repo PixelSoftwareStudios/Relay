@@ -55,23 +55,6 @@ impl Paths {
 		self.data_dir.join("relay.db")
 	}
 
-	/// Pre-SQLite preferences file; only read once to import it.
-	pub fn legacy_preferences_file(&self) -> PathBuf {
-		self.config_dir.join("config.toml")
-	}
-
-	/// Pre-SQLite trust file; only read once to import it.
-	pub fn legacy_trust_file(&self) -> PathBuf {
-		self.data_dir.join("trust.toml")
-	}
-
-	/// Old name of [`Paths::legacy_preferences_file`]; preferences now live in the
-	/// database. Use [`crate::prefs::PreferenceStore::read_only`] to inspect them.
-	#[deprecated(note = "preferences moved to SQLite; see PreferenceStore::read_only")]
-	pub fn preferences_file(&self) -> PathBuf {
-		self.legacy_preferences_file()
-	}
-
 	pub fn identity_file(&self) -> PathBuf {
 		self.data_dir.join("identity.insecure.key")
 	}

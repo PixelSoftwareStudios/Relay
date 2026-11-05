@@ -57,8 +57,8 @@ impl TrustLevel {
 	}
 }
 
-/// Inserts or replaces one entry; also used by the one-time TOML import.
-pub(crate) fn insert_entry(conn: &Connection, entry: &TrustEntry) -> Result<()> {
+/// Inserts or replaces one entry.
+fn insert_entry(conn: &Connection, entry: &TrustEntry) -> Result<()> {
 	conn.execute(
 		"INSERT OR REPLACE INTO trust (public_key, display_name, level, first_seen)
 		 VALUES (?1, ?2, ?3, ?4)",
@@ -97,10 +97,6 @@ fn read_entries(conn: &Connection) -> Result<Vec<TrustEntry>> {
 		});
 	}
 	Ok(entries)
-}
-
-pub(crate) fn count(conn: &Connection) -> Result<i64> {
-	Ok(conn.query_row("SELECT COUNT(*) FROM trust", [], |r| r.get(0))?)
 }
 
 /// Trust data backed by the `trust` table, with an in-memory copy for lookups.

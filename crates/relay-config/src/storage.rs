@@ -5,7 +5,6 @@ use std::sync::Arc;
 use crate::db::Database;
 use crate::error::Result;
 use crate::fsx::WriterLock;
-use crate::legacy;
 use crate::notice::Notice;
 use crate::paths::Paths;
 
@@ -17,13 +16,12 @@ use crate::paths::Paths;
 pub struct Storage {
 	pub database: Database,
 	pub lock: Arc<WriterLock>,
-	/// Recovery and import notices the UI must show.
+	/// Recovery notices the UI must show.
 	pub notices: Vec<Notice>,
 }
 
 impl Storage {
-	/// Takes the writer lock, opens (recovering if needed) the database and imports
-	/// any pre-SQLite TOML files once.
+	/// Takes the writer lock, opens (recovering if needed) the database.
 	pub fn open(paths: &Paths) -> Result<Self> {
 		let lock = Arc::new(WriterLock::acquire(&paths.writer_lock_file())?);
 		Self::open_with_lock(paths, lock)
@@ -32,12 +30,10 @@ impl Storage {
 	/// Like [`Storage::open`] with a lock the caller already holds.
 	pub fn open_with_lock(paths: &Paths, lock: Arc<WriterLock>) -> Result<Self> {
 		let opened = Database::open(paths.database_file(), Arc::clone(&lock))?;
-		let mut notices = opened.notices;
-		notices.extend(legacy::import(&opened.database, paths)?);
 		Ok(Self {
 			database: opened.database,
 			lock,
-			notices,
+			notices: opened.notices,
 		})
 	}
 }

@@ -40,7 +40,6 @@ fn notice_label(n: &Notice) -> &'static str {
 	match n {
 		Notice::PreferencesRecoveredFromBackup => "preferences_recovered_from_backup",
 		Notice::PreferencesReset { .. } => "preferences_reset",
-		Notice::PreferencesMigrated { .. } => "preferences_migrated",
 		Notice::TrustRecoveredFromBackup => "trust_recovered_from_backup",
 		Notice::TrustStoreLost { .. } => "trust_store_lost",
 	}

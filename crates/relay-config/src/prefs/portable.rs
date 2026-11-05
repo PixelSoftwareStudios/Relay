@@ -7,9 +7,8 @@ use std::collections::BTreeMap;
 
 use toml::Table;
 
-use super::flat::{flatten, leaves};
-use super::migrate::migrate;
-use super::model::Preferences;
+use super::flat::{VERSION_KEY, flatten, leaves};
+use super::model::{CURRENT_VERSION, Preferences};
 use crate::error::{ConfigError, Result};
 
 const HEADER: &str = "# Relay settings export. Preferences only: no keys, tokens or trust data.\n";
@@ -23,38 +22,39 @@ pub fn export_toml(prefs: &Preferences) -> Result<String> {
 	Ok(format!("{HEADER}{text}"))
 }
 
-/// Parses, migrates and validates exported TOML. Unknown settings are an error so
-/// that typos are not silently ignored.
+/// Parses and validates exported TOML. Unknown settings are an error so that typos
+/// are not silently ignored, and a newer `config_version` is refused.
 pub fn import_toml(text: &str) -> Result<Preferences> {
-	let (prefs, _) = parse_toml(text, true)?;
-	Ok(prefs)
-}
-
-/// Like [`import_toml`] (`strict` rejects unknown settings), also returning the schema version the text came from when
-/// it was older than the current one.
-pub(crate) fn parse_toml(text: &str, strict: bool) -> Result<(Preferences, Option<u32>)> {
 	let parse_err = |m: String| ConfigError::Parse {
 		path: "<settings>".into(),
 		message: m,
 	};
-	let mut table: Table = text
+	let table: Table = text
 		.parse()
 		.map_err(|e: toml::de::Error| parse_err(e.to_string()))?;
-	let from = migrate(&mut table)?;
-	if strict {
-		let mut given = BTreeMap::new();
-		leaves("", &table, &mut given);
-		let known = flatten(&Preferences::default())?;
-		if let Some(unknown) = given.keys().find(|k| !known.contains_key(*k)) {
-			return Err(ConfigError::InvalidPreference(format!(
-				"unknown setting `{unknown}`"
-			)));
+	if let Some(found) = table.get(VERSION_KEY) {
+		match found.as_integer() {
+			Some(v) if v > i64::from(CURRENT_VERSION) => {
+				return Err(ConfigError::UnsupportedVersion {
+					found: v,
+					supported: CURRENT_VERSION,
+				});
+			}
+			Some(v) if v >= 0 => {}
+			_ => return Err(ConfigError::BadVersion),
 		}
+	}
+	let mut given = BTreeMap::new();
+	leaves("", &table, &mut given);
+	let known = flatten(&Preferences::default())?;
+	if let Some(unknown) = given.keys().find(|k| !known.contains_key(*k)) {
+		return Err(ConfigError::InvalidPreference(format!(
+			"unknown setting `{unknown}`"
+		)));
 	}
 	let prefs: Preferences = table
 		.try_into()
 		.map_err(|e: toml::de::Error| parse_err(e.to_string()))?;
 	prefs.validate()?;
-	let migrated = (from != prefs.config_version).then_some(from);
-	Ok((prefs, migrated))
+	Ok(prefs)
 }

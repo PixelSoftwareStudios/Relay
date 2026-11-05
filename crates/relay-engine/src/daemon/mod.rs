@@ -82,10 +82,6 @@ fn notice_problem(notice: &Notice) -> Problem {
 			"PREFERENCES_RESET",
 			"Preferences were unreadable and were reset; no microphone is selected.".to_owned(),
 		),
-		Notice::PreferencesMigrated { from, to } => (
-			"PREFERENCES_MIGRATED",
-			format!("Preferences were migrated from version {from} to {to}."),
-		),
 		Notice::TrustRecoveredFromBackup => (
 			"TRUST_RECOVERED",
 			"The trust store was damaged; recent entries may need re-verification.".to_owned(),

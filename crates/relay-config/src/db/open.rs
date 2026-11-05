@@ -6,7 +6,7 @@ use std::time::Duration;
 
 use rusqlite::{Connection, ErrorCode};
 
-use super::{backup, migrate};
+use super::migrate;
 use crate::error::{ConfigError, Result};
 use crate::fsx::{backup_path, corrupt_path, ensure_private_dir, restrict_file, with_suffix};
 use crate::notice::Notice;
@@ -77,12 +77,7 @@ fn try_open(path: &Path, strict_empty: bool) -> std::result::Result<Connection, 
 	conn.pragma_update(None, "synchronous", "FULL")?;
 	conn.pragma_update(None, "foreign_keys", "ON")?;
 	conn.pragma_update(None, "trusted_schema", "OFF")?;
-	let from = version as u32;
-	if from > 0 && from < migrate::SCHEMA_VERSION {
-		// Keep the pre-migration state recoverable.
-		let _ = backup::snapshot(&conn, path);
-	}
-	migrate::run(&mut conn, from)?;
+	migrate::run(&mut conn, version as u32)?;
 	Ok(conn)
 }
 

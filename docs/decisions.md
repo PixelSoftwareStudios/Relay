@@ -4,9 +4,9 @@ Short records of choices that changed or are easy to forget. Newest first.
 
 ## Preferences moved from TOML to SQLite
 
-Status: accepted. Supersedes the earlier choice of plain TOML files for preferences and trust.
+Status: accepted. Supersedes the earlier design choice of plain TOML files for preferences and trust.
 
-The first design kept `config.toml` and `trust.toml`, written atomically with a `.bak` copy. That
+The first design would have kept `config.toml` and `trust.toml`, written atomically with a `.bak` copy. That
 was readable and hand-editable, but it grew into three separate persistence mechanisms (preferences,
 trust, avatar files), each with its own crash-recovery code, and the planned channel feature needs
 transactional multi-row state (memberships, invites, issued certificates) that does not fit
@@ -35,4 +35,5 @@ Trade-offs accepted:
 
 Unchanged: secrets stay out of the database. The identity private key remains in the OS credential
 store (or the explicit INSECURE file option), and any future channel secrets follow the same rule.
-Existing `config.toml`/`trust.toml` files are imported once and then retired.
+Relay had not been released when this changed, so there is no import path or compatibility code for
+the TOML layout; the SQLite schema starts at version 1.

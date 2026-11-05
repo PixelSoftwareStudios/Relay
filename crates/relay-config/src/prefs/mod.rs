@@ -2,7 +2,6 @@
 
 mod devices;
 pub mod flat;
-mod migrate;
 mod model;
 mod portable;
 pub(crate) mod sql;
@@ -13,6 +12,5 @@ pub use model::{
 	Audio, CURRENT_VERSION, DeviceSelection, Diagnostics, Discovery, Identity, KeyStorage, Network,
 	NoiseBackend, Preferences, Privacy, Profile,
 };
-pub(crate) use portable::parse_toml;
 pub use portable::{export_toml, import_toml};
 pub use store::{Loaded, PreferenceStore};

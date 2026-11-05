@@ -11,7 +11,6 @@ pub mod diagnostics;
 pub mod error;
 pub mod fsx;
 pub mod identity;
-mod legacy;
 pub mod notice;
 pub mod paths;
 pub mod prefs;
