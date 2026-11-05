@@ -3,7 +3,6 @@
 mod ast;
 mod blocks;
 mod inline;
-mod punycode;
 mod url;
 
 pub use ast::{Block, CodeBlock, Document, Inline};

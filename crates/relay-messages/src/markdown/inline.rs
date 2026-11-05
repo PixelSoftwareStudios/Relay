@@ -1,130 +1,170 @@
-//! Inline parsing: bold, italic, code and auto-detected URLs.
+//! Inline accumulation: bounded emphasis nesting and URL detection with `linkify`.
+
+use linkify::{LinkFinder, LinkKind};
 
 use super::ast::Inline;
 use super::url::parse_http;
 use crate::limits::{MD_MAX_DEPTH, MD_MAX_NODES};
 
-/// Node counter shared by a whole document parse.
-pub(super) struct Ctx {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Kind {
+	Bold,
+	Italic,
+	/// Nesting beyond the depth bound: children join the parent.
+	Flat,
+}
+
+/// Builds one inline run. Counts every node it creates in `nodes`.
+pub(super) struct Inlines {
+	kinds: Vec<Kind>,
+	/// `runs[0]` is the output; each open emphasis adds one run.
+	runs: Vec<Vec<Inline>>,
+	pending: String,
 	pub nodes: usize,
 }
 
-fn flush(text: &mut String, out: &mut Vec<Inline>, ctx: &mut Ctx) {
-	if !text.is_empty() {
-		ctx.nodes += 1;
-		out.push(Inline::Text(std::mem::take(text)));
+fn finder() -> LinkFinder {
+	let mut f = LinkFinder::new();
+	f.kinds(&[LinkKind::Url]);
+	f
+}
+
+impl Inlines {
+	pub fn new() -> Self {
+		Self {
+			kinds: Vec::new(),
+			runs: vec![Vec::new()],
+			pending: String::new(),
+			nodes: 0,
+		}
 	}
-}
 
-fn url_end(s: &str) -> usize {
-	s.find(|c: char| c.is_whitespace() || matches!(c, '<' | '>' | '"' | '`'))
-		.unwrap_or(s.len())
-}
+	pub fn is_empty(&self) -> bool {
+		self.runs[0].is_empty() && self.pending.is_empty()
+	}
 
-fn trim_url(tok: &str) -> &str {
-	let mut t = tok;
-	loop {
-		let Some(last) = t.chars().next_back() else {
-			return t;
+	/// Literal text; adjacent calls merge before URL detection.
+	pub fn text(&mut self, s: &str) {
+		self.pending.push_str(s);
+	}
+
+	pub fn line_break(&mut self) {
+		self.push(Inline::LineBreak);
+	}
+
+	pub fn code(&mut self, s: &str) {
+		self.push(Inline::Code(s.to_owned()));
+	}
+
+	pub fn open(&mut self, bold: bool) {
+		self.flush();
+		if self.runs.len() > MD_MAX_DEPTH {
+			self.kinds.push(Kind::Flat);
+			return;
+		}
+		self.nodes += 1;
+		self.kinds
+			.push(if bold { Kind::Bold } else { Kind::Italic });
+		self.runs.push(Vec::new());
+	}
+
+	pub fn close(&mut self) {
+		self.flush();
+		let Some(kind) = self.kinds.pop() else {
+			return;
 		};
-		let strip = match last {
-			'.' | ',' | ';' | ':' | '!' | '?' | '\'' => true,
-			')' => t.matches(')').count() > t.matches('(').count(),
-			']' => t.matches(']').count() > t.matches('[').count(),
-			'}' => t.matches('}').count() > t.matches('{').count(),
-			_ => false,
+		if kind == Kind::Flat {
+			return;
+		}
+		let kids = self.runs.pop().unwrap_or_default();
+		let node = if kind == Kind::Bold {
+			Inline::Bold(kids)
+		} else {
+			Inline::Italic(kids)
 		};
-		if !strip {
-			return t;
-		}
-		t = &t[..t.len() - last.len_utf8()];
+		self.top().push(node);
 	}
-}
 
-fn starts_with_ci(s: &str, p: &str) -> bool {
-	s.len() >= p.len() && s.is_char_boundary(p.len()) && s[..p.len()].eq_ignore_ascii_case(p)
-}
-
-fn find_italic_close(s: &str, from: usize) -> Option<usize> {
-	let b = s.as_bytes();
-	(from..b.len()).find(|&j| {
-		b[j] == b'*'
-			&& b[j - 1] != b'*'
-			&& b.get(j + 1) != Some(&b'*')
-			&& !b[j - 1].is_ascii_whitespace()
-	})
-}
-
-pub(super) fn parse_inline(s: &str, depth: usize, ctx: &mut Ctx) -> Vec<Inline> {
-	let mut out = Vec::new();
-	let mut text = String::new();
-	let mut i = 0;
-	while i < s.len() {
-		if ctx.nodes >= MD_MAX_NODES {
-			text.push_str(&s[i..]);
-			break;
+	/// Finishes the run and resets for the next block. Trailing breaks are dropped.
+	pub fn take(&mut self) -> Vec<Inline> {
+		while !self.kinds.is_empty() {
+			self.close();
 		}
-		let rest = &s[i..];
-		let c = rest.chars().next().unwrap_or('\0');
-		let prev_ws =
-			i == 0 || s.as_bytes()[i - 1].is_ascii_whitespace() || s.as_bytes()[i - 1] == b'(';
-		if c == '`' {
-			if let Some(j) = rest[1..].find('`').filter(|&j| j > 0) {
-				flush(&mut text, &mut out, ctx);
-				ctx.nodes += 1;
-				out.push(Inline::Code(rest[1..1 + j].to_owned()));
-				i += j + 2;
-				continue;
-			}
-		} else if rest.starts_with("**") && depth < MD_MAX_DEPTH {
-			let inner = &rest[2..];
-			if let Some(j) = inner.find("**").filter(|&j| {
-				j > 0
-					&& !inner.as_bytes()[0].is_ascii_whitespace()
-					&& !inner.as_bytes()[j - 1].is_ascii_whitespace()
-			}) {
-				flush(&mut text, &mut out, ctx);
-				ctx.nodes += 1;
-				let kids = parse_inline(&inner[..j], depth + 1, ctx);
-				out.push(Inline::Bold(kids));
-				i += j + 4;
-				continue;
-			}
-		} else if c == '*' && !rest.starts_with("**") && depth < MD_MAX_DEPTH {
-			let ok_open = rest
-				.as_bytes()
-				.get(1)
-				.is_some_and(|b| !b.is_ascii_whitespace());
-			if let Some(j) = ok_open.then(|| find_italic_close(rest, 2)).flatten() {
-				flush(&mut text, &mut out, ctx);
-				ctx.nodes += 1;
-				let kids = parse_inline(&rest[1..j], depth + 1, ctx);
-				out.push(Inline::Italic(kids));
-				i += j + 1;
-				continue;
-			}
-		} else if c == '\n' {
-			flush(&mut text, &mut out, ctx);
-			ctx.nodes += 1;
-			out.push(Inline::LineBreak);
-			i += 1;
-			continue;
-		} else if (c == 'h' || c == 'H')
-			&& prev_ws
-			&& (starts_with_ci(rest, "http://") || starts_with_ci(rest, "https://"))
-		{
-			let tok = trim_url(&rest[..url_end(rest)]);
-			if let Some(link) = parse_http(tok) {
-				flush(&mut text, &mut out, ctx);
-				ctx.nodes += 1;
-				i += tok.len();
-				out.push(Inline::Link(link));
-				continue;
-			}
+		self.flush();
+		let mut out = std::mem::take(&mut self.runs[0]);
+		while out.last() == Some(&Inline::LineBreak) {
+			out.pop();
 		}
-		text.push(c);
-		i += c.len_utf8();
+		out
 	}
-	flush(&mut text, &mut out, ctx);
-	out
+
+	/// Drops everything in progress (the caller falls back to plain text).
+	pub fn discard(&mut self) {
+		self.kinds.clear();
+		self.runs.truncate(1);
+		self.runs[0].clear();
+		self.pending.clear();
+	}
+
+	fn top(&mut self) -> &mut Vec<Inline> {
+		let last = self.runs.len() - 1;
+		&mut self.runs[last]
+	}
+
+	fn push(&mut self, node: Inline) {
+		self.flush();
+		self.nodes += 1;
+		self.top().push(node);
+	}
+
+	fn push_plain(&mut self, s: &str) {
+		if s.is_empty() {
+			return;
+		}
+		if let Some(Inline::Text(t)) = self.top().last_mut() {
+			t.push_str(s);
+		} else {
+			self.nodes += 1;
+			self.top().push(Inline::Text(s.to_owned()));
+		}
+	}
+
+	fn flush(&mut self) {
+		if self.pending.is_empty() {
+			return;
+		}
+		let text = std::mem::take(&mut self.pending);
+		for (n, line) in text.split('\n').enumerate() {
+			if n > 0 {
+				self.nodes += 1;
+				self.top().push(Inline::LineBreak);
+			}
+			self.linkified(line);
+		}
+	}
+
+	fn linkified(&mut self, line: &str) {
+		if self.nodes >= MD_MAX_NODES {
+			return self.push_plain(line);
+		}
+		let finder = finder();
+		let mut at = 0;
+		for found in finder.links(line) {
+			if self.nodes >= MD_MAX_NODES {
+				break;
+			}
+			// Only http(s) with a validated host becomes a link; the rest stays text.
+			// linkify trims an empty port (`host:/`); that is malformed, not a shorter link.
+			let empty_port = line[found.end()..]
+				.strip_prefix(':')
+				.is_some_and(|r| r.starts_with(['/', '?', '#']));
+			if !empty_port && let Some(link) = parse_http(found.as_str()) {
+				self.push_plain(&line[at..found.start()]);
+				self.nodes += 1;
+				self.top().push(Inline::Link(link));
+				at = found.end();
+			}
+		}
+		self.push_plain(&line[at..]);
+	}
 }
