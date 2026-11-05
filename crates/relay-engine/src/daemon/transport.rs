@@ -36,7 +36,8 @@ fn default_dir() -> Result<PathBuf, DaemonError> {
 	}
 	#[cfg(not(unix))]
 	{
-		Ok(std::env::temp_dir())
+		// The same place `relay_client::endpoint::default_endpoint` looks.
+		Ok(std::env::temp_dir().join("relay"))
 	}
 }
 
