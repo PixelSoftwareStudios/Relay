@@ -37,3 +37,23 @@ Unchanged: secrets stay out of the database. The identity private key remains in
 store (or the explicit INSECURE file option), and any future channel secrets follow the same rule.
 Relay had not been released when this changed, so there is no import path or compatibility code for
 the TOML layout; the SQLite schema starts at version 1.
+
+## Session-scoped ephemeral messaging is in scope
+
+Status: accepted.
+
+Relay may carry text messages, inline images and file offers **between the two ends of an active
+call session**. This is a companion to voice, not a chat platform: no accounts, rooms, offline
+delivery, server-side history, read receipts or remote deletion. Transcripts live in RAM only
+(64 MiB per session, 256 MiB across ended sessions), and the only persistence is an explicit user
+export. Files move only after the receiver accepts a metadata offer, over a lowest-priority
+data link that must never starve call signaling.
+
+Reasons: people on a call routinely need to hand each other a command, a log snippet, a
+screenshot or a file, and without it they leave the tool for a cloud chat, which defeats a
+LAN-only product. Keeping it session-scoped and ephemeral keeps the privacy and storage surface
+small.
+
+Still out of scope: screen sharing and video (the traffic class is reserved but unused),
+persistent chat history, group rooms, link previews and anything that auto-downloads, auto-opens
+or executes received content. Details in `docs/session-messages.md`.
