@@ -4,8 +4,6 @@
 //! transaction. Append new entries; never edit shipped ones. A database whose
 //! version is higher than this build knows is refused by the caller.
 //!
-//! Reserved: the channel feature appends its tables as the next entry once its
-//! design is final; nothing here depends on it.
 
 use rusqlite::Connection;
 
@@ -31,6 +29,48 @@ CREATE TABLE avatars (
 	last_used INTEGER NOT NULL
 ) WITHOUT ROWID;
 CREATE INDEX avatars_by_use ON avatars (last_used);
+
+-- Channel metadata only. Secrets (signing keys, password and invite credentials)
+-- live in the SecretVault; channel_secrets lists which vault entries exist.
+CREATE TABLE channels (
+	id BLOB PRIMARY KEY NOT NULL CHECK (length(id) = 16),
+	name TEXT NOT NULL,
+	flags INTEGER NOT NULL,
+	role INTEGER NOT NULL,
+	owner_public BLOB NOT NULL CHECK (length(owner_public) = 32),
+	delegation BLOB,
+	cert BLOB
+) WITHOUT ROWID;
+
+CREATE TABLE channel_issued (
+	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+	subject BLOB NOT NULL CHECK (length(subject) = 32),
+	expires_at INTEGER NOT NULL,
+	PRIMARY KEY (channel, subject)
+) WITHOUT ROWID;
+
+CREATE TABLE channel_revocations (
+	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+	seq INTEGER NOT NULL,
+	data BLOB NOT NULL,
+	PRIMARY KEY (channel, seq)
+) WITHOUT ROWID;
+
+CREATE TABLE channel_invites (
+	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
+	invite_id BLOB NOT NULL CHECK (length(invite_id) = 8),
+	expires_at INTEGER NOT NULL,
+	uses_left INTEGER NOT NULL,
+	PRIMARY KEY (channel, invite_id)
+) WITHOUT ROWID;
+
+CREATE TABLE channel_secrets (
+	channel BLOB NOT NULL,
+	slot TEXT NOT NULL,
+	gen INTEGER NOT NULL,
+	state TEXT NOT NULL CHECK (state IN ('pending', 'committed', 'dead')),
+	PRIMARY KEY (channel, slot, gen)
+) WITHOUT ROWID;
 
 CREATE TABLE state (
 	key TEXT PRIMARY KEY NOT NULL,

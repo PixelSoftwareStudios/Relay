@@ -59,6 +59,11 @@ impl Paths {
 		self.data_dir.join("identity.insecure.key")
 	}
 
+	/// Used only when the user chose the INSECURE file option for secrets.
+	pub fn channel_secrets_dir(&self) -> PathBuf {
+		self.data_dir.join("channel-secrets")
+	}
+
 	pub fn writer_lock_file(&self) -> PathBuf {
 		self.config_dir.join("writer.lock")
 	}

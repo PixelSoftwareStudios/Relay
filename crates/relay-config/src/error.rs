@@ -20,6 +20,8 @@ pub enum ConfigError {
 	Locked(PathBuf),
 	#[error("database error: {0}")]
 	Database(#[from] rusqlite::Error),
+	#[error("channel limit reached")]
+	ChannelLimit,
 	#[error("invalid TOML in {path}: {message}")]
 	Parse { path: PathBuf, message: String },
 	#[error("could not serialize {what}: {message}")]

@@ -6,6 +6,7 @@
 //! device, and the identity key only reaches a plaintext file if the user chose that.
 
 pub mod avatar;
+pub mod channels;
 pub mod db;
 pub mod diagnostics;
 pub mod error;
@@ -15,6 +16,7 @@ pub mod notice;
 pub mod paths;
 pub mod prefs;
 pub mod storage;
+pub mod vault;
 
 pub use error::{AvatarError, ConfigError, Result};
 pub use notice::Notice;
