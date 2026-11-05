@@ -58,6 +58,10 @@ Valid keys are saved together even when others in the request are rejected. Live
 
 Security-sensitive keys cannot be changed over the API: `identity.*` (where key material lives), `diagnostics.record_raw_audio`, `network.allow_wan` and `network.allow_overlay_manual`. A request that would change one is refused whole with `PERMISSION_DENIED` (`SETTING_RESTRICTED: <key>`) and nothing is applied; sending such a key with its current value is a no-op, so the output of `GetSettings` can be fed back in. Those keys change only with the daemon stopped (`relay config set`). `SetSettings` is naturally idempotent and is not tracked by operation id. Helpers: `RelayClient::set_settings(pairs)` (returns the per-key results), `relay_client::Command::SetSettings` (operation only). A CLI `config set` can therefore route every key through a running daemon instead of requiring it to be stopped.
 
+## Telemetry latency
+
+`CallTelemetry.rtt_ms` is the smoothed round trip to the peer measured with the authenticated keepalives of the control link, with `latency_estimate_method = "control_keepalive_rtt"`; until the first echo (about 5 s after the link comes up) it is unset and the method is `"unmeasured"`. It is an upper estimate of the media path (the probe is TCP and shares the connection with signaling). `rtp_interarrival_jitter_ms` and `estimated_mouth_to_ear_ms` remain unset: nothing measures capture-to-playout latency yet.
+
 ## Client sketch
 ```rust
 let mut c = RelayClient::connect(&Endpoint::Unix(path)).await?;

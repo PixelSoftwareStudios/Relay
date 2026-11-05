@@ -12,6 +12,7 @@ mod manager;
 mod names;
 mod profile;
 mod profiling;
+mod rtt;
 mod sessions;
 mod signaling;
 mod start;
@@ -28,6 +29,7 @@ pub use handle::{
 pub use link::{LinkError, LinkTiming};
 pub use names::disambiguated;
 pub use profile::{CHUNK_BYTES, LocalProfile};
+pub use rtt::RttCell;
 pub use sessions::SessionTable;
 pub use signaling::{
 	Inbound, LinkNet, MediaSignal, PROFILE, decode, derived_session, encode, encode_media,

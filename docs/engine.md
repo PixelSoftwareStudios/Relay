@@ -201,8 +201,14 @@ again.
 - `WatchTelemetry` samples at most 20 times a second (default 10, `max(meters_hz, stats_hz)`),
   one task per stream, filtered by `call_ids` (at most 8). A stream keeps 8 samples and drops
   the oldest when its client is slow (`DropOldest`); `telemetry_samples_dropped` counts them and
-  `sample_sequence` shows the gaps. Round-trip time, jitter and mouth-to-ear estimates are
-  unset (`latency_estimate_method` is `unmeasured`) until the media layer measures them.
+  `sample_sequence` shows the gaps. `rtt_ms` is the
+  smoothed round trip of the control link's own keepalives (`peers/rtt.rs`): the writer stamps
+  each `Keepalive{nonce}`, the reader times the peer's echo of the latest nonce (a stale,
+  replayed or unsolicited echo is ignored), all inside the Noise session. The first sample
+  appears one keepalive interval (5 s) after the link comes up, and while there is none
+  `latency_estimate_method` is `unmeasured`; with one it is `control_keepalive_rtt`. It is a TCP
+  probe that queues behind signaling, so it overstates the UDP media path and is never turned
+  into a mouth-to-ear figure: jitter and `estimated_mouth_to_ear_ms` stay unset.
 - The microphone test is local only. It meters the capture path and, with
   `local_playback` (which needs `confirmed_feedback_warning`), plays the microphone on the
   user's own output through a one-frame-deep monitor queue. It adds no sender and touches no

@@ -182,6 +182,10 @@ impl MediaSystem {
 					packets_missing: concealed,
 					concealed_samples: concealed * frame_samples,
 					playout_target_ms: f64::from(inner.config.playout_target_ms),
+					rtt_ms: inner
+						.peers
+						.rtt(media.peer)
+						.map(|d| d.as_secs_f64() * 1000.0),
 				}
 			})
 			.collect();

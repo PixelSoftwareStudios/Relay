@@ -23,6 +23,11 @@ use crate::service::telemetry::DropOldest;
 /// The fastest a stream is sampled.
 pub(super) const MAX_HZ: u32 = 20;
 const DEFAULT_HZ: u32 = 10;
+/// `rtt_ms` is the smoothed round trip of the authenticated control-link keepalives
+/// (TCP, so it includes queueing behind signaling); mouth-to-ear is not estimated from it.
+pub const METHOD_CONTROL_RTT: &str = "control_keepalive_rtt";
+/// No round trip has been timed yet.
+pub const METHOD_UNMEASURED: &str = "unmeasured";
 const QUEUE: usize = 8;
 const MAX_FILTER_CALLS: usize = 8;
 
@@ -41,7 +46,7 @@ fn call_telemetry(meter: &CallMeter, call: relay_core::CallId) -> CallTelemetry 
 		call_id: call.to_bytes().to_vec(),
 		speaking: meter.speaking,
 		receive_dbfs: meter.receive_dbfs,
-		rtt_ms: None,
+		rtt_ms: meter.rtt_ms,
 		rtp_interarrival_jitter_ms: None,
 		playout_target_ms: meter.playout_target_ms,
 		packets_received: meter.packets_received,
@@ -49,7 +54,12 @@ fn call_telemetry(meter: &CallMeter, call: relay_core::CallId) -> CallTelemetry 
 		packets_missing_at_deadline: meter.packets_missing,
 		concealed_samples: meter.concealed_samples,
 		estimated_mouth_to_ear_ms: None,
-		latency_estimate_method: "unmeasured".to_owned(),
+		latency_estimate_method: if meter.rtt_ms.is_some() {
+			METHOD_CONTROL_RTT
+		} else {
+			METHOD_UNMEASURED
+		}
+		.to_owned(),
 	}
 }
 

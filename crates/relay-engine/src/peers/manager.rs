@@ -506,6 +506,7 @@ impl Actor {
 				addresses: self.addresses.get(peer).cloned().unwrap_or_default(),
 				linked: entry.trusted,
 				trust: self.trust.lock().get(peer).map(|r| r.state),
+				probe: Some(Arc::clone(&entry.link.rtt)),
 			});
 		}
 		// Discovered devices without a link: name and hint only, never trusted.
@@ -522,6 +523,7 @@ impl Actor {
 					addresses: found.addresses.clone(),
 					linked: false,
 					trust: None,
+					probe: None,
 				});
 			}
 		}

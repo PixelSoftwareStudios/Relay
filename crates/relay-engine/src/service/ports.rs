@@ -187,6 +187,8 @@ pub struct CallMeter {
 	pub concealed_samples: u64,
 	/// Playout FIFO target in milliseconds.
 	pub playout_target_ms: f64,
+	/// Smoothed round trip to the peer over the authenticated control link, if timed.
+	pub rtt_ms: Option<f64>,
 }
 
 /// Live media measurements, read without blocking the audio threads.

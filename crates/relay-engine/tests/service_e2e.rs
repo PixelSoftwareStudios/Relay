@@ -358,3 +358,50 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 	a.daemon.shutdown().await.expect("a stops");
 	b.daemon.shutdown().await.expect("b stops");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn telemetry_reports_the_control_link_round_trip_once_a_keepalive_is_echoed() {
+	let (mut a, mut b, call) = connected_pair().await;
+	let req = TelemetryRequest {
+		client: a.cli.context(),
+		call_ids: vec![call],
+		meters_hz: 10,
+		stats_hz: 0,
+	};
+	let mut stream = a
+		.cli
+		.raw()
+		.watch_telemetry(req)
+		.await
+		.expect("stream")
+		.into_inner();
+	let first = stream.message().await.expect("sample").expect("open");
+	let early = &first.calls[0];
+	if early.rtt_ms.is_none() {
+		assert_eq!(early.latency_estimate_method, "unmeasured");
+	}
+	// The first keepalive goes out after one interval (5 s) and is echoed at once.
+	let timed = tokio::time::timeout(Duration::from_secs(15), async {
+		loop {
+			let sample = stream.message().await.expect("sample").expect("open");
+			if sample.calls[0].rtt_ms.is_some() {
+				break sample;
+			}
+		}
+	})
+	.await
+	.expect("a keepalive was echoed");
+	let call = &timed.calls[0];
+	let rtt = call.rtt_ms.expect("rtt");
+	assert!(
+		rtt > 0.0 && rtt < 250.0,
+		"loopback round trip, got {rtt} ms"
+	);
+	assert_eq!(call.latency_estimate_method, "control_keepalive_rtt");
+	assert!(
+		call.estimated_mouth_to_ear_ms.is_none(),
+		"mouth-to-ear is not derived from a control-link probe"
+	);
+	a.daemon.shutdown().await.expect("a stops");
+	b.daemon.shutdown().await.expect("b stops");
+}

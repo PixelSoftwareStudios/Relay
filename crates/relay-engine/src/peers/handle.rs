@@ -292,6 +292,8 @@ pub struct PeerSnapshot {
 	pub linked: bool,
 	/// Trust state if pinned.
 	pub trust: Option<TrustState>,
+	/// Live round-trip timer of the link (see `rtt.rs`); read it with [`RttCell::get`].
+	pub probe: Option<Arc<super::rtt::RttCell>>,
 }
 
 /// What media needs to know about a trusted link.

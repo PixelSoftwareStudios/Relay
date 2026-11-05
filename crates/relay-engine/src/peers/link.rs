@@ -95,6 +95,8 @@ pub struct Established {
 	pub subnet: Option<super::subnet::Subnet>,
 	/// The session, shared with the media endpoint.
 	pub session: Arc<SecureSession>,
+	/// Round trip measured by the keepalives of this link.
+	pub rtt: Arc<super::rtt::RttCell>,
 	/// Outbound control queue.
 	pub outbox: mpsc::Sender<Envelope>,
 	/// Low-priority queue (avatar chunks); drained only when `outbox` is empty.
@@ -157,17 +159,18 @@ pub async fn establish(
 	let (outbox, queue) = mpsc::channel::<Envelope>(OUTBOX_DEPTH);
 	let (bulk, bulk_queue) = mpsc::channel::<Envelope>(BULK_DEPTH);
 	let timing = params.timing;
+	let rtt = Arc::new(super::rtt::RttCell::default());
 	let writer = tokio::spawn({
-		let events = events.clone();
+		let (events, rtt) = (events.clone(), Arc::clone(&rtt));
 		async move {
-			write_loop(sender, queue, bulk_queue, timing.keepalive).await;
+			write_loop(sender, queue, bulk_queue, timing.keepalive, &rtt).await;
 			let _ = events.send(LinkEvent::Down { link: id }).await;
 		}
 	});
 	let reader = tokio::spawn({
-		let (events, outbox) = (events.clone(), outbox.clone());
+		let (events, outbox, rtt) = (events.clone(), outbox.clone(), Arc::clone(&rtt));
 		async move {
-			read_loop(receiver, outbox, &events, id, timing.idle).await;
+			read_loop(receiver, outbox, &events, id, timing.idle, &rtt).await;
 			let _ = events.send(LinkEvent::Down { link: id }).await;
 		}
 	});
@@ -182,6 +185,7 @@ pub async fn establish(
 		remote_ip,
 		subnet: super::subnet::Subnet::of_interface(local_ip),
 		session,
+		rtt,
 		outbox,
 		bulk,
 		tasks: [writer.abort_handle(), reader.abort_handle()],
@@ -202,6 +206,7 @@ async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 	mut queue: mpsc::Receiver<Envelope>,
 	mut bulk: mpsc::Receiver<Envelope>,
 	keepalive: Duration,
+	rtt: &super::rtt::RttCell,
 ) {
 	let mut tick = interval(keepalive);
 	tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
@@ -217,6 +222,7 @@ async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 			},
 			_ = tick.tick() => {
 				nonce += 1;
+				rtt.probe_sent(nonce);
 				new_envelope(Body::Keepalive(Keepalive { nonce, reply: false }))
 			}
 			Some(envelope) = bulk.recv() => envelope,
@@ -234,6 +240,7 @@ async fn read_loop<R: tokio::io::AsyncRead + Unpin>(
 	events: &mpsc::Sender<LinkEvent>,
 	id: LinkId,
 	idle: Duration,
+	rtt: &super::rtt::RttCell,
 ) {
 	loop {
 		let envelope = match timeout(idle, receiver.recv()).await {
@@ -260,7 +267,8 @@ async fn read_loop<R: tokio::io::AsyncRead + Unpin>(
 					return;
 				}
 			}
-			Some(Body::Keepalive(_) | Body::Hello(_)) | None => {}
+			Some(Body::Keepalive(echo)) => rtt.probe_echoed(echo.nonce),
+			Some(Body::Hello(_)) | None => {}
 			Some(body) => {
 				if events
 					.send(LinkEvent::Message { link: id, body })
