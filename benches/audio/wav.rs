@@ -37,7 +37,7 @@ pub fn read_mono_48k(path: &Path) -> Result<Vec<f32>> {
 		return Ok(mono);
 	}
 	let chunk = (spec.sample_rate / 100).max(1) as usize;
-	let mut resampler = StreamResampler::new(spec.sample_rate, INTERNAL_RATE, chunk)
+	let mut resampler = StreamResampler::new_fixed(spec.sample_rate, INTERNAL_RATE, chunk)
 		.map_err(|e| BenchError::Wav(e.to_string()))?;
 	let mut out = Vec::with_capacity(mono.len() * 48_000 / spec.sample_rate as usize + 480);
 	resampler

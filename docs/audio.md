@@ -16,7 +16,7 @@ device channels only at the output edge.
 |---|---|
 | `device` | cpal enumeration with stable keys, `AudioBackend` trait, deterministic `FakeBackend`, stream health and recovery policy |
 | `capture` / `playback` | real-time callbacks, SPSC rings (`rtrb`), reader/writer halves, frame assembler, capture chain |
-| `convert` | sample formats, channel select/fan-out, `StreamResampler` (rubato sinc, drift clamp +/-300 ppm) |
+| `convert` | sample formats, channel select/fan-out, `StreamResampler` (rubato sinc, drift clamp +/-300 ppm; `new` is always adjustable even at 48 kHz, `new_fixed` bypasses equal rates and refuses drift) |
 | `codec` | per-call Opus encoder/decoder (10 ms, mono, PLC and FEC hooks) |
 | `mixer` | per-call and master gain (capped at 2.0), sample-wise limiter, preallocated scratch |
 | `dsp` | `NoiseSuppressor` contract, `OffSuppressor`, model manifest validation, benchmark harness |
@@ -85,6 +85,7 @@ runner live in the `relay-benches` crate (`benches/`).
 
 - The loopback pipeline requires a suppressor that yields whole 10 ms frames;
   other hops need their own adapter in front of it.
+- `PlaybackSink` uses the adjustable resampler, so a 48 kHz device pays the sinc group delay (about 64 samples, reported by `delay_samples`) to keep drift correction available.
 - The drift controller in `PlaybackSink::update_drift` is an unvalidated
   starting point.
 - Fake devices prove logic, not timing.

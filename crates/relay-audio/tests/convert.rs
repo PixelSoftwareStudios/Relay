@@ -35,7 +35,7 @@ fn fan_out_duplicates_mono_and_saturates() {
 
 #[test]
 fn equal_rates_bypass_exactly() {
-	let mut r = StreamResampler::new(48_000, 48_000, 480).unwrap();
+	let mut r = StreamResampler::new_fixed(48_000, 48_000, 480).unwrap();
 	let input: Vec<f32> = (0..1000).map(|i| i as f32 / 1000.0).collect();
 	let mut got = Vec::new();
 	r.push(&input, |b| got.extend_from_slice(b)).unwrap();
@@ -97,4 +97,41 @@ fn drift_adjustment_is_clamped() {
 fn invalid_arguments_are_rejected() {
 	assert!(StreamResampler::new(0, 48_000, 480).is_err());
 	assert!(StreamResampler::new(48_000, 44_100, 0).is_err());
+}
+
+#[test]
+fn drift_correction_works_at_48k() {
+	let input = tone(48_000, 48_000 * 20);
+	let mut baseline = 0;
+	for ppm in [0.0, 100.0, -100.0, 300.0, -300.0] {
+		let mut r = StreamResampler::new(48_000, 48_000, 480).unwrap();
+		r.set_drift_ppm(ppm).unwrap();
+		let mut count = 0_usize;
+		for piece in input.chunks(480) {
+			r.push(piece, |b| count += b.len()).unwrap();
+		}
+		if ppm == 0.0 {
+			baseline = count;
+			continue;
+		}
+		let extra = count as f64 - baseline as f64;
+		let expected = input.len() as f64 * ppm * 1e-6;
+		assert!(
+			(extra - expected).abs() < 8.0,
+			"{ppm} ppm: {extra} extra samples, expected {expected}"
+		);
+	}
+}
+
+#[test]
+fn drift_beyond_the_clamp_is_limited_and_fixed_mode_refuses() {
+	let input = tone(48_000, 48_000 * 10);
+	let mut r = StreamResampler::new(48_000, 48_000, 480).unwrap();
+	r.set_drift_ppm(5_000.0).unwrap();
+	let mut count = 0_usize;
+	r.push(&input, |b| count += b.len()).unwrap();
+	let max_extra = input.len() as f64 * 300e-6;
+	assert!((count as f64 - input.len() as f64) < max_extra + 70.0);
+	let mut fixed = StreamResampler::new_fixed(48_000, 48_000, 480).unwrap();
+	assert!(fixed.set_drift_ppm(100.0).is_err());
 }

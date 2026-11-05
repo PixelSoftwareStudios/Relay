@@ -218,3 +218,22 @@ fn dsp_chain_is_allocation_free() {
 	});
 	assert_eq!(n, 0);
 }
+
+#[test]
+fn drift_correction_at_48k_is_allocation_free() {
+	let mut resampler = StreamResampler::new(48_000, 48_000, 480).unwrap();
+	let input: Vec<f32> = (0..480).map(|i| (i as f32 * 0.05).sin() * 0.3).collect();
+	let mut produced = 0;
+	for _ in 0..20 {
+		resampler.push(&input, |b| produced += b.len()).unwrap();
+	}
+	let n = allocations_in(|| {
+		for i in 0..400 {
+			let ppm = [300.0, -300.0, 100.0, -100.0][i % 4];
+			resampler.set_drift_ppm(ppm).unwrap();
+			resampler.push(&input, |b| produced += b.len()).unwrap();
+		}
+	});
+	assert!(produced > 0);
+	assert_eq!(n, 0);
+}

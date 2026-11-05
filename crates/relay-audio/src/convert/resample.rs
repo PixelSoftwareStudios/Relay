@@ -16,8 +16,11 @@ const MAX_RELATIVE_RATIO: f64 = 1.001;
 
 /// Band-limited fixed-chunk mono resampler.
 ///
-/// Equal rates bypass conversion entirely. Input and output positions are
-/// counted so callers can keep sample indices across the conversion.
+/// [`StreamResampler::new`] always converts, so drift correction works even
+/// when both rates are 48 kHz (at the cost of the sinc group delay).
+/// [`StreamResampler::new_fixed`] bypasses equal rates exactly and refuses
+/// drift adjustment. Input and output positions are counted so callers can
+/// keep sample indices across the conversion.
 pub struct StreamResampler {
 	core: Option<Core>,
 	in_rate: u32,
@@ -35,15 +38,25 @@ struct Core {
 }
 
 impl StreamResampler {
-	/// Build a converter taking `chunk_in` input samples per processed chunk.
-	/// Allocates; call during setup only.
+	/// Adjustable converter: never bypassed, so [`Self::set_drift_ppm`] always
+	/// takes effect. Allocates; call during setup only.
 	pub fn new(in_rate: u32, out_rate: u32, chunk_in: usize) -> Result<Self> {
+		Self::build(in_rate, out_rate, chunk_in, true)
+	}
+
+	/// Fixed-ratio converter: equal rates pass samples through untouched and
+	/// zero-delay, and drift adjustment is rejected.
+	pub fn new_fixed(in_rate: u32, out_rate: u32, chunk_in: usize) -> Result<Self> {
+		Self::build(in_rate, out_rate, chunk_in, false)
+	}
+
+	fn build(in_rate: u32, out_rate: u32, chunk_in: usize, adjustable: bool) -> Result<Self> {
 		if in_rate == 0 || out_rate == 0 || chunk_in == 0 {
 			return Err(AudioError::InvalidArgument(
 				"rates and chunk must be nonzero",
 			));
 		}
-		let core = if in_rate == out_rate {
+		let core = if in_rate == out_rate && !adjustable {
 			None
 		} else {
 			let ratio = f64::from(out_rate) / f64::from(in_rate);
@@ -105,15 +118,18 @@ impl StreamResampler {
 	}
 
 	/// Apply a relative drift correction, clamped to +/- [`MAX_DRIFT_PPM`].
-	/// A bypassed converter ignores it.
+	/// Positive ppm produces more output samples per input sample. Errors on
+	/// a bypassed (`new_fixed`, equal-rate) converter instead of ignoring it.
 	pub fn set_drift_ppm(&mut self, ppm: f64) -> Result<()> {
-		if let Some(core) = &mut self.core {
-			let ppm = ppm.clamp(-MAX_DRIFT_PPM, MAX_DRIFT_PPM);
-			core.inner
-				.set_resample_ratio(core.base_ratio * (1.0 + ppm * 1e-6), false)
-				.map_err(|e| AudioError::Resample(e.to_string()))?;
-		}
-		Ok(())
+		let Some(core) = &mut self.core else {
+			return Err(AudioError::InvalidArgument(
+				"bypassed resampler cannot correct drift",
+			));
+		};
+		let ppm = ppm.clamp(-MAX_DRIFT_PPM, MAX_DRIFT_PPM);
+		core.inner
+			.set_resample_ratio(core.base_ratio * (1.0 + ppm * 1e-6), false)
+			.map_err(|e| AudioError::Resample(e.to_string()))
 	}
 
 	/// Drop buffered state, restarting the position counters.

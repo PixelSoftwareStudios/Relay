@@ -31,7 +31,7 @@ impl CaptureChain {
 		let chunk = (device_rate / 100).max(1) as usize;
 		Ok(Self {
 			reader,
-			resampler: StreamResampler::new(device_rate, INTERNAL_RATE, chunk)?,
+			resampler: StreamResampler::new_fixed(device_rate, INTERNAL_RATE, chunk)?,
 			assembler: FrameAssembler::default(),
 			scratch: vec![0.0; READ_CHUNK],
 			device_rate,
