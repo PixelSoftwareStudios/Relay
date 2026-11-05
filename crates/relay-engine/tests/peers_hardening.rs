@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use relay_config::db::Database;
-use relay_config::fsx::WriterLock;
+use relay_config::WriterLock;
 use relay_config::identity::TrustStore as ConfigStore;
 use relay_engine::peers::{
 	ConfigTrust, KeyedTrustStore, PeerOutput, SharedTrust, disambiguated, spawn,
