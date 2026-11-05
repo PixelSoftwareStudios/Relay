@@ -2,10 +2,15 @@ use std::sync::Arc;
 
 use relay_desktop::app::DesktopApp;
 use relay_desktop::host::DesktopShell;
+use relay_desktop::login::LoginItem;
+use relay_desktop::notify::{Dispatcher, NotifySink, SystemNotifier};
+use relay_desktop::options::DesktopOptions;
+use relay_desktop::prefs::DesktopPrefs;
 use relay_desktop::tray;
 use relay_ui::actions::{Actions, Shared, ShellSink};
 use relay_ui::controller::{Controller, SessionSlot};
 use relay_ui::emitter::{self, Cadence};
+use relay_ui::host_options::HostOptions;
 use relay_ui::hub::Hub;
 use relay_ui::imaging::decode_for_texture;
 use relay_ui::messaging::link::MsgLink;
@@ -33,7 +38,7 @@ fn main() -> eframe::Result {
 
 	let viewport = egui::ViewportBuilder::default()
 		.with_title("Relay")
-		.with_inner_size([520.0, 800.0])
+		.with_inner_size([720.0, 800.0])
 		.with_min_inner_size([380.0, 480.0])
 		.with_icon(egui::IconData {
 			rgba: window_icon.rgba,
@@ -50,7 +55,13 @@ fn main() -> eframe::Result {
 		options,
 		Box::new(move |cc| {
 			let ctx = cc.egui_ctx.clone();
-			let host = Arc::new(DesktopShell::new(ctx.clone()));
+			let dispatcher = Arc::new(Dispatcher::new(Arc::new(SystemNotifier)));
+			let options = Arc::new(DesktopOptions::new(
+				DesktopPrefs::default_path(),
+				dispatcher.clone(),
+				LoginItem::system(),
+			));
+			let host = Arc::new(DesktopShell::new(ctx.clone(), options.clone()));
 			let shell: Arc<dyn Shell> = host.clone();
 			let hub = Arc::new(Hub::default());
 			let slot = Arc::new(SessionSlot::default());
@@ -63,10 +74,17 @@ fn main() -> eframe::Result {
 				runtime: runtime.handle().clone(),
 				shell: shell.clone(),
 			};
-			let sink = Arc::new(ShellSink {
+			let shell_sink = Arc::new(ShellSink {
 				shared: shared.clone(),
 				shell,
 			});
+			let (switch, front) = (options.clone(), host.clone());
+			let sink = Arc::new(NotifySink::new(
+				shell_sink,
+				dispatcher,
+				Arc::new(move || switch.notify_incoming()),
+				Arc::new(move || front.in_front()),
+			));
 			runtime.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			if mock_mode {
 				runtime.spawn(mock::run(hub.clone(), slot));

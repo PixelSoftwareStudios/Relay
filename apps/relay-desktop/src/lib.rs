@@ -4,4 +4,8 @@
 
 pub mod app;
 pub mod host;
+pub mod login;
+pub mod notify;
+pub mod options;
+pub mod prefs;
 pub mod tray;

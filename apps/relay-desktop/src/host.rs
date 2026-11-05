@@ -2,24 +2,44 @@
 //! commands, the egui clipboard and the native (rfd) file dialog.
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 
 use relay_ui::daemon_control;
-use relay_ui::format::{avatar_problem, media_type_for};
+use relay_ui::format::avatar_problem;
+use relay_ui::host_options::HostOptions;
+use relay_ui::imaging::avatar_check;
 use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
+
+use crate::options::DesktopOptions;
 
 pub struct DesktopShell {
 	ctx: egui::Context,
 	tray: AtomicBool,
+	/// Set by [`Shell::hide_window`], cleared by [`Shell::show_window`].
+	hidden: AtomicBool,
+	options: Arc<DesktopOptions>,
 }
 
 impl DesktopShell {
-	pub fn new(ctx: egui::Context) -> Self {
+	pub fn new(ctx: egui::Context, options: Arc<DesktopOptions>) -> Self {
 		Self {
 			ctx,
 			tray: AtomicBool::new(false),
+			hidden: AtomicBool::new(false),
+			options,
 		}
+	}
+
+	/// The window is on screen, not minimized and has the keyboard focus: the user can see an
+	/// incoming call without a notification.
+	pub fn in_front(&self) -> bool {
+		!self.hidden.load(Ordering::Acquire)
+			&& self.ctx.input(|i| {
+				let viewport = i.viewport();
+				!viewport.minimized.unwrap_or(false) && viewport.focused.unwrap_or(false)
+			})
 	}
 
 	/// Record whether a tray icon exists (closing then hides the window).
@@ -33,7 +53,10 @@ impl FilePicker for DesktopShell {
 		Box::pin(async {
 			let dialog = rfd::AsyncFileDialog::new()
 				.set_title("Choose a profile image")
-				.add_filter("PNG or JPEG image", &["png", "jpg", "jpeg"])
+				.add_filter(
+					"Image",
+					&["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"],
+				)
 				.pick_file()
 				.await;
 			match dialog {
@@ -81,12 +104,14 @@ pub async fn read_picked(path: &Path) -> Result<PickedFile, String> {
 	let size = usize::try_from(size)
 		.unwrap_or(usize::MAX)
 		.min(relay_ui::controller::AVATAR_MAX_BYTES + 1);
-	if let Some(problem) = avatar_problem(size, media_type_for(&name)) {
+	if let Some(problem) = avatar_problem(size) {
 		return Err(problem.to_owned());
 	}
 	let bytes = tokio::fs::read(path)
 		.await
 		.map_err(|e| format!("Cannot read the file: {e}"))?;
+	// The format comes from the bytes, not the name.
+	avatar_check(&bytes)?;
 	Ok(PickedFile { name, bytes })
 }
 
@@ -108,12 +133,14 @@ impl Shell for DesktopShell {
 	}
 
 	fn show_window(&self) {
+		self.hidden.store(false, Ordering::Release);
 		self.ctx
 			.send_viewport_cmd(egui::ViewportCommand::Visible(true));
 		self.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
 	}
 
 	fn hide_window(&self) {
+		self.hidden.store(true, Ordering::Release);
 		self.ctx
 			.send_viewport_cmd(egui::ViewportCommand::Visible(false));
 	}
@@ -128,6 +155,10 @@ impl Shell for DesktopShell {
 
 	fn can_manage_daemon(&self) -> bool {
 		true
+	}
+
+	fn host_options(&self) -> Option<&dyn HostOptions> {
+		Some(self.options.as_ref())
 	}
 
 	/// Launches the separate `relayd` binary itself; the `relay` command line
