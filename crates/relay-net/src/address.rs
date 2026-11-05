@@ -38,6 +38,7 @@ pub enum AddressError {
 pub struct AddressPolicy {
 	allow_loopback: bool,
 	allow_overlay_manual: bool,
+	overlay_peer: Option<IpAddr>,
 }
 
 impl AddressPolicy {
@@ -46,6 +47,7 @@ impl AddressPolicy {
 		Self {
 			allow_loopback: false,
 			allow_overlay_manual: false,
+			overlay_peer: None,
 		}
 	}
 
@@ -54,6 +56,7 @@ impl AddressPolicy {
 		Self {
 			allow_loopback: true,
 			allow_overlay_manual: false,
+			overlay_peer: None,
 		}
 	}
 
@@ -66,9 +69,21 @@ impl AddressPolicy {
 		self
 	}
 
+	/// Admits exactly one address in 100.64.0.0/10 for media: the remote IP of an
+	/// authenticated control link the user reached through an opted-in manual address.
+	/// Take `ip` from the link's socket, never from advertised or discovered data. Any
+	/// other overlay address stays refused; `ip` outside that range changes nothing.
+	pub const fn with_overlay_peer(mut self, ip: IpAddr) -> Self {
+		self.overlay_peer = Some(ip);
+		self
+	}
+
 	/// Checks a single IP address against the policy.
 	pub fn check_ip(&self, ip: IpAddr) -> Result<(), AddressError> {
 		let ip = canonical(ip);
+		if is_shared_address_space(ip) && self.overlay_peer.map(canonical) == Some(ip) {
+			return Ok(());
+		}
 		if ip.is_loopback() {
 			return if self.allow_loopback {
 				Ok(())

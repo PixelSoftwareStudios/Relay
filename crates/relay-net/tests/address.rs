@@ -189,3 +189,16 @@ fn metadata_addresses_are_not_media_candidates_and_manual_checks_honour_the_flag
 		Err(AddressError::OverlayNetwork)
 	);
 }
+
+#[test]
+fn overlay_peer_admits_exactly_one_address() {
+	let p = AddressPolicy::lan_only().with_overlay_peer("100.64.0.9".parse().unwrap());
+	assert!(p.check_socket("100.64.0.9:7".parse().unwrap()).is_ok());
+	assert!(p.check_socket("100.64.0.10:7".parse().unwrap()).is_err());
+	assert!(p.check_socket("8.8.8.8:7".parse().unwrap()).is_err());
+	assert!(
+		AddressPolicy::lan_only()
+			.check_socket("100.64.0.9:7".parse().unwrap())
+			.is_err()
+	);
+}
