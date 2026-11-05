@@ -1,5 +1,6 @@
 //! Fakes for tests and demos: a scripted hotkey backend and a fake lease sink.
 
+use relay_io::LockExt;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 
@@ -26,7 +27,7 @@ pub struct FakeKeyboard {
 impl FakeKeyboard {
 	/// Send an edge; false if the backend is not started.
 	pub fn send(&self, event: HotkeyEvent) -> bool {
-		let tx = self.tx.lock().unwrap_or_else(|e| e.into_inner());
+		let tx = self.tx.lock_unpoisoned();
 		tx.as_ref().is_some_and(|tx| tx.send(event).is_ok())
 	}
 }
@@ -58,7 +59,7 @@ impl HotkeyBackend for FakeBackend {
 		if !self.status.is_available() {
 			return Err(HotkeyError::Unavailable(self.status.clone()));
 		}
-		let mut slot = self.tx.lock().unwrap_or_else(|e| e.into_inner());
+		let mut slot = self.tx.lock_unpoisoned();
 		if slot.is_some() {
 			return Err(HotkeyError::AlreadyStarted);
 		}
@@ -68,7 +69,7 @@ impl HotkeyBackend for FakeBackend {
 	}
 
 	fn stop(&mut self) {
-		*self.tx.lock().unwrap_or_else(|e| e.into_inner()) = None;
+		*self.tx.lock_unpoisoned() = None;
 	}
 }
 
@@ -108,7 +109,7 @@ impl FakeLeaseSink {
 	}
 
 	fn script(&self) -> std::sync::MutexGuard<'_, Script> {
-		self.0.lock().unwrap_or_else(|e| e.into_inner())
+		self.0.lock_unpoisoned()
 	}
 
 	/// Reply used when the queue is empty.

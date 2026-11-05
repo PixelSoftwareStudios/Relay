@@ -49,7 +49,7 @@ impl<S: LeaseSink> PttDriver<S> {
 		cfg: PttConfig,
 	) -> (Self, watch::Receiver<PttState>) {
 		let (state, rx) = watch::channel(PttState::Idle);
-		let source_id = uuid::Uuid::new_v4().as_bytes().to_vec();
+		let source_id = relay_io::entropy::random_bytes::<16>().to_vec();
 		let driver = Self {
 			sink,
 			cfg,
