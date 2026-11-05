@@ -18,8 +18,8 @@ pub use backoff::BackoffConfig;
 pub use control::{InterfaceSource, PeerAdapter, system_interfaces};
 pub use election::{LinkFacts, Verdict, elect};
 pub use handle::{
-	DiscoverySetup, LinkInfo, PeerConfig, PeerError, PeerHandle, PeerOutput, PeerSnapshot,
-	fingerprint, peer_id,
+	AdvertSpec, ChannelEvent, DiscoverySetup, LinkInfo, PeerConfig, PeerError, PeerHandle,
+	PeerOutput, PeerSnapshot, fingerprint, peer_id,
 };
 pub use link::{LinkError, LinkTiming};
 pub use profile::{CHUNK_BYTES, LocalProfile};

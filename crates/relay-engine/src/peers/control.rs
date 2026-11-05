@@ -6,7 +6,9 @@ use relay_net::discovery::InterfacePolicy;
 use relay_net::identity::TrustState;
 use std::sync::Arc;
 use tokio::runtime::Handle;
+use tokio::sync::watch;
 
+use super::handle::AdvertSpec;
 use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ports::{
 	ConnectionDetails, LocalProfile as PortProfile, PeerControl, PeerInfo, PeerTrust, PortError,
@@ -23,6 +25,7 @@ pub struct PeerAdapter {
 	/// The plain LAN policy: what is advertised and shown to other people.
 	lan: relay_net::AddressPolicy,
 	interfaces: InterfaceSource,
+	advert: Option<Arc<watch::Sender<AdvertSpec>>>,
 }
 
 /// Lists the addresses of this machine's network interfaces.
@@ -56,12 +59,20 @@ impl PeerAdapter {
 			policy: manual,
 			lan,
 			interfaces: Arc::new(system_interfaces),
+			advert: None,
 		}
 	}
 
 	/// Replaces the interface lister (tests).
 	pub fn with_interfaces(mut self, interfaces: InterfaceSource) -> Self {
 		self.interfaces = interfaces;
+		self
+	}
+
+	/// Lets profile changes switch the discovery advertisement between visible
+	/// and hidden.
+	pub fn with_advert(mut self, advert: Arc<watch::Sender<AdvertSpec>>) -> Self {
+		self.advert = Some(advert);
 		self
 	}
 }
@@ -177,6 +188,13 @@ impl PeerControl for PeerAdapter {
 	}
 
 	fn profile_changed(&self, profile: &PortProfile) {
+		if let Some(advert) = &self.advert {
+			advert.send_if_modified(|spec| {
+				let changed = spec.hidden != profile.hidden;
+				spec.hidden = profile.hidden;
+				changed
+			});
+		}
 		let _ = self.handle.set_profile(LocalProfile {
 			display_name: profile.display_name.clone(),
 			avatar: profile.avatar,

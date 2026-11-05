@@ -5,14 +5,14 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
-use relay_net::discovery::{Advertisement, Discovery, DiscoveryEvent, DiscoveryTable};
+use relay_net::discovery::{AdvertMode, Advertisement, Discovery, DiscoveryEvent, DiscoveryTable};
 use relay_net::handshake::HandshakeGate;
 use relay_net::identity::{Fingerprint, Identity};
 use relay_net::session::Role;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, watch};
 
-use super::handle::{Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
+use super::handle::{AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
 use super::link::{LinkEvent, LinkParams, establish};
 use super::manager::Actor;
 use super::profile::{LocalProfile, Profiles};
@@ -115,8 +115,8 @@ fn spawn_discovery(
 	let mut discovery = Discovery::start(&setup.interfaces, config.policy)
 		.map_err(|e| PeerError::Discovery(e.to_string()))?;
 	let advertise = setup.advertise;
-	let instance_id = rand::random();
-	let announce = move |discovery: &mut Discovery, profile: &LocalProfile| {
+	let mut spec = config.advert.clone();
+	let announce = move |discovery: &mut Discovery, profile: &LocalProfile, spec: &AdvertSpec| {
 		if !advertise {
 			return Ok(());
 		}
@@ -124,17 +124,27 @@ fn spawn_discovery(
 		let _ = discovery.withdraw();
 		discovery
 			.advertise(&Advertisement {
-				instance_id,
+				instance_id: spec.instance_id,
 				display_name: profile.display_name.clone(),
 				port,
 				fingerprint: local,
 				capabilities: String::new(),
-				mode: Default::default(),
-				extra_txt: Vec::new(),
+				mode: if spec.hidden {
+					AdvertMode::Hidden
+				} else {
+					AdvertMode::Open
+				},
+				extra_txt: spec.extra_txt.clone(),
 			})
 			.map_err(|e| PeerError::Discovery(e.to_string()))
 	};
-	announce(&mut discovery, &profile.borrow().clone())?;
+	let current = |spec: &Option<watch::Receiver<AdvertSpec>>| {
+		spec.as_ref()
+			.map(|rx| rx.borrow().clone())
+			.unwrap_or_default()
+	};
+	let mut published = current(&spec);
+	announce(&mut discovery, &profile.borrow().clone(), &published)?;
 	tokio::spawn(async move {
 		loop {
 			tokio::select! {
@@ -152,14 +162,31 @@ fn spawn_discovery(
 					if changed.is_err() {
 						break;
 					}
-					let current = profile.borrow_and_update().clone();
-					let _ = announce(&mut discovery, &current);
+					let now = profile.borrow_and_update().clone();
+					let _ = announce(&mut discovery, &now, &published);
+				}
+				changed = spec_changed(&mut spec) => {
+					if changed.is_err() {
+						break;
+					}
+					published = current(&spec);
+					let now = profile.borrow().clone();
+					let _ = announce(&mut discovery, &now, &published);
 				}
 			}
 		}
 		discovery.shutdown();
 	});
 	Ok(())
+}
+
+async fn spec_changed(
+	spec: &mut Option<watch::Receiver<AdvertSpec>>,
+) -> Result<(), watch::error::RecvError> {
+	match spec {
+		Some(rx) => rx.changed().await,
+		None => std::future::pending().await,
+	}
 }
 
 async fn accept_loop(

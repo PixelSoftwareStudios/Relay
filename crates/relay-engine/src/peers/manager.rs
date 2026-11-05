@@ -8,6 +8,7 @@ use std::sync::{Arc, Mutex};
 
 use arc_swap::ArcSwap;
 use relay_core::PeerEvent;
+use relay_net::channel::SessionBinding;
 use relay_net::discovery::DiscoveryTable;
 use relay_net::identity::{Fingerprint, PeerTrust, TrustRecord, TrustState, evaluate_peer};
 use relay_net::proto::{Envelope, envelope::Body};
@@ -15,7 +16,9 @@ use tokio::sync::{mpsc, oneshot};
 
 use super::dialing::Want;
 use super::election::{LinkFacts, Verdict, elect};
-use super::handle::{Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id};
+use super::handle::{
+	ChannelEvent, Command, LinkInfo, PeerConfig, PeerError, PeerOutput, PeerSnapshot, peer_id,
+};
 use super::link::{Established, LinkEvent, LinkId, LinkParams};
 use super::signaling::{Inbound, SessionTable, decode};
 use super::trust::{SharedTrust, now};
@@ -102,6 +105,7 @@ impl Actor {
 				self.waiters.insert(id, reply);
 			}
 			Command::Send(peer, envelope) => self.send(peer, envelope).await,
+			Command::Channel(peer, message) => self.send_channel(peer, *message),
 			Command::Pin { peer, state, reply } => {
 				let result = self.pin(peer, state).await;
 				let _ = reply.send(result);
@@ -140,6 +144,15 @@ impl Actor {
 		}
 	}
 
+	/// Channel exchanges belong to one session: sent on the live trusted link
+	/// or not at all.
+	fn send_channel(&mut self, peer: Fingerprint, message: relay_net::proto::ChannelMessage) {
+		if let Some(entry) = self.trusted_link(&peer) {
+			let envelope = relay_net::control::new_envelope(Body::Channel(message));
+			let _ = entry.link.outbox.try_send(envelope);
+		}
+	}
+
 	fn on_discovered(&mut self, mut found: relay_net::discovery::DiscoveredPeer) {
 		found.display_name = relay_net::discovery::sanitize_display_name(&found.display_name);
 		// Whatever feeds the table, only plain-policy addresses are ever dialled.
@@ -152,9 +165,14 @@ impl Actor {
 			.filter(|fp| found.fingerprint_hint.is_some_and(|hint| hint.matches(fp)))
 			.copied()
 			.collect();
+		let hints = found.clone();
 		if self.table.upsert(found).is_err() {
 			return;
 		}
+		// The channel driver recognises blinded tags; they are hints, never proof.
+		let _ = self
+			.output
+			.try_send(PeerOutput::Channel(ChannelEvent::Advert(Box::new(hints))));
 		matches.into_iter().for_each(|peer| self.try_dial(peer));
 	}
 
@@ -237,6 +255,7 @@ impl Actor {
 				.await;
 			self.flush_pending(peer).await;
 			self.announce_profile(peer).await;
+			self.announce_channel_link(peer).await;
 		}
 		Ok(())
 	}
@@ -306,6 +325,7 @@ impl Actor {
 			}
 			self.flush_pending(peer).await;
 			self.announce_profile(peer).await;
+			self.announce_channel_link(peer).await;
 		} else {
 			self.emit(PeerOutput::TrustRequired {
 				peer: peer_id(&peer),
@@ -314,6 +334,19 @@ impl Actor {
 			})
 			.await;
 		}
+	}
+
+	/// Tells the channel driver that a trusted link is live. Trust was evaluated
+	/// before this point; the driver starts no exchange earlier.
+	async fn announce_channel_link(&self, peer: Fingerprint) {
+		let Some(entry) = self.trusted_link(&peer) else {
+			return;
+		};
+		let event = ChannelEvent::LinkUp {
+			peer: peer_id(&peer),
+			binding: SessionBinding::for_session(&entry.link.session),
+		};
+		self.emit(PeerOutput::Channel(event)).await;
 	}
 
 	async fn on_message(&mut self, link: LinkId, body: Body) {
@@ -325,6 +358,15 @@ impl Actor {
 			return;
 		}
 		let fingerprint = entry.link.fingerprint;
+		if let Body::Channel(message) = body {
+			let event = ChannelEvent::Message {
+				peer: peer_id(&fingerprint),
+				binding: SessionBinding::for_session(&entry.link.session),
+				message: Box::new(message),
+			};
+			self.emit(PeerOutput::Channel(event)).await;
+			return;
+		}
 		if matches!(
 			body,
 			Body::Profile(_) | Body::AvatarRequest(_) | Body::AvatarChunk(_)
@@ -358,6 +400,10 @@ impl Actor {
 		if entry.trusted {
 			self.emit(PeerOutput::Core(PeerEvent::LinkDown(peer_id(&peer))))
 				.await;
+			let down = ChannelEvent::LinkDown {
+				peer: peer_id(&peer),
+			};
+			self.emit(PeerOutput::Channel(down)).await;
 		}
 		self.schedule_redial(peer);
 	}

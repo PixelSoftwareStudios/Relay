@@ -7,8 +7,10 @@ use arc_swap::ArcSwap;
 use relay_core::{PeerEvent, PeerId, PeerMessage};
 use relay_net::AddressError;
 use relay_net::AddressPolicy;
+use relay_net::channel::SessionBinding;
 use relay_net::discovery::InterfacePolicy;
 use relay_net::identity::{Fingerprint, PeerTrust, TrustState};
+use relay_net::proto::ChannelMessage;
 use relay_net::session::SecureSession;
 use thiserror::Error;
 use tokio::sync::{mpsc, oneshot};
@@ -47,6 +49,28 @@ pub struct DiscoverySetup {
 	pub advertise: bool,
 }
 
+/// What the local advertisement says beyond the display name: set by the
+/// channel driver, published by discovery.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct AdvertSpec {
+	/// The mDNS instance id (rotating and pseudonymous in hidden mode).
+	pub instance_id: [u8; 16],
+	/// Publish neither name nor fingerprint hint.
+	pub hidden: bool,
+	/// Extra TXT entries (blinded channel tags, listed channel names).
+	pub extra_txt: Vec<(String, String)>,
+}
+
+impl Default for AdvertSpec {
+	fn default() -> Self {
+		Self {
+			instance_id: rand::random(),
+			hidden: false,
+			extra_txt: Vec::new(),
+		}
+	}
+}
+
 /// Peer manager configuration.
 #[derive(Debug, Clone)]
 pub struct PeerConfig {
@@ -70,6 +94,9 @@ pub struct PeerConfig {
 	pub avatars: Option<Arc<relay_config::avatar::AvatarCache>>,
 	/// Initial local avatar hash (must be in the cache).
 	pub avatar: Option<[u8; 32]>,
+	/// Source of the advertisement's channel and privacy parts; `None` keeps a
+	/// plain open advertisement.
+	pub advert: Option<tokio::sync::watch::Receiver<AdvertSpec>>,
 }
 
 impl PeerConfig {
@@ -90,15 +117,47 @@ impl PeerConfig {
 			discovery: Some(DiscoverySetup::default()),
 			avatars: None,
 			avatar: None,
+			advert: None,
 		}
 	}
 }
 
+/// Channel traffic and discovery facts. These never reach call state: the host
+/// hands them to the channel driver only.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ChannelEvent {
+	/// A trusted link is the live one for `peer` (trust was evaluated first).
+	LinkUp {
+		/// The peer.
+		peer: PeerId,
+		/// The session transcript channel proofs bind to.
+		binding: SessionBinding,
+	},
+	/// The trusted link to `peer` ended.
+	LinkDown {
+		/// The peer.
+		peer: PeerId,
+	},
+	/// A channel message from the peer's live trusted link.
+	Message {
+		/// The sender.
+		peer: PeerId,
+		/// The session the message arrived on.
+		binding: SessionBinding,
+		/// The message (structurally validated by the control layer).
+		message: Box<ChannelMessage>,
+	},
+	/// A discovery record (untrusted hints only).
+	Advert(Box<relay_net::discovery::DiscoveredPeer>),
+}
+
 /// Everything the peer manager reports upward.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PeerOutput {
 	/// An event for the domain (link state, call signaling).
 	Core(PeerEvent),
+	/// Channel protocol traffic; routed to the channel driver, never to the domain.
+	Channel(ChannelEvent),
 	/// Media negotiation for the media module.
 	Media {
 		/// The sender.
@@ -195,6 +254,7 @@ pub(super) enum Command {
 		reply: Reply<Fingerprint>,
 	},
 	Send(Fingerprint, relay_net::proto::Envelope),
+	Channel(Fingerprint, Box<ChannelMessage>),
 	Pin {
 		peer: Fingerprint,
 		state: TrustState,
@@ -280,6 +340,12 @@ impl PeerHandle {
 			super::signaling::encode(&message, peer, &mut table)
 		};
 		self.try_send(Command::Send(fingerprint(peer), envelope))
+	}
+
+	/// Sends a channel message over the live trusted link; dropped if there is none
+	/// (channel exchanges are bound to one session and are never queued).
+	pub fn send_channel(&self, peer: PeerId, message: ChannelMessage) -> Result<(), PeerError> {
+		self.try_send(Command::Channel(fingerprint(peer), Box::new(message)))
 	}
 
 	/// Sends media negotiation traffic.
