@@ -1,51 +1,44 @@
 //! Rumble-removing high-pass filter and a conservative AGC.
 
+use biquad::{Biquad, Coefficients, DirectForm2Transposed, Q_BUTTERWORTH_F32, ToHertz, Type};
+
 use crate::format::INTERNAL_RATE;
 
-/// Second-order Butterworth high-pass at 48 kHz.
+/// Second-order Butterworth high-pass at 48 kHz (`biquad`, transposed direct form II, `f32`).
 #[derive(Debug, Clone)]
 pub struct HighPass {
-	b: [f64; 3],
-	a: [f64; 2],
-	z: [f64; 2],
+	filter: DirectForm2Transposed<f32>,
 }
 
 impl HighPass {
 	/// Voice-safe default corner.
 	pub const DEFAULT_CUTOFF_HZ: f64 = 80.0;
 
+	/// A corner outside the valid range is clamped rather than rejected.
 	pub fn new(cutoff_hz: f64) -> Self {
-		let w0 = std::f64::consts::TAU * cutoff_hz / f64::from(INTERNAL_RATE);
-		let alpha = w0.sin() / (2.0 * std::f64::consts::FRAC_1_SQRT_2);
-		let cos = w0.cos();
-		let a0 = 1.0 + alpha;
+		let rate = INTERNAL_RATE as f32;
+		let cutoff = (cutoff_hz as f32).clamp(1.0, rate * 0.45);
+		let coefficients = Coefficients::<f32>::from_params(
+			Type::HighPass,
+			rate.hz(),
+			cutoff.hz(),
+			Q_BUTTERWORTH_F32,
+		)
+		.expect("clamped corner is within (0, fs/2)");
 		Self {
-			b: [
-				(1.0 + cos) / 2.0 / a0,
-				-(1.0 + cos) / a0,
-				(1.0 + cos) / 2.0 / a0,
-			],
-			a: [-2.0 * cos / a0, (1.0 - alpha) / a0],
-			z: [0.0; 2],
+			filter: DirectForm2Transposed::<f32>::new(coefficients),
 		}
 	}
 
 	pub fn reset(&mut self) {
-		self.z = [0.0; 2];
+		self.filter.reset_state();
 	}
 
-	/// Filter in place (transposed direct form II). Non-finite input becomes silence.
+	/// Filter in place. Non-finite input becomes silence.
 	pub fn process(&mut self, frame: &mut [f32]) {
 		for sample in frame {
-			let x = if sample.is_finite() {
-				f64::from(*sample)
-			} else {
-				0.0
-			};
-			let y = self.b[0] * x + self.z[0];
-			self.z[0] = self.b[1] * x - self.a[0] * y + self.z[1];
-			self.z[1] = self.b[2] * x - self.a[1] * y;
-			*sample = y as f32;
+			let x = if sample.is_finite() { *sample } else { 0.0 };
+			*sample = self.filter.run(x);
 		}
 	}
 }

@@ -37,6 +37,28 @@ fn high_pass_removes_rumble_and_keeps_speech_band() {
 	hp.process(&mut [f32::NAN, f32::INFINITY]);
 }
 
+#[test]
+fn high_pass_response_matches_butterworth() {
+	// |H| = 1 / sqrt(1 + (fc/f)^4) for a 2nd-order Butterworth high-pass.
+	for (hz, expected) in [
+		(20.0_f32, 1.0 / (1.0 + (80.0_f32 / 20.0).powi(4)).sqrt()),
+		(40.0, 1.0 / (1.0 + 16.0_f32).sqrt()),
+		(80.0, std::f32::consts::FRAC_1_SQRT_2),
+		(160.0, 1.0 / (1.0 + (0.5_f32).powi(4)).sqrt()),
+		(1000.0, 1.0),
+		(8000.0, 1.0),
+	] {
+		let mut hp = HighPass::new(80.0);
+		let mut x = tone(hz, 1.0, 24000);
+		hp.process(&mut x);
+		let gain = rms(&x[12000..]) * 2f32.sqrt();
+		assert!(
+			(gain - expected).abs() < 0.02,
+			"{hz} Hz: gain {gain}, expected {expected}"
+		);
+	}
+}
+
 fn run_agc(agc: &mut Agc, level: f32, frames: usize) -> Vec<f32> {
 	let mut last = Vec::new();
 	for _ in 0..frames {
