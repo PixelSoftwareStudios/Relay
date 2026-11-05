@@ -2,7 +2,9 @@
 //! only claims the endpoint the way the real daemon would.
 //!
 //! `--mode`: `ok` (bind and serve), `die` (print an error, exit 3),
-//! `slow` (bind after one second) or `hang` (never bind). It exits when its
+//! `slow` (bind after one second), `hang` (never bind) or `holdlock` (take the
+//! advisory lock named by `--lock PATH` and sit on it). `--spawn-log PATH`
+//! gets one line per start, so tests can count launches. It exits when its
 //! socket file disappears, so a test stops it by removing the file.
 
 #[cfg(unix)]
@@ -13,12 +15,24 @@ fn main() {
 	let mut args = std::env::args().skip(1);
 	let mut socket = None;
 	let mut mode = "ok".to_owned();
+	let (mut spawn_log, mut lock) = (None, None);
 	while let Some(arg) = args.next() {
 		match arg.as_str() {
 			"--socket" => socket = args.next(),
 			"--mode" => mode = args.next().unwrap_or_default(),
+			"--spawn-log" => spawn_log = args.next(),
+			"--lock" => lock = args.next(),
 			_ => {}
 		}
+	}
+	if let Some(path) = spawn_log {
+		use std::io::Write;
+		let mut file = std::fs::OpenOptions::new()
+			.create(true)
+			.append(true)
+			.open(path)
+			.expect("spawn log");
+		writeln!(file, "started {}", std::process::id()).expect("write");
 	}
 	match mode.as_str() {
 		"die" => {
@@ -26,6 +40,18 @@ fn main() {
 			std::process::exit(3);
 		}
 		"hang" => std::thread::sleep(Duration::from_secs(60)),
+		"holdlock" => {
+			let file = std::fs::OpenOptions::new()
+				.create(true)
+				.truncate(false)
+				.write(true)
+				.open(lock.expect("--lock is required"))
+				.expect("lock file");
+			file.lock().expect("lock");
+			println!("holding the lock");
+			std::thread::sleep(Duration::from_secs(60));
+			return;
+		}
 		"slow" => std::thread::sleep(Duration::from_secs(1)),
 		_ => {}
 	}
