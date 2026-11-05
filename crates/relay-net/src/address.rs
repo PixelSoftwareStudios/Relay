@@ -27,6 +27,8 @@ pub enum AddressError {
 	ZeroPort,
 	#[error("link-local IPv6 requires a numeric scope id")]
 	MissingScope,
+	#[error("address is a reserved infrastructure address (cloud metadata) and cannot be a peer")]
+	Reserved,
 	#[error("endpoint must be a bare ip:port, not a URL")]
 	NotBareEndpoint,
 }
@@ -108,33 +110,48 @@ impl AddressPolicy {
 		let addr = if let Some(rest) = input.strip_prefix('[') {
 			let (host, port) = rest.split_once("]:").ok_or(AddressError::Malformed)?;
 			let (ip, scope) = match host.split_once('%') {
-				Some((ip, scope)) => (
-					ip,
-					scope.parse::<u32>().map_err(|_| AddressError::Malformed)?,
-				),
+				Some((ip, scope)) => (ip, digits::<u32>(scope)?),
 				None => (host, 0),
 			};
 			let ip: Ipv6Addr = ip.parse().map_err(|_| AddressError::Malformed)?;
-			let port: u16 = port.parse().map_err(|_| AddressError::Malformed)?;
-			SocketAddr::V6(SocketAddrV6::new(ip, port, 0, scope))
+			let port: u16 = digits(port)?;
+			// A scope id means something only for link-local addresses, and a mapped literal is
+			// the IPv4 host: normalise both so equal hosts compare equal.
+			if let Some(v4) = ip.to_ipv4_mapped() {
+				if scope != 0 {
+					return Err(AddressError::Malformed);
+				}
+				SocketAddr::new(IpAddr::V4(v4), port)
+			} else if scope != 0 && !is_v6_link_local(&ip) {
+				return Err(AddressError::Malformed);
+			} else {
+				SocketAddr::V6(SocketAddrV6::new(ip, port, 0, scope))
+			}
 		} else {
 			let (ip, port) = input.rsplit_once(':').ok_or(AddressError::Malformed)?;
 			let ip: Ipv4Addr = ip.parse().map_err(|_| AddressError::Malformed)?;
-			let port: u16 = port.parse().map_err(|_| AddressError::Malformed)?;
-			SocketAddr::new(IpAddr::V4(ip), port)
+			SocketAddr::new(IpAddr::V4(ip), digits(port)?)
 		};
+		self.check_manual_socket(addr)?;
+		Ok(addr)
+	}
+
+	/// The check for an address a person typed or pasted (also used by connection strings):
+	/// like [`Self::check_socket`], except that 100.64.0.0/10 is admitted when
+	/// [`Self::with_overlay_manual`] is on. Dial and add-address commands must use this, not
+	/// `check_socket`, or an accepted manual entry would silently do nothing.
+	pub fn check_manual_socket(&self, addr: SocketAddr) -> Result<(), AddressError> {
 		if is_shared_address_space(addr.ip()) {
 			if addr.port() == 0 {
 				return Err(AddressError::ZeroPort);
 			}
 			return if self.allow_overlay_manual {
-				Ok(addr)
+				Ok(())
 			} else {
 				Err(AddressError::OverlayManualDisabled)
 			};
 		}
-		self.check_socket(addr)?;
-		Ok(addr)
+		self.check_socket(addr)
 	}
 
 	/// Converts a remote-offered candidate into a socket address. The remote scope index is
@@ -160,7 +177,27 @@ impl AddressPolicy {
 		}
 		let addr = SocketAddr::new(ip, port);
 		self.check_socket(addr)?;
+		if is_reserved_infrastructure(addr.ip()) {
+			return Err(AddressError::Reserved);
+		}
 		Ok(addr)
+	}
+}
+
+/// Digits only: Rust's integer parser also accepts a leading `+`.
+fn digits<T: std::str::FromStr>(text: &str) -> Result<T, AddressError> {
+	if text.is_empty() || !text.bytes().all(|b| b.is_ascii_digit()) {
+		return Err(AddressError::Malformed);
+	}
+	text.parse().map_err(|_| AddressError::Malformed)
+}
+
+/// Cloud instance-metadata endpoints. They are link-local/ULA addresses that a trusted peer
+/// could name as a "media candidate" to make us probe them.
+fn is_reserved_infrastructure(ip: IpAddr) -> bool {
+	match canonical(ip) {
+		IpAddr::V4(v4) => v4.octets() == [169, 254, 169, 254],
+		IpAddr::V6(v6) => v6 == Ipv6Addr::new(0xfd00, 0xec2, 0, 0, 0, 0, 0, 0x254),
 	}
 }
 

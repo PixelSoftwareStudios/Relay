@@ -145,3 +145,47 @@ fn remote_candidates_are_validated_and_remote_scope_ids_not_trusted() {
 		assert!(p.candidate_from_proto(&bad).is_err());
 	}
 }
+
+#[test]
+fn manual_parsing_is_strict_and_normalised() {
+	let p = AddressPolicy::lan_only();
+	assert!(p.parse_manual("192.168.1.1:+80").is_err());
+	assert!(p.parse_manual("[fe80::1%+3]:80").is_err());
+	assert!(
+		p.parse_manual("[fd00::1%5]:80").is_err(),
+		"scope on a non-link-local"
+	);
+	assert!(p.parse_manual("[::ffff:192.168.1.1%2]:80").is_err());
+	// A mapped literal is the IPv4 host and compares equal to it.
+	assert_eq!(
+		p.parse_manual("[::ffff:192.168.1.1]:80").unwrap(),
+		p.parse_manual("192.168.1.1:80").unwrap()
+	);
+	assert!(p.parse_manual("[fe80::1%3]:80").is_ok());
+}
+
+#[test]
+fn metadata_addresses_are_not_media_candidates_and_manual_checks_honour_the_flag() {
+	let p = AddressPolicy::lan_only();
+	for bad in ["169.254.169.254:9", "[fd00:ec2::254]:9"] {
+		let addr: std::net::SocketAddr = bad.parse().unwrap();
+		assert_eq!(
+			p.candidate_from_proto(&endpoint_to_proto(addr)),
+			Err(AddressError::Reserved)
+		);
+	}
+	let overlay: std::net::SocketAddr = "100.64.0.9:7".parse().unwrap();
+	assert_eq!(
+		p.check_manual_socket(overlay),
+		Err(AddressError::OverlayManualDisabled)
+	);
+	assert!(
+		p.with_overlay_manual(true)
+			.check_manual_socket(overlay)
+			.is_ok()
+	);
+	assert_eq!(
+		p.with_overlay_manual(true).check_socket(overlay),
+		Err(AddressError::OverlayNetwork)
+	);
+}
