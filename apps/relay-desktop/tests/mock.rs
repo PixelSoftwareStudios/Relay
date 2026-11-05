@@ -47,3 +47,40 @@ async fn meters_run_only_while_visible() {
 	tokio::time::sleep(Duration::from_millis(500)).await;
 	assert!(hub.take_meters().is_none());
 }
+
+#[tokio::test(start_paused = true)]
+async fn mock_channels_invites_and_privacy_work_end_to_end() {
+	use relay_client::ChannelOptions;
+	use relay_desktop::model::{Advert, Inbound};
+	let (ctl, hub) = rig().await;
+	let options = ChannelOptions {
+		listed: true,
+		password: false,
+		invite_only: true,
+	};
+	ctl.create_channel("lab", options, "").await.unwrap();
+	let channel = hub.state().channels[0].clone();
+	assert!(channel.can_admin() && channel.invite_only);
+	let token = ctl
+		.create_invite(&channel.channel_id, 3600, 1)
+		.await
+		.unwrap();
+	assert!(!format!("{token:?}").contains("MOCK"), "redacted");
+	ctl.set_privacy(Some(Inbound::SharedChannelOnly), Some(Advert::Hidden))
+		.await
+		.unwrap();
+	let settings = hub.state().settings.unwrap();
+	assert_eq!(
+		(settings.inbound, settings.advert),
+		(Inbound::SharedChannelOnly, Advert::Hidden)
+	);
+	ctl.leave_channel(&channel.channel_id).await.unwrap();
+	assert!(hub.state().channels.is_empty());
+	assert!(
+		ctl.connection_info()
+			.await
+			.unwrap()
+			.connection_string
+			.starts_with("relay://")
+	);
+}

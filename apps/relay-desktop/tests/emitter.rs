@@ -164,3 +164,32 @@ async fn identical_updates_do_not_wake_the_ui() {
 	}
 	assert_eq!(rec.states.lock().unwrap().len(), 1);
 }
+
+#[test]
+fn tray_icon_follows_call_and_mute_state() {
+	use relay_desktop::emitter::TrayState;
+	let mut state = AppState {
+		link: Link::Connected,
+		..AppState::default()
+	};
+	assert_eq!(tray_summary(&state).icon, TrayState::Idle);
+	state.load_snapshot(&snapshot(1, vec![pb_call(pb::CallState::Connected, None)]));
+	assert_eq!(tray_summary(&state).icon, TrayState::InCall);
+	let mut snap = snapshot(2, vec![pb_call(pb::CallState::Connected, None)]);
+	snap.settings = Some(pb::Settings {
+		global_muted: true,
+		..Default::default()
+	});
+	state.load_snapshot(&snap);
+	assert_eq!(
+		tray_summary(&state).icon,
+		TrayState::Muted,
+		"mute wins over in-call"
+	);
+	state.link = Link::Offline;
+	assert_ne!(
+		tray_summary(&state).icon,
+		TrayState::Muted,
+		"no stale mute while disconnected"
+	);
+}

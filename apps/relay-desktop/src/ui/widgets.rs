@@ -2,7 +2,6 @@
 
 use eframe::egui::{self, Color32, Response, RichText, Ui};
 
-use crate::avatar::{Avatar, DEFAULT_PNG};
 use crate::format::{Tone, format_dbfs};
 
 pub fn tone_color(tone: Tone, ui: &Ui) -> Color32 {
@@ -13,31 +12,13 @@ pub fn tone_color(tone: Tone, ui: &Ui) -> Color32 {
 	}
 }
 
-/// The default avatar texture, decoded once per context.
-fn placeholder_texture(ctx: &egui::Context) -> Option<egui::TextureHandle> {
-	static KEY: std::sync::LazyLock<egui::Id> =
-		std::sync::LazyLock::new(|| egui::Id::unique("relay-default-avatar"));
-	let key = *KEY;
-	if let Some(texture) = ctx.data(|d| d.get_temp::<egui::TextureHandle>(key)) {
-		return Some(texture);
-	}
-	let rgba = image::load_from_memory(DEFAULT_PNG).ok()?.to_rgba8();
-	let size = [rgba.width() as usize, rgba.height() as usize];
-	let pixels = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
-	let texture = ctx.load_texture("default-avatar", pixels, egui::TextureOptions::LINEAR);
-	ctx.data_mut(|d| d.insert_temp(key, texture.clone()));
-	Some(texture)
-}
-
-/// Round avatar. Until a profile image is available the default image is drawn.
-pub fn avatar(ui: &mut Ui, _avatar: Avatar, size: f32) {
+/// Round avatar from an already decoded texture.
+pub fn avatar(ui: &mut Ui, texture: &egui::TextureHandle, size: f32) {
 	let (rect, _) = ui.allocate_exact_size(egui::vec2(size, size), egui::Sense::hover());
-	if let Some(texture) = placeholder_texture(ui.ctx()) {
-		egui::Image::new(&texture)
-			.fit_to_exact_size(rect.size())
-			.corner_radius(size / 2.0)
-			.paint_at(ui, rect);
-	}
+	egui::Image::new(texture)
+		.fit_to_exact_size(rect.size())
+		.corner_radius(size / 2.0)
+		.paint_at(ui, rect);
 }
 
 /// Level bar. Not animated: it only changes when new data arrives.

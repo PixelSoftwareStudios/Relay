@@ -6,13 +6,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
+use relay_client::Secret;
 
 use crate::controller::SessionSlot;
 use crate::engine::{Command, EngineError, Operations, Outcome};
 use crate::hub::Hub;
 use crate::model::{
-	AppState, Call, CallMeter, Device, Direction, EngineInfo, Link, Meters, Mode, Peer, Phase,
-	Settings, Transmit, Trust,
+	Advert, AppState, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
+	Inbound, Link, Meters, Mode, Peer, Phase, Settings, Transmit, Trust,
 };
 
 const MOCK_CLIENT: [u8; 16] = [7; 16];
@@ -49,7 +50,8 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		addresses: Vec::new(),
 		trust,
 		reachable,
-		has_avatar: false,
+		avatar_hash: String::new(),
+		shared_channels: Vec::new(),
 	}
 }
 
@@ -93,7 +95,10 @@ pub fn seed() -> AppState {
 			global_deafened: false,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
-			has_avatar: false,
+			display_name: "Me".into(),
+			avatar_hash: String::new(),
+			inbound: Inbound::Anyone,
+			advert: Advert::Visible,
 		}),
 		client_id: MOCK_CLIENT.to_vec(),
 		..AppState::default()
@@ -128,6 +133,7 @@ impl Operations for MockOps {
 			Command::AcquireController { .. } => {
 				return Ok(Outcome {
 					generation: Some(1),
+					..Outcome::default()
 				});
 			}
 			Command::AcceptCall { call_id, .. } => {
@@ -190,6 +196,55 @@ impl Operations for MockOps {
 					g.output_device_id = output_id;
 				}
 			}),
+			Command::StartCallConnection { .. } => self.hub.update(|s| {
+				let n = s.calls.len() as u8 + 101;
+				s.calls.push(call(n, 1, Phase::OutgoingRinging));
+			}),
+			Command::CreateChannel { name, options, .. } => self.hub.update(|s| {
+				s.channels.push(Channel {
+					channel_id: id(200 + s.channels.len() as u8, 16),
+					name,
+					listed: options.listed,
+					password: options.password,
+					invite_only: options.invite_only,
+					role: "owner".into(),
+					shared_peers: 0,
+					cert_expires_unix: 0,
+				});
+			}),
+			Command::JoinChannel { channel_id, .. } => self.hub.update(|s| {
+				s.channels.push(Channel {
+					channel_id: hex::encode(channel_id),
+					name: "joined".into(),
+					listed: false,
+					password: true,
+					invite_only: false,
+					role: "member".into(),
+					shared_peers: 1,
+					cert_expires_unix: 0,
+				});
+			}),
+			Command::LeaveChannel { channel_id } => {
+				let wanted = hex::encode(channel_id);
+				self.hub
+					.update(|s| s.channels.retain(|c| c.channel_id != wanted));
+			}
+			Command::CreateInvite { .. } => {
+				return Ok(Outcome {
+					invite: Some(Secret::new("RLYI1-MOCK-TOKEN-NOT-REAL")),
+					..Outcome::default()
+				});
+			}
+			Command::RevokeMember { .. } => {
+				self.hub
+					.update(|s| s.notice = Some("Mock: member revoked.".into()));
+			}
+			Command::SetPrivacy { inbound, advert } => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.inbound = inbound.unwrap_or(g.inbound);
+					g.advert = advert.unwrap_or(g.advert);
+				}
+			}),
 			Command::SetProfile { .. } => {
 				self.hub
 					.update(|s| s.notice = Some("Mock: profile name is not stored.".into()));
@@ -201,7 +256,22 @@ impl Operations for MockOps {
 		}
 		Ok(Outcome::default())
 	}
+
+	async fn connection_info(&self) -> Result<ConnectionView, EngineError> {
+		Ok(ConnectionView {
+			addresses: vec!["192.168.1.40".into()],
+			port: 7000,
+			fingerprint: MOCK_FINGERPRINT.into(),
+			connection_string: format!("relay://192.168.1.40:7000#{MOCK_FINGERPRINT}"),
+		})
+	}
+
+	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		Ok(crate::avatar::DEFAULT_PNG.to_vec())
+	}
 }
+
+const MOCK_FINGERPRINT: &str = "ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12";
 
 /// Synthetic meters for connected calls at time `t` seconds.
 pub fn meters_at(state: &AppState, t: f32) -> Meters {

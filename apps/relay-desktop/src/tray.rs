@@ -1,28 +1,71 @@
-//! System tray icon (macOS and Windows). On Linux the app builds no tray:
-//! `tray-icon` needs a GTK main loop there, which this client does not run,
-//! so closing the window quits the app instead of hiding it.
+//! System tray icon (macOS and Windows) with idle, in-call and muted glyphs.
+//! On Linux the app builds no tray: `tray-icon` needs a GTK main loop there,
+//! which this client does not run, so closing the window quits the app.
 
 use tray_icon::menu::{Menu, MenuEvent, MenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
-use crate::emitter::TraySummary;
+use crate::emitter::{TrayState, TraySummary};
+use crate::imaging::decode_for_texture;
 use crate::shell::Actions;
+
+/// Monochrome template glyphs. macOS draws the `@2x` pair on Retina screens
+/// and tints template images itself; other platforms use the 1x glyphs.
+const GLYPHS: [(TrayState, &[u8], &[u8]); 3] = [
+	(
+		TrayState::Idle,
+		include_bytes!("../../../assets/icon/tray-idle.png"),
+		include_bytes!("../../../assets/icon/tray-idle@2x.png"),
+	),
+	(
+		TrayState::InCall,
+		include_bytes!("../../../assets/icon/tray-call.png"),
+		include_bytes!("../../../assets/icon/tray-call@2x.png"),
+	),
+	(
+		TrayState::Muted,
+		include_bytes!("../../../assets/icon/tray-muted.png"),
+		include_bytes!("../../../assets/icon/tray-muted@2x.png"),
+	),
+];
+
+/// The glyph bytes for a state on the current platform.
+pub fn glyph(state: TrayState) -> &'static [u8] {
+	let (_, one, two) = GLYPHS
+		.iter()
+		.find(|(s, _, _)| *s == state)
+		.copied()
+		.unwrap_or(GLYPHS[0]);
+	if cfg!(target_os = "macos") { two } else { one }
+}
+
+fn icon_for(state: TrayState) -> Option<Icon> {
+	let image = decode_for_texture(glyph(state))?;
+	Icon::from_rgba(image.rgba, image.size[0] as u32, image.size[1] as u32).ok()
+}
 
 pub struct Tray {
 	icon: TrayIcon,
 	status: MenuItem,
+	shown: TrayState,
 }
 
 impl Tray {
 	/// Only called when the tray text changed (the emitter bounds the rate).
-	pub fn apply(&self, summary: &TraySummary) {
+	pub fn apply(&mut self, summary: &TraySummary) {
 		let _ = self.icon.set_tooltip(Some(&summary.tooltip));
 		self.status.set_text(&summary.tooltip);
+		if summary.icon != self.shown
+			&& let Some(icon) = icon_for(summary.icon)
+		{
+			let _ = self.icon.set_icon_templated(Some(icon));
+			self.shown = summary.icon;
+		}
 	}
 }
 
 /// Build the tray on the UI thread. Failure is non-fatal.
-pub fn build(actions: &Actions, rgba: Vec<u8>, size: u32) -> Option<Tray> {
+pub fn build(actions: &Actions) -> Option<Tray> {
 	if cfg!(not(any(target_os = "macos", target_os = "windows"))) {
 		return None;
 	}
@@ -35,7 +78,7 @@ pub fn build(actions: &Actions, rgba: Vec<u8>, size: u32) -> Option<Tray> {
 		.with_tooltip("Relay")
 		.with_menu(Box::new(menu))
 		.with_menu_on_left_click(false)
-		.with_icon(Icon::from_rgba(rgba, size, size).ok()?)
+		.with_icon_templated(icon_for(TrayState::Idle)?)
 		.build()
 		.ok()?;
 
@@ -57,5 +100,9 @@ pub fn build(actions: &Actions, rgba: Vec<u8>, size: u32) -> Option<Tray> {
 			a.show_window();
 		}
 	}));
-	Some(Tray { icon, status })
+	Some(Tray {
+		icon,
+		status,
+		shown: TrayState::Idle,
+	})
 }

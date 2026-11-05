@@ -10,7 +10,8 @@ use relay_desktop::ui::{self, RelayApp};
 use relay_desktop::{mock, supervisor, tray};
 
 /// Embedded from the repo-root assets folder.
-const LOGO_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark.png");
+const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-256.png");
+const HEADER_LOGO_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-64.png");
 
 fn main() -> eframe::Result {
 	tracing_subscriber::fmt()
@@ -24,16 +25,17 @@ fn main() -> eframe::Result {
 		.enable_all()
 		.build()
 		.expect("tokio runtime");
-	let logo = ui::decode_logo(LOGO_PNG);
+	let window_icon = ui::decode_logo(WINDOW_ICON_PNG);
+	let logo = ui::decode_logo(HEADER_LOGO_PNG);
 
 	let viewport = egui::ViewportBuilder::default()
 		.with_title("Relay")
 		.with_inner_size([520.0, 800.0])
 		.with_min_inner_size([380.0, 480.0])
 		.with_icon(egui::IconData {
-			rgba: logo.rgba.clone(),
-			width: logo.size,
-			height: logo.size,
+			rgba: window_icon.rgba,
+			width: window_icon.size,
+			height: window_icon.size,
 		});
 	let options = eframe::NativeOptions {
 		viewport,
@@ -67,7 +69,7 @@ fn main() -> eframe::Result {
 				let engine = Arc::new(RelayLink::new(resolve_endpoint));
 				runtime.spawn(supervisor::supervise(engine, hub, slot));
 			}
-			let tray = tray::build(&actions, logo.rgba.clone(), logo.size);
+			let tray = tray::build(&actions);
 			Ok(Box::new(RelayApp::new(actions, tray, runtime, &logo)))
 		}),
 	)

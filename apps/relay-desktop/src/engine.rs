@@ -7,7 +7,9 @@ use async_trait::async_trait;
 use relay_api::WatchItem;
 use relay_api::pb;
 
-use crate::model::Mode;
+use relay_client::{ChannelOptions, Secret};
+
+use crate::model::{Advert, ConnectionView, Inbound, Mode};
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
@@ -76,6 +78,37 @@ pub enum Command {
 		bytes: Vec<u8>,
 		media_type: String,
 	},
+	/// Call a pasted `relay://` string; the engine validates it.
+	StartCallConnection {
+		text: String,
+	},
+	CreateChannel {
+		name: String,
+		options: ChannelOptions,
+		password: Secret,
+	},
+	JoinChannel {
+		channel_id: Vec<u8>,
+		password: Secret,
+		invite: Secret,
+	},
+	LeaveChannel {
+		channel_id: Vec<u8>,
+	},
+	/// Mint an invite; the token comes back in [`Outcome::invite`].
+	CreateInvite {
+		channel_id: Vec<u8>,
+		ttl_seconds: u32,
+		uses: u32,
+	},
+	RevokeMember {
+		channel_id: Vec<u8>,
+		fingerprint: Vec<u8>,
+	},
+	SetPrivacy {
+		inbound: Option<Inbound>,
+		advert: Option<Advert>,
+	},
 }
 
 /// What a finished command yields.
@@ -83,11 +116,30 @@ pub enum Command {
 pub struct Outcome {
 	/// Lease generation, when the command acquired call control.
 	pub generation: Option<u64>,
+	/// A freshly minted invite token; a secret, shown once and never logged.
+	pub invite: Option<Secret>,
 }
 
 #[async_trait]
 pub trait Operations: Send + Sync {
 	async fn run(&self, command: Command) -> Result<Outcome, EngineError>;
+
+	/// Addresses and connection string to show or copy.
+	async fn connection_info(&self) -> Result<ConnectionView, EngineError> {
+		Err(unsupported())
+	}
+
+	/// The canonical PNG for an avatar hash.
+	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		Err(unsupported())
+	}
+}
+
+fn unsupported() -> EngineError {
+	EngineError::Rejected {
+		code: "UNSUPPORTED".into(),
+		message: "this engine does not support that request".into(),
+	}
 }
 
 #[async_trait]

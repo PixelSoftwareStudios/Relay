@@ -41,8 +41,8 @@ impl Serialize for ControlError {
 
 /// The live engine session, present only while connected.
 #[derive(Clone)]
-struct Session {
-	ops: Arc<dyn Operations>,
+pub(crate) struct Session {
+	pub(crate) ops: Arc<dyn Operations>,
 }
 
 /// Holder the supervisor fills on connect and empties on disconnect.
@@ -62,17 +62,21 @@ impl SessionSlot {
 		self.get().is_some()
 	}
 
-	fn get(&self) -> Option<Session> {
+	pub(crate) fn get(&self) -> Option<Session> {
 		self.0.lock().unwrap_or_else(|e| e.into_inner()).clone()
 	}
 }
 
 pub struct Controller {
-	hub: Arc<Hub>,
-	slot: Arc<SessionSlot>,
+	pub(crate) hub: Arc<Hub>,
+	pub(crate) slot: Arc<SessionSlot>,
 }
 
-fn decode_id(hex_id: &str, len: usize, what: &'static str) -> Result<Vec<u8>, ControlError> {
+pub(crate) fn decode_id(
+	hex_id: &str,
+	len: usize,
+	what: &'static str,
+) -> Result<Vec<u8>, ControlError> {
 	hex::decode(hex_id)
 		.ok()
 		.filter(|b| b.len() == len)
@@ -93,7 +97,10 @@ impl Controller {
 		Self { hub, slot }
 	}
 
-	async fn run(&self, command: Command) -> Result<crate::engine::Outcome, ControlError> {
+	pub(crate) async fn run(
+		&self,
+		command: Command,
+	) -> Result<crate::engine::Outcome, ControlError> {
 		let session = self.slot.get().ok_or(ControlError::NotConnected)?;
 		Ok(session.ops.run(command).await?)
 	}

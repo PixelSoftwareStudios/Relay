@@ -30,6 +30,12 @@ impl AppState {
 			.take(MAX_ITEMS)
 			.map(|c| convert::call(c, &self.client_id))
 			.collect();
+		self.channels = snapshot
+			.channels
+			.iter()
+			.take(MAX_ITEMS)
+			.map(convert::channel)
+			.collect();
 		self.devices = snapshot
 			.devices
 			.iter()
@@ -64,6 +70,12 @@ impl AppState {
 					x.device_id == item.device_id
 				});
 			}
+			Event::Channel(c) => {
+				let item = convert::channel(c);
+				upsert(&mut self.channels, item.clone(), |x| {
+					x.channel_id == item.channel_id
+				});
+			}
 			Event::Settings(s) => self.settings = Some(convert::settings(s)),
 			Event::Removed(r) => self.remove(&r.kind, &r.id),
 			Event::Warning(w) => {
@@ -84,6 +96,7 @@ impl AppState {
 		let hex_id = hex::encode(id);
 		match kind.to_ascii_lowercase().as_str() {
 			"peer" => self.peers.retain(|p| p.peer_id != hex_id),
+			"channel" => self.channels.retain(|c| c.channel_id != hex_id),
 			"call" => self.calls.retain(|c| c.call_id != hex_id),
 			"device" => self.devices.retain(|d| d.device_id.as_bytes() != id),
 			other => tracing::debug!(kind = other, "ignoring removal of unknown kind"),
@@ -99,6 +112,7 @@ impl AppState {
 		self.calls.clear();
 		self.peers.clear();
 		self.devices.clear();
+		self.channels.clear();
 		self.settings = None;
 		self.warnings.clear();
 		self.client_id.clear();

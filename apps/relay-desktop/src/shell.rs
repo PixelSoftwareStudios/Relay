@@ -11,6 +11,7 @@ use tokio::runtime::Handle;
 use crate::controller::{ControlError, Controller};
 use crate::emitter::{Sink, TraySummary};
 use crate::hub::Hub;
+use crate::inbox::Inbox;
 use crate::model::{AppState, Meters};
 
 fn lock<T>(m: &Mutex<T>) -> MutexGuard<'_, T> {
@@ -25,6 +26,7 @@ pub struct Shared {
 	tray: Mutex<Option<TraySummary>>,
 	error: Mutex<Option<String>>,
 	pub quitting: AtomicBool,
+	pub inbox: Inbox,
 }
 
 impl Default for Shared {
@@ -35,6 +37,7 @@ impl Default for Shared {
 			tray: Mutex::new(None),
 			error: Mutex::new(None),
 			quitting: AtomicBool::new(false),
+			inbox: Inbox::default(),
 		}
 	}
 }

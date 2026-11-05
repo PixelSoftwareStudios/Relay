@@ -24,6 +24,7 @@ pub struct FakeOps {
 	pub commands: Mutex<Vec<Command>>,
 	pub fail_with: Mutex<Option<String>>,
 	pub lease_generation: u64,
+	pub png: Vec<u8>,
 }
 
 impl FakeOps {
@@ -34,6 +35,19 @@ impl FakeOps {
 
 #[async_trait]
 impl Operations for FakeOps {
+	async fn connection_info(&self) -> Result<relay_desktop::model::ConnectionView, EngineError> {
+		Ok(relay_desktop::model::ConnectionView {
+			addresses: vec!["10.0.0.2".into()],
+			port: 7000,
+			fingerprint: "ab".repeat(32),
+			connection_string: format!("relay://10.0.0.2:7000#{}", "ab".repeat(32)),
+		})
+	}
+
+	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		Ok(self.png.clone())
+	}
+
 	async fn run(&self, command: Command) -> Result<Outcome, EngineError> {
 		self.commands.lock().unwrap().push(command.clone());
 		if let Some(message) = self.fail_with.lock().unwrap().clone() {
@@ -44,7 +58,9 @@ impl Operations for FakeOps {
 		}
 		let generation =
 			matches!(command, Command::AcquireController { .. }).then_some(self.lease_generation);
-		Ok(Outcome { generation })
+		let invite = matches!(command, Command::CreateInvite { .. })
+			.then(|| relay_client::Secret::new("RLYI1-test-token"));
+		Ok(Outcome { generation, invite })
 	}
 }
 
@@ -196,4 +212,29 @@ pub fn controller_with(
 	let (conn, feed) = connection(snapshot, lease_generation);
 	slot.set(conn.ops);
 	(Controller::new(hub.clone(), slot), hub, feed.ops)
+}
+
+pub const CHAN: [u8; 16] = [3; 16];
+
+pub fn pb_channel(role: &str) -> pb::ChannelInfo {
+	pb::ChannelInfo {
+		channel_id: CHAN.to_vec(),
+		name: "dorm".into(),
+		policy: Some(pb::ChannelPolicy {
+			listed: true,
+			password: true,
+			invite_only: false,
+		}),
+		role: role.into(),
+		shared_peers: 1,
+		cert_expires_unix: 0,
+	}
+}
+
+/// A snapshot where the one peer has proven membership of `CHAN`.
+pub fn snapshot_in_channel(role: &str) -> pb::Snapshot {
+	let mut s = snapshot(1, vec![]);
+	s.channels = vec![pb_channel(role)];
+	s.peers[0].shared_channel_ids = vec![CHAN.to_vec()];
+	s
 }

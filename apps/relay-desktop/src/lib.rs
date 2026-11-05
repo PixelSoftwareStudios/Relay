@@ -6,17 +6,22 @@
 
 pub mod apply;
 pub mod avatar;
+pub mod channels;
 pub mod controller;
 pub mod convert;
 pub mod emitter;
 pub mod engine;
 pub mod format;
 pub mod hub;
+pub mod imaging;
+pub mod inbox;
 pub mod mock;
 pub mod model;
+pub mod qr;
 pub mod relay_link;
 pub mod shell;
 pub mod supervisor;
+pub mod tasks;
 pub mod tray;
 pub mod ui;
 pub mod viewmodel;

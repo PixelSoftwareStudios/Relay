@@ -32,10 +32,21 @@ impl Default for Cadence {
 	}
 }
 
+/// Which tray glyph to show.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TrayState {
+	Idle,
+	/// At least one call is ringing or connected.
+	InCall,
+	/// The microphone is globally muted (takes priority over the others).
+	Muted,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TraySummary {
 	pub tooltip: String,
 	pub incoming: usize,
+	pub icon: TrayState,
 }
 
 /// One line of tray text from the current state; pure and cheap.
@@ -59,7 +70,19 @@ pub fn tray_summary(state: &AppState) -> TraySummary {
 		Link::Connected if active > 0 => format!("Relay: {active} active call(s)"),
 		Link::Connected => "Relay: idle".to_owned(),
 	};
-	TraySummary { tooltip, incoming }
+	let muted = state.settings.as_ref().is_some_and(|s| s.global_muted);
+	let icon = if state.link == Link::Connected && muted {
+		TrayState::Muted
+	} else if incoming + active > 0 {
+		TrayState::InCall
+	} else {
+		TrayState::Idle
+	};
+	TraySummary {
+		tooltip,
+		incoming,
+		icon,
+	}
 }
 
 /// Emit at most once per `tick`, coalescing intermediate changes, and refresh

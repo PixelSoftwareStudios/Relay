@@ -1,27 +1,15 @@
 //! Section drawing. Reads view models, emits [`Actions`]; holds no logic.
 
-use std::collections::HashMap;
-
 use eframe::egui::{self, RichText, Ui};
 
-use crate::format::{
-	HOTKEY_NOTE, MAX_AVATAR_BYTES, avatar_problem, gain_percent, link_label, media_type_for,
-};
+use crate::format::{HOTKEY_NOTE, gain_percent, link_label};
 use crate::model::{AppState, Direction, Link, Meters, Mode};
 use crate::shell::Actions;
-use crate::viewmodel::{CallCard, MODES, PeerRow, local_avatar, mode_enabled};
+use crate::viewmodel::{CallCard, MODES, PeerRow, mode_enabled};
 
+use super::local::Local;
+use super::textures::Textures;
 use super::widgets::{avatar, banner, gain_slider, meter, tone_color};
-
-/// Per-widget UI-only state.
-#[derive(Default)]
-pub struct Local {
-	pub name_input: String,
-	pub avatar_path: String,
-	pub avatar_problem: Option<String>,
-	pub consent: HashMap<String, bool>,
-	pub gain_edits: HashMap<String, Option<f32>>,
-}
 
 pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
 	if state.mock {
@@ -51,7 +39,13 @@ pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>) {
 	}
 }
 
-pub fn calls(ui: &mut Ui, cards: &[CallCard], actions: &Actions, local: &mut Local) {
+pub fn calls(
+	ui: &mut Ui,
+	cards: &[CallCard],
+	actions: &Actions,
+	local: &mut Local,
+	textures: &mut Textures,
+) {
 	ui.heading("Calls");
 	if cards.is_empty() {
 		ui.label(RichText::new("No active calls.").weak());
@@ -59,15 +53,22 @@ pub fn calls(ui: &mut Ui, cards: &[CallCard], actions: &Actions, local: &mut Loc
 	for card in cards {
 		egui::Frame::group(ui.style()).show(ui, |ui| {
 			ui.set_width(ui.available_width());
-			call_card(ui, card, actions, local);
+			call_card(ui, card, actions, local, textures);
 		});
 	}
 }
 
-fn call_card(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
+fn call_card(
+	ui: &mut Ui,
+	card: &CallCard,
+	actions: &Actions,
+	local: &mut Local,
+	textures: &mut Textures,
+) {
 	let id = card.call_id.clone();
 	ui.horizontal(|ui| {
-		avatar(ui, card.avatar, 36.0);
+		let tex = textures.texture(&card.avatar, actions);
+		avatar(ui, &tex, 36.0);
 		ui.vertical(|ui| {
 			ui.label(RichText::new(&card.name).strong());
 			let sub = RichText::new(&card.subtitle);
@@ -181,7 +182,13 @@ fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) 
 	ui.label(RichText::new(format!("{}. {}", t.label, t.detail)).color(tone_color(t.tone, ui)));
 }
 
-pub fn peers(ui: &mut Ui, rows: &[PeerRow], actions: &Actions) {
+pub fn peers(
+	ui: &mut Ui,
+	rows: &[PeerRow],
+	actions: &Actions,
+	local: &mut Local,
+	textures: &mut Textures,
+) {
 	ui.heading("Nearby peers");
 	if rows.is_empty() {
 		ui.label(RichText::new("No peers found on the local network yet.").weak());
@@ -190,10 +197,17 @@ pub fn peers(ui: &mut Ui, rows: &[PeerRow], actions: &Actions) {
 		egui::Frame::group(ui.style()).show(ui, |ui| {
 			ui.set_width(ui.available_width());
 			ui.horizontal(|ui| {
-				avatar(ui, row.avatar, 36.0);
+				let tex = textures.texture(&row.avatar, actions);
+				avatar(ui, &tex, 36.0);
 				ui.vertical(|ui| {
 					ui.label(&row.name);
 					ui.label(RichText::new(&row.subtitle).weak());
+					if !row.badges.is_empty() {
+						ui.label(
+							RichText::new(format!("Shared channels: {}", row.badges.join(", ")))
+								.small(),
+						);
+					}
 				});
 				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 					if ui
@@ -205,8 +219,41 @@ pub fn peers(ui: &mut Ui, rows: &[PeerRow], actions: &Actions) {
 					}
 				});
 			});
+			for (channel_id, channel_name) in &row.revocable {
+				revoke_row(ui, actions, local, row, channel_id, channel_name);
+			}
 		});
 	}
+}
+
+/// Two-step revoke: the first click asks, the second one acts.
+fn revoke_row(
+	ui: &mut Ui,
+	actions: &Actions,
+	local: &mut Local,
+	row: &PeerRow,
+	channel_id: &str,
+	channel_name: &str,
+) {
+	let key = (channel_id.to_owned(), row.peer_id.clone());
+	ui.horizontal(|ui| {
+		if local.revoke_confirm.as_ref() == Some(&key) {
+			ui.label(format!("Remove {} from {channel_name}?", row.name));
+			if ui.button("Yes, revoke").clicked() {
+				let (c, p) = key.clone();
+				actions.run(|ctl| async move { ctl.revoke_member(&c, &p).await });
+				local.revoke_confirm = None;
+			}
+			if ui.button("Keep").clicked() {
+				local.revoke_confirm = None;
+			}
+		} else if ui
+			.small_button(format!("Revoke from {channel_name}"))
+			.clicked()
+		{
+			local.revoke_confirm = Some(key);
+		}
+	});
 }
 
 pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, local: &mut Local) {
@@ -300,70 +347,6 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 			}
 		});
 	});
-}
-
-pub fn profile(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
-	ui.heading("Your profile");
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
-		ui.horizontal(|ui| {
-			avatar(ui, local_avatar(state), 36.0);
-			ui.add(
-				egui::TextEdit::singleline(&mut local.name_input)
-					.hint_text("Display name")
-					.char_limit(64),
-			);
-			if ui
-				.add_enabled(
-					!local.name_input.trim().is_empty(),
-					egui::Button::new("Save name"),
-				)
-				.clicked()
-			{
-				let name = local.name_input.clone();
-				actions.run(|c| async move { c.set_profile(&name).await });
-			}
-		});
-		ui.label("Profile image: path to a PNG or JPEG file up to 1 MiB");
-		ui.horizontal(|ui| {
-			ui.add(
-				egui::TextEdit::singleline(&mut local.avatar_path).hint_text("/path/to/image.png"),
-			);
-			if ui
-				.add_enabled(
-					!local.avatar_path.trim().is_empty(),
-					egui::Button::new("Upload"),
-				)
-				.clicked()
-			{
-				upload(actions, local);
-			}
-		});
-		if let Some(p) = &local.avatar_problem {
-			banner(ui, p, true);
-		}
-	});
-}
-
-fn upload(actions: &Actions, local: &mut Local) {
-	let path = local.avatar_path.trim().to_owned();
-	let media = media_type_for(&path);
-	local.avatar_problem = None;
-	// Check the size before reading so a huge file is never loaded.
-	let size = std::fs::metadata(&path).map(|m| m.len() as usize);
-	let result = match size {
-		Err(e) => Err(format!("Cannot read the file: {e}")),
-		Ok(n) => avatar_problem(n.min(MAX_AVATAR_BYTES + 1), media)
-			.map(str::to_owned)
-			.map_or_else(
-				|| std::fs::read(&path).map_err(|e| format!("Cannot read the file: {e}")),
-				Err,
-			),
-	};
-	match result {
-		Ok(bytes) => actions.run(|c| async move { c.upload_avatar(bytes, media).await }),
-		Err(p) => local.avatar_problem = Some(p),
-	}
 }
 
 pub fn app_panel(ui: &mut Ui, actions: &Actions, has_tray: bool) {

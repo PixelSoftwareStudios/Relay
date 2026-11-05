@@ -90,8 +90,8 @@ fn profiles_without_an_avatar_hash_resolve_to_the_placeholder() {
 	);
 	assert_eq!(local_avatar(&s), Avatar::Placeholder);
 
-	s.peers[0].has_avatar = true;
-	assert_eq!(peer_rows(&s)[0].avatar, Avatar::Set);
+	s.peers[0].avatar_hash = "ab".repeat(32);
+	assert_eq!(peer_rows(&s)[0].avatar, Avatar::Hash("ab".repeat(32)));
 
 	let img = image::load_from_memory(DEFAULT_PNG).expect("embedded placeholder is a PNG");
 	assert_eq!((img.width(), img.height()), (256, 256));

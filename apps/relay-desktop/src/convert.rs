@@ -4,8 +4,8 @@
 use relay_api::pb;
 
 use crate::model::{
-	Call, CallMeter, Device, Direction, EngineInfo, MAX_ITEMS, Meters, Mode, Peer, Phase, Problem,
-	Settings, Transmit, Trust,
+	Advert, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo, Inbound,
+	MAX_ITEMS, Meters, Mode, Peer, Phase, Problem, Settings, Transmit, Trust,
 };
 
 pub fn trust(value: i32) -> Trust {
@@ -67,7 +67,50 @@ pub fn peer(p: &pb::Peer) -> Peer {
 		addresses: p.local_addresses.iter().take(8).cloned().collect(),
 		trust: trust(p.trust),
 		reachable: p.reachable,
-		has_avatar: !p.avatar_sha256.is_empty(),
+		avatar_hash: hex::encode(&p.avatar_sha256),
+		shared_channels: p
+			.shared_channel_ids
+			.iter()
+			.take(32)
+			.map(hex::encode)
+			.collect(),
+	}
+}
+
+pub fn channel(c: &pb::ChannelInfo) -> Channel {
+	let policy = c.policy.unwrap_or_default();
+	Channel {
+		channel_id: hex::encode(&c.channel_id),
+		name: c.name.clone(),
+		listed: policy.listed,
+		password: policy.password,
+		invite_only: policy.invite_only,
+		role: c.role.clone(),
+		shared_peers: c.shared_peers,
+		cert_expires_unix: c.cert_expires_unix,
+	}
+}
+
+pub fn connection(i: &pb::ConnectionInfo) -> ConnectionView {
+	ConnectionView {
+		addresses: i.local_addresses.iter().take(16).cloned().collect(),
+		port: i.listen_port,
+		fingerprint: hex::encode(&i.fingerprint),
+		connection_string: i.connection_string.clone(),
+	}
+}
+
+pub fn inbound_to_wire(v: Inbound) -> pb::InboundPolicy {
+	match v {
+		Inbound::Anyone => pb::InboundPolicy::Anyone,
+		Inbound::SharedChannelOnly => pb::InboundPolicy::SharedChannelOnly,
+	}
+}
+
+pub fn advert_to_wire(v: Advert) -> pb::AdvertMode {
+	match v {
+		Advert::Visible => pb::AdvertMode::Visible,
+		Advert::Hidden => pb::AdvertMode::Hidden,
 	}
 }
 
@@ -116,7 +159,19 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		global_deafened: s.global_deafened,
 		microphone_gain: s.microphone_gain,
 		playback_gain: s.playback_gain,
-		has_avatar: !s.avatar_sha256.is_empty(),
+		display_name: s.display_name.clone(),
+		avatar_hash: hex::encode(&s.avatar_sha256),
+		// An unspecified value is the conservative reading.
+		inbound: if s.inbound_policy == pb::InboundPolicy::Anyone as i32 {
+			Inbound::Anyone
+		} else {
+			Inbound::SharedChannelOnly
+		},
+		advert: if s.advert_mode == pb::AdvertMode::Visible as i32 {
+			Advert::Visible
+		} else {
+			Advert::Hidden
+		},
 	}
 }
 

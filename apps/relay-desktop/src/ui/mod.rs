@@ -1,6 +1,11 @@
 //! egui front end: window glue only; logic lives in `viewmodel` and `format`.
 
+mod channels;
+mod connection;
+mod local;
+mod profile;
 mod sections;
+mod textures;
 mod widgets;
 
 use std::sync::atomic::Ordering;
@@ -11,7 +16,8 @@ use crate::shell::Actions;
 use crate::tray::Tray;
 use crate::viewmodel::{call_cards, peer_rows};
 
-use sections::Local;
+use local::{Local, PickedImage};
+use textures::{Textures, upload};
 
 /// Decoded RGBA logo, square.
 pub struct Logo {
@@ -40,6 +46,7 @@ pub struct RelayApp {
 	actions: Actions,
 	tray: Option<Tray>,
 	local: Local,
+	textures: Textures,
 	logo: egui::TextureHandle,
 	/// Keeps the tokio runtime alive for the life of the window.
 	_runtime: tokio::runtime::Runtime,
@@ -56,12 +63,34 @@ impl RelayApp {
 		let texture = actions
 			.ctx
 			.load_texture("relay-logo", image, egui::TextureOptions::LINEAR);
+		let textures = Textures::new(&actions.ctx);
 		Self {
 			actions,
 			tray,
+			textures,
 			local: Local::default(),
 			logo: texture,
 			_runtime: runtime,
+		}
+	}
+
+	/// Move finished background results into UI-owned state and textures.
+	fn drain_inbox(&mut self, ctx: &egui::Context) {
+		let inbox = &self.actions.shared.inbox;
+		self.textures.drain(ctx, inbox);
+		if let Some(result) = inbox.take_connection() {
+			self.local.connection = Some(result);
+		}
+		if let Some(p) = inbox.take_picked() {
+			let texture = upload(ctx, "picked-avatar", &p.preview);
+			self.local.picked = Some(PickedImage {
+				bytes: p.bytes,
+				media_type: p.media_type,
+				texture,
+			});
+		}
+		if let Some(invite) = inbox.take_invite() {
+			self.local.invite = Some(invite);
 		}
 	}
 
@@ -83,9 +112,10 @@ impl eframe::App for RelayApp {
 		self.handle_close(ctx);
 		let minimized = ctx.input(|i| i.viewport().minimized.unwrap_or(false));
 		self.actions.hub.set_visible(!minimized);
-		if let (Some(tray), Some(summary)) = (&self.tray, self.actions.shared.take_tray()) {
+		if let (Some(tray), Some(summary)) = (&mut self.tray, self.actions.shared.take_tray()) {
 			tray.apply(&summary);
 		}
+		self.drain_inbox(ctx);
 	}
 
 	fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
@@ -106,11 +136,16 @@ impl eframe::App for RelayApp {
 					}
 				});
 				sections::status(ui, &state, error.as_deref());
-				sections::calls(ui, &cards, &self.actions, &mut self.local);
-				sections::peers(ui, &rows, &self.actions);
-				sections::audio(ui, &state, &meters, &self.actions, &mut self.local);
-				sections::profile(ui, &state, &self.actions, &mut self.local);
-				sections::app_panel(ui, &self.actions, has_tray);
+				let (actions, local, textures) =
+					(&self.actions, &mut self.local, &mut self.textures);
+				sections::calls(ui, &cards, actions, local, textures);
+				connection::connection(ui, actions, local);
+				sections::peers(ui, &rows, actions, local, textures);
+				channels::channels(ui, &state, actions, local);
+				channels::privacy(ui, &state, actions);
+				sections::audio(ui, &state, &meters, actions, local);
+				profile::profile(ui, &state, actions, local, textures);
+				sections::app_panel(ui, actions, has_tray);
 			});
 		});
 	}

@@ -77,7 +77,10 @@ pub struct Peer {
 	pub addresses: Vec<String>,
 	pub trust: Trust,
 	pub reachable: bool,
-	pub has_avatar: bool,
+	/// Hex SHA-256 of the avatar image; empty when the peer has none.
+	pub avatar_hash: String,
+	/// Hex ids of channels with proven shared membership.
+	pub shared_channels: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -133,8 +136,58 @@ pub struct Settings {
 	pub global_deafened: bool,
 	pub microphone_gain: f32,
 	pub playback_gain: f32,
-	/// Whether the local profile has an avatar (the engine reports a hash).
-	pub has_avatar: bool,
+	pub display_name: String,
+	/// Hex SHA-256 of the local avatar; empty when none is set.
+	pub avatar_hash: String,
+	pub inbound: Inbound,
+	pub advert: Advert,
+}
+
+/// Who may ring this device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Inbound {
+	Anyone,
+	SharedChannelOnly,
+}
+
+/// Whether this device is advertised on the network.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum Advert {
+	Visible,
+	Hidden,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Channel {
+	pub channel_id: String,
+	pub name: String,
+	pub listed: bool,
+	pub password: bool,
+	pub invite_only: bool,
+	/// `owner`, `admin` or `member`.
+	pub role: String,
+	pub shared_peers: u32,
+	pub cert_expires_unix: u64,
+}
+
+impl Channel {
+	/// Owners and admins may invite and revoke.
+	pub fn can_admin(&self) -> bool {
+		matches!(self.role.as_str(), "owner" | "admin")
+	}
+}
+
+/// What a remote user needs to reach this device. Public information only.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConnectionView {
+	pub addresses: Vec<String>,
+	pub port: u32,
+	pub fingerprint: String,
+	pub connection_string: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -157,6 +210,7 @@ pub struct AppState {
 	pub peers: Vec<Peer>,
 	pub calls: Vec<Call>,
 	pub devices: Vec<Device>,
+	pub channels: Vec<Channel>,
 	pub settings: Option<Settings>,
 	pub warnings: Vec<Problem>,
 	pub link_error: Option<String>,
@@ -177,6 +231,7 @@ impl Default for AppState {
 			peers: Vec::new(),
 			calls: Vec::new(),
 			devices: Vec::new(),
+			channels: Vec::new(),
 			settings: None,
 			warnings: Vec::new(),
 			link_error: None,

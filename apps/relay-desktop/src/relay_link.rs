@@ -8,14 +8,15 @@ use relay_api::pb::{self, OperationState};
 use relay_api::{ApiError, BoundedWatch, Endpoint, RelayClient, WatchItem};
 use relay_client::operation::settle;
 use relay_client::wire::{acquire_generation, connect_registered, open_telemetry, send};
-use relay_client::{CallAction, CallTarget, Command as WireCommand};
+use relay_client::{CallAction, CallTarget, Command as WireCommand, Secret};
 use tokio::sync::Mutex;
 use tonic::Code;
 
-use crate::convert::mode_to_wire;
+use crate::convert::{self, advert_to_wire, inbound_to_wire, mode_to_wire};
 use crate::engine::{
 	Command, Connection, Engine, EngineError, EventSource, Operations, Outcome, TelemetrySource,
 };
+use crate::model::ConnectionView;
 
 const CLIENT_NAME: &str = "relay-desktop";
 const CAPABILITIES: &[&str] = &["observe", "call-control"];
@@ -228,6 +229,40 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 		Command::UploadAvatar { bytes, media_type } => {
 			WireCommand::UploadAvatar { bytes, media_type }
 		}
+		Command::StartCallConnection { text } => {
+			WireCommand::StartCall(CallTarget::ConnectionString(text))
+		}
+		Command::CreateChannel {
+			name,
+			options,
+			password,
+		} => WireCommand::CreateChannel {
+			name,
+			options,
+			password,
+		},
+		Command::JoinChannel {
+			channel_id,
+			password,
+			invite,
+		} => WireCommand::JoinChannel {
+			channel_id,
+			password,
+			invite,
+		},
+		Command::LeaveChannel { channel_id } => WireCommand::LeaveChannel { channel_id },
+		Command::RevokeMember {
+			channel_id,
+			fingerprint,
+		} => WireCommand::RevokeMember {
+			channel_id,
+			fingerprint,
+		},
+		Command::SetPrivacy { inbound, advert } => WireCommand::SetPrivacy {
+			inbound: inbound.map(inbound_to_wire),
+			advert: advert.map(advert_to_wire),
+		},
+		Command::CreateInvite { .. } => return None,
 	})
 }
 
@@ -243,20 +278,55 @@ fn call_action(action: CallAction, call_id: Vec<u8>, generation: u64) -> WireCom
 impl Operations for Ops {
 	async fn run(&self, command: Command) -> Result<Outcome, EngineError> {
 		let Some(wire) = wire_command(command.clone()) else {
-			let Command::AcquireController { call_id } = command else {
-				unreachable!("only AcquireController has no wire command");
-			};
-			let generation = acquire_generation(&mut *self.client.lock().await, &call_id, false)
-				.await
-				.map_err(map_error)?;
-			return Ok(Outcome {
-				generation: Some(generation),
-			});
+			return self.run_unwired(command).await;
 		};
 		let operation = send(&mut *self.client.lock().await, wire)
 			.await
 			.map_err(map_error)?;
 		self.settle(operation).await
+	}
+
+	async fn connection_info(&self) -> Result<ConnectionView, EngineError> {
+		let info = self.client.lock().await.connection_info().await;
+		info.map(|i| convert::connection(&i)).map_err(map_error)
+	}
+
+	async fn avatar(&self, sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		let image = self.client.lock().await.get_avatar(&sha256).await;
+		image.map(|i| i.image).map_err(map_error)
+	}
+}
+
+impl Ops {
+	/// Commands whose answer is not a plain operation.
+	async fn run_unwired(&self, command: Command) -> Result<Outcome, EngineError> {
+		let mut client = self.client.lock().await;
+		match command {
+			Command::AcquireController { call_id } => {
+				let generation = acquire_generation(&mut client, &call_id, false)
+					.await
+					.map_err(map_error)?;
+				Ok(Outcome {
+					generation: Some(generation),
+					..Outcome::default()
+				})
+			}
+			Command::CreateInvite {
+				channel_id,
+				ttl_seconds,
+				uses,
+			} => {
+				let reply = client
+					.create_invite(&channel_id, ttl_seconds, uses)
+					.await
+					.map_err(map_error)?;
+				Ok(Outcome {
+					invite: Some(Secret::new(reply.invite)),
+					..Outcome::default()
+				})
+			}
+			_ => unreachable!("every other command has a wire form"),
+		}
 	}
 }
 

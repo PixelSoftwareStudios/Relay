@@ -3,7 +3,7 @@
 
 use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
-use crate::model::{AppState, Call, CallMeter, Meters, Mode, Peer, Phase, Trust};
+use crate::model::{AppState, Call, CallMeter, Channel, Meters, Mode, Peer, Phase, Trust};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct CallCard {
@@ -29,6 +29,10 @@ pub struct PeerRow {
 	pub avatar: Avatar,
 	pub subtitle: String,
 	pub can_call: bool,
+	/// Names of channels with proven shared membership.
+	pub badges: Vec<String>,
+	/// Channels (id, name) in which this device may revoke this peer.
+	pub revocable: Vec<(String, String)>,
 }
 
 pub fn trust_label(trust: Trust) -> &'static str {
@@ -53,7 +57,7 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 		.map(|call| {
 			let peer = state.peers.iter().find(|p| p.peer_id == call.peer_id);
 			let name = peer.map_or_else(|| "Unknown peer".to_owned(), |p| p.display_name.clone());
-			let avatar = Avatar::resolve(peer.is_some_and(|p| p.has_avatar));
+			let avatar = Avatar::resolve(peer.map_or("", |p| p.avatar_hash.as_str()));
 			let meter = meter_for(meters, &call.call_id);
 			let connected = call.phase == Phase::Connected;
 			let speaking = connected && meter.is_some_and(|m| m.speaking);
@@ -95,6 +99,17 @@ fn callable(state: &AppState, peer: &Peer) -> bool {
 			.any(|c| c.peer_id == peer.peer_id && !c.phase.is_terminal())
 }
 
+/// Known channels the peer has proven membership of.
+fn shared_channels<'a>(
+	state: &'a AppState,
+	peer: &'a Peer,
+) -> impl Iterator<Item = &'a Channel> + 'a {
+	state
+		.channels
+		.iter()
+		.filter(|c| peer.shared_channels.contains(&c.channel_id))
+}
+
 pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 	state
 		.peers
@@ -102,7 +117,7 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 		.map(|p| PeerRow {
 			peer_id: p.peer_id.clone(),
 			name: p.display_name.clone(),
-			avatar: Avatar::resolve(p.has_avatar),
+			avatar: Avatar::resolve(&p.avatar_hash),
 			subtitle: format!(
 				"{} · {}",
 				if p.reachable {
@@ -113,6 +128,11 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 				trust_label(p.trust)
 			),
 			can_call: callable(state, p),
+			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),
+			revocable: shared_channels(state, p)
+				.filter(|c| c.can_admin())
+				.map(|c| (c.channel_id.clone(), c.name.clone()))
+				.collect(),
 		})
 		.collect()
 }
@@ -131,5 +151,10 @@ pub fn mode_enabled(mode: Mode, consent_checked: bool) -> bool {
 
 /// Avatar of the local profile.
 pub fn local_avatar(state: &AppState) -> Avatar {
-	Avatar::resolve(state.settings.as_ref().is_some_and(|s| s.has_avatar))
+	Avatar::resolve(
+		state
+			.settings
+			.as_ref()
+			.map_or("", |s| s.avatar_hash.as_str()),
+	)
 }
