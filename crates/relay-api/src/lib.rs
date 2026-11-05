@@ -4,9 +4,11 @@
 //! conversion to validated domain values belongs to the engine crate.
 
 mod client;
+mod client_ext;
 mod error;
 mod limits;
 mod middleware;
+mod redact;
 mod registry;
 mod server;
 mod tcp;
@@ -23,8 +25,8 @@ pub mod pb {
 
 pub use client::{Endpoint, RelayClient};
 pub use error::ApiError;
-pub use limits::ApiLimits;
-pub use middleware::{GuardConfig, GuardLayer, StreamGuard, StreamLimiter};
+pub use limits::{AVATAR_MAX_BYTES, ApiLimits};
+pub use middleware::{GuardConfig, GuardLayer, SENSITIVE_METHODS, StreamGuard, StreamLimiter};
 pub use registry::{ClientId, ClientRegistry, ClientValidator};
 pub use server::{engine_server, serve_tcp};
 pub use tcp::{TcpProfile, bind_loopback, profile_path};

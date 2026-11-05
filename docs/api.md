@@ -30,6 +30,13 @@ Each mutation carries a 16-byte `operation_id`. Same id + identical request retu
 ## State watching
 `WatchState` without `after_revision` begins with an atomic snapshot. `StateTracker` rejects non-increasing revisions, revision gaps (unfiltered watches only; filters may legitimately skip), and incarnation changes. `ResyncRequired` means: open a fresh watch. `snapshot_and_watch` resumes at `snapshot.revision` and relies on engine replay; a missed window yields `Resync`. `StateWatch::into_bounded(n)` moves reading to a task and ends with `SubscriptionOverflow` instead of buffering when the consumer lags.
 
+## Channels, avatars, connection info
+- Channel RPCs (`CreateChannel`, `JoinChannel`, `LeaveChannel`, `ListChannels`, `CreateInvite`, `RevokeChannelMember`) follow `docs/channels.md`. `Snapshot.channels`, `Peer.shared_channel_ids`, `Settings.inbound_policy` and `Settings.advert_mode` expose state; `SetPrivacy` changes the last two.
+- Failed channel operations carry stable `Problem.code`s: `CHANNEL_DENIED` (uniform for unknown channel, wrong secret, bad or spent invite), `CHANNEL_LOCKED_OUT`, `CHANNEL_LIMIT`, `CHANNEL_NAME_INVALID`.
+- Passwords and invite secrets live only in request bodies (and the `CreateInviteResponse`). The generated `Debug` is disabled for those messages and replaced by redacting impls; the guard logs method paths only (`SENSITIVE_METHODS` lists the affected RPCs). The engine must not put them in events, snapshots, operation results or logs.
+- `GetAvatar(hash)` returns a canonical PNG up to `AVATAR_MAX_BYTES` (256 KiB); unknown hash is `NOT_FOUND`. `RelayClient::get_avatar` rejects larger answers.
+- `GetConnectionInfo` returns eligible LAN addresses, listen port, local fingerprint and an opaque `connection_string` filled by the engine. `StartCallRequest.target` also accepts `manual_connection_string`.
+
 ## Client sketch
 ```rust
 let mut c = RelayClient::connect(&Endpoint::Unix(path)).await?;

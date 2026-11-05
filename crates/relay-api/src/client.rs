@@ -64,11 +64,11 @@ impl Interceptor for ContextInterceptor {
 	}
 }
 
-type Inner = EngineClient<InterceptedService<Channel, ContextInterceptor>>;
+pub(crate) type Inner = EngineClient<InterceptedService<Channel, ContextInterceptor>>;
 
 /// High-level client for the local engine API.
 pub struct RelayClient {
-	inner: Inner,
+	pub(crate) inner: Inner,
 	shared: Shared,
 	info: EngineInfo,
 }
@@ -129,7 +129,7 @@ impl RelayClient {
 			.unwrap_or_else(|e| e.into_inner()) = Some(context);
 	}
 
-	fn require_context(&self) -> Result<ClientContext, ApiError> {
+	pub(crate) fn require_context(&self) -> Result<ClientContext, ApiError> {
 		self.context().ok_or(ApiError::NotRegistered)
 	}
 

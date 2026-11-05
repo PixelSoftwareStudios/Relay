@@ -23,6 +23,14 @@ const PUBLIC_METHODS: [&str; 2] = [
 	"/relay.v1.Engine/RegisterClient",
 ];
 
+/// RPCs whose bodies carry passwords or invite secrets. The guard logs only the
+/// method path, never any request or response content, for every RPC.
+pub const SENSITIVE_METHODS: [&str; 3] = [
+	"/relay.v1.Engine/CreateChannel",
+	"/relay.v1.Engine/JoinChannel",
+	"/relay.v1.Engine/CreateInvite",
+];
+
 /// Configuration shared by all guarded requests.
 #[derive(Clone)]
 pub struct GuardConfig {
@@ -106,6 +114,11 @@ fn check_request(
 	req: &Request<Body>,
 ) -> Result<OwnedSemaphorePermit, Status> {
 	let headers = req.headers();
+	tracing::debug!(
+		method = req.uri().path(),
+		sensitive = SENSITIVE_METHODS.contains(&req.uri().path()),
+		"local api request"
+	);
 	if let Some(token) = &config.token {
 		check_token(headers, token)?;
 	}

@@ -3,6 +3,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
+use super::channels::Channels;
 use prost::Message;
 use relay_api::pb::engine_server::Engine;
 use relay_api::pb::state_envelope::Body;
@@ -27,6 +28,7 @@ pub struct Inner {
 	streams: StreamLimiter,
 	state: Mutex<State>,
 	events: broadcast::Sender<StateEnvelope>,
+	pub channels: Channels,
 }
 
 /// Cheaply cloneable handle; the server and the test share one state.
@@ -51,6 +53,7 @@ impl FakeEngine {
 			streams: StreamLimiter::new(limits.max_streams),
 			state: Mutex::new(State::default()),
 			events: broadcast::channel(limits.subscriber_queue).0,
+			channels: Channels::default(),
 		}))
 	}
 
@@ -222,6 +225,9 @@ impl Engine for FakeEngine {
 			.map(|c| c.operation_id.clone())
 			.filter(|id| id.len() == 16)
 			.ok_or_else(|| Status::invalid_argument("operation_id must be 16 bytes"))?;
+		if let Some(start_call_request::Target::ManualConnectionString(s)) = &req.target {
+			*self.channels.last_connection_string.lock().unwrap() = Some(s.clone());
+		}
 		let fingerprint = req.encode_to_vec();
 		let mut state = self.state.lock().unwrap();
 		if let Some((seen, op)) = state.operations.get(&op_id) {
@@ -286,7 +292,7 @@ impl Engine for FakeEngine {
 	async fn stop_mic_test(&self, _: Request<MutationContext>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_profile(&self, _: Request<SetProfileRequest>) -> Resp<Operation> {
+	async fn set_profile(&self, request: Request<SetProfileRequest>) -> Resp<Operation> {
 		unsupported()
 	}
 	async fn upload_avatar(&self, _: Request<UploadAvatarRequest>) -> Resp<Operation> {
@@ -294,6 +300,50 @@ impl Engine for FakeEngine {
 	}
 	async fn decide_peer_trust(&self, _: Request<DecidePeerTrustRequest>) -> Resp<Operation> {
 		unsupported()
+	}
+
+	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.channels.create(r.get_ref())))
+	}
+	async fn join_channel(&self, r: Request<JoinChannelRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.channels.join(r.get_ref())))
+	}
+	async fn leave_channel(&self, r: Request<LeaveChannelRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.channels.leave(r.get_ref())))
+	}
+	async fn list_channels(&self, _: Request<ListChannelsRequest>) -> Resp<ListChannelsResponse> {
+		Ok(Response::new(ListChannelsResponse {
+			channels: self.channels.list(),
+		}))
+	}
+	async fn create_invite(&self, r: Request<CreateInviteRequest>) -> Resp<CreateInviteResponse> {
+		self.channels
+			.invite(r.get_ref())
+			.map(Response::new)
+			.ok_or_else(|| Status::permission_denied("CHANNEL_DENIED"))
+	}
+	async fn revoke_channel_member(
+		&self,
+		r: Request<RevokeChannelMemberRequest>,
+	) -> Resp<Operation> {
+		Ok(Response::new(self.channels.revoke(r.get_ref())))
+	}
+	async fn set_privacy(&self, _: Request<SetPrivacyRequest>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn get_avatar(&self, r: Request<GetAvatarRequest>) -> Resp<AvatarImage> {
+		self.channels
+			.avatar(&r.get_ref().avatar_sha256)
+			.map(Response::new)
+			.ok_or_else(|| Status::not_found("unknown avatar"))
+	}
+	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
+		Ok(Response::new(ConnectionInfo {
+			local_addresses: vec!["192.168.1.20".into()],
+			listen_port: 47000,
+			fingerprint: vec![7; 32],
+			connection_string: "RLYN1-fake".into(),
+		}))
 	}
 
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;

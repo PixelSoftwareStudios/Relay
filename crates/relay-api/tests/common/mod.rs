@@ -2,6 +2,7 @@
 
 #![allow(dead_code)]
 
+mod channels;
 mod fake;
 
 use std::path::PathBuf;

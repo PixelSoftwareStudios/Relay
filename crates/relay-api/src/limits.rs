@@ -1,3 +1,6 @@
+/// Largest avatar PNG the API will carry (canonical 128 px images are far smaller).
+pub const AVATAR_MAX_BYTES: usize = 256 * 1024;
+
 /// Resource bounds applied by the transport and middleware.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ApiLimits {

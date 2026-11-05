@@ -28,6 +28,15 @@ service Engine {
   rpc SetProfile(SetProfileRequest) returns (Operation);
   rpc UploadAvatar(UploadAvatarRequest) returns (Operation);
   rpc DecidePeerTrust(DecidePeerTrustRequest) returns (Operation);
+  rpc CreateChannel(CreateChannelRequest) returns (Operation);
+  rpc JoinChannel(JoinChannelRequest) returns (Operation);
+  rpc LeaveChannel(LeaveChannelRequest) returns (Operation);
+  rpc ListChannels(ListChannelsRequest) returns (ListChannelsResponse);
+  rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
+  rpc RevokeChannelMember(RevokeChannelMemberRequest) returns (Operation);
+  rpc SetPrivacy(SetPrivacyRequest) returns (Operation);
+  rpc GetAvatar(GetAvatarRequest) returns (AvatarImage);
+  rpc GetConnectionInfo(ClientContext) returns (ConnectionInfo);
   rpc InputControl(stream InputControlMessage) returns (stream InputControlAck);
 }
 
@@ -127,6 +136,7 @@ message Peer {
   TrustState trust = 4;
   bool reachable = 5;
   bytes avatar_sha256 = 6;
+  repeated bytes shared_channel_ids = 7; // only channels with proven shared membership
 }
 message Device {
   string device_id = 1; // opaque adapter-qualified ID; never an enumeration index
@@ -175,6 +185,8 @@ message Settings {
   float playback_gain = 8;
   string display_name = 9; // advertised local name
   bytes avatar_sha256 = 10; // empty when no avatar is set
+  InboundPolicy inbound_policy = 11;
+  AdvertMode advert_mode = 12;
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -184,6 +196,7 @@ message Snapshot {
   repeated Device devices = 5;
   Settings settings = 6;
   repeated Problem warnings = 7;
+  repeated ChannelInfo channels = 8;
 }
 message WatchStateRequest {
   ClientContext client = 1;
@@ -211,7 +224,7 @@ message StateEnvelope {
 }
 message StartCallRequest {
   MutationContext context = 1;
-  oneof target { bytes peer_id = 2; string manual_local_address = 3; }
+  oneof target { bytes peer_id = 2; string manual_local_address = 3; string manual_connection_string = 5; }
   bool allow_parallel_same_peer = 4;
   // StartCall NEVER implicitly authorizes microphone transmission.
 }
@@ -324,4 +337,81 @@ message TelemetrySnapshot {
   uint64 render_underruns = 6;
   uint64 telemetry_samples_dropped = 7;
   repeated CallTelemetry calls = 8;
+}
+
+// Channels. Stable problem codes on a FAILED Operation: CHANNEL_DENIED (uniform for
+// every join failure), CHANNEL_LOCKED_OUT, CHANNEL_LIMIT, CHANNEL_NAME_INVALID.
+// Passwords and invite secrets appear ONLY in request bodies (and in the
+// CreateInviteResponse); never in events, snapshots, operations or logs.
+enum InboundPolicy {
+  INBOUND_POLICY_UNSPECIFIED = 0;
+  INBOUND_POLICY_ANYONE = 1;
+  INBOUND_POLICY_SHARED_CHANNEL_ONLY = 2;
+}
+enum AdvertMode {
+  ADVERT_MODE_UNSPECIFIED = 0;
+  ADVERT_MODE_VISIBLE = 1;
+  ADVERT_MODE_HIDDEN = 2;
+}
+message ChannelPolicy { bool listed = 1; bool password = 2; bool invite_only = 3; }
+message ChannelInfo {
+  bytes channel_id = 1;
+  string name = 2;
+  ChannelPolicy policy = 3;
+  string role = 4; // owner | admin | member
+  uint32 shared_peers = 5;
+  uint64 cert_expires_unix = 6;
+}
+message CreateChannelRequest {
+  MutationContext context = 1;
+  string name = 2;
+  ChannelPolicy policy = 3;
+  string password = 4; // secret: never echoed or logged
+}
+message JoinChannelRequest {
+  MutationContext context = 1;
+  bytes channel_id = 2;
+  string name = 3;
+  string password = 4; // secret
+  string invite = 5; // secret RLYI1... token
+}
+message LeaveChannelRequest { MutationContext context = 1; bytes channel_id = 2; }
+message ListChannelsRequest { ClientContext client = 1; }
+message ListChannelsResponse { repeated ChannelInfo channels = 1; }
+message CreateInviteRequest {
+  MutationContext context = 1;
+  bytes channel_id = 2;
+  uint32 ttl_seconds = 3;
+  uint32 uses = 4;
+}
+message CreateInviteResponse {
+  string invite = 1; // secret
+  uint64 expires_unix = 2;
+}
+message RevokeChannelMemberRequest {
+  MutationContext context = 1;
+  bytes channel_id = 2;
+  bytes fingerprint = 3;
+}
+message SetPrivacyRequest {
+  MutationContext context = 1;
+  optional InboundPolicy inbound_policy = 2;
+  optional AdvertMode advert_mode = 3;
+}
+
+// Avatars: canonical PNG, at most avatar_max_bytes (256 KiB). Unknown hash is NOT_FOUND.
+message GetAvatarRequest { ClientContext client = 1; bytes avatar_sha256 = 2; }
+message AvatarImage {
+  bytes avatar_sha256 = 1;
+  bytes png = 2;
+  uint32 width = 3;
+  uint32 height = 4;
+}
+
+// What a remote user needs to reach this device.
+message ConnectionInfo {
+  repeated string local_addresses = 1; // eligible LAN IPs, no port
+  uint32 listen_port = 2;
+  bytes fingerprint = 3; // local identity fingerprint
+  string connection_string = 4; // opaque, built by the engine; clients display/copy it
 }
