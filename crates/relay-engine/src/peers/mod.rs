@@ -10,6 +10,7 @@ mod handle;
 mod link;
 mod manager;
 mod names;
+mod overlay;
 mod profile;
 mod profiling;
 mod rtt;

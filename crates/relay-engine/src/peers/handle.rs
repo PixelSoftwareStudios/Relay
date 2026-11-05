@@ -305,6 +305,9 @@ pub struct LinkInfo {
 	/// The local address of the control connection: the interface address
 	/// a peer can reach this engine on.
 	pub local_ip: std::net::IpAddr,
+	/// The link's authenticated remote IP when it is an opted-in overlay
+	/// address; media may use exactly this overlay address.
+	pub overlay_peer: Option<std::net::IpAddr>,
 }
 
 pub(super) type Reply<T> = oneshot::Sender<Result<T, PeerError>>;

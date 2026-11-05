@@ -487,10 +487,14 @@ impl MediaSystem {
 			state.next_source
 		};
 		let bind = SocketAddr::new(self.inner.config.bind_ip, 0);
+		let policy = match link.overlay_peer {
+			Some(ip) => self.inner.config.policy.with_overlay_peer(ip),
+			None => self.inner.config.policy,
+		};
 		let (socket, queue) = PeerSocket::open(
 			bind,
 			Arc::clone(&link.session),
-			self.inner.config.policy,
+			policy,
 			source,
 			self.inner.origin,
 			Arc::clone(&self.inner.events),

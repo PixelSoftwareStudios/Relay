@@ -135,6 +135,7 @@ impl Actor {
 				let info = self.trusted_link(&peer).map(|entry| LinkInfo {
 					session: Arc::clone(&entry.link.session),
 					local_ip: entry.link.local_ip,
+					overlay_peer: self.config.overlay_peer(entry.link.remote_ip),
 				});
 				let _ = reply.send(info);
 			}
@@ -454,7 +455,8 @@ impl Actor {
 				remote_ip: entry.link.remote_ip,
 				subnet: entry.link.subnet,
 			};
-			decode(peer, body, &mut table, &self.config.policy, &net)
+			let policy = self.config.link_policy(entry.link.remote_ip);
+			decode(peer, body, &mut table, &policy, &net)
 		};
 		match inbound {
 			Inbound::Event(event) => self.emit(PeerOutput::Core(event)).await,
