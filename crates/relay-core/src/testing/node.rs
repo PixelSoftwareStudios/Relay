@@ -36,7 +36,7 @@ impl Node {
 
 	/// A node with custom limits.
 	pub fn with_limits(key_byte: u8, limits: Limits) -> Self {
-		let mut ids = SeqIds::new();
+		let mut ids = SeqIds::namespaced(key_byte);
 		let key = device_key(key_byte);
 		let state = State::new(key, ids.incarnation(), limits).expect("valid limits");
 		Self {
