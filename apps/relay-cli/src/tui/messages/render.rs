@@ -8,10 +8,11 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use relay_api::pb::transcript_entry::Body;
 use relay_api::pb::{DeliveryState, FileOfferBody, OfferState};
+use relay_io::localtime::LocalZone;
 use relay_messages::markdown::{Block, CodeBlock, HostWarning, Inline, Link};
 
 use super::state::Row;
-use crate::commands::messages::{OfferView, clock, offer_state_name, plain, size};
+use crate::commands::messages::{OfferView, offer_state_name, plain, size};
 
 /// Longest code block shown before it is cut (copy still takes all of it).
 const CODE_LINES: usize = 12;
@@ -25,6 +26,7 @@ pub struct Look<'a> {
 	pub selected: bool,
 	pub block: usize,
 	pub hit: bool,
+	pub zone: &'a LocalZone,
 }
 
 fn dim() -> Style {
@@ -295,7 +297,7 @@ pub fn row_lines(row: &Row, look: &Look<'_>) -> Vec<Line<'static>> {
 	};
 	let mut head = vec![
 		Span::raw(if look.selected { "> " } else { "  " }),
-		Span::styled(clock(e.received_at_unix_ms), dim()),
+		Span::styled(look.zone.clock(e.received_at_unix_ms), dim()),
 		Span::raw(" "),
 		Span::styled(
 			who,

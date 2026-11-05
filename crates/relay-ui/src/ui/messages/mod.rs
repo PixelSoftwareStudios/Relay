@@ -26,6 +26,7 @@ use crate::messaging::model::SessionKey;
 use crate::messaging::rules::{choose_session, compose_blocked};
 use crate::messaging::state::{Feed, MessagesState};
 use crate::theme;
+use relay_io::localtime::LocalZone;
 
 pub use dialogs::ClipFlow;
 pub use panels::privacy_toggle;
@@ -47,17 +48,15 @@ pub struct MessagesUi {
 	textures: TextureCache<TextureHandle>,
 	/// A call was asked for but has no session.
 	missing_call: Option<String>,
-}
-
-impl Default for MessagesUi {
-	fn default() -> Self {
-		Self::new()
-	}
+	/// Time zone for the clock in each row.
+	zone: LocalZone,
 }
 
 impl MessagesUi {
-	pub fn new() -> Self {
+	/// `zone` decides how message times are shown (the shell picks it).
+	pub fn new(zone: LocalZone) -> Self {
 		Self {
+			zone,
 			selected: None,
 			focus_call: None,
 			drafts: HashMap::new(),
@@ -213,6 +212,7 @@ impl MessagesUi {
 			settings: state.settings,
 			textures: &mut self.textures,
 			gate: &mut self.gate,
+			zone: &self.zone,
 			intents,
 		};
 		egui::CentralPanel::default()

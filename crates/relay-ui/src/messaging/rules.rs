@@ -2,6 +2,7 @@
 //! may do, which buttons a file offer shows, and the user-facing texts for
 //! the daemon's problem codes. Everything here is pure and tested directly.
 
+use relay_io::localtime::LocalZone;
 use relay_messages::limits::{FREE_MARGIN_PERCENT, MAX_TEXT_BYTES, MIN_FREE_MARGIN_BYTES};
 
 use super::model::{OfferStatus, OfferView, SessionView};
@@ -38,11 +39,25 @@ pub fn hash_short(hash: &[u8]) -> String {
 	format!("{}…", &hex[..hex.len().min(8)])
 }
 
-/// `HH:MM:SS` in UTC from Unix milliseconds. UTC because the app has no
-/// time-zone database; the hover text says so.
-pub fn clock_label(unix_ms: u64) -> String {
-	let secs = unix_ms / 1000 % 86_400;
-	format!("{:02}:{:02}:{:02}", secs / 3600, secs / 60 % 60, secs % 60)
+/// The clock of a message row and the text shown on hover.
+#[derive(Debug, PartialEq, Eq)]
+pub struct RowTimes {
+	/// `HH:MM:SS` in the viewer's zone, when this device received or sent it.
+	pub label: String,
+	pub hover: String,
+}
+
+/// Row times: the label is local time; the hover gives the full local date and
+/// offset with the UTC clock, then the sender's own claim in the same form.
+pub fn row_times(zone: &LocalZone, received_ms: u64, sent_ms: u64) -> RowTimes {
+	RowTimes {
+		label: zone.clock(received_ms),
+		hover: format!(
+			"{}, when this device received or sent it.\nThe sender's own clock claims {}.",
+			zone.hover(received_ms),
+			zone.hover(sent_ms)
+		),
+	}
 }
 
 /// A short, honest guess of what a file is, from its name and advisory type.

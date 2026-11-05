@@ -11,10 +11,11 @@ use crate::avatar::{Lookup, TextureCache};
 use crate::messaging::actions::Intent;
 use crate::messaging::gates::LinkGate;
 use crate::messaging::model::{Body, Delivery, EntryView, ImageView, SessionView, SettingsView};
-use crate::messaging::rules::{INLINE_IMAGE_MAX_BYTES, clock_label, delivery_failure, format_size};
+use crate::messaging::rules::{INLINE_IMAGE_MAX_BYTES, delivery_failure, format_size, row_times};
 use crate::messaging::state::Transcript;
 use crate::messaging::virtual_list::VirtualList;
 use crate::theme;
+use relay_io::localtime::LocalZone;
 
 /// First guess for an unmeasured row (points).
 const ESTIMATE: f32 = 72.0;
@@ -54,6 +55,7 @@ pub struct RowCx<'a> {
 	pub settings: Option<SettingsView>,
 	pub textures: &'a mut TextureCache<TextureHandle>,
 	pub gate: &'a mut LinkGate,
+	pub zone: &'a LocalZone,
 	pub intents: &'a mut Vec<Intent>,
 }
 
@@ -165,11 +167,9 @@ fn header(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 			rcx.session.peer_name.as_str()
 		};
 		ui.label(RichText::new(who).strong());
-		ui.label(RichText::new(clock_label(entry.received_ms)).small().weak())
-			.on_hover_text(format!(
-				"UTC, when this device received or sent it.\nThe sender's own clock claims {}.",
-				clock_label(entry.sent_ms)
-			));
+		let times = row_times(rcx.zone, entry.received_ms, entry.sent_ms);
+		ui.label(RichText::new(times.label).small().weak())
+			.on_hover_text(times.hover);
 		if entry.pinned {
 			ui.label(RichText::new("pinned").small().color(theme::WARN));
 		}

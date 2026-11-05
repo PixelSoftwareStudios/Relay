@@ -5,6 +5,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Borders, Paragraph};
+use relay_io::localtime::LocalZone;
 
 use super::keys::send_blocker;
 use super::render::{Look, row_lines};
@@ -93,7 +94,7 @@ fn info_lines(pane: &SessionPane) -> Vec<Line<'static>> {
 	lines
 }
 
-fn transcript(frame: &mut Frame, area: Rect, pane: &SessionPane) {
+fn transcript(frame: &mut Frame, area: Rect, pane: &SessionPane, zone: &LocalZone) {
 	let height = usize::from(area.height);
 	if pane.rows.is_empty() {
 		frame.render_widget(
@@ -121,6 +122,7 @@ fn transcript(frame: &mut Frame, area: Rect, pane: &SessionPane) {
 			selected: pane.focus == Some(index),
 			block: pane.block,
 			hit: pane.hits.contains(&row.entry.ordinal),
+			zone,
 		};
 		let lines = row_lines(row, &look);
 		total += lines.len();
@@ -202,7 +204,7 @@ pub fn draw(frame: &mut Frame, area: Rect, state: &MessagesState) {
 	.areas(area);
 	frame.render_widget(Paragraph::new(session_bar(state)), bar);
 	frame.render_widget(Paragraph::new(info), infos);
-	transcript(frame, body, pane);
+	transcript(frame, body, pane, &state.zone);
 	bottom(frame, input, state);
 }
 

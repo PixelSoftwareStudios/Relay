@@ -2,6 +2,7 @@
 
 use relay_api::pb::TranscriptEntry;
 use relay_api::pb::transcript_entry::Body;
+use relay_io::localtime::LocalZone;
 use relay_messages::markdown;
 use serde::Serialize;
 
@@ -13,12 +14,12 @@ use crate::client::Messaging;
 use crate::commands::Out;
 
 /// Entries as views, numbering code blocks across the whole slice.
-pub fn views(entries: &[TranscriptEntry]) -> Vec<EntryView> {
+pub fn views(entries: &[TranscriptEntry], zone: &LocalZone) -> Vec<EntryView> {
 	let mut blocks = 0;
 	entries
 		.iter()
 		.map(|e| {
-			let view = EntryView::new(e, blocks);
+			let view = EntryView::new(e, blocks, zone);
 			blocks += view.block_count();
 			view
 		})
@@ -36,7 +37,7 @@ pub async fn log<M: Messaging>(
 	let session = resolve(client, call).await?;
 	// Numbering code blocks needs the entries before `since` too.
 	let entries = read_all(client, &session.session_id, 0).await?;
-	let mut shown: Vec<EntryView> = views(&entries)
+	let mut shown: Vec<EntryView> = views(&entries, out.zone())
 		.into_iter()
 		.filter(|v| v.message >= since)
 		.collect();
@@ -48,7 +49,7 @@ pub async fn log<M: Messaging>(
 	let view = SessionView::new(&session);
 	out.emit_with(&shown, || {
 		let mut text = format!(
-			"{} with {} (times UTC), {} message{}\n",
+			"{} with {} (local times), {} message{}\n",
 			view.state,
 			view.peer,
 			view.messages,
@@ -80,7 +81,7 @@ pub async fn search<M: Messaging>(
 	let session = resolve(client, call).await?;
 	let found = client.search(&session.session_id, query).await?;
 	let entries = read_all(client, &session.session_id, 0).await?;
-	let all = views(&entries);
+	let all = views(&entries, out.zone());
 	let hits: Vec<&EntryView> = found
 		.hits
 		.iter()

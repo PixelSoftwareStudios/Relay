@@ -9,6 +9,7 @@ use relay_api::pb::transcript_entry::Body;
 use relay_api::pb::{
 	MessagingSettings, SessionEvent, SessionState, SessionSummary, TranscriptEntry,
 };
+use relay_io::localtime::LocalZone;
 use relay_messages::markdown::{self, Document};
 
 use super::prompt::Prompt;
@@ -164,6 +165,8 @@ pub struct MessagesState {
 	pub composing: bool,
 	/// An open question (search text, a path, a confirmation).
 	pub prompt: Option<Prompt>,
+	/// Time zone of the clock in each row.
+	pub zone: LocalZone,
 }
 
 impl Default for MessagesState {
@@ -176,6 +179,7 @@ impl Default for MessagesState {
 			compose: String::new(),
 			composing: false,
 			prompt: None,
+			zone: LocalZone::system(),
 		}
 	}
 }

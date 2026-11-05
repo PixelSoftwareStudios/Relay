@@ -120,6 +120,11 @@ impl Ran {
 }
 
 /// Run `relay messages ...` against a `Messaging` client.
+/// The zone every test renders message times in: UTC+02:00, whatever the host uses.
+pub fn zone() -> relay_io::localtime::LocalZone {
+	relay_io::localtime::LocalZone::fixed(2 * 3600).expect("valid offset")
+}
+
 pub async fn run_messages<M: relay_cli::client::Messaging>(
 	client: &mut M,
 	args: &[&str],
@@ -150,6 +155,7 @@ pub async fn run_messages_with<M: relay_cli::client::Messaging>(
 	let mut clipboard = MemoryClipboard::default();
 	let result = {
 		let mut out = relay_cli::commands::Out::new(json, &mut buffer)
+			.with_zone(zone())
 			.with_input(&mut input)
 			.with_clipboard(&mut clipboard);
 		relay_cli::commands::messages::run(client, parsed, &mut out).await

@@ -120,7 +120,7 @@ impl Watcher<'_, '_> {
 			.map_or((0, 0), |c| (c.next_ordinal, c.blocks));
 		let mut last = None;
 		for entry in entries.iter().filter(|e| e.ordinal >= next) {
-			let view = EntryView::new(entry, blocks);
+			let view = EntryView::new(entry, blocks, self.out.zone());
 			blocks += view.block_count();
 			last = Some(entry.ordinal);
 			let json = json!({
@@ -175,7 +175,10 @@ impl Watcher<'_, '_> {
 					id.clone(),
 					Cursor {
 						next_ordinal: entries.last().map_or(s.next_ordinal, |e| e.ordinal + 1),
-						blocks: views(&entries).iter().map(EntryView::block_count).sum(),
+						blocks: views(&entries, self.out.zone())
+							.iter()
+							.map(EntryView::block_count)
+							.sum(),
 					},
 				);
 			}

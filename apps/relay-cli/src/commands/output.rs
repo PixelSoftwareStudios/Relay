@@ -3,6 +3,7 @@
 use std::fmt::Display;
 use std::io::{BufRead, Read, Write};
 
+use relay_io::localtime::LocalZone;
 use serde::Serialize;
 
 use crate::cli::CliError;
@@ -17,6 +18,7 @@ pub struct Out<'a> {
 	secrets: Option<&'a mut dyn SecretSource>,
 	clipboard: Option<&'a mut dyn Clipboard>,
 	input: Option<&'a mut dyn BufRead>,
+	zone: LocalZone,
 }
 
 impl<'a> Out<'a> {
@@ -28,7 +30,19 @@ impl<'a> Out<'a> {
 			secrets: None,
 			clipboard: None,
 			input: None,
+			zone: LocalZone::system(),
 		}
+	}
+
+	/// Show message times in `zone` instead of the system zone.
+	pub fn with_zone(mut self, zone: LocalZone) -> Self {
+		self.zone = zone;
+		self
+	}
+
+	/// The zone message times are shown in.
+	pub fn zone(&self) -> &LocalZone {
+		&self.zone
 	}
 
 	/// Read secrets from `source` instead of the terminal and stdin.

@@ -47,13 +47,14 @@ impl RelayApp {
 			rgba: vec![0; 4],
 		});
 		Self {
+		let zone = actions.shell.time_zone();
 			textures: Textures::new(ctx),
 			logo: upload(ctx, "relay-logo", &logo),
 			actions,
 			local: Local::default(),
 			class: None,
 			page: Page::default(),
-			messages: MessagesUi::new(),
+			messages: MessagesUi::new(zone),
 			messages_open: false,
 		}
 	}

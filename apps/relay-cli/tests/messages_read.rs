@@ -23,7 +23,7 @@ async fn log_numbers_messages_and_labels_code_blocks_across_the_session() {
 	let mut c = with_chat();
 	let out = run_messages(&mut c, &["log"], false).await.ok();
 	assert!(
-		out.contains("active with Alice (times UTC), 4 messages"),
+		out.contains("active with Alice (local times), 4 messages"),
 		"{out}"
 	);
 	assert!(
@@ -33,7 +33,7 @@ async fn log_numbers_messages_and_labels_code_blocks_across_the_session() {
 	assert!(out.contains("[code 1: rust, 1 line]"), "{out}");
 	assert!(out.contains("[code 2: no language, 1 line]"), "{out}");
 	assert!(out.contains("[code 3: sh, 1 line]"), "{out}");
-	assert!(out.contains("22:13:21Z"), "{out}");
+	assert!(out.contains("00:13:21"), "{out}");
 }
 
 #[tokio::test]

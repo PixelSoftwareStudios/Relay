@@ -11,6 +11,7 @@ use relay_api::pb::transcript_entry::Body;
 use relay_api::pb::{
 	DeliveryState, FileOfferBody, OfferState, SessionState, SessionSummary, TranscriptEntry,
 };
+use relay_io::localtime::LocalZone;
 use relay_messages::markdown::{self, HostWarning};
 use serde::Serialize;
 
@@ -26,12 +27,6 @@ pub fn plain(text: &str, multiline: bool) -> String {
 			c => c,
 		})
 		.collect()
-}
-
-/// `HH:MM:SSZ` (UTC) of a unix millisecond timestamp.
-pub fn clock(unix_ms: u64) -> String {
-	let secs = unix_ms / 1000 % 86_400;
-	format!("{:02}:{:02}:{:02}Z", secs / 3600, secs / 60 % 60, secs % 60)
 }
 
 /// Delivery state name.
@@ -207,7 +202,11 @@ pub struct EntryView {
 	pub message: u64,
 	pub seq: u64,
 	pub direction: &'static str,
+	/// UTC instant; the only time in `--json`.
 	pub time_unix_ms: u64,
+	/// `HH:MM:SS` in the viewer's zone, for the text form only.
+	#[serde(skip)]
+	pub local_clock: String,
 	pub delivery: &'static str,
 	pub failure: Option<String>,
 	pub pinned: bool,
@@ -230,12 +229,13 @@ fn warning_name(w: HostWarning) -> &'static str {
 impl EntryView {
 	/// Build the view; `blocks_before` is how many code blocks earlier entries of the
 	/// session hold, so numbers are stable across the whole transcript.
-	pub fn new(entry: &TranscriptEntry, blocks_before: usize) -> Self {
+	pub fn new(entry: &TranscriptEntry, blocks_before: usize, zone: &LocalZone) -> Self {
 		let mut view = Self {
 			message: entry.ordinal,
 			seq: entry.seq,
 			direction: if entry.outgoing { "out" } else { "in" },
 			time_unix_ms: entry.received_at_unix_ms,
+			local_clock: zone.clock(entry.received_at_unix_ms),
 			delivery: delivery_name(entry.delivery),
 			failure: Some(entry.failure.clone()).filter(|f| !f.is_empty()),
 			pinned: entry.pinned,
@@ -301,10 +301,7 @@ impl Display for EntryView {
 		write!(
 			f,
 			"#{}  {}  {:<3}  {}",
-			self.message,
-			clock(self.time_unix_ms),
-			self.direction,
-			self.delivery
+			self.message, self.local_clock, self.direction, self.delivery
 		)?;
 		if let Some(reason) = &self.failure {
 			write!(f, " ({reason})")?;

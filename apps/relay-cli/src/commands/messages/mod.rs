@@ -20,8 +20,8 @@ use crate::commands::Out;
 pub use send::MAX_INLINE_IMAGE_BYTES;
 pub use target::{absolutize, accepted, check, pick_session};
 pub use view::{
-	CodeBlockView, EntryView, LinkView, OfferView, SessionView, clock, delivery_name,
-	offer_state_name, plain, size,
+	CodeBlockView, EntryView, LinkView, OfferView, SessionView, delivery_name, offer_state_name,
+	plain, size,
 };
 
 /// Run one `relay messages` command.

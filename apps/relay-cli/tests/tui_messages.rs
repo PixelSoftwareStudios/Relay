@@ -47,6 +47,7 @@ fn screen(model: &Model, width: u16, height: u16) -> String {
 /// A model on the Messages tab showing the fake's sessions and transcripts.
 fn loaded(c: &FakeControl) -> Model {
 	let mut m = Model::new();
+	m.messages.zone = common::zone();
 	m.tab = Tab::Messages;
 	let list = c.chat.list();
 	m.apply(Update::Messages(Box::new(MsgUpdate::Sessions(
@@ -85,7 +86,7 @@ fn the_transcript_shows_times_delivery_pins_code_blocks_and_links() {
 		"{text}"
 	);
 	assert!(
-		text.contains("22:13:21Z") && text.contains("Alice"),
+		text.contains("00:13:21") && text.contains("Alice"),
 		"{text}"
 	);
 	assert!(text.contains("you") && text.contains("sending"), "{text}");
