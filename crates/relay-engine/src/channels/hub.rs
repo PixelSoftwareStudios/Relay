@@ -1,5 +1,6 @@
 //! The driver handle: shared state plus the pieces every part needs.
 
+use relay_io::LockExt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -64,7 +65,7 @@ pub struct ChannelHub {
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-	mutex.lock().unwrap_or_else(|p| p.into_inner())
+	mutex.lock_unpoisoned()
 }
 
 impl ChannelHub {

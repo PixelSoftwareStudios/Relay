@@ -1,5 +1,6 @@
 //! Bounded command queues into worker threads.
 
+use relay_io::LockExt;
 use std::sync::{Arc, Mutex, OnceLock};
 use std::thread::Thread;
 
@@ -49,7 +50,7 @@ impl<T> Inbox<T> {
 	/// Enqueues a command and wakes the worker, or hands the command back if
 	/// the queue is full.
 	pub fn push(&self, command: T) -> Result<(), T> {
-		let mut producer = self.0.producer.lock().unwrap_or_else(|p| p.into_inner());
+		let mut producer = self.0.producer.lock_unpoisoned();
 		producer
 			.push(command)
 			.map_err(|rtrb::PushError::Full(c)| c)?;

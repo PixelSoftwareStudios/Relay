@@ -1,5 +1,6 @@
 //! In-memory adapters that record what the control actor asked of them.
 
+use relay_io::LockExt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use relay_core::{AudioGeneration, CallId, PeerId, PeerMessage, ReceiveMix, SessionId};
@@ -13,7 +14,7 @@ use super::ports::{
 use super::tones::ToneCommand;
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-	mutex.lock().unwrap_or_else(|e| e.into_inner())
+	mutex.lock_unpoisoned()
 }
 
 /// One request seen by [`FakeMedia`].

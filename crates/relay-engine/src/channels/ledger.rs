@@ -86,7 +86,7 @@ pub(super) struct Ledger {
 impl Ledger {
 	pub fn new() -> Self {
 		Self {
-			key: rand::random(),
+			key: relay_io::entropy::random_bytes(),
 			records: BTreeMap::new(),
 			order: VecDeque::new(),
 		}

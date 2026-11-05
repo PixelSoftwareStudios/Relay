@@ -1,6 +1,7 @@
 //! The joiner: turns a password, an invite or just a channel id into a membership
 //! by running the PAKE exchange with a linked, trusted admitter.
 
+use relay_io::LockExt;
 use std::time::Duration;
 
 use relay_core::channel::{CHANNELS_MAX, ChannelId};
@@ -66,8 +67,7 @@ impl ChannelHub {
 				Ok(()) => {
 					self.inner
 						.outbound
-						.lock()
-						.unwrap_or_else(|p| p.into_inner())
+						.lock_unpoisoned()
 						.record_success(&self.inner.local, &channel);
 					return Ok(());
 				}
@@ -75,11 +75,11 @@ impl ChannelHub {
 				Err(_) => {}
 			}
 		}
-		self.inner
-			.outbound
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
-			.record_failure(self.mono(), &self.inner.local, &channel);
+		self.inner.outbound.lock_unpoisoned().record_failure(
+			self.mono(),
+			&self.inner.local,
+			&channel,
+		);
 		Err(Failure::Denied)
 	}
 
@@ -118,8 +118,7 @@ impl ChannelHub {
 	fn pace(&self, channel: &ChannelId) -> Result<(), Failure> {
 		self.inner
 			.outbound
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
+			.lock_unpoisoned()
 			.check(self.mono(), &self.inner.local, channel)
 			.map_err(|locked| Failure::LockedOut {
 				retry_after_secs: locked.retry_after.as_secs().max(1),

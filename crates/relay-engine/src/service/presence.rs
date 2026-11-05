@@ -11,6 +11,7 @@
 //! stays unattached with no live call for the idle-exit time asks to stop,
 //! which reaps daemons nobody uses.
 
+use relay_io::LockExt;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -34,7 +35,7 @@ impl PresenceLink {
 	}
 
 	fn lock(&self) -> MutexGuard<'_, BTreeMap<ClientId, usize>> {
-		self.watchers.lock().unwrap_or_else(|e| e.into_inner())
+		self.watchers.lock_unpoisoned()
 	}
 
 	/// Registers one open watch of `client` until the guard drops.

@@ -6,6 +6,7 @@
 //! cannot reach a peer. The playback stream stays open while a tone plays and
 //! for a short hold afterwards, then closes if no call or test needs it.
 
+use relay_io::LockExt;
 use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
@@ -49,7 +50,7 @@ impl MediaSystem {
 	pub fn tone(&self, command: ToneCommand) {
 		let tones = &self.inner.tones;
 		let result = {
-			let mut control = tones.control.lock().unwrap_or_else(|p| p.into_inner());
+			let mut control = tones.control.lock_unpoisoned();
 			match command {
 				ToneCommand::Start {
 					sound,

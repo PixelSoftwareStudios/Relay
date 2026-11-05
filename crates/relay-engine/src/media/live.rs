@@ -5,6 +5,7 @@
 //! and touches no gate, so nothing it does can transmit; it ends by itself and
 //! releases the microphone when it ends.
 
+use relay_io::LockExt;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -40,7 +41,7 @@ pub(super) struct MicTest {
 
 impl MicTest {
 	fn lock(&self) -> std::sync::MutexGuard<'_, Option<Active>> {
-		self.active.lock().unwrap_or_else(|p| p.into_inner())
+		self.active.lock_unpoisoned()
 	}
 
 	pub(super) fn is_active(&self) -> bool {

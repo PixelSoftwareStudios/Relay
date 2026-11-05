@@ -1,6 +1,7 @@
 //! The peer manager actor: owns every control link, the trust gate, link
 //! election, reconnect timers and the mapping to domain events.
 
+use relay_io::LockExt;
 use std::collections::{HashMap, VecDeque};
 use std::net::SocketAddr;
 use std::sync::atomic::AtomicU64;
@@ -448,7 +449,7 @@ impl Actor {
 		}
 		let peer = peer_id(&fingerprint);
 		let inbound = {
-			let mut table = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
+			let mut table = self.sessions.lock_unpoisoned();
 			let net = LinkNet {
 				remote_ip: entry.link.remote_ip,
 				subnet: entry.link.subnet,

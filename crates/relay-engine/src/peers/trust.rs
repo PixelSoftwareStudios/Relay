@@ -3,6 +3,7 @@
 //! The handshake never writes here. Only [`TrustBook::pin`], reached from an
 //! explicit user decision, persists a key.
 
+use relay_io::LockExt;
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -43,9 +44,7 @@ impl SharedTrust {
 
 	/// Locks the store.
 	pub fn lock(&self) -> MutexGuard<'_, dyn KeyedTrustStore + 'static> {
-		self.0
-			.lock()
-			.unwrap_or_else(|poisoned| poisoned.into_inner())
+		self.0.lock_unpoisoned()
 	}
 }
 

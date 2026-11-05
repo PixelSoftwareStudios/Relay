@@ -3,6 +3,7 @@
 //! worker. The daemon opens the file itself with the user's own filesystem access; the
 //! client only names a path.
 
+use relay_io::LockExt;
 use std::fs::{File, Metadata};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Component, Path, PathBuf};
@@ -188,13 +189,13 @@ impl Source {
 
 	/// Whether the file is still the one that was hashed.
 	pub fn unchanged(&self) -> bool {
-		let file = self.file.lock().unwrap_or_else(|p| p.into_inner());
+		let file = self.file.lock_unpoisoned();
 		unchanged(&self.path, &file, &self.facts)
 	}
 
 	/// Reads exactly `len` bytes at `offset`.
 	pub fn read(&self, offset: u64, len: usize) -> std::io::Result<Vec<u8>> {
-		let mut file = self.file.lock().unwrap_or_else(|p| p.into_inner());
+		let mut file = self.file.lock_unpoisoned();
 		file.seek(SeekFrom::Start(offset))?;
 		let mut data = vec![0u8; len];
 		file.read_exact(&mut data)?;

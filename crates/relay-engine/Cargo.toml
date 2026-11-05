@@ -18,10 +18,8 @@ tokio.workspace = true
 tokio-stream.workspace = true
 tonic.workspace = true
 thiserror.workspace = true
-anyhow.workspace = true
 tracing.workspace = true
 rand.workspace = true
-bytes.workspace = true
 rtrb.workspace = true
 arc-swap.workspace = true
 blake3.workspace = true
@@ -30,6 +28,7 @@ prost.workspace = true
 gethostname.workspace = true
 zeroize.workspace = true
 if-addrs.workspace = true
+ipnet.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true

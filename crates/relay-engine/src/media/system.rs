@@ -1,6 +1,7 @@
 //! The media system: workers, device thread, per-call lifecycle and the
 //! control-side entry points used by the service adapters.
 
+use relay_io::LockExt;
 use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -132,7 +133,7 @@ pub struct MediaSystem {
 impl Drop for Inner {
 	fn drop(&mut self) {
 		self.stop.store(true, Ordering::Release);
-		let workers = std::mem::take(&mut *self.workers.lock().unwrap_or_else(|p| p.into_inner()));
+		let workers = std::mem::take(&mut *self.workers.lock_unpoisoned());
 		for worker in workers {
 			worker.thread().unpark();
 			let name = worker.thread().name().unwrap_or("media worker").to_owned();
@@ -271,7 +272,7 @@ impl MediaSystem {
 	}
 
 	pub(super) fn state(&self) -> MutexGuard<'_, State> {
-		self.inner.state.lock().unwrap_or_else(|p| p.into_inner())
+		self.inner.state.lock_unpoisoned()
 	}
 
 	pub(super) fn emit(&self, event: MediaEvent) {

@@ -1,5 +1,6 @@
 //! Which local clients exist, what they may do, and whether they are idle.
 
+use relay_io::LockExt;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
@@ -83,7 +84,7 @@ impl Drop for StreamTicket {
 
 impl ClientBook {
 	fn lock(&self) -> MutexGuard<'_, HashMap<ClientId, Entry>> {
-		self.entries.lock().unwrap_or_else(|e| e.into_inner())
+		self.entries.lock_unpoisoned()
 	}
 
 	/// Adds a client with the capabilities it was granted.

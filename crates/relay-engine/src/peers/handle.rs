@@ -1,5 +1,6 @@
 //! The public face of the peer manager: configuration, commands, outputs.
 
+use relay_io::LockExt;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
@@ -86,7 +87,7 @@ pub struct AdvertSpec {
 impl Default for AdvertSpec {
 	fn default() -> Self {
 		Self {
-			instance_id: rand::random(),
+			instance_id: relay_io::entropy::random_bytes(),
 			hidden: false,
 			extra_txt: Vec::new(),
 			present: false,
@@ -403,7 +404,7 @@ impl PeerHandle {
 	/// Sends a call message; queued (bounded) until the link is up.
 	pub fn send(&self, peer: PeerId, message: PeerMessage) -> Result<(), PeerError> {
 		let envelope = {
-			let mut table = self.sessions.lock().unwrap_or_else(|p| p.into_inner());
+			let mut table = self.sessions.lock_unpoisoned();
 			super::signaling::encode(&message, peer, &mut table)
 		};
 		self.try_send(Command::Send(fingerprint(peer), envelope))
@@ -486,10 +487,7 @@ impl PeerHandle {
 
 	/// The peer a call was exchanged with, once an invitation was sent or received.
 	pub fn peer_of(&self, call: relay_core::CallId) -> Option<PeerId> {
-		self.sessions
-			.lock()
-			.unwrap_or_else(|p| p.into_inner())
-			.peer_of(call)
+		self.sessions.lock_unpoisoned().peer_of(call)
 	}
 
 	/// Changes the local display name and avatar: re-advertised on mDNS and

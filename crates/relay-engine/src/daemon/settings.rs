@@ -1,5 +1,6 @@
 //! Preferences and the local avatar, persisted through `relay-config`.
 
+use relay_io::LockExt;
 use std::sync::{Mutex, MutexGuard};
 
 use relay_config::avatar::{AvatarCache, process_avatar};
@@ -52,7 +53,7 @@ fn effective_name(stored: &str) -> String {
 }
 
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-	mutex.lock().unwrap_or_else(|e| e.into_inner())
+	mutex.lock_unpoisoned()
 }
 
 impl FileSettings {

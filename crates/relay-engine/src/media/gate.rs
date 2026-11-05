@@ -4,6 +4,7 @@
 //! latest one with a single atomic load immediately before every packet, so a
 //! deny takes effect without waiting for any queue.
 
+use relay_io::LockExt;
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -151,7 +152,7 @@ impl GateBoard {
 	}
 
 	fn lock(&self) -> std::sync::MutexGuard<'_, BoardInner> {
-		self.inner.lock().unwrap_or_else(|p| p.into_inner())
+		self.inner.lock_unpoisoned()
 	}
 
 	/// Applies a `GateUpdate` effect. Updates that arrive before the call's
