@@ -1,4 +1,46 @@
 # Relay desktop UI catalog, Russian (ru), section: Errors the UI words itself.
-# Not translated yet. Add only ids that exist in localizations/en/errors.ftl,
-# with the same $variables; anything missing falls back to English.
 # See docs/i18n.md.
+
+err-not-connected = нет подключения к демону Relay
+err-release-delay = задержка отпускания должна быть от 0 до 2000 мс
+err-gain = усиление должно быть числом от 0 до 4
+err-bad-call-id = неверный идентификатор звонка
+err-unknown-call = неизвестный звонок
+err-no-lease = движок не выдал управление
+err-bad-peer-id = неверный идентификатор участника
+err-unknown-peer = неизвестный участник
+err-consent-required = для передачи нужно разрешение на использование микрофона
+err-ring-volume = громкость рингтона должна быть от 0 до 1
+err-unknown-device = неизвестное или недоступное аудиоустройство
+err-display-name = имя должно содержать от 1 до 64 печатных символов
+err-avatar-media-type = для аватара нужен тип данных
+conn-scheme = Строка подключения начинается с relay://
+err-invite-malformed = токен приглашения неверен
+err-join-target = введите токен приглашения или 32-символьный идентификатор канала
+err-bad-channel-id = неверный идентификатор канала
+err-unknown-channel = неизвестный канал
+err-channel-name = название канала должно содержать от 1 до 32 печатных символов
+err-channel-needs-password = для канала с паролем нужно ввести пароль
+err-enter-password = введите пароль канала
+err-invite-admin-only = создавать приглашения может только владелец или администратор
+err-invite-range = срок действия или число использований приглашения вне допустимого диапазона
+err-no-invite = движок не вернул приглашение
+err-revoke-admin-only = исключать участников может только владелец или администратор
+err-not-member = этот участник не подтверждён как член канала
+err-nothing-to-change = нечего менять
+err-bad-avatar-hash = неверный хеш аватара
+conn-missing-fingerprint = В строке подключения нет части #fingerprint.
+conn-bad-fingerprint = Отпечаток должен состоять из 64 шестнадцатеричных символов.
+conn-bad-address = Адрес должен быть в виде ip:port, а не именем.
+watch-resync = движок запросил повторную синхронизацию: { $reason }
+watch-closed = демон закрыл соединение
+err-unsupported = движок не поддерживает этот запрос
+err-daemon-unreachable = демон Relay недоступен: { $reason }
+err-engine-timeout = движок не ответил вовремя
+err-connection = проблема с подключением: { $reason }
+err-unreadable-image = Этот файл не является читаемым изображением.
+err-engine-rejected = движок отклонил запрос
+err-no-paths = Это устройство не может выбирать файлы и папки для демона Relay.
+err-cannot-start-daemon = Это устройство не может запустить демон Relay.
+err-cannot-stop-daemon = Это устройство не может остановить демон Relay.
+err-read-file = Не удалось прочитать файл: { $error }

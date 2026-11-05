@@ -1,4 +1,105 @@
 # Relay desktop UI catalog, Russian (ru), section: Settings: this app, hotkey, profile, daemon, language.
-# Not translated yet. Add only ids that exist in localizations/en/settings.ftl,
-# with the same $variables; anything missing falls back to English.
 # See docs/i18n.md.
+
+link-starting = Запуск демона Relay
+link-connecting = Подключение к демону Relay
+link-connected = Подключено
+link-reconnecting = Связь с демоном потеряна, переподключение
+link-offline = Демон не запущен
+avatar-size-refusal = аватар должен весить от 1 байта до 1 МиБ (PNG, JPEG, WebP, GIF, BMP или TIFF)
+hotkey-note = Приложение не регистрирует глобальную горячую клавишу и пока не имеет экранной кнопки передачи. Рация передаёт звук, только пока клавишу удерживает источник ввода на стороне движка (например, CLI).
+close-tray = При закрытии окно скрывается в трей; звонки продолжаются.
+close-no-tray = На этой платформе нет значка в трее, поэтому закрытие окна завершает приложение.
+quit-note = При выходе из приложения завершаются звонки, которые оно начало или приняло, а демон Relay продолжает работать. Приложение не может остановить демон.
+calls-active =
+    { $count ->
+        [one] Активен { $count } звонок.
+        [few] Активны { $count } звонка.
+        [many] Активны { $count } звонков.
+       *[other] Активны { $count } звонка.
+    }
+quit-prompt = Выйти из приложения?
+quit-prompt-calls =
+    { $count ->
+        [one] Выйти из приложения? Ваш активный звонок будет завершён.
+        [few] Выйти из приложения? Ваши { $count } активных звонка будут завершены.
+        [many] Выйти из приложения? Ваши { $count } активных звонков будут завершены.
+       *[other] Выйти из приложения? Ваши { $count } активного звонка будут завершены.
+    }
+daemon-stopped-again = Сразу после запуска он снова остановился.
+daemon-keeps-stopping = Демон Relay постоянно останавливается, поэтому автоматически он больше не перезапускается. { $why }
+avatar-bad-format = аватар отклонён: неподдерживаемый или нераспознанный формат изображения (используйте PNG, JPEG, WebP, GIF, BMP или TIFF)
+avatar-zero-size = аватар отклонён: нулевая ширина или высота аватара
+avatar-too-large = аватар отклонён: размеры аватара { $width }x{ $height } превышают предел в { $limit } пикселей
+avatar-undecodable = аватар отклонён: не удалось декодировать аватар: { $error }
+daemon-started = Демон Relay запущен.
+daemon-already-running = Демон Relay уже запущен.
+daemon-not-found = Не удаётся найти демон Relay ({ $binary }). Установите его рядом с приложением или в PATH либо укажите путь в { $env }.
+daemon-start-failed = Демон Relay не запустился: { $reason }.
+daemon-start-failed-log = Демон Relay не запустился: { $reason }. Последняя строка журнала: { $last }
+daemon-stop-failed = Демон Relay не остановился: { $error }
+daemon-stopped = Демон Relay остановлен.
+notify-off = Выкл.: звонок, поступивший при скрытом или фоновом окне, показывается только во всплывающей подсказке трея и звучит рингтоном демона.
+notify-on = Показывает имя звонящего (но не текст сообщений), когда звонок поступает при скрытом окне или окне не на переднем плане.
+notify-refused = Система отклонила последнее уведомление ({ $reason }). Звонки по-прежнему звучат через демон и отображаются в этом окне и в подсказке трея.
+login-unsupported = Здесь недоступно: { $reason }
+login-off = Выкл. Если включить, приложение регистрируется в системе и открывает окно при входе. Демон не запускается, пока он не понадобится приложению.
+login-on = Вкл.: система запускает приложение при входе (открывается его окно). Отключите здесь, чтобы удалить запись.
+login-failed = Не удалось прочитать или изменить элемент автозапуска: { $reason }
+banner-mock = Тестовые данные: это окно не подключено к демону Relay.
+link-offline-auto = Запускается автоматически.
+daemon-starting-button = Запуск демона...
+daemon-start-button = Запустить демон
+app-heading = Это приложение
+app-hide = Скрыть окно
+app-quit = Выйти из приложения (демон продолжит работу)
+app-hang-up-quit = Завершить звонки и выйти
+autostart-label = Запускать демон автоматически
+autostart-hover = Если демон не запущен, его запускают приложения Relay. Он виден в локальной сети, только пока открыто приложение.
+daemon-heading = Демон Relay
+daemon-not-connected = Нет подключения к демону.
+daemon-paused = Автозапуск приостановлен, пока вы не нажмёте «Запустить демон».
+daemon-keeps-running = Демон продолжает работать после закрытия приложения. Выход из него завершает все звонки и освобождает микрофон.
+daemon-quit-ask = Остановить демон...
+daemon-quit-confirm = Остановить демон сейчас? Активные звонки будут завершены.
+daemon-quit = Остановить демон
+profile-heading = Ваш профиль
+profile-name-hint = Отображаемое имя
+profile-save-name = Сохранить имя
+profile-image-note = PNG, JPEG, WebP, GIF, BMP или TIFF, до 1 МиБ и 2048 x 2048. Движок масштабирует изображение и передаёт его вашим доверенным участникам. Удаление сообщает им, что показывать его больше не нужно.
+profile-choose-image = Выбрать изображение…
+profile-upload = Загрузить
+profile-discard = Отменить
+profile-remove = Удалить картинку
+hotkey-heading = Горячая клавиша рации
+hotkey-intro = Удерживайте эту клавишу где угодно, чтобы говорить, пока звонок в режиме рации.
+hotkey-field = Горячая клавиша
+hotkey-hint = Ctrl+Alt+Space (пусто отключает)
+hotkey-delay = Задержка отпускания
+hotkey-delay-hover = Как долго микрофон остаётся открытым после того, как вы отпустили клавишу.
+hotkey-nothing = Нечего менять.
+notify-label = Уведомлять о входящих звонках
+login-label = Запускать приложение при входе
+login-error = Автозапуск: { $reason }
+dialog-profile-image = Выберите изображение профиля
+dialog-image-filter = Изображение
+dialog-export = Экспорт переписки
+login-no-mechanism = в этой системе нет поддерживаемого механизма автозапуска
+login-no-exe = не удаётся найти эту программу: { $error }
+login-bad-path = путь к программе не является допустимым текстом
+login-set-unavailable = недоступно: { $reason }
+options-save-failed = не удалось сохранить выбор: { $error }
+language-label = Язык
+language-experimental = Этот язык экспериментальный: средство отображения текста не умеет соединять буквы деванагари, поэтому некоторые слова выглядят иначе, чем в печати.
+link-offline-manual = Запустите демон; это окно переподключится само.
+hotkey-applied = { $label }: применено
+hotkey-check-accelerator = горячая клавиша должна содержать не более 64 печатных символов
+hotkey-check-delay = задержка отпускания должна быть от 0 до 2000 мс
+hotkey-label-accelerator = Горячая клавиша рации
+hotkey-label-delay = Задержка отпускания
+hotkey-missing-key = демон не сообщил { $key }
+hotkey-bad-value = демон сообщил неверное значение { $key }: { $value }
+hotkey-rejected = { $label }: отклонено
+hotkey-rejected-reason = { $label }: отклонено ({ $reason })
+hotkey-saved = { $label }: сохранено, вступит в силу после перезапуска
+hotkey-saved-reason = { $label }: сохранено, вступит в силу после перезапуска ({ $reason })

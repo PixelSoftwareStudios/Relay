@@ -1,4 +1,55 @@
 # Relay desktop UI catalog, Russian (ru), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
 # See docs/i18n.md.
+
+phase-preparing = Подготовка
+phase-ringing = Вызов
+phase-incoming = Входящий звонок
+phase-connecting = Соединение
+phase-connected = Соединено
+phase-interrupted = Прервано
+phase-ending = Завершение
+phase-ended = Завершено
+phase-failed = Ошибка
+phase-declined = Отклонено
+phase-cancelled = Отменено
+transmit-listening = Только прослушивание
+transmit-listening-detail = Ваш микрофон не передаётся.
+transmit-no-consent = Микрофон не разрешён
+transmit-no-consent-detail = Для этого звонка не дано разрешение на передачу звука.
+transmit-releasing = Отпускание
+transmit-releasing-detail = Клавиша отпущена; микрофон ещё немного остаётся включённым, чтобы не обрезать конец фразы.
+transmit-how-open = открытый микрофон
+transmit-how-key = клавиша рации удерживается
+transmitting = Передача
+transmit-live-detail = Микрофон включён ({ $how }).
+transmit-open-armed = Открытый микрофон готов, передачи нет
+transmit-open-armed-detail = Движок сейчас не отправляет звук.
+transmit-ptt-armed = Рация готова
+transmit-ptt-armed-detail = Ожидание нажатия клавиши от источника ввода на стороне движка.
+engine-reason = Причина от движка: { $reason }.
+trust-unknown = Неизвестно
+trust-tofu = Встречался раньше, не проверен
+trust-verified = Проверен
+trust-key-changed = Ключ изменился: не доверяйте
+trust-blocked = Заблокирован
+call-speaking = говорит
+mode-listen = Только слушать
+mode-ptt = Рация
+mode-open = Открытый микрофон
+calls-heading = Звонки
+calls-none = Нет активных звонков.
+meter-incoming = Входящий уровень от { $name }
+call-accept = Принять
+call-decline = Отклонить
+call-accept-note = Приём звонка не включает ваш микрофон.
+trust-line = { $trust }.
+trust-line-key = { $trust }. Ключ устройства { $fingerprint } (чтобы различать устройства, а не для проверки).
+call-end = Завершить звонок
+call-messages-hover = Текст, изображения и файлы этого звонка
+call-unmute = Включить микрофон (звонок)
+call-undeafen = Включить звук (звонок)
+call-their-volume = Их громкость { $value }
+call-your-mic = Ваш микрофон в этом звонке
+call-consent = Я разрешаю передавать мой микрофон участнику { $name }
+call-mute = Отключить микрофон (звонок)
+call-deafen = Отключить звук (звонок)
