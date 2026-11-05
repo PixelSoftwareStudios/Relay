@@ -6,6 +6,7 @@ use std::sync::{Arc, Mutex};
 
 use relay_io::LockExt;
 use relay_ui::host_options::LoginStatus;
+use relay_ui::tr;
 
 /// The OS login item. The real one is `auto-launch`; tests use a fake.
 pub trait LoginBackend: Send + Sync {
@@ -21,12 +22,13 @@ impl SystemLogin {
 	/// `Err` with the reason when the platform or the executable path rules it out.
 	pub fn new() -> Result<Self, String> {
 		if !auto_launch::AutoLaunch::is_support() {
-			return Err("this system has no supported login-item mechanism".to_owned());
+			return Err(tr!("login-no-mechanism").to_owned());
 		}
-		let exe = std::env::current_exe().map_err(|e| format!("cannot find this program: {e}"))?;
+		let exe =
+			std::env::current_exe().map_err(|e| tr!("login-no-exe", error = e.to_string()))?;
 		let path = exe
 			.to_str()
-			.ok_or_else(|| "the program path is not valid text".to_owned())?;
+			.ok_or_else(|| tr!("login-bad-path").to_owned())?;
 		auto_launch::AutoLaunchBuilder::new()
 			.set_app_name("Relay")
 			.set_app_path(path)
@@ -94,7 +96,7 @@ impl LoginItem {
 		let backend = self
 			.backend
 			.as_ref()
-			.map_err(|reason| format!("not available: {reason}"))?;
+			.map_err(|reason| tr!("login-set-unavailable", reason = reason.as_str()))?;
 		let result = if on {
 			backend.enable()
 		} else {

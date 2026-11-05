@@ -13,6 +13,7 @@ use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 
 use crate::options::DesktopOptions;
+use relay_ui::tr;
 
 pub struct DesktopShell {
 	ctx: egui::Context,
@@ -52,9 +53,9 @@ impl FilePicker for DesktopShell {
 	fn pick_image(&self) -> BoxFuture<'_, Result<Option<PickedFile>, String>> {
 		Box::pin(async {
 			let dialog = rfd::AsyncFileDialog::new()
-				.set_title("Choose a profile image")
+				.set_title(tr!("dialog-profile-image"))
 				.add_filter(
-					"Image",
+					tr!("dialog-image-filter"),
 					&["png", "jpg", "jpeg", "webp", "gif", "bmp", "tif", "tiff"],
 				)
 				.pick_file()
@@ -73,7 +74,7 @@ impl FilePicker for DesktopShell {
 
 	fn save_as(&self, suggested_name: &str) -> BoxFuture<'_, Result<Option<PathBuf>, String>> {
 		let dialog = rfd::AsyncFileDialog::new()
-			.set_title("Export the transcript")
+			.set_title(tr!("dialog-export"))
 			.set_file_name(suggested_name)
 			.add_filter("JSON", &["json"])
 			.save_file();
@@ -99,7 +100,7 @@ pub async fn read_picked(path: &Path) -> Result<PickedFile, String> {
 	let name = path.to_string_lossy().into_owned();
 	let size = tokio::fs::metadata(path)
 		.await
-		.map_err(|e| format!("Cannot read the file: {e}"))?
+		.map_err(|e| tr!("err-read-file", error = e.to_string()))?
 		.len();
 	let size = usize::try_from(size)
 		.unwrap_or(usize::MAX)
@@ -109,7 +110,7 @@ pub async fn read_picked(path: &Path) -> Result<PickedFile, String> {
 	}
 	let bytes = tokio::fs::read(path)
 		.await
-		.map_err(|e| format!("Cannot read the file: {e}"))?;
+		.map_err(|e| tr!("err-read-file", error = e.to_string()))?;
 	// The format comes from the bytes, not the name.
 	avatar_check(&bytes)?;
 	Ok(PickedFile { name, bytes })

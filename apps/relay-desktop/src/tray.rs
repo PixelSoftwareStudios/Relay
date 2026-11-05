@@ -8,6 +8,7 @@ use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, 
 use relay_ui::actions::Actions;
 use relay_ui::emitter::{TrayState, TraySummary};
 use relay_ui::imaging::decode_for_texture;
+use relay_ui::tr;
 
 /// Monochrome template glyphs. macOS draws the `@2x` pair on Retina screens
 /// and tints template images itself; other platforms use the 1x glyphs.
@@ -47,6 +48,8 @@ fn icon_for(state: TrayState) -> Option<Icon> {
 pub struct Tray {
 	icon: TrayIcon,
 	status: MenuItem,
+	show: MenuItem,
+	quit: MenuItem,
 	shown: TrayState,
 }
 
@@ -55,6 +58,9 @@ impl Tray {
 	pub fn apply(&mut self, summary: &TraySummary) {
 		let _ = self.icon.set_tooltip(Some(&summary.tooltip));
 		self.status.set_text(&summary.tooltip);
+		// The summary differs when the language changed, so the menu follows it.
+		self.show.set_text(tr!("tray-show"));
+		self.quit.set_text(tr!("tray-quit"));
 		if summary.icon != self.shown
 			&& let Some(icon) = icon_for(summary.icon)
 		{
@@ -91,8 +97,8 @@ pub fn build(actions: &Actions) -> Option<Tray> {
 		return None;
 	}
 	let status = MenuItem::with_id("status", "Relay", false, None);
-	let show = MenuItem::with_id("show", "Show Relay", true, None);
-	let quit = MenuItem::with_id("quit", "Quit this app (daemon keeps running)", true, None);
+	let show = MenuItem::with_id("show", tr!("tray-show"), true, None);
+	let quit = MenuItem::with_id("quit", tr!("tray-quit"), true, None);
 	let menu = Menu::new();
 	menu.append_items(&[&status, &show, &quit]).ok()?;
 	let builder = TrayIconBuilder::new()
@@ -124,6 +130,8 @@ pub fn build(actions: &Actions) -> Option<Tray> {
 	Some(Tray {
 		icon,
 		status,
+		show,
+		quit,
 		shown: TrayState::Idle,
 	})
 }

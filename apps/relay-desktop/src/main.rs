@@ -60,7 +60,10 @@ fn main() -> eframe::Result {
 				DesktopPrefs::default_path(),
 				dispatcher.clone(),
 				LoginItem::system(),
+				&sys_locale::get_locales().collect::<Vec<_>>(),
 			));
+			// Before the tray and the first frame, so everything starts in the right language.
+			relay_ui::i18n::set_active(options.language());
 			let host = Arc::new(DesktopShell::new(ctx.clone(), options.clone()));
 			let shell: Arc<dyn Shell> = host.clone();
 			let hub = Arc::new(Hub::default());

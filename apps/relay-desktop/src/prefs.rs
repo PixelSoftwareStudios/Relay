@@ -13,12 +13,16 @@ const MAX_BYTES: u64 = 16 * 1024;
 pub struct DesktopPrefs {
 	/// Show a system notification for a call that rings while the window is out of sight.
 	pub notify_incoming: bool,
+	/// The language the user picked, as its code (`de`, `pt-BR`). `None` follows the system
+	/// language; an unknown code is treated the same way.
+	pub language: Option<String>,
 }
 
 impl Default for DesktopPrefs {
 	fn default() -> Self {
 		Self {
 			notify_incoming: true,
+			language: None,
 		}
 	}
 }

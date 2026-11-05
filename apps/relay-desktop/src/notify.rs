@@ -12,6 +12,7 @@ use std::sync::{Arc, Mutex};
 use relay_io::LockExt;
 use relay_ui::emitter::{Sink, TraySummary};
 use relay_ui::model::{AppState, Link, Meters, Phase};
+use relay_ui::tr;
 
 /// Longest caller name put in a notification.
 const NAME_MAX_CHARS: usize = 64;
@@ -22,6 +23,11 @@ pub trait Notifier: Send + Sync {
 	fn incoming_call(&self, caller: &str) -> Result<(), String>;
 }
 
+/// The title of an incoming-call notification, in the active language.
+pub fn notification_title() -> &'static str {
+	tr!("notification-title")
+}
+
 /// `notify-rust`: the macOS notification centre, Windows toasts, freedesktop notifications.
 pub struct SystemNotifier;
 
@@ -29,7 +35,7 @@ impl Notifier for SystemNotifier {
 	fn incoming_call(&self, caller: &str) -> Result<(), String> {
 		notify_rust::Notification::new()
 			.appname("Relay")
-			.summary("Incoming Relay call")
+			.summary(notification_title())
 			.body(caller)
 			.show()
 			.map(drop)
@@ -77,7 +83,7 @@ pub fn caller_name(name: &str) -> String {
 		.collect();
 	let clean = clean.trim();
 	if clean.is_empty() {
-		"Unknown caller".to_owned()
+		tr!("notification-unknown-caller").to_owned()
 	} else {
 		clean.to_owned()
 	}
