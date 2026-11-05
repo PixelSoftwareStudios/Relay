@@ -4,6 +4,7 @@
 //! - [`command`] and [`wire`]: one request vocabulary and the single place it
 //!   becomes gRPC calls (mutation contexts, controller leases, operations).
 //! - [`connection`]: a lightweight `relay://` string check.
+//! - [`daemon`]: finding, starting and stopping the separate `relayd` process.
 //! - [`operation`]: waiting for an accepted operation to settle.
 //! - [`meter`]: level scaling for meters.
 //!
@@ -12,6 +13,7 @@
 
 pub mod command;
 pub mod connection;
+pub mod daemon;
 pub mod endpoint;
 pub mod meter;
 pub mod operation;

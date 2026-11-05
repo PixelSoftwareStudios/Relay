@@ -6,6 +6,12 @@ rust-version.workspace = true
 license.workspace = true
 description = "Request, endpoint and meter logic shared by the Relay CLI and desktop clients"
 
+[[bin]]
+name = "fake-relayd"
+path = "tests/bin/fake_relayd.rs"
+test = false
+doctest = false
+
 [dependencies]
 relay-api.workspace = true
 tokio.workspace = true
