@@ -109,6 +109,10 @@ impl Agc {
 			return;
 		}
 		let c = self.config;
+		// A faulty upstream stage must not latch the gain: scrub non-finite samples first.
+		for sample in frame.iter_mut().filter(|s| !s.is_finite()) {
+			*sample = 0.0;
+		}
 		let seconds = frame.len() as f32 / INTERNAL_RATE as f32;
 		let power = frame.iter().map(|s| s * s).sum::<f32>() / frame.len() as f32;
 		let level_db = 10.0 * (power + 1e-12).log10();

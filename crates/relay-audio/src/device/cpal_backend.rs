@@ -40,15 +40,22 @@ fn rank(kind: SampleFormatKind) -> u8 {
 	}
 }
 
-fn health_callback(health: StreamHealth) -> impl FnMut(cpal::Error) + Send + 'static {
-	move |error| match error.kind() {
+/// Maps a cpal stream error onto the stream's health cell (atomics only).
+pub fn report_cpal_error(health: &StreamHealth, error: &cpal::Error) {
+	match error.kind() {
 		ErrorKind::DeviceNotAvailable => health.report(StreamState::DeviceLost),
 		ErrorKind::StreamInvalidated | ErrorKind::DeviceChanged => {
 			health.report(StreamState::Invalidated);
 		}
 		ErrorKind::Xrun => health.report_xrun(),
+		// Audio still flows without the promotion; the owner reads the flag and logs it.
+		ErrorKind::RealtimeDenied => health.report_realtime_denied(),
 		_ => health.report(StreamState::BackendError),
 	}
+}
+
+fn health_callback(health: StreamHealth) -> impl FnMut(cpal::Error) + Send + 'static {
+	move |error| report_cpal_error(&health, &error)
 }
 
 struct CpalStream(cpal::Stream);

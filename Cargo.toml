@@ -56,7 +56,10 @@ relay-ui = { path = "crates/relay-ui" }
 relay-messages = { path = "crates/relay-messages" }
 
 # Audio devices, buffering, resampling and codec
-cpal = "0.18.2"
+cpal = { version = "0.18.2", features = ["realtime"] }
+# Real-time thread promotion for the media workers (rtkit/SCHED_FIFO, MMCSS); same crate cpal uses
+audio_thread_priority = { version = "0.35", default-features = false }
+libc = "0.2"
 opus = "0.4.0"
 rtrb = "0.4.1"
 rubato = "5.0.1"

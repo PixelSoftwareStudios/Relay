@@ -1,7 +1,7 @@
 //! The real-time half of playback. Nothing here allocates, locks, logs or does I/O.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use super::CHUNK_FRAMES;
 use crate::convert::{Sample, fan_out};
@@ -13,6 +13,7 @@ pub struct PlaybackShared {
 	muted: AtomicBool,
 	flush_generation: AtomicU64,
 	callbacks: AtomicU64,
+	max_callback_frames: AtomicU32,
 	underrun_frames: AtomicU64,
 	overflow_frames: AtomicU64,
 }
@@ -30,6 +31,12 @@ impl PlaybackShared {
 
 	pub fn callbacks(&self) -> u64 {
 		self.callbacks.load(Ordering::Relaxed)
+	}
+
+	/// Largest device callback seen so far, in frames (0 before the first callback). The
+	/// control side sizes the playout target from it.
+	pub fn max_callback_frames(&self) -> u32 {
+		self.max_callback_frames.load(Ordering::Relaxed)
 	}
 
 	/// Frames filled with silence because no audio was queued.
@@ -69,6 +76,10 @@ impl PlaybackCallback {
 	/// previous buffer is never replayed.
 	pub fn process<S: Sample>(&mut self, out: &mut [S]) {
 		self.shared.callbacks.fetch_add(1, Ordering::Relaxed);
+		let frames = u32::try_from(out.len() / self.channels).unwrap_or(u32::MAX);
+		self.shared
+			.max_callback_frames
+			.fetch_max(frames, Ordering::Relaxed);
 		let flush = self.shared.flush_generation.load(Ordering::Acquire);
 		if flush != self.seen_flush {
 			self.seen_flush = flush;

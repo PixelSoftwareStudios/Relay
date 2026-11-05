@@ -207,3 +207,30 @@ fn real_hardware_enumeration_smoke() {
 		);
 	}
 }
+
+#[test]
+fn a_refused_realtime_promotion_does_not_pause_the_microphone() {
+	// RT-15: cpal reports a failed promotion through the error callback; audio keeps flowing.
+	use relay_audio::device::{StreamHealth, report_cpal_error};
+	let health = StreamHealth::default();
+	report_cpal_error(&health, &cpal::ErrorKind::RealtimeDenied.into());
+	assert!(health.realtime_denied());
+	assert_eq!(health.state(), StreamState::Running);
+	assert_eq!(
+		recovery_for(Direction::Input, health.state()),
+		Recovery::Continue
+	);
+	report_cpal_error(&health, &cpal::ErrorKind::DeviceNotAvailable.into());
+	assert_eq!(health.state(), StreamState::DeviceLost);
+}
+
+#[test]
+fn playback_callback_publishes_its_largest_buffer() {
+	// RT-06: the control side sizes the playout target from the observed callback.
+	let (mut cb, _writer, shared) = relay_audio::playback::playback_pair(2, 8192);
+	assert_eq!(shared.max_callback_frames(), 0);
+	cb.process(&mut vec![0.0_f32; 2 * 480]);
+	cb.process(&mut vec![0.0_f32; 2 * 2048]);
+	cb.process(&mut vec![0.0_f32; 2 * 256]);
+	assert_eq!(shared.max_callback_frames(), 2048);
+}

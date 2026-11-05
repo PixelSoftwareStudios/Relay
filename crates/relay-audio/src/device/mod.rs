@@ -10,7 +10,7 @@ pub use backend::{
 	ActualConfig, AudioBackend, CaptureStream, PlaybackStream, StreamHandle, StreamRequest,
 	ring_samples_for,
 };
-pub use cpal_backend::CpalBackend;
+pub use cpal_backend::{CpalBackend, report_cpal_error};
 pub use descriptor::{
 	ConfigRange, DeviceDescriptor, DeviceHandle, DeviceSelection, Direction, Enumeration,
 	Resolution, SampleFormatKind, StableDeviceKey,

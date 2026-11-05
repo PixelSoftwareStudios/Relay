@@ -1,7 +1,7 @@
 //! Stream health published by error callbacks and consumed by control code.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicU8, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
 
 use super::Direction;
 
@@ -39,6 +39,7 @@ impl StreamState {
 struct HealthInner {
 	state: AtomicU8,
 	xruns: AtomicU64,
+	realtime_denied: AtomicBool,
 }
 
 /// Cheap clonable health cell; writes are lock-free and allocation-free so
@@ -58,6 +59,16 @@ impl StreamHealth {
 
 	pub fn report_xrun(&self) {
 		self.0.xruns.fetch_add(1, Ordering::Relaxed);
+	}
+
+	/// The backend could not promote its audio thread to real time. Informational: audio keeps
+	/// running, so this never changes [`StreamState`].
+	pub fn report_realtime_denied(&self) {
+		self.0.realtime_denied.store(true, Ordering::Relaxed);
+	}
+
+	pub fn realtime_denied(&self) -> bool {
+		self.0.realtime_denied.load(Ordering::Relaxed)
 	}
 
 	pub fn xruns(&self) -> u64 {

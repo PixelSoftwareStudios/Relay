@@ -193,3 +193,18 @@ fn chain_rejects_wrong_frame_sizes_and_runs_in_place() {
 	}
 	assert!(frame.iter().all(|v| v.abs() <= 1.0));
 }
+
+#[test]
+fn agc_does_not_latch_to_nan_after_a_poisoned_frame() {
+	// RT-12: one NaN from an upstream stage must not poison every later sample.
+	let mut agc = Agc::new(AgcConfig::default());
+	let mut bad = vec![0.1_f32; 480];
+	bad[10] = f32::NAN;
+	bad[11] = f32::INFINITY;
+	agc.process(&mut bad);
+	assert!(bad.iter().all(|s| s.is_finite()));
+	assert!(agc.gain_db().is_finite());
+	let mut good = vec![0.1_f32; 480];
+	agc.process(&mut good);
+	assert!(good.iter().all(|s| s.is_finite()));
+}
