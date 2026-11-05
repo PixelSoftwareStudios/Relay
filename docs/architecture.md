@@ -10,6 +10,7 @@ Relay is a LAN-only voice tool. One per-user engine process (`relayd`) owns devi
 | `crates/relay-protocol` | Wire formats: RTP profile, jitter planner, sequence extension |
 | `crates/relay-audio` | Devices (cpal), ring buffers, resampling, Opus, mixer, noise suppression adapters |
 | `crates/relay-net` | mDNS discovery, trust, Noise transport, peer signaling |
+| `crates/relay-io` | OS I/O helpers: atomic and private files, advisory locks, detached spawn and logs, real clock and entropy, per-user dirs, the `FileSink` for received files. No sockets, no audio, no engine/net dependencies, `#![forbid(unsafe_code)]` |
 | `crates/relay-config` | TOML preferences, identity, avatars, diagnostics |
 | `crates/relay-api` | Local gRPC contract and server/client bindings |
 | `crates/relay-engine` | Daemon assembly of the crates above |
@@ -29,3 +30,7 @@ Relay is a LAN-only voice tool. One per-user engine process (`relayd`) owns devi
 - A daemon advertises and rings only while a client is attached (an open `WatchState` stream, debounced 2 s); with none it declines invites as busy.
 - A call is owned by the controller-lease holder and ends 3 s after its owner detaches (re-attach or an attached takeover keeps it); observers own nothing.
 - Audio callbacks do not allocate, lock, log or perform I/O.
+
+## I/O boundary
+
+All OS I/O helpers live in `relay-io`: filesystem (atomic replace with fsync and directory fsync, owner-only 0600/0700 creation, symlink and owner checks, bounded reads, temp files, no-overwrite rename, free space), advisory locks, detached process launch and log files, wall/monotonic clocks, OS entropy and per-user directories. Consumers call it and keep no private copies. Pure crates (`relay-core`, `relay-protocol`, `relay-messages`) only declare ports (`Clock`, `IdSource`, `FileSink`); `relay-io` supplies the real implementations where it can depend on them (`relay-messages`), and the engine adapts the rest (`relay-core` has no OS code and `relay-io` does not depend on it). Sockets, mDNS and protocol code stay in `relay-net` and `relay-api` (the socket bind and peer-credential check remain in `relay-api`); audio devices stay in `relay-audio`. `relay-io` contains no `unsafe`: syscalls go through `rustix`, free space through `fs4`. Windows owner-only ACLs are an unmet gate (see `docs/portability.md`).
