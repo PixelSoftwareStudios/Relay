@@ -19,7 +19,8 @@ members = [
 	"crates/relay-testkit",
 	"benches",
 ]
-# The desktop GUI links windowing libraries, so headless builds skip it.
+# The desktop GUI links windowing libraries and relay-benches pulls bench and
+# neural tooling, so default builds skip both (`-p relay-ui`, `-p relay-benches`).
 default-members = [
 	"crates/relay-core",
 	"crates/relay-protocol",
@@ -34,7 +35,6 @@ default-members = [
 	"crates/relay-io",
 	"apps/relay-cli",
 	"apps/relay-daemon",
-	"benches",
 ]
 
 [workspace.package]
@@ -99,6 +99,7 @@ arc-swap = "1.9.3"
 # Peer discovery and secure transport
 mdns-sd = "0.21.7"
 if-addrs = "0.15"
+ipnet = "2.12.2"
 snow = "0.10.0"
 blake3 = "1.8.7"
 zeroize = "1.9.1"

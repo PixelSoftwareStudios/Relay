@@ -47,6 +47,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      # Not a default member (bench and neural tooling), so it is built explicitly.
+      - run: cargo clippy --locked -p relay-benches --all-targets -- -D warnings
+      - run: cargo test --locked -p relay-benches
 
   # The desktop GUI links windowing libraries, so it is built on its own.
   desktop:
