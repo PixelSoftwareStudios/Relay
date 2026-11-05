@@ -1,0 +1,25 @@
+//! Daemon start-up and shutdown failures.
+
+use thiserror::Error;
+
+use crate::service::ServiceError;
+
+/// Why the daemon could not start or stop cleanly.
+#[derive(Debug, Error)]
+pub enum DaemonError {
+	/// Preferences, trust, identity or avatar storage failed.
+	#[error("configuration: {0}")]
+	Config(#[from] relay_config::ConfigError),
+	/// The local API endpoint could not be bound or served.
+	#[error("local api: {0}")]
+	Api(#[from] relay_api::ApiError),
+	/// The control service rejected its configuration.
+	#[error("service: {0}")]
+	Service(#[from] ServiceError),
+	/// The identity key could not be created or read.
+	#[error("identity: {0}")]
+	Identity(String),
+	/// Signal handling or another OS facility failed.
+	#[error("i/o: {0}")]
+	Io(#[from] std::io::Error),
+}
