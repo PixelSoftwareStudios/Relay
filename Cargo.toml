@@ -157,6 +157,9 @@ windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] 
 # GUI (relay-ui, apps/relay-desktop; not in default-members)
 egui = { version = "0.37.0", default-features = false }
 eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "accesskit"] }
+# Font cmap lookup for the bundled-font coverage tests (relay-ui dev-dependency)
+skrifa = { version = "0.44.0", default-features = false, features = ["std"] }
+
 tray-icon = { version = "0.26.1", default-features = false }
 async-trait = "0.1"
 qrcode = { version = "0.14.1", default-features = false }

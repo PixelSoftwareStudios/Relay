@@ -13,6 +13,7 @@ pub mod convert;
 pub mod daemon_control;
 pub mod emitter;
 pub mod engine;
+pub mod fonts;
 pub mod format;
 pub mod host_options;
 pub mod hub;

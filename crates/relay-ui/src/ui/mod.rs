@@ -101,6 +101,9 @@ impl RelayApp {
 		if self.class != Some(class) {
 			theme::install(ctx, class);
 			self.class = Some(class);
+			if self.class.is_none() {
+				crate::fonts::install(ctx);
+			}
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
