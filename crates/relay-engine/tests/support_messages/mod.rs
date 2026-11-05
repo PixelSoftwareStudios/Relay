@@ -143,3 +143,86 @@ pub async fn wait_transcript(
 	}
 	panic!("transcript never reached the expected state");
 }
+
+/// Deterministic bytes of any length.
+pub fn bytes(len: usize, seed: u8) -> Vec<u8> {
+	(0..len)
+		.map(|i| {
+			(i as u8)
+				.wrapping_mul(31)
+				.wrapping_add(seed)
+				.wrapping_add((i >> 8) as u8)
+		})
+		.collect()
+}
+
+/// Waits until the offer in `session` reaches `state`.
+pub async fn wait_offer(
+	client: &mut RelayClient,
+	session: &[u8],
+	offer: &[u8],
+	state: relay_api::pb::OfferState,
+) -> relay_api::pb::FileOfferBody {
+	for _ in 0..1500 {
+		for entry in transcript(client, session).await {
+			if let Some(Body::File(file)) = entry.body
+				&& file.offer_id == offer
+				&& file.state == state as i32
+			{
+				return file;
+			}
+		}
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+	let last = offer_now(client, session, offer).await;
+	panic!(
+		"offer never reached {state:?}: now state {} failure `{}` transferred {}",
+		last.state, last.failure, last.transferred_bytes
+	);
+}
+
+/// The current record of an offer.
+pub async fn offer_now(
+	client: &mut RelayClient,
+	session: &[u8],
+	offer: &[u8],
+) -> relay_api::pb::FileOfferBody {
+	for entry in transcript(client, session).await {
+		if let Some(Body::File(file)) = entry.body
+			&& file.offer_id == offer
+		{
+			return file;
+		}
+	}
+	panic!("no such offer");
+}
+
+/// Files left in a directory.
+pub fn listing(dir: &std::path::Path) -> Vec<String> {
+	let mut names: Vec<String> = std::fs::read_dir(dir)
+		.expect("read dir")
+		.map(|e| e.expect("entry").file_name().to_string_lossy().into_owned())
+		.collect();
+	names.sort();
+	names
+}
+
+/// A sender-side offer; returns the offer id.
+pub async fn offer(chat: &mut Chat, path: &std::path::Path) -> Vec<u8> {
+	let sent = chat
+		.ma
+		.offer_file(&chat.sa, path.to_str().expect("utf-8 path"))
+		.await
+		.expect("offer");
+	assert_ok(&sent);
+	sent.offer_id
+}
+
+/// The same offer as B sees it.
+pub async fn arrived(chat: &mut Chat, offer_id: &[u8]) {
+	wait_transcript(&mut chat.mb, &chat.sb, |e| {
+		e.iter()
+			.any(|x| matches!(&x.body, Some(Body::File(f)) if f.offer_id == offer_id))
+	})
+	.await;
+}

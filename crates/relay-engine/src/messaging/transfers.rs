@@ -5,7 +5,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use relay_core::PeerId;
-use relay_messages::transfer::CancelBy;
+use relay_messages::transfer::{CancelBy, FailureReason};
 use relay_messages::{MessageBody, OfferId, OfferStatus, SessionId};
 use relay_net::identity::Fingerprint;
 use relay_net::proto::CancelReason;
@@ -195,6 +195,7 @@ impl Hub {
 		let Some(x) = meta.xfers.get_mut(&id) else {
 			return;
 		};
+		let outgoing = x.outgoing;
 		x.active = false;
 		x.task = None;
 		let status = match &outcome {
@@ -223,7 +224,11 @@ impl Hub {
 				Outcome::Cancelled(CancelBy::Local) => {
 					self.send(peer, wire::cancel(id, CancelReason::CancelUser));
 				}
-				Outcome::Failed(_) => {
+				// A receiver's own failure already travelled on the data link as a result; a
+				// second notice on the control link would race it and change its meaning.
+				// A sender's failure needs the reliable path: closing a data link that still
+				// has unread credit can reset the connection and lose the last frame.
+				Outcome::Failed(why) if outgoing || *why == FailureReason::Protocol => {
 					self.send(peer, wire::cancel(id, CancelReason::CancelError));
 				}
 				_ => {}

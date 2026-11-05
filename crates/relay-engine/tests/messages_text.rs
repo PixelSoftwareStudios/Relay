@@ -18,6 +18,24 @@ use support_messages::*;
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn text_round_trip_in_both_directions_with_acks() {
 	let mut chat = chatting().await;
+	let settings = chat
+		.ma
+		.list_sessions()
+		.await
+		.expect("list")
+		.settings
+		.expect("settings");
+	assert!(
+		settings.enabled && settings.transfer_port > 0,
+		"the data-link listener is bound"
+	);
+	assert_eq!(
+		(
+			settings.max_offer_size_mib,
+			settings.transfer_rate_limit_mbps
+		),
+		(2048, 16)
+	);
 	let sent = chat
 		.ma
 		.send_session_message(&chat.sa, "Hello from A")

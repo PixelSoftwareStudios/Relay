@@ -21,7 +21,7 @@ use tokio::sync::mpsc;
 use tokio::time::sleep;
 
 #[path = "../support_peers/mod.rs"]
-mod peers_support;
+pub mod peers_support;
 use peers_support::fast_config;
 
 /// A backend several threads can reach: the device thread opens streams,
