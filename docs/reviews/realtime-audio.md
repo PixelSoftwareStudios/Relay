@@ -574,3 +574,72 @@ simulation of `RenderSink` + `playback_pair`), `rates` (capture chain and resamp
 test re-run: `cargo test --release -p relay-audio --test allocations` (9 passed). One of my own
 baseline measurements (std `UdpSocket`) stalled in several later runs of the scratch program; it is
 reported from the single run that completed and was not investigated.
+
+## Resolutions
+
+Commits are on `main`; tests named are in `crates/relay-engine/tests` unless a crate is given. All
+simulation and fake-device evidence; nothing was measured on real hardware.
+
+- **RT-01 Resolution** (`a7704ff`, `53c6a76`): both workers run under `media/supervise.rs`: a
+  panicking step is caught, the worker is reset (capture drops the stream, swaps the suspect
+  suppressor for pass-through and reports `CaptureLost`; render removes the call being rendered),
+  `MediaEvent::WorkerFailed` is emitted and the daemon shows `MEDIA_WORKER_FAILED`; a fourth
+  panic within 60 s is final; a watchdog reports a worker with no heartbeat for 3 s; join results
+  are logged at shutdown; a failed device-thread send now reports `CaptureFailed`. Tests:
+  `media_supervision`. Not done: the device thread itself is not wrapped in `catch_unwind`, and
+  `panic = "abort"` was not chosen (supervision is).
+- **RT-02 Resolution** (`a7704ff`): a frame is sent only if the gate was open at the start of its
+  poll and of the previous poll, the worker was not more than 20 ms late, and its audio is newer than
+  the last unclean poll plus conversion and suppressor delay (`Emit::Unarmed`). Tests:
+  `media_arming` (fail without the fix, including the stalled-worker scenario on the real capture
+  worker). Residual: a close and re-open inside one 2 ms poll interval is undetectable without an
+  open epoch in `GateSnapshot` (relay-core, not changed).
+- **RT-03 Resolution** (`c7aba91`, `a7704ff`): cpal `realtime` enabled (no `realtime-dbus`, so no
+  rtkit); `relay_audio::priority` promotes the workers (macOS QoS user-interactive; Windows and
+  Linux through `audio_thread_priority`), result logged, `MediaConfig::promote_workers` switches it
+  off. Unmet: effect unmeasured on every OS; the Windows/Linux paths were not compiled or run here;
+  Windows timer resolution and macOS App Nap are not addressed.
+- **RT-04 Resolution** (`2b03481`, `a7704ff`): `MediaEndpoint::try_send_audio` (stack buffer,
+  `try_send_to`); `EndpointSink` drops on `WouldBlock` and counts it (`SendStats::send_dropped`,
+  `Emit::Dropped`, RTP sequence still advances). Test: `media_capture_faults`. A congested real
+  socket was not provoked.
+- **RT-05 Resolution** (`a7704ff`): idle workers sleep 500 ms and are unparked by their command
+  queue; the render worker parks exactly to its next tick while active. The capture poll stays a
+  fixed 2 ms while a microphone is attached (not derived from the sample count).
+- **RT-06 Resolution** (`a7704ff`): `PlaybackShared::max_callback_frames` and an adaptive target in
+  `RenderSink`. Test: `media_sink_adapt::a_large_device_callback_raises_the_target_and_ends_the_underruns`
+  (the fixed target underruns in the same simulation). The ring is still sized from the assumed
+  maximum callback and `ActualConfig` does not report the negotiated buffer size.
+- **RT-07 Resolution** (`a7704ff`): `RenderSink` sheds a frame at a time while the fill stays above
+  target; test `media_sink_adapt::a_stalls_extra_latency_is_shed_in_seconds_not_minutes`. The
+  integrator is not reset (no wind-up from a stall); the drift loop's own slow start-up transient is
+  unchanged.
+- **RT-08 Resolution** (`2b03481`, `a7704ff`): `ConnectionReset`/`ConnectionRefused` receive errors
+  are counted and skipped inside `MediaEndpoint`; a genuinely failing socket emits a final
+  `WorkerFailed` (network) after 100 consecutive errors. Not done: `SIO_UDP_CONNRESET` on Windows,
+  and no test (needs Windows).
+- **RT-09 Resolution** (`a7704ff`): drift thresholds and gains are scaled to the device rate.
+  `media_sink_adapt::drift_thresholds_hold_at_a_high_device_rate` passes but does not fail without the
+  scaling (the adaptive target already avoids the underrun), so it does not prove that part.
+- **RT-10 Resolution** (`2b03481`): `SecureSession::seal_into`/`open_into`,
+  `MediaReceiver::receive_ref`, `MediaEndpoint::recv_into`/`try_send_audio`; wire format unchanged.
+  Test: relay-net `media_alloc` (0 allocations each way, old receiver accepts the new sealer).
+- **RT-11 Resolution** (`a7704ff`): suppressor errors are counted (`Meters::suppressor_errors`) and
+  keep the RTP timeline exact; `consumed` is honoured. Test: `media_capture_faults`.
+- **RT-12 Resolution** (`c7aba91`): the AGC scrubs non-finite samples. Test: relay-audio
+  `chain::agc_does_not_latch_to_nan_after_a_poisoned_frame`.
+- **RT-13 Resolution** (`a7704ff`, partial): full-queue and full-mixer drops now log, `sources` has
+  reserved capacity and is capped. Not done: commands are still not retried or surfaced as events.
+- **RT-14 Resolution** (`a7704ff`): the load meters reset when a worker has nothing to serve; time
+  blocked in the sink no longer exists (non-blocking send). Test: `media_capture_faults`.
+- **RT-15 Resolution** (`c7aba91`): `ErrorKind::RealtimeDenied` sets `StreamHealth::realtime_denied`
+  and does not change the stream state. Test: relay-audio `device`.
+- **RT-16 Resolution** (`a7704ff`, partial): ingress depth 256 to 32 (about 0.3 s per stream);
+  the queue still drops the newest packet on overflow, counted in `NetStats::overflow`.
+- **RT-17 Resolution** (`03a380d`): `docs/engine.md` Known gaps, `docs/audio.md` and `docs/gates.md`
+  updated.
+- **RT-18 Resolution** (`fe749fc`): `RenderCmd::SetTones` and `MediaSystem::set_tone_player`/
+  `wake_render`; the render worker keeps ticking while a tone plays. Test: `media_tones`. Nothing in
+  the daemon starts a tone yet.
+- **I-01 to I-07**: unchanged by design (I-03 and I-05 remain as described; I-02 now matters less
+  because RT-02 no longer relies on the gate alone being the only barrier).
