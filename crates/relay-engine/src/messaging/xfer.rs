@@ -99,6 +99,29 @@ fn cancel_by(cmd: XferCmd) -> CancelBy {
 	}
 }
 
+/// How long a task whose data link died waits for the control link to say why.
+const LINK_LOST_GRACE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// The data link ended before the transfer did. A peer that cancels closes the link and
+/// says so on the control link; whichever arrives first must not decide the meaning, so
+/// wait briefly for the cancel before calling it a protocol failure.
+async fn link_lost(cmds: &mut mpsc::Receiver<XferCmd>) -> Outcome {
+	let waited = tokio::time::timeout(LINK_LOST_GRACE, async {
+		while let Some(cmd) = cmds.recv().await {
+			if matches!(cmd, XferCmd::PeerCancel) {
+				return true;
+			}
+		}
+		false
+	})
+	.await;
+	if waited == Ok(true) {
+		Outcome::Cancelled(CancelBy::Peer)
+	} else {
+		Outcome::Failed(FailureReason::Protocol)
+	}
+}
+
 fn outcome(state: TransferState, saved_as: Option<String>) -> Outcome {
 	match state {
 		TransferState::Completed => Outcome::Completed { saved_as },
@@ -170,7 +193,7 @@ async fn drive_send(job: &mut SendJob) -> Outcome {
 					};
 					if !sent && !sender.state().is_terminal() {
 						close.close();
-						return Outcome::Failed(FailureReason::Protocol);
+						return link_lost(&mut job.cmds).await;
 					}
 				}
 				Effect::ReadChunk { offset, len } => {
@@ -202,7 +225,7 @@ async fn drive_send(job: &mut SendJob) -> Outcome {
 				Ok(msg) => queue.extend(sender.on_message(msg)),
 				Err(_) => {
 					close.close();
-					return Outcome::Failed(FailureReason::Protocol);
+					return link_lost(&mut job.cmds).await;
 				}
 			},
 			cmd = job.cmds.recv() => match cmd {
@@ -216,7 +239,7 @@ async fn drive_send(job: &mut SendJob) -> Outcome {
 			Ok(()) = job.rate.changed() => link.tx.pacer().set_rate(*job.rate.borrow()),
 		}
 	}
-	link.tx.shutdown().await;
+	let _ = tokio::time::timeout(LINK_LOST_GRACE, link.tx.shutdown()).await;
 	close.close();
 	outcome(sender.state(), None)
 }
@@ -273,7 +296,7 @@ async fn drive_recv(job: &mut RecvJob) -> Outcome {
 			{
 				job.receiver.cancel(&mut *job.sink);
 				close.close();
-				return Outcome::Failed(FailureReason::Protocol);
+				return link_lost(&mut job.cmds).await;
 			}
 		}
 		if job.receiver.state().is_terminal() {
@@ -290,7 +313,7 @@ async fn drive_recv(job: &mut RecvJob) -> Outcome {
 				Err(_) => {
 					job.receiver.cancel(&mut *job.sink);
 					close.close();
-					return Outcome::Failed(FailureReason::Protocol);
+					return link_lost(&mut job.cmds).await;
 				}
 			},
 			cmd = job.cmds.recv() => match cmd {
@@ -301,7 +324,7 @@ async fn drive_recv(job: &mut RecvJob) -> Outcome {
 			},
 		}
 	}
-	link.tx.shutdown().await;
+	let _ = tokio::time::timeout(LINK_LOST_GRACE, link.tx.shutdown()).await;
 	close.close();
 	let saved = job.receiver.committed_as().map(str::to_owned);
 	outcome(job.receiver.state(), saved)
