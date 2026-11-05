@@ -2,7 +2,7 @@
 
 use super::{
 	Discontinuity, DspDescriptor, DspError, DspLimits, NoiseSuppressor, ProcessProgress,
-	ProcessStatus, ThreadSafety,
+	ProcessStatus, Provides, ThreadSafety,
 };
 use crate::format::{BlockTiming, INTERNAL_RATE};
 
@@ -30,6 +30,7 @@ impl Default for OffSuppressor {
 				max_scratch_bytes: 0,
 				thread_safety: ThreadSafety::SingleWorker,
 				license_evidence: None,
+				provides: Provides::NONE,
 			},
 		}
 	}

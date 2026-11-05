@@ -4,8 +4,8 @@
 //! guard is armed. Setup (including warm-up) is allowed to allocate; the
 //! measured regions are not.
 
-use std::alloc::{GlobalAlloc, Layout, System};
-use std::cell::Cell;
+#[path = "common/counting.rs"]
+mod counting;
 
 use relay_audio::capture::{CaptureChain, CaptureSetup, capture_pair};
 use relay_audio::codec::{CallDecoder, CallEncoder, EncoderConfig, MAX_PACKET_BYTES};
@@ -17,59 +17,7 @@ use relay_audio::mixer::Mixer;
 use relay_audio::pipeline::{LoopbackConfig, LoopbackPipeline};
 use relay_audio::playback::playback_pair;
 
-struct Counting;
-
-thread_local! {
-	static ARMED: Cell<bool> = const { Cell::new(false) };
-	static COUNT: Cell<u64> = const { Cell::new(0) };
-}
-
-fn note() {
-	ARMED.with(|armed| {
-		if armed.get() {
-			COUNT.with(|c| c.set(c.get() + 1));
-		}
-	});
-}
-
-// SAFETY: every method forwards to the system allocator unchanged; the
-// bookkeeping only touches const-initialised, destructor-free thread locals.
-unsafe impl GlobalAlloc for Counting {
-	unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-		note();
-		// SAFETY: same contract as the caller's.
-		unsafe { System.alloc(layout) }
-	}
-
-	unsafe fn alloc_zeroed(&self, layout: Layout) -> *mut u8 {
-		note();
-		// SAFETY: same contract as the caller's.
-		unsafe { System.alloc_zeroed(layout) }
-	}
-
-	unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-		// SAFETY: ptr/layout come from this allocator's `alloc`.
-		unsafe { System.dealloc(ptr, layout) }
-	}
-
-	unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
-		note();
-		// SAFETY: ptr/layout come from this allocator's `alloc`.
-		unsafe { System.realloc(ptr, layout, new_size) }
-	}
-}
-
-#[global_allocator]
-static ALLOC: Counting = Counting;
-
-/// Allocations made on this thread while `f` runs.
-fn allocations_in(f: impl FnOnce()) -> u64 {
-	COUNT.with(|c| c.set(0));
-	ARMED.with(|a| a.set(true));
-	f();
-	ARMED.with(|a| a.set(false));
-	COUNT.with(Cell::get)
-}
+use counting::allocations_in;
 
 #[test]
 fn counter_actually_counts() {
@@ -244,4 +192,29 @@ fn capture_chain_poll_is_allocation_free() {
 	});
 	assert_eq!(n, 0);
 	assert!(frames > 100);
+}
+
+#[test]
+fn dsp_chain_is_allocation_free() {
+	use relay_audio::dsp::{DspChain, DspPreferences};
+	use relay_audio::format::BlockTiming;
+	let prefs = DspPreferences {
+		auto_gain: true,
+		limiter: true,
+		..DspPreferences::default()
+	};
+	let mut chain = DspChain::new(prefs, None, None).unwrap();
+	let mut frame: Vec<f32> = (0..480).map(|i| (i as f32 * 0.07).sin() * 0.05).collect();
+	for _ in 0..10 {
+		chain
+			.process(&mut frame.clone(), BlockTiming::default())
+			.unwrap();
+	}
+	let n = allocations_in(|| {
+		for _ in 0..200 {
+			chain.push_render(&frame).unwrap();
+			chain.process(&mut frame, BlockTiming::default()).unwrap();
+		}
+	});
+	assert_eq!(n, 0);
 }

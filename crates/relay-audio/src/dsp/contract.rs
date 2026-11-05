@@ -33,6 +33,8 @@ pub struct DspDescriptor {
 	pub max_scratch_bytes: usize,
 	pub thread_safety: ThreadSafety,
 	pub license_evidence: Option<String>,
+	/// Processing stages this backend implements internally.
+	pub provides: super::Provides,
 }
 
 /// Limits the engine grants at `prepare`.
