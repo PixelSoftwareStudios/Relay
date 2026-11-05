@@ -8,6 +8,7 @@ pub mod clipboard;
 pub mod config;
 mod controls;
 mod daemon;
+mod docs;
 mod doctor;
 mod hold;
 mod hotkey;
@@ -75,6 +76,8 @@ async fn dispatch(
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
 		Command::Config(cmd) => config::run(&cli.global, cmd, &mut out).await,
+		Command::Completions(args) => docs::completions(&args, &mut out),
+		Command::Man(args) => docs::man(&args, &mut out),
 		Command::Messages(args) => {
 			let mut client = client::connect_messages(&cli.global).await?;
 			messages::run(&mut client, args, &mut out).await
@@ -129,6 +132,8 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		| Command::Tui(_)
 		| Command::Hotkey(_)
 		| Command::Config(_)
+		| Command::Completions(_)
+		| Command::Man(_)
 		| Command::Messages(_) => Err(CliError::Usage(
 			"this command manages its own connection".into(),
 		)),

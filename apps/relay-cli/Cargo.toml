@@ -22,6 +22,8 @@ relay-messages.workspace = true
 relay-net.workspace = true
 relay-platform.workspace = true
 clap.workspace = true
+clap_complete.workspace = true
+clap_mangen.workspace = true
 ratatui.workspace = true
 crossterm.workspace = true
 comfy-table.workspace = true
@@ -34,14 +36,13 @@ tonic.workspace = true
 tokio-stream.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-uuid.workspace = true
 hex.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
 
 [dev-dependencies]
+tracing-subscriber.workspace = true
 relay-engine.workspace = true
 relay-core.workspace = true
 # The engine's own two-daemon test harness is included by path (tests/real_chat.rs).
@@ -50,6 +51,10 @@ relay-protocol.workspace = true
 image.workspace = true
 blake3.workspace = true
 tempfile.workspace = true
+
+# The engine's test support is included by path (tests/real_chat.rs) and uses these.
+[package.metadata.cargo-machete]
+ignored = ["blake3", "relay-audio", "relay-protocol"]
 
 [lints]
 workspace = true

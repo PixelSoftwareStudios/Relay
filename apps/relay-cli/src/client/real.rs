@@ -134,7 +134,7 @@ impl RealClient {
 			tokio::spawn(async move { while let Ok(Some(_)) = acks.message().await {} });
 			self.input = Some(InputStream {
 				tx,
-				source_id: uuid::Uuid::new_v4().as_bytes().to_vec(),
+				source_id: relay_io::entropy::random_bytes::<16>().to_vec(),
 				sequence: 0,
 				generations: HashMap::new(),
 			});

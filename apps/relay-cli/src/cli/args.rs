@@ -110,6 +110,10 @@ pub enum Command {
 	Avatar(AvatarCommand),
 	/// Text, images and file offers inside a call.
 	Messages(super::MessagesArgs),
+	/// Print a shell completion script.
+	Completions(super::CompletionsArgs),
+	/// Print the man page, or write one page per command into a directory.
+	Man(super::ManArgs),
 }
 
 impl Command {
@@ -287,7 +291,7 @@ pub enum ConfigCommand {
 		/// Dotted key such as `audio.microphone_gain`.
 		key: Option<String>,
 	},
-	/// Change one setting (through the engine when it is running).
+	/// Change one setting (through the engine when it is running; prints the outcome).
 	Set {
 		/// Dotted key.
 		key: String,
@@ -299,7 +303,7 @@ pub enum ConfigCommand {
 		/// Destination file.
 		file: Option<PathBuf>,
 	},
-	/// Replace all settings from an exported TOML file (engine must be stopped).
+	/// Apply an exported TOML file (through the engine when it is running).
 	Import {
 		/// Source file.
 		file: PathBuf,
@@ -309,7 +313,7 @@ pub enum ConfigCommand {
 /// `relay avatar ...`
 #[derive(Debug, Subcommand)]
 pub enum AvatarCommand {
-	/// Upload a PNG or JPEG (at most 1 MiB).
+	/// Upload a PNG, JPEG, WebP, GIF, BMP or TIFF (at most 1 MiB, 2048x2048).
 	Set {
 		/// Image file.
 		file: PathBuf,
@@ -507,7 +511,7 @@ pub enum TrustCommand {
 	},
 	/// Forget a peer's trust decision.
 	Forget {
-		/// Peer name or id prefix.
+		/// Fingerprint prefix (at least 8 hex digits, short form works) or exact peer name.
 		peer: String,
 	},
 }
