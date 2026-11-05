@@ -190,3 +190,28 @@ fn overlay_manual_entry_is_off_until_the_user_enables_it() {
 	assert!(store.set("network.allow_overlay_manual", "yes").is_err());
 	assert_eq!(store.get("network.listen_port").unwrap(), "47800");
 }
+
+#[test]
+fn privacy_choices_default_open_and_persist() {
+	let dir = tempfile::tempdir().unwrap();
+	{
+		let (store, _) = store(&dir);
+		assert_eq!(store.get("privacy.inbound_policy").unwrap(), "anyone");
+		assert_eq!(store.get("privacy.advert_mode").unwrap(), "visible");
+		store
+			.set("privacy.inbound_policy", "shared_channel_only")
+			.unwrap();
+		store.set("privacy.advert_mode", "hidden").unwrap();
+		assert!(store.set("privacy.advert_mode", "invisible").is_err());
+	}
+	let (store, _) = store(&dir);
+	let prefs = store.load().unwrap().preferences;
+	assert_eq!(
+		prefs.privacy.inbound_policy,
+		relay_config::prefs::InboundPolicy::SharedChannelOnly
+	);
+	assert_eq!(
+		prefs.privacy.advert_mode,
+		relay_config::prefs::AdvertMode::Hidden
+	);
+}

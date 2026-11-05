@@ -76,6 +76,32 @@ pub struct Privacy {
 	pub new_calls_receive_only: bool,
 	pub background_open_mic_requires_consent: bool,
 	pub lock_closes_transmit: bool,
+	/// Who may ring this device.
+	pub inbound_policy: InboundPolicy,
+	/// Whether LAN discovery shows this device's name and key hint.
+	pub advert_mode: AdvertMode,
+}
+
+/// Who may start a call to this device.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum InboundPolicy {
+	/// Any authenticated, trusted peer.
+	#[default]
+	Anyone,
+	/// Only peers that prove membership of a channel shared with this device.
+	SharedChannelOnly,
+}
+
+/// How this device appears in LAN discovery.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AdvertMode {
+	/// Name and key hint are advertised.
+	#[default]
+	Visible,
+	/// Neither name nor key hint is advertised.
+	Hidden,
 }
 
 impl Default for Privacy {
@@ -84,6 +110,8 @@ impl Default for Privacy {
 			new_calls_receive_only: true,
 			background_open_mic_requires_consent: true,
 			lock_closes_transmit: true,
+			inbound_policy: InboundPolicy::default(),
+			advert_mode: AdvertMode::default(),
 		}
 	}
 }
