@@ -5,6 +5,23 @@ use relay_api::pb::*;
 pub const ALICE: [u8; 32] = [0xaa; 32];
 pub const BOB: [u8; 32] = [0xbb; 32];
 pub const CALL: [u8; 16] = [0xc1; 16];
+pub const CHANNEL_A: [u8; 16] = [0xa1; 16];
+pub const CHANNEL_B: [u8; 16] = [0xb2; 16];
+
+pub fn channel(name: &str, id: [u8; 16], role: &str) -> ChannelInfo {
+	ChannelInfo {
+		channel_id: id.to_vec(),
+		name: name.into(),
+		policy: Some(ChannelPolicy {
+			listed: true,
+			password: true,
+			invite_only: false,
+		}),
+		role: role.into(),
+		shared_peers: 2,
+		cert_expires_unix: 0,
+	}
+}
 
 pub fn peer(id: [u8; 32], name: &str, reachable: bool, trust: TrustState) -> Peer {
 	Peer {
@@ -14,6 +31,7 @@ pub fn peer(id: [u8; 32], name: &str, reachable: bool, trust: TrustState) -> Pee
 		trust: trust as i32,
 		reachable,
 		avatar_sha256: Vec::new(),
+		shared_channel_ids: Vec::new(),
 	}
 }
 
@@ -69,6 +87,10 @@ pub fn snapshot() -> Snapshot {
 			..Settings::default()
 		}),
 		warnings: Vec::new(),
+		channels: vec![
+			channel("Dorm", CHANNEL_A, "owner"),
+			channel("Study", CHANNEL_B, "member"),
+		],
 	}
 }
 

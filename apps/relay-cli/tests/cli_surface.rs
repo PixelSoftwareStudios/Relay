@@ -127,3 +127,30 @@ fn binary_reports_its_version() {
 	assert!(out.status.success());
 	assert!(String::from_utf8_lossy(&out.stdout).starts_with("relay "));
 }
+
+#[test]
+fn hotkey_status_reports_a_tagged_state_without_needing_an_engine() {
+	let out = relay()
+		.args(["--json", "hotkey", "status"])
+		.output()
+		.unwrap();
+	assert!(
+		out.status.success(),
+		"{}",
+		String::from_utf8_lossy(&out.stderr)
+	);
+	let body: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+	let state = body["state"].as_str().unwrap();
+	assert!(
+		[
+			"active",
+			"disabled",
+			"needs_permission",
+			"unsupported",
+			"failed"
+		]
+		.contains(&state),
+		"{body}"
+	);
+	assert!(body["binding"].is_string() && body["lock_detection"].is_string());
+}

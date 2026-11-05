@@ -33,7 +33,7 @@ fn screen(model: &Model, width: u16, height: u16) -> String {
 }
 
 fn model() -> Model {
-	let mut m = Model::new(vec![]);
+	let mut m = Model::new();
 	m.apply(Update::State(Box::new(WatchItem::Snapshot(
 		fixtures::snapshot(),
 	))));
@@ -43,10 +43,10 @@ fn model() -> Model {
 
 #[test]
 fn peers_screen_shows_status_header_and_peer_rows() {
-	let text = screen(&model(), 90, 12);
+	let text = screen(&model(), 90, 13);
 	assert!(text.contains("relay live"), "{text}");
 	assert!(text.contains("rev 10"));
-	assert!(text.contains("hotkeys: terminal only"));
+	assert!(text.contains("hotkey: off (not started)"), "{text}");
 	assert!(
 		text.contains("Peers")
 			&& text.contains("Calls")
@@ -59,6 +59,57 @@ fn peers_screen_shows_status_header_and_peer_rows() {
 	);
 	assert!(text.contains("verified") && text.contains("unverified"));
 	assert!(text.contains("192.168.1.20:7000"));
+}
+
+#[test]
+fn header_states_the_hotkey_truthfully_for_every_backend_outcome() {
+	use relay_cli::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
+	use relay_platform::ptt::PttState;
+	let mut m = model();
+	let show = |m: &Model| screen(m, 120, 13);
+	let set = |m: &mut Model, r| m.apply(Update::Hotkey(HotkeyUpdate::Report(r)));
+
+	set(
+		&mut m,
+		HotkeyReport::NeedsPermission {
+			backend: "global-hotkey".into(),
+			binding: "Ctrl+Alt+Space".into(),
+			permission: "Input Monitoring",
+			hint: "grant Input Monitoring to the terminal app".into(),
+		},
+	);
+	let text = show(&m);
+	assert!(text.contains("hotkey: needs Input Monitoring"), "{text}");
+	assert!(
+		!text.contains("ptt:"),
+		"no push-to-talk claims without a working backend"
+	);
+
+	set(
+		&mut m,
+		HotkeyReport::Unsupported {
+			backend: "global-hotkey".into(),
+			reason: "Wayland session".into(),
+		},
+	);
+	assert!(show(&m).contains("hotkey: unsupported: Wayland session"));
+
+	set(
+		&mut m,
+		HotkeyReport::Active {
+			backend: "global-hotkey".into(),
+			binding: "Ctrl+Alt+Space".into(),
+		},
+	);
+	m.apply(Update::Hotkey(HotkeyUpdate::Target(TargetStatus::NoCall)));
+	let text = show(&m);
+	assert!(
+		text.contains("hotkey: Ctrl+Alt+Space active via global-hotkey"),
+		"{text}"
+	);
+	assert!(text.contains("ptt: idle  (no connected call)"), "{text}");
+	m.apply(Update::Hotkey(HotkeyUpdate::Ptt(PttState::Transmitting)));
+	assert!(show(&m).contains("ptt: transmitting"));
 }
 
 #[test]
@@ -149,7 +200,7 @@ fn consent_prompt_replaces_the_footer() {
 fn devices_and_settings_screens_mark_the_selection() {
 	let mut m = model();
 	m.tab = Tab::Devices;
-	let devices = screen(&m, 80, 10);
+	let devices = screen(&m, 80, 14);
 	assert!(
 		devices.contains("* input   Built-in Mic (default)"),
 		"{devices}"
@@ -157,7 +208,7 @@ fn devices_and_settings_screens_mark_the_selection() {
 	assert!(devices.contains("  input   USB Mic"));
 	assert!(devices.contains("* output  Speakers"));
 	m.tab = Tab::Settings;
-	let settings = screen(&m, 80, 10);
+	let settings = screen(&m, 80, 14);
 	assert!(settings.contains("Microphone gain") && settings.contains("x1.00"));
 	assert!(settings.contains("Mute microphone   off"));
 }
@@ -190,7 +241,7 @@ fn meter_maps_dbfs_to_bar_fill() {
 async fn drive_applies_updates_executes_commands_and_quits() {
 	let mut terminal = Terminal::new(TestBackend::new(90, 12)).unwrap();
 	let mut client = FakeControl::new();
-	let mut model = Model::new(vec![]);
+	let mut model = Model::new();
 	let (utx, mut updates) = mpsc::channel(8);
 	let (etx, mut events) = mpsc::channel(8);
 	utx.send(Update::State(Box::new(WatchItem::Snapshot(

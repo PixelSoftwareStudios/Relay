@@ -7,15 +7,17 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use relay_api::WatchItem;
 use relay_api::pb::*;
 use relay_cli::client::{CallAction, ConnectionState, PttAction, Update};
+use relay_cli::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
 use relay_cli::tui::keys::{TuiCommand, handle_key, on_tick};
-use relay_cli::tui::{HotkeyBackend, Model, Prompt, Tab};
+use relay_cli::tui::{Model, Prompt, Tab};
+use relay_platform::ptt::PttState;
 
 fn key(c: char) -> KeyEvent {
 	KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)
 }
 
 fn model() -> Model {
-	let mut m = Model::new(vec!["observe".into()]);
+	let mut m = Model::new();
 	m.apply(Update::State(Box::new(WatchItem::Snapshot(
 		fixtures::snapshot(),
 	))));
@@ -97,9 +99,20 @@ fn failed_operation_events_surface_in_the_status_line() {
 #[test]
 fn connection_and_hotkey_status_are_tracked() {
 	let mut m = model();
-	assert_eq!(m.hotkey_backend(), HotkeyBackend::TerminalOnly);
-	m.capabilities.push("global-hotkeys".into());
-	assert_eq!(m.hotkey_backend(), HotkeyBackend::Global);
+	assert!(
+		!m.hotkey.is_active(),
+		"nothing claimed before the backend reports"
+	);
+	let active = HotkeyReport::Active {
+		backend: "global-hotkey".into(),
+		binding: "Ctrl+Alt+Space".into(),
+	};
+	m.apply(Update::Hotkey(HotkeyUpdate::Report(active.clone())));
+	assert_eq!(m.hotkey, active);
+	m.apply(Update::Hotkey(HotkeyUpdate::Ptt(PttState::Transmitting)));
+	m.apply(Update::Hotkey(HotkeyUpdate::Target(TargetStatus::NoCall)));
+	assert_eq!(m.ptt, PttState::Transmitting);
+	assert_eq!(m.ptt_target, Some(TargetStatus::NoCall));
 	m.apply(Update::Connection(ConnectionState::Resyncing("gap".into())));
 	assert_eq!(m.connection, ConnectionState::Resyncing("gap".into()));
 }

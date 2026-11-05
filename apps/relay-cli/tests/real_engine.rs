@@ -105,3 +105,45 @@ async fn talk_needs_consent_and_a_mute_applies_engine_wide() {
 	assert_eq!(status["muted"], true, "{status}");
 	engine.daemon.shutdown().await.unwrap();
 }
+
+fn live_global(engine: &Real) -> relay_cli::cli::GlobalArgs {
+	relay_cli::cli::Cli::try_parse_from([
+		"relay",
+		"--socket",
+		engine.socket.to_str().unwrap(),
+		"status",
+	])
+	.unwrap()
+	.global
+}
+
+#[tokio::test]
+async fn config_set_goes_through_the_running_engine_not_the_settings_file() {
+	let engine = Real::start().await;
+	let out = engine
+		.run(&["config", "set", "profile.display_name", "Hallway"])
+		.await
+		.unwrap();
+	assert!(out.contains("applied"), "{out}");
+	let refused = engine
+		.run(&["config", "set", "diagnostics.log_level", "debug"])
+		.await;
+	assert!(
+		refused.is_err(),
+		"settings the engine cannot change live are refused"
+	);
+	engine.daemon.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn controller_lease_comes_from_the_real_engine() {
+	use relay_cli::client::{Control, connect};
+	let engine = Real::start().await;
+	engine.run(&["call", "kitchen"]).await.unwrap();
+	let mut client = connect(&live_global(&engine)).await.unwrap();
+	let snapshot = client.snapshot().await.unwrap();
+	let call = snapshot.calls[0].call_id.clone();
+	// Another client already holds the lease, so a plain request is refused.
+	assert!(client.controller_generation(&call).await.is_err());
+	engine.daemon.shutdown().await.unwrap();
+}

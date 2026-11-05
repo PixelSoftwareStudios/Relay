@@ -26,6 +26,8 @@ pub struct FakeControl {
 	/// One entry per `open_watch` call; an exhausted list makes it fail.
 	pub watches: VecDeque<Vec<Result<WatchItem, ApiError>>>,
 	pub telemetry: Vec<TelemetrySnapshot>,
+	/// Secrets that reached the engine side (never part of `log`).
+	pub secrets: Vec<String>,
 }
 
 impl FakeControl {
@@ -46,6 +48,7 @@ impl FakeControl {
 			},
 			watches: VecDeque::new(),
 			telemetry: Vec::new(),
+			secrets: Vec::new(),
 		}
 	}
 
@@ -61,6 +64,10 @@ impl Control for FakeControl {
 	}
 	async fn snapshot(&mut self) -> Result<Snapshot, ApiError> {
 		Ok(self.snapshot.clone())
+	}
+	async fn controller_generation(&mut self, call_id: &[u8]) -> Result<u64, ApiError> {
+		self.log.push(format!("lease {}", hex::encode(call_id)));
+		Ok(5)
 	}
 	async fn start_call(&mut self, target: CallTarget) -> Result<Operation, ApiError> {
 		self.record(format!("start_call {target:?}"))
@@ -143,5 +150,97 @@ impl Subscribe for FakeControl {
 
 	async fn open_telemetry(&mut self, _: u32) -> Result<Self::Telemetry, ApiError> {
 		Ok(Script(self.telemetry.drain(..).map(Ok).collect()))
+	}
+}
+
+impl Manage for FakeControl {
+	async fn connection_info(&mut self) -> Result<ConnectionInfo, ApiError> {
+		Ok(ConnectionInfo {
+			local_addresses: vec!["192.168.1.20".into()],
+			listen_port: 47_800,
+			fingerprint: vec![0x0f; 32],
+			connection_string: format!("relay://192.168.1.20:47800#{}", "0f".repeat(32)),
+		})
+	}
+	async fn start_call_string(&mut self, s: &str) -> Result<Operation, ApiError> {
+		self.record(format!("start_call_string {s}"))
+	}
+	async fn set_privacy(
+		&mut self,
+		inbound: Option<InboundPolicy>,
+		advert: Option<AdvertMode>,
+	) -> Result<Operation, ApiError> {
+		self.record(format!("privacy {inbound:?} {advert:?}"))
+	}
+	async fn list_channels(&mut self) -> Result<Vec<ChannelInfo>, ApiError> {
+		Ok(self.snapshot.channels.clone())
+	}
+	async fn create_channel(
+		&mut self,
+		name: &str,
+		policy: ChannelPolicy,
+		password: Option<&relay_cli::secret::Secret>,
+	) -> Result<Operation, ApiError> {
+		if let Some(p) = password {
+			self.secrets.push(p.expose().to_owned());
+		}
+		self.record(format!(
+			"create_channel {name} listed={} password={} invite_only={}",
+			policy.listed,
+			password.is_some(),
+			policy.invite_only
+		))
+	}
+	async fn join_channel(
+		&mut self,
+		target: ChannelRef,
+		credential: Credential,
+	) -> Result<Operation, ApiError> {
+		let kind = match &credential {
+			Credential::None => "none",
+			Credential::Password(p) => {
+				self.secrets.push(p.expose().to_owned());
+				"password"
+			}
+			Credential::Invite(i) => {
+				self.secrets.push(i.expose().to_owned());
+				"invite"
+			}
+		};
+		self.record(format!("join_channel {target:?} {kind}"))
+	}
+	async fn leave_channel(&mut self, id: &[u8]) -> Result<Operation, ApiError> {
+		self.record(format!("leave_channel {}", hex::encode(id)))
+	}
+	async fn create_invite(
+		&mut self,
+		id: &[u8],
+		ttl: u32,
+		uses: u32,
+	) -> Result<CreateInviteResponse, ApiError> {
+		self.log
+			.push(format!("create_invite {} {ttl} {uses}", hex::encode(id)));
+		Ok(CreateInviteResponse {
+			invite: "RLYI1-test-token".into(),
+			expires_unix: 1_900_000_000,
+		})
+	}
+	async fn revoke_member(
+		&mut self,
+		id: &[u8],
+		fingerprint: &[u8],
+	) -> Result<Operation, ApiError> {
+		self.record(format!(
+			"revoke {} {}",
+			hex::encode(id),
+			hex::encode(fingerprint)
+		))
+	}
+	async fn upload_avatar(
+		&mut self,
+		bytes: Vec<u8>,
+		media_type: &str,
+	) -> Result<Operation, ApiError> {
+		self.record(format!("avatar {} {media_type}", bytes.len()))
 	}
 }

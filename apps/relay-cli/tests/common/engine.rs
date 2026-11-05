@@ -24,6 +24,8 @@ pub struct FakeEngine {
 	pub log: Arc<Mutex<Vec<String>>>,
 	pub snapshot: Arc<Mutex<Snapshot>>,
 	pub fail_with: Arc<Mutex<Option<Problem>>>,
+	/// Every secret the engine received, to prove they arrive and never leak.
+	pub secrets: Arc<Mutex<Vec<String>>>,
 }
 
 impl FakeEngine {
@@ -125,6 +127,7 @@ impl Engine for FakeEngine {
 		let target = match r.target {
 			Some(start_call_request::Target::PeerId(id)) => format!("peer={}", hex::encode(id)),
 			Some(start_call_request::Target::ManualLocalAddress(a)) => format!("addr={a}"),
+			Some(start_call_request::Target::ManualConnectionString(s)) => format!("string={s}"),
 			None => "none".into(),
 		};
 		self.op(r.context.as_ref(), format!("start_call {target}"))
@@ -219,8 +222,16 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(r.context.as_ref(), format!("profile {}", r.display_name))
 	}
-	async fn upload_avatar(&self, _: Request<UploadAvatarRequest>) -> Resp<Operation> {
-		unsupported()
+	async fn upload_avatar(&self, r: Request<UploadAvatarRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"avatar {} bytes {}",
+				r.encoded_image.len(),
+				r.declared_media_type
+			),
+		)
 	}
 	async fn decide_peer_trust(&self, r: Request<DecidePeerTrustRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
@@ -228,6 +239,99 @@ impl Engine for FakeEngine {
 			r.context.as_ref(),
 			format!("trust {} oob={}", r.requested_trust, r.out_of_band_verified),
 		)
+	}
+
+	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.secrets.lock().unwrap().push(r.password.clone());
+		let policy = r.policy.unwrap_or_default();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"create_channel {} listed={} password={} invite_only={}",
+				r.name,
+				policy.listed,
+				!r.password.is_empty(),
+				policy.invite_only
+			),
+		)
+	}
+	async fn join_channel(&self, r: Request<JoinChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.secrets.lock().unwrap().push(r.password.clone());
+		self.secrets.lock().unwrap().push(r.invite.clone());
+		let by = if r.channel_id.is_empty() {
+			format!("name={}", r.name)
+		} else {
+			format!("id={}", hex::encode(&r.channel_id))
+		};
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"join_channel {by} password={} invite={}",
+				!r.password.is_empty(),
+				!r.invite.is_empty()
+			),
+		)
+	}
+	async fn leave_channel(&self, r: Request<LeaveChannelRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("leave_channel {}", hex::encode(&r.channel_id)),
+		)
+	}
+	async fn list_channels(&self, _: Request<ListChannelsRequest>) -> Resp<ListChannelsResponse> {
+		let channels = self.snapshot.lock().unwrap().channels.clone();
+		Ok(Response::new(ListChannelsResponse { channels }))
+	}
+	async fn create_invite(&self, r: Request<CreateInviteRequest>) -> Resp<CreateInviteResponse> {
+		let r = r.into_inner();
+		self.log.lock().unwrap().push(format!(
+			"create_invite {} ttl={} uses={}",
+			hex::encode(&r.channel_id),
+			r.ttl_seconds,
+			r.uses
+		));
+		Ok(Response::new(CreateInviteResponse {
+			invite: "RLYI1-test-token".into(),
+			expires_unix: 1_900_000_000,
+		}))
+	}
+	async fn revoke_channel_member(
+		&self,
+		r: Request<RevokeChannelMemberRequest>,
+	) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"revoke {} {}",
+				hex::encode(&r.channel_id),
+				hex::encode(&r.fingerprint)
+			),
+		)
+	}
+	async fn set_privacy(&self, r: Request<SetPrivacyRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!(
+				"privacy inbound={:?} advert={:?}",
+				r.inbound_policy, r.advert_mode
+			),
+		)
+	}
+	async fn get_avatar(&self, _: Request<GetAvatarRequest>) -> Resp<AvatarImage> {
+		unsupported()
+	}
+	async fn get_connection_info(&self, _: Request<ClientContext>) -> Resp<ConnectionInfo> {
+		Ok(Response::new(ConnectionInfo {
+			local_addresses: vec!["192.168.1.20".into()],
+			listen_port: 47_800,
+			fingerprint: vec![0x0f; 32],
+			connection_string: format!("relay://192.168.1.20:47800#{}", "0f".repeat(32)),
+		}))
 	}
 
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;
@@ -261,6 +365,7 @@ impl EngineHarness {
 			log: Arc::default(),
 			snapshot: Arc::new(Mutex::new(fixtures::snapshot())),
 			fail_with: Arc::default(),
+			secrets: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");
 		let (tx, rx) = oneshot::channel();

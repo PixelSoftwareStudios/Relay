@@ -47,6 +47,7 @@ fn shape(updates: &[Update]) -> Vec<String> {
 				WatchItem::Resync(_) => "resync".into(),
 			},
 			Update::Telemetry(_) => "telemetry".into(),
+			Update::Hotkey(_) => "hotkey".into(),
 		})
 		.collect()
 }
