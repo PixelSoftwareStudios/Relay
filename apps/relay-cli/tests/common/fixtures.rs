@@ -31,6 +31,7 @@ pub fn peer(id: [u8; 32], name: &str, reachable: bool, trust: TrustState) -> Pee
 		trust: trust as i32,
 		reachable,
 		avatar_sha256: Vec::new(),
+		fingerprint_short: String::new(),
 		shared_channel_ids: Vec::new(),
 	}
 }

@@ -2,6 +2,7 @@
 
 #![allow(dead_code, unused_imports)]
 
+pub mod chat;
 pub mod control;
 #[cfg(unix)]
 pub mod engine;
@@ -95,4 +96,66 @@ pub async fn run_scripted<
 		.with_clipboard(clipboard);
 	relay_cli::commands::execute(client, cli.command, &mut out).await?;
 	Ok(String::from_utf8(buffer).expect("utf8 output"))
+}
+
+/// What a `relay messages` run produced, kept even when it failed.
+pub struct Ran {
+	pub out: String,
+	pub clipboard: Option<String>,
+	pub result: Result<(), relay_cli::cli::CliError>,
+}
+
+impl Ran {
+	/// The output of a run that must have succeeded.
+	pub fn ok(self) -> String {
+		self.result.expect("command succeeds");
+		self.out
+	}
+
+	/// The error of a run that must have failed.
+	pub fn err(self) -> relay_cli::cli::CliError {
+		self.result.expect_err("command fails")
+	}
+}
+
+/// Run `relay messages ...` against a `Messaging` client.
+pub async fn run_messages<M: relay_cli::client::Messaging>(
+	client: &mut M,
+	args: &[&str],
+	json: bool,
+) -> Ran {
+	run_messages_with(client, args, json, "").await
+}
+
+/// Like [`run_messages`] with scripted stdin.
+pub async fn run_messages_with<M: relay_cli::client::Messaging>(
+	client: &mut M,
+	args: &[&str],
+	json: bool,
+	stdin: &str,
+) -> Ran {
+	use clap::Parser;
+	let mut argv = vec!["relay", "messages"];
+	if json {
+		argv.insert(1, "--json");
+	}
+	argv.extend_from_slice(args);
+	let cli = relay_cli::cli::Cli::try_parse_from(argv).expect("valid arguments");
+	let relay_cli::cli::Command::Messages(parsed) = cli.command else {
+		panic!("not a messages command");
+	};
+	let mut buffer = Vec::new();
+	let mut input = std::io::Cursor::new(stdin.as_bytes().to_vec());
+	let mut clipboard = MemoryClipboard::default();
+	let result = {
+		let mut out = relay_cli::commands::Out::new(json, &mut buffer)
+			.with_input(&mut input)
+			.with_clipboard(&mut clipboard);
+		relay_cli::commands::messages::run(client, parsed, &mut out).await
+	};
+	Ran {
+		out: String::from_utf8(buffer).expect("utf8 output"),
+		clipboard: clipboard.text,
+		result,
+	}
 }

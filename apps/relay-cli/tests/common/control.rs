@@ -30,6 +30,10 @@ pub struct FakeControl {
 	pub secrets: Vec<String>,
 	/// When set, `create_invite` answers with a FAILED operation and no token.
 	pub invite_failure: Option<Problem>,
+	/// Session messaging semantics shared with the socket engine.
+	pub chat: super::chat::ChatState,
+	/// One entry per `open_session_watch`; an exhausted list opens a watch holding only the list.
+	pub session_watches: VecDeque<Vec<Result<relay_api::SessionItem, ApiError>>>,
 }
 
 impl FakeControl {
@@ -52,6 +56,8 @@ impl FakeControl {
 			telemetry: Vec::new(),
 			secrets: Vec::new(),
 			invite_failure: None,
+			chat: super::chat::ChatState::new(),
+			session_watches: VecDeque::new(),
 		}
 	}
 
@@ -257,5 +263,111 @@ impl Manage for FakeControl {
 		media_type: &str,
 	) -> Result<Operation, ApiError> {
 		self.record(format!("avatar {} {media_type}", bytes.len()))
+	}
+}
+
+impl Messaging for FakeControl {
+	type Watch = Script<relay_api::SessionItem>;
+
+	async fn list_sessions(&mut self) -> Result<ListSessionsResponse, ApiError> {
+		Ok(self.chat.list())
+	}
+	async fn get_transcript(
+		&mut self,
+		session: &[u8],
+		from: u64,
+		limit: u32,
+	) -> Result<Transcript, ApiError> {
+		self.chat
+			.transcript(session, from, limit)
+			.ok_or_else(|| ApiError::Status(Box::new(tonic::Status::not_found("unknown session"))))
+	}
+	async fn open_session_watch(
+		&mut self,
+		_: Option<&[u8]>,
+		after: Option<u64>,
+	) -> Result<Self::Watch, ApiError> {
+		self.chat.log.push(format!("watch after={after:?}"));
+		let items = self.session_watches.pop_front().unwrap_or_else(|| {
+			let list = self.chat.list();
+			vec![Ok(relay_api::SessionItem::List(SessionList {
+				sessions: list.sessions,
+				settings: list.settings,
+			}))]
+		});
+		Ok(Script(items.into()))
+	}
+	async fn send_text(&mut self, s: &[u8], text: &str) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.send_text(s, text))
+	}
+	async fn send_image(&mut self, s: &[u8], image: Vec<u8>) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.send_image(s, image))
+	}
+	async fn retry_message(&mut self, s: &[u8], _: u64) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.send_text(s, "retry"))
+	}
+	async fn offer_file(&mut self, s: &[u8], path: &str) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.offer_file(s, path))
+	}
+	async fn respond_offer(
+		&mut self,
+		s: &[u8],
+		offer: &[u8],
+		accept: bool,
+		dir: &str,
+		name: &str,
+	) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.respond(s, offer, accept, dir, name))
+	}
+	async fn request_preview(&mut self, s: &[u8], o: &[u8]) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.preview(s, o, "request"))
+	}
+	async fn approve_preview(
+		&mut self,
+		s: &[u8],
+		o: &[u8],
+		approve: bool,
+	) -> Result<SessionOpResult, ApiError> {
+		Ok(self
+			.chat
+			.preview(s, o, if approve { "approve" } else { "deny" }))
+	}
+	async fn cancel_offer(&mut self, s: &[u8], o: &[u8]) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.cancel(s, o))
+	}
+	async fn set_permissions(
+		&mut self,
+		s: &[u8],
+		messages: Option<bool>,
+		files: Option<bool>,
+	) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.permissions(s, messages, files))
+	}
+	async fn pin(
+		&mut self,
+		s: &[u8],
+		outgoing: bool,
+		seq: u64,
+		pinned: bool,
+	) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.pin(s, outgoing, seq, pinned))
+	}
+	async fn search(&mut self, s: &[u8], query: &str) -> Result<SearchSessionResponse, ApiError> {
+		self.chat
+			.search(s, query)
+			.ok_or_else(|| ApiError::Status(Box::new(tonic::Status::not_found("unknown session"))))
+	}
+	async fn clear(&mut self, s: &[u8]) -> Result<SessionOpResult, ApiError> {
+		Ok(self.chat.clear(s))
+	}
+	async fn export(
+		&mut self,
+		s: &[u8],
+		_: bool,
+		dest: Option<&str>,
+	) -> Result<ExportSessionResponse, ApiError> {
+		self.chat
+			.export(s, dest.unwrap_or_default())
+			.ok_or_else(|| ApiError::Status(Box::new(tonic::Status::not_found("unknown session"))))
 	}
 }

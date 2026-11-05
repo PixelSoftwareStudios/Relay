@@ -14,6 +14,7 @@ use tokio::sync::{mpsc, oneshot};
 use tokio_stream::wrappers::ReceiverStream;
 use tonic::{Request, Response, Status};
 
+use super::chat::{self, ChatState};
 use super::fixtures;
 
 type Resp<T> = Result<Response<T>, Status>;
@@ -28,9 +29,39 @@ pub struct FakeEngine {
 	pub registered: Arc<Mutex<Vec<Vec<String>>>>,
 	/// Every secret the engine received, to prove they arrive and never leak.
 	pub secrets: Arc<Mutex<Vec<String>>>,
+	/// Sessions, transcripts and events; clients need the `messages` capability.
+	pub chat: Arc<Mutex<ChatState>>,
+	messaging_clients: Arc<Mutex<Vec<Vec<u8>>>>,
+}
+
+fn ctx_client(c: &Option<MutationContext>) -> Option<&ClientContext> {
+	c.as_ref().and_then(|c| c.client.as_ref())
 }
 
 impl FakeEngine {
+	fn chat_resp<R>(
+		&self,
+		client: Option<&ClientContext>,
+		f: impl FnOnce(&mut ChatState) -> R,
+	) -> Resp<R> {
+		self.chat(client, f).map(Response::new)
+	}
+
+	/// Run `f` on the chat state for a client that registered with `messages`.
+	fn chat<R>(
+		&self,
+		client: Option<&ClientContext>,
+		f: impl FnOnce(&mut ChatState) -> R,
+	) -> Result<R, Status> {
+		let id = client.map(|c| c.client_id.clone()).unwrap_or_default();
+		if !self.messaging_clients.lock().unwrap().contains(&id) {
+			return Err(Status::permission_denied(
+				"the messages capability is required",
+			));
+		}
+		Ok(f(&mut self.chat.lock().unwrap()))
+	}
+
 	fn op(&self, ctx: Option<&MutationContext>, what: String) -> Resp<Operation> {
 		self.log.lock().unwrap().push(what);
 		let operation_id = ctx.map(|c| c.operation_id.clone()).unwrap_or_default();
@@ -67,17 +98,26 @@ impl Engine for FakeEngine {
 	}
 
 	async fn register_client(&self, r: Request<RegisterClientRequest>) -> Resp<ClientSession> {
-		self.registered
-			.lock()
-			.unwrap()
-			.push(r.into_inner().requested_capabilities);
+		let requested = r.into_inner().requested_capabilities;
+		let wants_messages = requested.iter().any(|c| c == "messages");
+		self.registered.lock().unwrap().push(requested);
 		let id = self.registry.register()?;
+		if wants_messages {
+			self.messaging_clients.lock().unwrap().push(id.to_vec());
+		}
 		Ok(Response::new(ClientSession {
 			context: Some(ClientContext {
 				client_id: id.to_vec(),
 				engine_incarnation: self.registry.incarnation().to_vec(),
 			}),
-			granted_capabilities: vec!["observe".into()],
+			granted_capabilities: vec![
+				if wants_messages {
+					"messages"
+				} else {
+					"observe"
+				}
+				.into(),
+			],
 			revision: 10,
 		}))
 	}
@@ -349,31 +389,53 @@ impl Engine for FakeEngine {
 		}))
 	}
 
-	// Session messaging is not part of this test engine.
-	async fn list_sessions(&self, _: Request<ClientContext>) -> Resp<ListSessionsResponse> {
-		unsupported()
+	// Session messaging: `chat::ChatState` holds the semantics, this layer the capability gate.
+	async fn list_sessions(&self, r: Request<ClientContext>) -> Resp<ListSessionsResponse> {
+		self.chat_resp(Some(&r.into_inner()), |c| c.list())
 	}
-	async fn get_transcript(&self, _: Request<GetTranscriptRequest>) -> Resp<Transcript> {
-		unsupported()
+	async fn get_transcript(&self, r: Request<GetTranscriptRequest>) -> Resp<Transcript> {
+		let r = r.into_inner();
+		self.chat(r.client.as_ref(), |c| {
+			c.transcript(&r.session_id, r.from_ordinal, r.limit)
+		})?
+		.ok_or_else(|| Status::not_found("unknown session"))
+		.map(Response::new)
 	}
 	type WatchSessionStream = ReceiverStream<Result<SessionEnvelope, Status>>;
 	async fn watch_session(
 		&self,
-		_: Request<WatchSessionRequest>,
+		r: Request<WatchSessionRequest>,
 	) -> Resp<Self::WatchSessionStream> {
-		unsupported()
+		let r = r.into_inner();
+		self.chat(r.client.as_ref(), |_| ())?;
+		let (tx, rx) = mpsc::channel(64);
+		let incarnation = self.registry.incarnation().to_vec();
+		tokio::spawn(chat::serve_watch(
+			Arc::clone(&self.chat),
+			incarnation,
+			r.after_revision,
+			r.session_id,
+			tx,
+		));
+		Ok(Response::new(ReceiverStream::new(rx)))
 	}
 	async fn send_session_message(
 		&self,
-		_: Request<SendSessionMessageRequest>,
+		r: Request<SendSessionMessageRequest>,
 	) -> Resp<SessionOpResult> {
-		unsupported()
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.send_text(&r.session_id, &r.text)
+		})
 	}
 	async fn send_session_image(
 		&self,
-		_: Request<SendSessionImageRequest>,
+		r: Request<SendSessionImageRequest>,
 	) -> Resp<SessionOpResult> {
-		unsupported()
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.send_image(&r.session_id, r.image.clone())
+		})
 	}
 	async fn retry_session_message(
 		&self,
@@ -381,43 +443,99 @@ impl Engine for FakeEngine {
 	) -> Resp<SessionOpResult> {
 		unsupported()
 	}
-	async fn offer_file(&self, _: Request<OfferFileRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn offer_file(&self, r: Request<OfferFileRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.offer_file(&r.session_id, &r.path)
+		})
 	}
-	async fn respond_offer(&self, _: Request<RespondOfferRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn respond_offer(&self, r: Request<RespondOfferRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.respond(
+				&r.session_id,
+				&r.offer_id,
+				r.accept,
+				&r.destination_dir,
+				&r.file_name,
+			)
+		})
 	}
-	async fn request_preview(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn request_preview(&self, r: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.preview(&r.session_id, &r.offer_id, "request")
+		})
 	}
-	async fn approve_preview(&self, _: Request<ApprovePreviewRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn approve_preview(&self, r: Request<ApprovePreviewRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		let what = if r.approve { "approve" } else { "deny" };
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.preview(&r.session_id, &r.offer_id, what)
+		})
 	}
-	async fn cancel_transfer(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn cancel_transfer(&self, r: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.cancel(&r.session_id, &r.offer_id)
+		})
 	}
 	async fn set_session_permissions(
 		&self,
-		_: Request<SetSessionPermissionsRequest>,
+		r: Request<SetSessionPermissionsRequest>,
 	) -> Resp<SessionOpResult> {
-		unsupported()
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.permissions(&r.session_id, r.allow_messages, r.allow_files)
+		})
 	}
-	async fn pin_message(&self, _: Request<PinMessageRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn pin_message(&self, r: Request<PinMessageRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| {
+			c.pin(&r.session_id, r.outgoing, r.seq, r.pinned)
+		})
 	}
-	async fn search_session(&self, _: Request<SearchSessionRequest>) -> Resp<SearchSessionResponse> {
-		unsupported()
+	async fn search_session(
+		&self,
+		r: Request<SearchSessionRequest>,
+	) -> Resp<SearchSessionResponse> {
+		let r = r.into_inner();
+		self.chat(r.client.as_ref(), |c| c.search(&r.session_id, &r.query))?
+			.ok_or_else(|| Status::not_found("unknown session"))
+			.map(Response::new)
 	}
-	async fn clear_session(&self, _: Request<ClearSessionRequest>) -> Resp<SessionOpResult> {
-		unsupported()
+	async fn clear_session(&self, r: Request<ClearSessionRequest>) -> Resp<SessionOpResult> {
+		let r = r.into_inner();
+		self.chat_resp(ctx_client(&r.context), |c| c.clear(&r.session_id))
 	}
-	async fn export_session(&self, _: Request<ExportSessionRequest>) -> Resp<ExportSessionResponse> {
-		unsupported()
+	async fn export_session(
+		&self,
+		r: Request<ExportSessionRequest>,
+	) -> Resp<ExportSessionResponse> {
+		let r = r.into_inner();
+		self.chat(ctx_client(&r.context), |c| {
+			c.export(&r.session_id, &r.destination_path)
+		})?
+		.ok_or_else(|| Status::not_found("unknown session"))
+		.map(Response::new)
 	}
 	async fn set_messaging_settings(
 		&self,
 		_: Request<SetMessagingSettingsRequest>,
 	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+
+	async fn clear_avatar(&self, _: Request<MutationContext>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn forget_peer(&self, _: Request<ForgetPeerRequest>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
+		unsupported()
+	}
+	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
 		unsupported()
 	}
 
@@ -454,6 +572,8 @@ impl EngineHarness {
 			fail_with: Arc::default(),
 			registered: Arc::default(),
 			secrets: Arc::default(),
+			chat: Arc::default(),
+			messaging_clients: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");
 		let (tx, rx) = oneshot::channel();
