@@ -20,6 +20,11 @@ anyhow.workspace = true
 tracing.workspace = true
 rand.workspace = true
 bytes.workspace = true
+rtrb.workspace = true
+arc-swap.workspace = true
+blake3.workspace = true
+hex.workspace = true
+prost.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
