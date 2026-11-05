@@ -45,6 +45,8 @@ pub(crate) const API_MAJOR: u32 = 1;
 pub(crate) struct Shared {
 	/// Set when an admin client asked the engine to stop.
 	pub shutdown: Arc<tokio::sync::watch::Sender<bool>>,
+	/// Which clients hold an open state watch.
+	pub presence: Arc<super::presence::PresenceLink>,
 	pub handle: ControlHandle,
 	pub registry: Arc<ClientRegistry>,
 	pub book: Arc<ClientBook>,

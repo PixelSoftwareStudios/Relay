@@ -11,7 +11,7 @@ const MAX_RELEASE_DELAY_MS: u32 = 2000;
 use tokio::sync::{mpsc, watch};
 use tokio::task::JoinHandle;
 
-use super::actor::Actor;
+use super::actor::{Actor, Attendance};
 use super::clients::ClientBook;
 use super::directory::{Aux, Directory};
 use super::error::ServiceError;
@@ -21,6 +21,7 @@ use super::handle::ControlHandle;
 use super::ids::{Entropy, Ids, OsEntropy};
 use super::ledger::Ledger;
 use super::ports::Ports;
+use super::presence::{Presence, PresenceLink};
 use super::rpc::{EngineService, Shared};
 use crate::channels::ChannelHub;
 
@@ -41,6 +42,12 @@ pub struct ServiceConfig {
 	pub inbox: usize,
 	/// Start-up notices that clients must show (recovered files and so on).
 	pub warnings: Vec<relay_api::pb::Problem>,
+	/// How long the advertisement stays up after the last client detached,
+	/// so a reconnecting window does not flicker.
+	pub presence_debounce: Duration,
+	/// Stop the engine after this long with no client attached. `None` keeps
+	/// it running (service units, manual starts).
+	pub idle_exit: Option<Duration>,
 }
 
 impl ServiceConfig {
@@ -54,6 +61,8 @@ impl ServiceConfig {
 			entropy: Arc::new(OsEntropy),
 			inbox: 1024,
 			warnings: Vec::new(),
+			presence_debounce: Duration::from_secs(2),
+			idle_exit: None,
 		}
 	}
 }
@@ -62,6 +71,7 @@ impl ServiceConfig {
 /// adapters can be given a [`ControlHandle`] before they are built.
 pub struct ServiceBuilder {
 	shutdown: Arc<watch::Sender<bool>>,
+	presence: Arc<PresenceLink>,
 	config: ServiceConfig,
 	handle: ControlHandle,
 	inbox: mpsc::Receiver<super::handle::Msg>,
@@ -86,6 +96,7 @@ impl ServiceBuilder {
 		let registry = Arc::new(ClientRegistry::new(config.limits.attached_clients));
 		Ok(Self {
 			shutdown: Arc::new(watch::channel(false).0),
+			presence: PresenceLink::new(),
 			config,
 			handle,
 			inbox,
@@ -121,6 +132,7 @@ impl ServiceBuilder {
 	pub fn start(self, ports: Ports) -> Result<Service, ServiceError> {
 		let Self {
 			shutdown,
+			presence,
 			config,
 			handle,
 			inbox,
@@ -169,10 +181,20 @@ impl ServiceBuilder {
 			ledger,
 			incarnation,
 			inbox,
+			Attendance {
+				link: Arc::clone(&presence),
+				presence: Presence::new(
+					tokio::time::Instant::now(),
+					config.presence_debounce,
+					config.idle_exit,
+				),
+				shutdown: Arc::clone(&shutdown),
+			},
 		);
 		let api = EngineService::new(Shared {
 			handle: handle.clone(),
 			shutdown: Arc::clone(&shutdown),
+			presence: Arc::clone(&presence),
 			registry: Arc::clone(&registry),
 			book: Arc::clone(&book),
 			limiter: StreamLimiter::new(config.api.max_streams),

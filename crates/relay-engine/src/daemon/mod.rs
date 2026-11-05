@@ -66,6 +66,8 @@ impl DaemonHandle {
 			idle_client_ttl,
 			entropy,
 			mic_test_max,
+			presence_debounce,
+			idle_exit,
 			channel_vault,
 			channel_clock,
 		} = options;
@@ -74,6 +76,8 @@ impl DaemonHandle {
 		config.limits = limits;
 		config.api = api;
 		config.idle_client_ttl = idle_client_ttl;
+		config.presence_debounce = presence_debounce;
+		config.idle_exit = idle_exit;
 		config.warnings = loaded.notices.iter().map(notice::problem).collect();
 		if let Some(entropy) = entropy {
 			config.entropy = entropy;

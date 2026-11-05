@@ -12,7 +12,7 @@ use relay_net::session::Role;
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, watch};
 
-use super::handle::{AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
+use super::handle::{AdvertSink, AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput};
 use super::link::{LinkEvent, LinkParams, establish};
 use super::manager::Actor;
 use super::profile::{LocalProfile, Profiles};
@@ -112,31 +112,31 @@ fn spawn_discovery(
 	commands: mpsc::Sender<Command>,
 	mut profile: watch::Receiver<LocalProfile>,
 ) -> Result<(), PeerError> {
-	let mut discovery = Discovery::start(&setup.interfaces, config.policy)
-		.map_err(|e| PeerError::Discovery(e.to_string()))?;
+	let mut backend = match &setup.sink {
+		Some(sink) => Backend::Sink(Arc::clone(&sink.0)),
+		None => Backend::Mdns(
+			Discovery::start(&setup.interfaces, config.policy)
+				.map_err(|e| PeerError::Discovery(e.to_string()))?,
+		),
+	};
 	let advertise = setup.advertise;
 	let mut spec = config.advert.clone();
-	let announce = move |discovery: &mut Discovery, profile: &LocalProfile, spec: &AdvertSpec| {
-		if !advertise {
-			return Ok(());
-		}
-		// The name goes out sanitized and truncated by relay-net; it is a hint.
-		let _ = discovery.withdraw();
-		discovery
-			.advertise(&Advertisement {
-				instance_id: spec.instance_id,
-				display_name: profile.display_name.clone(),
-				port,
-				fingerprint: local,
-				capabilities: String::new(),
-				mode: if spec.hidden {
-					AdvertMode::Hidden
-				} else {
-					AdvertMode::Open
-				},
-				extra_txt: spec.extra_txt.clone(),
-			})
-			.map_err(|e| PeerError::Discovery(e.to_string()))
+	// What goes out, if anything. The name is sanitized and truncated by
+	// relay-net; it is a hint. Without an attached client nothing goes out.
+	let plan = move |profile: &LocalProfile, spec: &AdvertSpec| {
+		(advertise && spec.present).then(|| Advertisement {
+			instance_id: spec.instance_id,
+			display_name: profile.display_name.clone(),
+			port,
+			fingerprint: local,
+			capabilities: String::new(),
+			mode: if spec.hidden {
+				AdvertMode::Hidden
+			} else {
+				AdvertMode::Open
+			},
+			extra_txt: spec.extra_txt.clone(),
+		})
 	};
 	let current = |spec: &Option<watch::Receiver<AdvertSpec>>| {
 		spec.as_ref()
@@ -144,11 +144,11 @@ fn spawn_discovery(
 			.unwrap_or_default()
 	};
 	let mut published = current(&spec);
-	announce(&mut discovery, &profile.borrow().clone(), &published)?;
+	backend.show(plan(&profile.borrow().clone(), &published))?;
 	tokio::spawn(async move {
 		loop {
 			tokio::select! {
-				event = discovery.next_event() => {
+				event = backend.next_event() => {
 					let Some(event) = event else { break };
 					let command = match event {
 						DiscoveryEvent::Found(peer) => Command::Discovered(peer),
@@ -163,7 +163,7 @@ fn spawn_discovery(
 						break;
 					}
 					let now = profile.borrow_and_update().clone();
-					let _ = announce(&mut discovery, &now, &published);
+					let _ = backend.show(plan(&now, &published));
 				}
 				changed = spec_changed(&mut spec) => {
 					if changed.is_err() {
@@ -171,13 +171,53 @@ fn spawn_discovery(
 					}
 					published = current(&spec);
 					let now = profile.borrow().clone();
-					let _ = announce(&mut discovery, &now, &published);
+					let _ = backend.show(plan(&now, &published));
 				}
 			}
 		}
-		discovery.shutdown();
+		backend.shutdown();
 	});
 	Ok(())
+}
+
+/// Where advertisements go and where browse results come from.
+enum Backend {
+	Mdns(Discovery),
+	Sink(Arc<dyn AdvertSink>),
+}
+
+impl Backend {
+	fn show(&mut self, advert: Option<Advertisement>) -> Result<(), PeerError> {
+		match self {
+			Self::Mdns(discovery) => {
+				let _ = discovery.withdraw();
+				match advert {
+					Some(advert) => discovery
+						.advertise(&advert)
+						.map_err(|e| PeerError::Discovery(e.to_string())),
+					None => Ok(()),
+				}
+			}
+			Self::Sink(sink) => {
+				sink.publish(advert.as_ref());
+				Ok(())
+			}
+		}
+	}
+
+	async fn next_event(&mut self) -> Option<DiscoveryEvent> {
+		match self {
+			Self::Mdns(discovery) => discovery.next_event().await,
+			Self::Sink(_) => std::future::pending().await,
+		}
+	}
+
+	fn shutdown(self) {
+		match self {
+			Self::Mdns(discovery) => discovery.shutdown(),
+			Self::Sink(sink) => sink.publish(None),
+		}
+	}
 }
 
 async fn spec_changed(

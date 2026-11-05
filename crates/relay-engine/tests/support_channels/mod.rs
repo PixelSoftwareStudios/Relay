@@ -15,7 +15,7 @@ use relay_api::pb::{
 use relay_config::identity::{IdentityStore, MemoryStore, StoredIdentity};
 use relay_config::vault::MemoryVault;
 use relay_engine::channels::Clock;
-use relay_engine::daemon::DaemonHandle;
+use relay_engine::daemon::{DaemonHandle, RunOptions};
 use relay_net::discovery::DiscoveredPeer;
 
 use crate::service_support::*;
@@ -43,6 +43,8 @@ pub struct Side {
 	pub daemon: DaemonHandle,
 	pub sim: Sim,
 	pub cli: RelayClient,
+	/// An open state watch: the client counts as attached, so its calls live.
+	pub watch: Option<relay_api::StateWatch>,
 	pub _home: tempfile::TempDir,
 	tone: f32,
 	identity: Arc<MemoryStore>,
@@ -55,6 +57,16 @@ pub async fn side(tone: f32) -> Side {
 }
 
 pub async fn side_with(tone: f32, clock: Option<Clock>) -> Side {
+	side_tuned(tone, clock, true, |_| {}).await
+}
+
+/// A side with changed engine options, attached (watching) or not.
+pub async fn side_tuned(
+	tone: f32,
+	clock: Option<Clock>,
+	attached: bool,
+	tune: impl FnOnce(&mut RunOptions),
+) -> Side {
 	let home = tempfile::Builder::new()
 		.prefix("rly")
 		.tempdir_in("/tmp")
@@ -65,6 +77,8 @@ pub async fn side_with(tone: f32, clock: Option<Clock>) -> Side {
 		Arc::new(MemoryStore::default()),
 		Arc::new(MemoryVault::default()),
 		clock,
+		attached,
+		tune,
 	)
 	.await
 }
@@ -75,8 +89,11 @@ async fn start(
 	identity: Arc<MemoryStore>,
 	vault: Arc<MemoryVault>,
 	clock: Option<Clock>,
+	attached: bool,
+	tune: impl FnOnce(&mut RunOptions),
 ) -> Side {
 	let (mut options, sim) = engine_options(home.path(), tone);
+	tune(&mut options);
 	options.identity_store = Some(Box::new(KeptIdentity(Arc::clone(&identity))));
 	options.channel_vault = Some(vault.clone());
 	options.channel_clock = clock.clone();
@@ -99,10 +116,20 @@ async fn start(
 			.expect("name")
 			.into_inner(),
 	);
+	let watch = if attached {
+		Some(
+			cli.watch(relay_api::WatchOptions::default())
+				.await
+				.expect("watch"),
+		)
+	} else {
+		None
+	};
 	Side {
 		daemon,
 		sim,
 		cli,
+		watch,
 		_home: home,
 		tone,
 		identity,
@@ -112,6 +139,21 @@ async fn start(
 }
 
 impl Side {
+	/// Opens a state watch: this side's client is now attached.
+	pub async fn attach(&mut self) {
+		let watch = self
+			.cli
+			.watch(relay_api::WatchOptions::default())
+			.await
+			.expect("watch");
+		self.watch = Some(watch);
+	}
+
+	/// Closes the state watch: nobody is attached any more.
+	pub fn detach(&mut self) {
+		self.watch = None;
+	}
+
 	/// Stops the engine and starts it again on the same home, identity and vault:
 	/// the same device, on a new port, with its stored channels and trust.
 	pub async fn restart(self) -> Side {
@@ -119,16 +161,17 @@ impl Side {
 			daemon,
 			sim,
 			cli,
+			watch,
 			_home,
 			tone,
 			identity,
 			vault,
 			clock,
 		} = self;
-		drop(cli);
+		drop((cli, watch));
 		daemon.shutdown().await.expect("stops");
 		drop(sim);
-		start(_home, tone, identity, vault, clock).await
+		start(_home, tone, identity, vault, clock, true, |_| {}).await
 	}
 
 	/// What discovery would hand a neighbour for this device right now.

@@ -23,6 +23,7 @@ pub fn problem_of(reject: &Reject) -> Problem {
 		Reject::OperationIdReused => ("OPERATION_ID_REUSED", false, "use_new_operation_id"),
 		Reject::UnknownCall(_) => ("UNKNOWN_CALL", false, "refresh_state"),
 		Reject::CallIdInUse(_) => ("CALL_ID_IN_USE", false, ""),
+		Reject::NotAttached => ("NOT_ATTACHED", true, "attach_a_client"),
 		Reject::CallCapReached => ("CALL_LIMIT", true, "end_a_call"),
 		Reject::SamePeerCallExists(_) => ("PEER_ALREADY_CALLED", false, "allow_parallel"),
 		Reject::CallTerminal(_) => ("CALL_FINISHED", false, "refresh_state"),

@@ -278,6 +278,8 @@ pub trait PeerControl: Send + Sync {
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError>;
 	/// The advertised local profile changed.
 	fn profile_changed(&self, profile: &LocalProfile);
+	/// Somebody is (or is no longer) attached: advertise only while true.
+	fn presence_changed(&self, _attached: bool) {}
 	/// What a remote user needs to reach this device.
 	fn connection_info(&self) -> Result<ConnectionDetails, PortError> {
 		Err(PortError::Unsupported("connection info"))

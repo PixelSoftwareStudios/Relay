@@ -40,6 +40,23 @@ pub enum PeerError {
 	Discovery(String),
 }
 
+/// Where the local advertisement is published. The real implementation is
+/// mDNS; tests plug in a recorder to see exactly when the device is visible.
+pub trait AdvertSink: Send + Sync {
+	/// Replace what is published; `None` withdraws it.
+	fn publish(&self, advert: Option<&relay_net::discovery::Advertisement>);
+}
+
+/// A shareable [`AdvertSink`].
+#[derive(Clone)]
+pub struct SinkHandle(pub Arc<dyn AdvertSink>);
+
+impl std::fmt::Debug for SinkHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.write_str("SinkHandle")
+	}
+}
+
 /// How the engine takes part in LAN discovery.
 #[derive(Debug, Clone, Default)]
 pub struct DiscoverySetup {
@@ -47,6 +64,8 @@ pub struct DiscoverySetup {
 	pub interfaces: InterfacePolicy,
 	/// Publish a local advertisement as well as browsing.
 	pub advertise: bool,
+	/// Publish through this sink instead of mDNS (no browsing happens then).
+	pub sink: Option<SinkHandle>,
 }
 
 /// What the local advertisement says beyond the display name: set by the
@@ -59,6 +78,9 @@ pub struct AdvertSpec {
 	pub hidden: bool,
 	/// Extra TXT entries (blinded channel tags, listed channel names).
 	pub extra_txt: Vec<(String, String)>,
+	/// A client is attached. Without one nothing is advertised at all: a
+	/// daemon nobody watches stays off the LAN.
+	pub present: bool,
 }
 
 impl Default for AdvertSpec {
@@ -67,6 +89,7 @@ impl Default for AdvertSpec {
 			instance_id: rand::random(),
 			hidden: false,
 			extra_txt: Vec::new(),
+			present: false,
 		}
 	}
 }

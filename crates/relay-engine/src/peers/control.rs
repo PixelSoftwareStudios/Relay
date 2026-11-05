@@ -187,6 +187,16 @@ impl PeerControl for PeerAdapter {
 		})
 	}
 
+	fn presence_changed(&self, attached: bool) {
+		if let Some(advert) = &self.advert {
+			advert.send_if_modified(|spec| {
+				let changed = spec.present != attached;
+				spec.present = attached;
+				changed
+			});
+		}
+	}
+
 	fn profile_changed(&self, profile: &PortProfile) {
 		if let Some(advert) = &self.advert {
 			advert.send_if_modified(|spec| {

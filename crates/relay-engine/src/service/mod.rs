@@ -14,6 +14,7 @@ mod handle;
 mod ids;
 mod ledger;
 pub mod ports;
+pub mod presence;
 mod rpc;
 mod runtime;
 pub mod telemetry;

@@ -29,6 +29,8 @@ struct Side {
 	daemon: DaemonHandle,
 	sim: Sim,
 	cli: RelayClient,
+	/// An open watch keeps the client attached, so its calls live.
+	_watch: relay_api::StateWatch,
 	_home: tempfile::TempDir,
 }
 
@@ -45,10 +47,15 @@ async fn side(tone: f32) -> Side {
 	cli.register("relay-cli", "test", &[])
 		.await
 		.expect("register");
+	let watch = cli
+		.watch(relay_api::WatchOptions::default())
+		.await
+		.expect("watch");
 	Side {
 		daemon,
 		sim,
 		cli,
+		_watch: watch,
 		_home: home,
 	}
 }

@@ -119,6 +119,10 @@ pub struct RunOptions {
 	pub entropy: Option<Arc<dyn Entropy>>,
 	/// How long a microphone test runs before it stops by itself.
 	pub mic_test_max: Duration,
+	/// How long the LAN advertisement stays up after the last client detached.
+	pub presence_debounce: Duration,
+	/// Stop after this long with no client attached; `None` never stops by itself.
+	pub idle_exit: Option<Duration>,
 	/// Where channel secrets live; `None` follows the preferences (OS credential
 	/// store unless the user chose the insecure file).
 	pub channel_vault: Option<Arc<dyn relay_config::vault::SecretVault>>,
@@ -141,6 +145,8 @@ impl RunOptions {
 			idle_client_ttl: Duration::from_secs(300),
 			entropy: None,
 			mic_test_max: crate::media::MIC_TEST_MAX,
+			presence_debounce: Duration::from_secs(2),
+			idle_exit: None,
 			channel_vault: None,
 			channel_clock: None,
 		}

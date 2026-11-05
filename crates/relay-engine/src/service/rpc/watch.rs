@@ -70,6 +70,7 @@ pub(super) async fn open(
 	let shared = &service.shared;
 	let slot = shared.limiter.acquire()?;
 	let ticket = shared.book.open_stream(caller);
+	let watcher = shared.presence.watch(caller);
 	let subscribed = shared.handle.subscribe(body.after_revision).await?;
 	let (tx, rx) = mpsc::channel(shared.api.subscriber_queue);
 	let stream = Stream {
@@ -79,7 +80,7 @@ pub(super) async fn open(
 	};
 	tokio::spawn(async move {
 		stream.run(subscribed).await;
-		drop((slot, ticket));
+		drop((slot, ticket, watcher));
 	});
 	Ok(Response::new(ReceiverStream::new(rx)))
 }
@@ -138,7 +139,12 @@ impl Stream {
 
 	async fn follow(&self, mut live: broadcast::Receiver<Arc<FeedItem>>, mut last: u64) {
 		loop {
-			match live.recv().await {
+			// A client that went away ends the watch even when nothing happens.
+			let received = tokio::select! {
+				received = live.recv() => received,
+				() = self.tx.closed() => return,
+			};
+			match received {
 				Ok(item) => match &*item {
 					FeedItem::Event { revision, event } => {
 						if *revision <= last {
