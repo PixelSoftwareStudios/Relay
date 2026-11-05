@@ -2,7 +2,3 @@
 /target
 .DS_Store
 .codesight/
-/apps/relay-desktop/node_modules
-/apps/relay-desktop/dist
-/apps/relay-desktop/src-tauri/target
-/apps/relay-desktop/src-tauri/gen
