@@ -14,5 +14,10 @@ serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 
+[features]
+# Optional neural backends; stubbed behind clear errors until a qualified artifact exists.
+rnnoise = []
+dtln = []
+
 [lints]
 workspace = true

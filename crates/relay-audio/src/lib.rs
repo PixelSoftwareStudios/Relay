@@ -6,6 +6,7 @@ pub mod capture;
 pub mod codec;
 pub mod convert;
 pub mod device;
+pub mod dsp;
 pub mod error;
 pub mod format;
 pub mod mixer;
