@@ -84,6 +84,8 @@ Top five, in the order I would fix them:
   record (the signature already covers it). Add a test that a link to a non-member produces no
   message containing the id.
 
+
+- **Resolution** (relay-net, 9a339fa): the proof is now two steps. `make_ref`/`check_ref` exchange a keyed, session-bound reference first; `make_proof` (certificate and revocations) is sent only to a peer whose reference verified. `tests/channel_leak.rs` runs the real functions between a member and a trusted non-member and asserts the encoded traffic holds only opaque references (no id, owner key, certificate or name), and that a partial overlap leaks only the shared channel. Engine must adopt the new driver, see appendix A1. Design: `docs/channels.md` D6.
 ### F-02 Medium, CONFIRMED: replayed tags make members dial the attacker unpinned
 
 - Where: `crates/relay-engine/src/channels/advert.rs:88-150` (`on_advert`; the dial is at
@@ -107,6 +109,8 @@ Top five, in the order I would fix them:
   address), (c) require the peer to have been seen at that IP in a previous Proven session.
   At minimum, bind the tag to the advertised address and port.
 
+
+- **Resolution** (relay-net, ffbf222): tags now include the advertiser's fingerprint and `ChannelAdvert::recognise(.., known_fingerprints, ..)` returns the fingerprint to pin. A copied advertisement can only produce a pinned dial, which fails at message 2 (test `a_replayed_advertisement_only_leads_to_a_dial_that_fails_pinned`). Engine change: appendix A2 (dial with `Some(fp)` only, rate limit).
 ### F-03 Medium, CONFIRMED: one host can starve all inbound handshakes
 
 - Where: `crates/relay-engine/src/peers/start.rs:239,247` (`HandshakeGate::new()`,
@@ -123,6 +127,8 @@ Top five, in the order I would fix them:
   preface bytes a short deadline (about 1 s), evict the oldest pending slot rather than refusing
   new arrivals, and log a rate-limited warning.
 
+
+- **Resolution** (relay-net, b0ad325): `HandshakeGate::try_enter(source_ip)` has a per-source cap (2; IPv6 by /64, mapped unwrapped), evicts the oldest slot of the busiest source when full instead of refusing, `respond_gated` abandons evicted handshakes, and the preface must arrive within 1 s (`PREFACE_TIMEOUT`). Tests in `tests/handshake_dos.rs`. Engine change: appendix A3.
 ### F-04 Medium, CONFIRMED: accept loop hot-spins on error; untrusted links are unbounded
 
 - Where: `crates/relay-engine/src/peers/start.rs:241` (`let Ok(..) = listener.accept().await else
@@ -141,6 +147,8 @@ Top five, in the order I would fix them:
 - Fix: cap total untrusted links (and per source IP), drop the oldest untrusted link when full,
   sleep with backoff on accept errors, and coalesce or cap `TRUST_REQUIRED` attention items.
 
+
+- **Resolution** (relay-net, b0ad325): `AcceptBackoff` (20 ms doubling to 2 s) and `UntrustedLinks` (16 total, 2 per source, evict oldest) are provided and tested. Engine must use them in the accept loop and `on_up`: appendix A3. Coalescing `TRUST_REQUIRED` attention items is an engine/UI change.
 ### F-05 Medium, CONFIRMED: a trusted peer can break other peers' calls via two unbounded-by-peer tables
 
 - Where: `crates/relay-engine/src/peers/signaling.rs:21,60-77,115,124,185` (`SessionTable`,
@@ -188,6 +196,8 @@ Top five, in the order I would fix them:
   (UTS 39) rather than raw string equality. Also show the short fingerprint beside every name
   in trust prompts. Apply the same filter to `ChannelName`.
 
+
+- **Resolution** (relay-net and relay-core channel, 93ee57b): `sanitize_display_name` NFKC-normalises and removes every Default_Ignorable, private-use, noncharacter, control, separator and excess/leading combining character; `name_skeleton` (UTS 39 skeleton via `unicode-security`, lowercased, no spaces) is what `TrustStore::find_by_name` compares, so every variant in the review now yields `KeyChanged` (`tests/identity.rs`). `ChannelName` applies the same character filter. Engine change: appendix A4 (the stores' `find_by_name`).
 ### F-07 Medium, CONFIRMED (code path); impact is OS-dependent: the channel clock never resyncs and is suspend-blind
 
 - Where: `crates/relay-engine/src/channels/clock.rs:29,42` (`unix()` is `base_unix` sampled once
@@ -210,6 +220,8 @@ Top five, in the order I would fix them:
   (which is the stated reason for the current design). Re-read the wall clock periodically and
   log large steps.
 
+
+- **Resolution** (relay-net, 2ba42db): `channel::clock` provides `UnixClock`, `SystemClock` (wall clock per call), `ClampedClock` (never backwards) and `ManualClock` (tests); expiry stays strict. Engine change: appendix A5.
 ### F-08 Medium, CONFIRMED: discovery table can be filled, which silences discovery and channel recognition
 
 - Where: `crates/relay-net/src/discovery/table.rs:18-25` (`TableFull` at 256, no eviction),
@@ -222,6 +234,8 @@ Top five, in the order I would fix them:
 - Fix: evict the least recently seen entry that has no pinned or wanted association, cap entries
   per source address, and expire entries by TTL rather than relying on explicit removal.
 
+
+- **Resolution** (relay-net, e040194): `DiscoveryTable` caps entries per source (8), evicts the oldest of the busiest source when full, and has `expire(ttl)` and `take_evicted()`. `upsert` fails only for a record without an address. Engine should call `expire` periodically: appendix A6.
 ### F-09 Low, CONFIRMED: trust-decision key cache can be evicted by identity churn
 
 - Where: `crates/relay-engine/src/peers/trust.rs:15,56-67` (`SEEN_KEYS_MAX = 64`),
@@ -247,6 +261,8 @@ Top five, in the order I would fix them:
   `dh(local_static, remote_static)` is all zero. Do the same check on the key stored in the
   trust file.
 
+
+- **Resolution** (relay-net, 5bc0db5): `identity::check_remote_key` rejects bit 255 and low-order points; the handshake applies it to the remote static key right after it is learned (before our static key is sent on the initiator side).
 ### F-11 Low, CONFIRMED: listed-channel names resolve to ids through an unauthenticated, last-writer-wins map
 
 - Where: `crates/relay-engine/src/channels/advert.rs:95-103`, `joining.rs:104`
@@ -276,6 +292,8 @@ Top five, in the order I would fix them:
   budget only on a failed confirmation by an identity that already holds a prior grant or a
   verified fingerprint.
 
+
+- **Resolution** (partly, docs b0e4484): documented that only pinned links reach admission and that the budget is a deliberate DoS trade-off. Not charging before the PAKE message is well-formed is already true (`wire::validate` runs first); finer charging by prior grant is not done.
 ### F-13 Low, CONFIRMED: proven-membership state outlives certificate expiry
 
 - Where: `crates/relay-engine/src/channels/state.rs:67` (`scopes`),
@@ -299,6 +317,8 @@ Top five, in the order I would fix them:
 - Fix: accept only candidates in the same subnet as the interface the link arrived on, or equal
   to the link's remote IP; refuse `169.254.169.254` and subnet broadcast addresses.
 
+
+- **Resolution** (relay-net, 7aa402a): `candidate_from_proto` refuses `169.254.169.254` and `fd00:ec2::254` (`AddressError::Reserved`). Restricting candidates to the link's subnet needs interface data: appendix A7.
 ### F-15 Low, PLAUSIBLE: rekey and epoch switch are implemented but never invoked, so sessions hard-stop at 24 h
 
 - Where: `crates/relay-net/src/session/mod.rs:112` (`needs_rekey`), `media/endpoint.rs:121`
@@ -322,6 +342,8 @@ Top five, in the order I would fix them:
 - Fix: rate-limit channel messages per link, run signature checks outside the state lock, and
   check the limiter before `store.list()`.
 
+
+- **Resolution** (partly, relay-net 2f89bc2): the limiter is checked before `store.list()`. Per-link rate limiting and moving signature checks out of the state lock are engine changes: appendix A8.
 ### F-17 Low, CONFIRMED: the invite token is retained in plaintext in the operation ledger
 
 - Where: `crates/relay-engine/src/channels/ledger.rs:23` (`Stored.invite:
@@ -342,6 +364,8 @@ Top five, in the order I would fix them:
   Noise-authenticated and pinned" integration note in `docs/net.md`. The boundary itself held:
   network-sourced paths (discovery, candidates, media, `encode`) never admit the range.
 
+
+- **Resolution** (relay-net, 7aa402a): `AddressPolicy::check_manual_socket` applies the user-typed rule (overlay allowed only with the flag). The engine's Dial/AddAddress must call it instead of `check_socket`: appendix A9.
 ### F-19 Info: listed channels publish the channel id in clear
 
 - Where: `crates/relay-net/src/channel/tag.rs:119-126`.
@@ -351,6 +375,8 @@ Top five, in the order I would fix them:
   `id` is a per-install constant, and in hidden mode the IP address and TCP port remain stable;
   the document already concedes the latter.
 
+
+- **Resolution** (docs, b0e4484): `docs/channels.md` D5 now states that a listed channel's id is public and its tags are trackable.
 ### F-20 Info: channel wire size limit is not enforced on the live path
 
 - `channel::wire::decode` (2 KiB cap, `wire.rs:26`) has no caller; `control::validate_body` calls
@@ -358,6 +384,8 @@ Top five, in the order I would fix them:
   control cap. A full 16-revocation proof would exceed 2 KiB, so enforcing it as written would
   reject honest traffic. Update the document or the limit.
 
+
+- **Resolution** (relay-net, 9a339fa): the limit is 8 KiB and `wire::validate` enforces it on the live path (a full proof is far below it).
 ### F-21 Info: duplicated and unused protocol primitives
 
 - `relay-protocol::packet_number` (`PacketNumber::nonce`, `PacketNumberSpace`, `PacketReplay`) is
@@ -373,6 +401,8 @@ Top five, in the order I would fix them:
   and an IPv4-mapped IPv6 literal is returned as an IPv6 `SocketAddr`, which will not compare
   equal to the same host's IPv4 form in `addresses.contains`. Cosmetic; normalise on parse.
 
+
+- **Resolution** (relay-net, 7aa402a): digits-only ports and scopes, scope only on link-local, IPv4-mapped literals normalised to IPv4.
 ### F-23 Info: epoch is chosen by the initiator alone
 
 - `LinkEpoch` is generated by the dialler and adopted by the responder. Session keys are still
@@ -382,6 +412,8 @@ Top five, in the order I would fix them:
   epoch. The link election tie-break (`election.rs`) also reads a value the dialler chose, which
   only matters between two links of the same peer.
 
+
+- **Resolution** (docs, b0e4484): recorded in `docs/channels.md`; nothing in relay-net treats the epoch as freshness.
 ### F-24 Info: Hello and avatar claims are display data only
 
 - A peer can claim another trusted peer's name or avatar hash (a hash already in the cache is
@@ -471,3 +503,57 @@ key or certificate (searched all `tracing` calls), and the operation print is a 
   composition assumes (I relied on its API contract, not its internals).
 - Coverage-guided fuzzing: the `fuzz/` targets were not built or run by me.
 - Any interaction with the local gRPC surface, which is outside this scope.
+
+## Required engine changes (appendix)
+
+The relay-net fixes above change or add APIs that `crates/relay-engine` must adopt. relay-net
+does not compile against the old calls; these are the exact edits.
+
+- **A1 (F-01), `channels/proofs.rs`, `channels/inbound.rs`.** Replace `make_proof(r, &binding,
+  is_reply, now)` (3 arguments now: `make_proof(r, &binding, now)`) and the `is_reply` field.
+  New flow per link: at link-up and when a channel is gained, send `make_ref(r, &link.binding)`
+  for every record with a certificate (this replaces `send_proofs(peer, false, ..)`). On an
+  incoming `Body::MemberRef`: `check_ref(&state.records, &link.binding, message)`; for the
+  returned id send `make_proof(record, &link.binding, now)` once per link and channel
+  (`link.replied` set), and send our own `make_ref` for that id if not yet sent. On `Body::Proof`:
+  `check_proof` as before (the `reply` logic goes away; `ProofOutcome` gained `expires_at`).
+  Note `link.replied` now guards the certificate, not a reply. Routing: add `Body::MemberRef` next
+  to `Body::Proof` in `channels/inbound.rs`.
+- **A2 (F-02), `channels/advert.rs` `on_advert`.** `advert.recognise(&local, &instance, &known,
+  epoch)` now takes `known: &[Fingerprint]` (the trusted fingerprints from the trust store; the
+  list is bounded by the trust store) and returns `Vec<Recognised {channel, fingerprint}>`. Dial
+  with `peers.dial(address, Some(&hit.fingerprint))`, one dial per distinct fingerprint; never
+  `None`. Keep `REDIAL_AFTER` but key it by fingerprint, and add a global dial rate limit (for
+  example 4 per 10 s) so a flood of recognised copies cannot cause dial storms. `ChannelAdvert::
+  build(.., &local_fingerprint)` takes the advertiser's fingerprint (`channels/hub.rs` where the
+  advert is built).
+- **A3 (F-03, F-04), `peers/start.rs`, `peers/manager.rs`.** `gate.try_enter(peer_addr.ip())`
+  (new argument); run the handshake with `respond_gated(&mut stream, &identity, &permit)` so an
+  evicted slot ends; in the accept loop `let mut backoff = AcceptBackoff::new();` sleep
+  `backoff.on_error()` on `Err` and `backoff.reset()` on `Ok`. In `manager.rs on_up` keep an
+  `UntrustedLinks<LinkId>`: `for victim in untrusted.admit(link, source_ip) { close(victim) }`
+  for each untrusted link, and `release` when it is trusted, rejected or closed. Coalesce or cap
+  `TRUST_REQUIRED` attention items.
+- **A4 (F-06), `peers/trust.rs`.** `TrustStore::find_by_name` must now compare skeletons:
+  `MemoryTrust` delegates to `InMemoryTrustStore` (already done). `ConfigTrust` and the SQLite
+  store must return records whose `relay_net::discovery::name_skeleton(&record.display_name)`
+  equals `name_skeleton(display_name)` (either scan the bounded table or store the skeleton in a
+  column). Show the short fingerprint beside every name in trust prompts (UI).
+- **A5 (F-07), `channels/clock.rs`.** Replace the start-sample-plus-`Instant` clock with
+  `relay_net::channel::clock::ClampedClock::new(SystemClock)` for `now()` (certificate, invite,
+  epoch decisions); keep `Instant` only for the limiter's `mono()`.
+- **A6 (F-08), `peers/manager.rs on_discovered`.** `DiscoveryTable::upsert` no longer returns
+  `TableFull`; it errors only for a record without an address. Call `table.expire(ttl)` (for
+  example 120 s, longer than the mDNS refresh) from the upkeep tick and drop state for names in
+  `take_evicted()` and the expired list.
+- **A7 (F-14), media candidates.** Pass the link's remote IP and interface subnet to the
+  candidate filter and accept only candidates equal to the remote IP or inside the subnet of the
+  interface the link arrived on (relay-net cannot know the netmask).
+- **A8 (F-16).** Rate-limit channel messages per link (for example 20 per second), and run
+  `check_proof` on a clone of the needed records outside the state lock.
+- **A9 (F-18), `peers/manager.rs:100,121`.** Use `policy.check_manual_socket(addr)` for
+  `Command::Dial` and `Command::AddAddress` (user-typed), `check_socket` elsewhere.
+- **Not addressed here (outside relay-net / core channel):** F-05 (session table per-peer
+  ownership and bounds), F-09 (trust key cache), F-11 (listed name binding), F-13 (demote proofs
+  at `ProofOutcome::expires_at`; the field is now available), F-15 (rekey wiring), F-17 (zeroize
+  invite in the ledger), F-21 (duplicate primitives in relay-protocol), F-24 (cosmetic).
