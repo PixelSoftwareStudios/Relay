@@ -41,6 +41,27 @@ service Engine {
   // Graceful stop of the whole engine: ends calls, releases the microphone, removes the
   // endpoint. Needs the explicit `admin` capability (never granted by default). Idempotent.
   rpc Shutdown(MutationContext) returns (Operation);
+  // Session messaging (docs/session-messages.md). Every method below, reads included, needs the
+  // `messages` capability: without it the answer is PERMISSION_DENIED and no event is ever
+  // delivered. Messaging operations are applied synchronously: the answer is final and
+  // GetOperation does not track them.
+  rpc ListSessions(ClientContext) returns (ListSessionsResponse);
+  rpc GetTranscript(GetTranscriptRequest) returns (Transcript);
+  rpc WatchSession(WatchSessionRequest) returns (stream SessionEnvelope);
+  rpc SendSessionMessage(SendSessionMessageRequest) returns (SessionOpResult);
+  rpc SendSessionImage(SendSessionImageRequest) returns (SessionOpResult);
+  rpc RetrySessionMessage(RetrySessionMessageRequest) returns (SessionOpResult);
+  rpc OfferFile(OfferFileRequest) returns (SessionOpResult);
+  rpc RespondOffer(RespondOfferRequest) returns (SessionOpResult);
+  rpc RequestPreview(OfferRequest) returns (SessionOpResult);
+  rpc ApprovePreview(ApprovePreviewRequest) returns (SessionOpResult);
+  rpc CancelTransfer(OfferRequest) returns (SessionOpResult);
+  rpc SetSessionPermissions(SetSessionPermissionsRequest) returns (SessionOpResult);
+  rpc PinMessage(PinMessageRequest) returns (SessionOpResult);
+  rpc SearchSession(SearchSessionRequest) returns (SearchSessionResponse);
+  rpc ClearSession(ClearSessionRequest) returns (SessionOpResult);
+  rpc ExportSession(ExportSessionRequest) returns (ExportSessionResponse);
+  rpc SetMessagingSettings(SetMessagingSettingsRequest) returns (SessionOpResult);
   rpc InputControl(stream InputControlMessage) returns (stream InputControlAck);
 }
 
@@ -434,4 +455,193 @@ message ConnectionInfo {
   uint32 listen_port = 2;
   bytes fingerprint = 3; // local identity fingerprint
   string connection_string = 4; // opaque, built by the engine; clients display/copy it
+}
+
+// ---------------------------------------------------------------------------------------------
+// Session messaging. Needs the `messages` capability (never granted by default, `admin` does not
+// imply it): transcripts are private to the people in the call. Stable Problem.code values on a
+// FAILED SessionOpResult.operation: MESSAGES_DISABLED, SESSION_NOT_FOUND, SESSION_ENDED,
+// SESSION_PERMISSION_OFF, PEER_UNAVAILABLE, TEXT_INVALID, TEXT_TOO_LONG, IMAGE_INVALID,
+// IMAGE_UNSUPPORTED, IMAGE_TOO_LARGE, HISTORY_FULL, RATE_LIMITED, TOO_MANY_OFFERS,
+// MESSAGE_NOT_FOUND, MESSAGE_STATE, OFFER_NOT_FOUND, OFFER_STATE, FILE_REFUSED,
+// FILE_TOO_LARGE, FILE_CHANGED, TOO_MANY_TRANSFERS, NO_SPACE, DESTINATION_INVALID,
+// PREVIEW_UNAVAILABLE, EXPORT_TOO_LARGE, EXPORT_WRITE_FAILED, INVALID_SETTING.
+// Message text and file names never appear in Problem messages or logs.
+// ---------------------------------------------------------------------------------------------
+enum SessionState {
+  SESSION_STATE_UNSPECIFIED = 0;
+  SESSION_STATE_ACTIVE = 1; // the call is live
+  SESSION_STATE_ENDED = 2;  // read-only transcript kept in RAM until cleared, replaced or the daemon exits
+}
+enum DeliveryState {
+  DELIVERY_STATE_UNSPECIFIED = 0;
+  DELIVERY_STATE_SENDING = 1;
+  DELIVERY_STATE_DELIVERED = 2; // the peer's daemon stored it (always set for incoming entries)
+  DELIVERY_STATE_FAILED = 3;    // see TranscriptEntry.failure
+}
+enum OfferState {
+  OFFER_STATE_UNSPECIFIED = 0;
+  OFFER_STATE_OFFERED = 1;
+  OFFER_STATE_IN_PROGRESS = 2;
+  OFFER_STATE_COMPLETED = 3;
+  OFFER_STATE_REJECTED = 4;
+  OFFER_STATE_FAILED = 5;
+  OFFER_STATE_CANCELLED = 6;
+  OFFER_STATE_EXPIRED = 7; // the call ended before it was accepted; metadata only
+}
+message SessionPermissions { bool allow_messages = 1; bool allow_files = 2; }
+message SessionSummary {
+  bytes session_id = 1;  // 16 bytes
+  bytes call_id = 2;
+  bytes peer_id = 3;     // 32 bytes
+  string peer_name = 4;
+  SessionState state = 5;
+  SessionPermissions permissions = 6;
+  bool local_is_host = 7; // the caller owns the permission toggles and pushes them to the guest
+  uint64 started_at_unix_ms = 8;
+  uint64 ended_at_unix_ms = 9;
+  uint64 message_count = 10;
+  uint64 next_ordinal = 11; // ordinal the next transcript entry will get
+  uint64 used_bytes = 12;
+  uint64 limit_bytes = 13;
+}
+message ImageBody {
+  string media_type = 1;
+  uint32 width = 2;
+  uint32 height = 3;
+  uint32 frames = 4;
+  bytes data = 5; // original compressed bytes (at most 15 KiB inline); decode with your own limits
+}
+message FileOfferBody {
+  bytes offer_id = 1;
+  string name = 2;       // sanitized; shown, never used as a path
+  uint64 size = 3;
+  string media_type = 4; // advisory, guessed from the name
+  bytes blake3 = 5;
+  OfferState state = 6;
+  uint64 transferred_bytes = 7;
+  string preview = 8;    // approved text preview, if any
+  bool preview_requested = 9;        // we asked, waiting for the sender's approval
+  bool preview_approval_pending = 10; // the peer asked and this side's user must decide
+  bool executable_warning = 11;      // the name looks executable; warn before the user opens it
+  string saved_as = 12;  // final file name in the destination directory (receiver, completed)
+  string failure = 13;   // stable lowercase reason when FAILED or CANCELLED
+  bool outgoing = 14;
+}
+message TranscriptEntry {
+  uint64 ordinal = 1;   // arrival order, never reused, survives ClearSession
+  bool outgoing = 2;
+  uint64 seq = 3;       // numbered by the sender; (outgoing, seq) identifies the entry
+  uint64 sent_at_unix_ms = 4;     // the sender's claim; display only
+  uint64 received_at_unix_ms = 5; // this daemon's clock; what to show
+  DeliveryState delivery = 6;
+  string failure = 7;   // timeout | disabled | too_large | invalid | rate_limited | history_full | unsupported | ended
+  bool pinned = 8;
+  oneof body { string text = 9; ImageBody image = 10; FileOfferBody file = 11; }
+}
+message MessageRef { uint64 ordinal = 1; bool outgoing = 2; uint64 seq = 3; }
+message ListSessionsResponse {
+  repeated SessionSummary sessions = 1;
+  uint64 revision = 2; // pass to WatchSession.after_revision for a gapless follow
+  MessagingSettings settings = 3;
+}
+message MessagingSettings {
+  bool enabled = 1;
+  uint32 max_offer_size_mib = 2;
+  uint32 transfer_rate_limit_mbps = 3; // megabytes per second per transfer
+  uint32 transfer_port = 4;            // effective data-link listener port (0 = not listening); set in config, applies at start
+}
+message GetTranscriptRequest {
+  ClientContext client = 1;
+  bytes session_id = 2;
+  uint64 from_ordinal = 3; // first ordinal wanted; 0 = from the start
+  uint32 limit = 4;        // entries, 0 = engine default; pages are also capped in bytes
+}
+message Transcript {
+  SessionSummary session = 1;
+  repeated TranscriptEntry entries = 2;
+  uint64 next_ordinal = 3; // from_ordinal for the next page
+  bool more = 4;
+  uint64 revision = 5;     // feed revision at read time
+}
+message WatchSessionRequest {
+  ClientContext client = 1;
+  optional uint64 after_revision = 2; // omit for a SessionList first
+  bytes session_id = 3;               // empty = every session
+}
+message SessionResync { uint64 current_revision = 1; string reason = 2; }
+message SessionList { repeated SessionSummary sessions = 1; MessagingSettings settings = 2; }
+message DeliveryChanged { bytes session_id = 1; uint64 seq = 2; DeliveryState delivery = 3; string failure = 4; }
+message OfferChanged { bytes session_id = 1; uint64 ordinal = 2; FileOfferBody offer = 3; }
+message PermissionsChanged { bytes session_id = 1; SessionPermissions permissions = 2; bool by_peer = 3; }
+message PinChanged { bytes session_id = 1; MessageRef message = 2; bool pinned = 3; }
+message SessionCleared { bytes session_id = 1; bool removed = 2; uint64 next_ordinal = 3; }
+message HistoryEvicted { bytes session_id = 1; string reason = 2; }
+message SessionEvent {
+  oneof event {
+    NewEntry entry = 1;
+    DeliveryChanged delivery = 2;
+    OfferChanged offer = 3;
+    PermissionsChanged permissions = 4;
+    PinChanged pin = 5;
+    SessionSummary session = 6;  // started, ended or its counters changed
+    SessionCleared cleared = 7;
+    HistoryEvicted evicted = 8;  // an ended transcript was dropped to stay inside the retained budget
+  }
+}
+message NewEntry { bytes session_id = 1; TranscriptEntry entry = 2; }
+message SessionEnvelope {
+  bytes engine_incarnation = 1;
+  uint64 revision = 2;
+  oneof body { SessionList list = 3; SessionEvent event = 4; SessionResync resync = 5; }
+}
+message SendSessionMessageRequest { MutationContext context = 1; bytes session_id = 2; string text = 3; }
+message SendSessionImageRequest { MutationContext context = 1; bytes session_id = 2; bytes image = 3; }
+message RetrySessionMessageRequest { MutationContext context = 1; bytes session_id = 2; uint64 seq = 3; }
+// The DAEMON opens `path`: it must be an absolute path to a regular file on the daemon's machine
+// (clients are same-machine, same-user), not a symlink (a symlink anywhere in the path is refused),
+// and at most messages.max_offer_size_mib. The daemon hashes a snapshot on a worker.
+message OfferFileRequest { MutationContext context = 1; bytes session_id = 2; string path = 3; }
+message OfferRequest { MutationContext context = 1; bytes session_id = 2; bytes offer_id = 3; }
+// accept=true needs `destination_dir`, an absolute existing directory chosen by the client. The
+// daemon sanitizes the name (optionally suggested in `file_name`) and never overwrites.
+message RespondOfferRequest {
+  MutationContext context = 1;
+  bytes session_id = 2;
+  bytes offer_id = 3;
+  bool accept = 4;
+  string destination_dir = 5;
+  string file_name = 6;
+}
+message ApprovePreviewRequest { MutationContext context = 1; bytes session_id = 2; bytes offer_id = 3; bool approve = 4; }
+message SetSessionPermissionsRequest {
+  MutationContext context = 1;
+  bytes session_id = 2;
+  optional bool allow_messages = 3;
+  optional bool allow_files = 4;
+}
+message PinMessageRequest { MutationContext context = 1; bytes session_id = 2; bool outgoing = 3; uint64 seq = 4; bool pinned = 5; }
+message SearchSessionRequest { ClientContext client = 1; bytes session_id = 2; string query = 3; }
+message SearchSessionResponse { repeated MessageRef hits = 1; bool truncated = 2; }
+// Active session: empties the transcript. Ended session: removes it. Local only; the peer keeps its own.
+message ClearSessionRequest { MutationContext context = 1; bytes session_id = 2; }
+// Returns the export JSON (docs/session-messages.md) in `json` and writes nothing. Only when
+// `destination_path` is set (absolute, must not exist) the daemon writes the file, owner-only,
+// and returns `written_path` instead; large exports need it (EXPORT_TOO_LARGE otherwise).
+message ExportSessionRequest { MutationContext context = 1; bytes session_id = 2; bool embed_images = 3; string destination_path = 4; }
+message ExportSessionResponse { Operation operation = 1; bytes json = 2; string written_path = 3; }
+// Live-applied preferences messages.enabled, messages.max_offer_size_mib and
+// messages.transfer_rate_limit_mbps. network.transfer_port is set in config and applies at start.
+message SetMessagingSettingsRequest {
+  MutationContext context = 1;
+  optional bool enabled = 2;
+  optional uint32 max_offer_size_mib = 3;
+  optional uint32 transfer_rate_limit_mbps = 4;
+}
+// Result of every messaging mutation. `operation` is final (APPLIED or FAILED).
+message SessionOpResult {
+  Operation operation = 1;
+  bytes session_id = 2;
+  MessageRef message = 3;  // the entry created or affected, when there is one
+  bytes offer_id = 4;      // OfferFile: the new offer
 }

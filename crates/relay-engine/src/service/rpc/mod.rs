@@ -5,6 +5,7 @@ mod channels;
 mod commands;
 mod connection;
 mod input;
+mod messages;
 mod ops;
 mod privacy;
 mod session;
@@ -15,7 +16,12 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use relay_api::pb::{
-	AcquireControllerRequest, AvatarImage, CallMutation, ClientContext, ClientSession,
+	AcquireControllerRequest, ApprovePreviewRequest, ClearSessionRequest, ExportSessionRequest,
+	ExportSessionResponse, GetTranscriptRequest, ListSessionsResponse, OfferFileRequest,
+	OfferRequest, PinMessageRequest, RespondOfferRequest, RetrySessionMessageRequest,
+	SearchSessionRequest, SearchSessionResponse, SendSessionImageRequest,
+	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetMessagingSettingsRequest,
+	SetSessionPermissionsRequest, Transcript, WatchSessionRequest, AvatarImage, CallMutation, ClientContext, ClientSession,
 	ConnectionInfo, ControllerLease, CreateChannelRequest, CreateInviteRequest,
 	CreateInviteResponse, DecidePeerTrustRequest, Empty, EngineInfo, GetAvatarRequest,
 	GetOperationRequest, InputControlAck, InputControlMessage, JoinChannelRequest,
@@ -463,6 +469,127 @@ impl Engine for EngineService {
 		let mutation = check_mutation(caller, Some(&body), &self.incarnation())?;
 		self.shared.book.require(caller, Capability::Admin)?;
 		Ok(Response::new(session::shutdown(self, &mutation)))
+	}
+
+	async fn list_sessions(
+		&self,
+		request: Request<ClientContext>,
+	) -> Result<Response<ListSessionsResponse>, Status> {
+		messages::list_sessions(self, request).await
+	}
+
+	async fn get_transcript(
+		&self,
+		request: Request<GetTranscriptRequest>,
+	) -> Result<Response<Transcript>, Status> {
+		messages::get_transcript(self, request).await
+	}
+
+	type WatchSessionStream = Stream<SessionEnvelope>;
+
+	async fn watch_session(
+		&self,
+		request: Request<WatchSessionRequest>,
+	) -> Result<Response<Self::WatchSessionStream>, Status> {
+		messages::watch_session(self, request).await
+	}
+
+	async fn send_session_message(
+		&self,
+		request: Request<SendSessionMessageRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::send_message(self, request).await
+	}
+
+	async fn send_session_image(
+		&self,
+		request: Request<SendSessionImageRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::send_image(self, request).await
+	}
+
+	async fn retry_session_message(
+		&self,
+		request: Request<RetrySessionMessageRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::retry_message(self, request).await
+	}
+
+	async fn offer_file(
+		&self,
+		request: Request<OfferFileRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::offer_file(self, request).await
+	}
+
+	async fn respond_offer(
+		&self,
+		request: Request<RespondOfferRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::respond_offer(self, request).await
+	}
+
+	async fn request_preview(
+		&self,
+		request: Request<OfferRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::request_preview(self, request).await
+	}
+
+	async fn approve_preview(
+		&self,
+		request: Request<ApprovePreviewRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::approve_preview(self, request).await
+	}
+
+	async fn cancel_transfer(
+		&self,
+		request: Request<OfferRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::cancel_transfer(self, request).await
+	}
+
+	async fn set_session_permissions(
+		&self,
+		request: Request<SetSessionPermissionsRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::set_permissions(self, request).await
+	}
+
+	async fn pin_message(
+		&self,
+		request: Request<PinMessageRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::pin_message(self, request).await
+	}
+
+	async fn search_session(
+		&self,
+		request: Request<SearchSessionRequest>,
+	) -> Result<Response<SearchSessionResponse>, Status> {
+		messages::search_session(self, request).await
+	}
+
+	async fn clear_session(
+		&self,
+		request: Request<ClearSessionRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::clear_session(self, request).await
+	}
+
+	async fn export_session(
+		&self,
+		request: Request<ExportSessionRequest>,
+	) -> Result<Response<ExportSessionResponse>, Status> {
+		messages::export_session(self, request).await
+	}
+
+	async fn set_messaging_settings(
+		&self,
+		request: Request<SetMessagingSettingsRequest>,
+	) -> Result<Response<SessionOpResult>, Status> {
+		messages::set_settings(self, request).await
 	}
 
 	type InputControlStream = Stream<InputControlAck>;

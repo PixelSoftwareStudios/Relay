@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
 use super::channels::Channels;
+use super::messages::Messages;
 use prost::Message;
 use relay_api::pb::engine_server::Engine;
 use relay_api::pb::state_envelope::Body;
@@ -29,6 +30,7 @@ pub struct Inner {
 	state: Mutex<State>,
 	events: broadcast::Sender<StateEnvelope>,
 	pub channels: Channels,
+	pub messages: Messages,
 }
 
 /// Cheaply cloneable handle; the server and the test share one state.
@@ -54,6 +56,7 @@ impl FakeEngine {
 			state: Mutex::new(State::default()),
 			events: broadcast::channel(limits.subscriber_queue).0,
 			channels: Channels::default(),
+			messages: Messages::default(),
 		}))
 	}
 
@@ -120,8 +123,10 @@ impl Engine for FakeEngine {
 		}))
 	}
 
-	async fn register_client(&self, _: Request<RegisterClientRequest>) -> Resp<ClientSession> {
+	async fn register_client(&self, r: Request<RegisterClientRequest>) -> Resp<ClientSession> {
 		let id = self.registry.register()?;
+		self.messages
+			.grant(id.to_vec(), r.into_inner().requested_capabilities);
 		let revision = self.state.lock().unwrap().revision;
 		Ok(Response::new(ClientSession {
 			context: Some(ClientContext {
@@ -350,6 +355,131 @@ impl Engine for FakeEngine {
 			fingerprint: vec![7; 32],
 			connection_string: "RLYN1-fake".into(),
 		}))
+	}
+
+	async fn list_sessions(&self, r: Request<ClientContext>) -> Resp<ListSessionsResponse> {
+		self.messages.require(&r)?;
+		Ok(Response::new(self.messages.list()))
+	}
+	async fn get_transcript(&self, r: Request<GetTranscriptRequest>) -> Resp<Transcript> {
+		self.messages.require(&r)?;
+		Ok(Response::new(self.messages.transcript(r.get_ref())?))
+	}
+	type WatchSessionStream = ReceiverStream<Result<SessionEnvelope, Status>>;
+	async fn watch_session(
+		&self,
+		r: Request<WatchSessionRequest>,
+	) -> Resp<Self::WatchSessionStream> {
+		self.messages.require(&r)?;
+		let guard = self.streams.acquire()?;
+		let after = r.into_inner().after_revision;
+		let incarnation = self.registry.incarnation().to_vec();
+		let (initial, mut live) = self.messages.watch(after, &incarnation);
+		let mut last = initial.last().map_or(after.unwrap_or(0), |e| e.revision);
+		let (tx, rx) = mpsc::channel(self.limits.subscriber_queue);
+		tokio::spawn(async move {
+			let _guard = guard;
+			for envelope in initial {
+				if tx.send(Ok(envelope)).await.is_err() {
+					return;
+				}
+			}
+			loop {
+				match live.recv().await {
+					Ok((revision, event)) if revision > last => {
+						last = revision;
+						let envelope = SessionEnvelope {
+							engine_incarnation: incarnation.clone(),
+							revision,
+							body: Some(session_envelope::Body::Event(event)),
+						};
+						if tx.send(Ok(envelope)).await.is_err() {
+							return;
+						}
+					}
+					Ok(_) => {}
+					Err(broadcast::error::RecvError::Lagged(_)) => {
+						let envelope = SessionEnvelope {
+							engine_incarnation: incarnation.clone(),
+							revision: last,
+							body: Some(session_envelope::Body::Resync(SessionResync {
+								current_revision: last,
+								reason: "subscriber lagged".into(),
+							})),
+						};
+						let _ = tx.send(Ok(envelope)).await;
+						return;
+					}
+					Err(_) => return,
+				}
+			}
+		});
+		Ok(Response::new(ReceiverStream::new(rx)))
+	}
+	async fn send_session_message(
+		&self,
+		r: Request<SendSessionMessageRequest>,
+	) -> Resp<SessionOpResult> {
+		self.messages.require(&r)?;
+		Ok(Response::new(self.messages.send(r.get_ref())))
+	}
+	async fn search_session(
+		&self,
+		r: Request<SearchSessionRequest>,
+	) -> Resp<SearchSessionResponse> {
+		self.messages.require(&r)?;
+		Ok(Response::new(self.messages.search(r.get_ref())))
+	}
+	async fn send_session_image(
+		&self,
+		_: Request<SendSessionImageRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn retry_session_message(
+		&self,
+		_: Request<RetrySessionMessageRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn offer_file(&self, _: Request<OfferFileRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn respond_offer(&self, _: Request<RespondOfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn request_preview(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn approve_preview(&self, _: Request<ApprovePreviewRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn cancel_transfer(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn set_session_permissions(
+		&self,
+		_: Request<SetSessionPermissionsRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn pin_message(&self, _: Request<PinMessageRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn clear_session(&self, _: Request<ClearSessionRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn export_session(
+		&self,
+		_: Request<ExportSessionRequest>,
+	) -> Resp<ExportSessionResponse> {
+		unsupported()
+	}
+	async fn set_messaging_settings(
+		&self,
+		_: Request<SetMessagingSettingsRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
 	}
 
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;

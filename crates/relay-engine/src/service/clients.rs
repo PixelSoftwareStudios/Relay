@@ -18,11 +18,19 @@ pub enum Capability {
 	CallControl,
 	/// Stop the whole engine. Never granted unless named at registration.
 	Admin,
+	/// Read and send session messages, transfers and transcripts. Never granted by default and
+	/// not implied by `Admin`: transcripts are private to the people in the call.
+	Messages,
 }
 
 impl Capability {
 	/// Every capability this engine can grant.
-	pub const ALL: [Self; 3] = [Self::Observe, Self::CallControl, Self::Admin];
+	pub const ALL: [Self; 4] = [
+		Self::Observe,
+		Self::CallControl,
+		Self::Admin,
+		Self::Messages,
+	];
 
 	/// What a client gets when it asks for nothing in particular.
 	pub const DEFAULT: [Self; 2] = [Self::Observe, Self::CallControl];
@@ -33,6 +41,7 @@ impl Capability {
 			Self::Observe => "observe",
 			Self::CallControl => "call-control",
 			Self::Admin => "admin",
+			Self::Messages => "messages",
 		}
 	}
 

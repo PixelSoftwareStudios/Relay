@@ -9,6 +9,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 		".relay.v1.CreateChannelRequest",
 		".relay.v1.JoinChannelRequest",
 		".relay.v1.CreateInviteResponse",
+		// Message text, file names, paths and image bytes are private to the call.
+		".relay.v1.SendSessionMessageRequest",
+		".relay.v1.SendSessionImageRequest",
+		".relay.v1.OfferFileRequest",
+		".relay.v1.RespondOfferRequest",
+		".relay.v1.ExportSessionRequest",
+		".relay.v1.ExportSessionResponse",
+		".relay.v1.SearchSessionRequest",
+		".relay.v1.TranscriptEntry",
+		".relay.v1.FileOfferBody",
+		".relay.v1.ImageBody",
 	]);
 	tonic_prost_build::configure()
 		.build_client(true)

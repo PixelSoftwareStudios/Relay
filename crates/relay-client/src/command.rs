@@ -206,4 +206,124 @@ pub enum Command {
 		/// Whether this device is advertised.
 		advert: Option<AdvertMode>,
 	},
+	/// Send text into a session (needs the `messages` capability, like every command below
+	/// that names a `session_id`).
+	SendSessionMessage {
+		/// Session id (16 bytes).
+		session_id: Vec<u8>,
+		/// Text; the engine validates and sanitizes it.
+		text: String,
+	},
+	/// Send an inline image (original bytes, at most 15 KiB).
+	SendSessionImage {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Compressed image bytes.
+		image: Vec<u8>,
+	},
+	/// Retry a failed local message.
+	RetrySessionMessage {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// The message's sequence number.
+		seq: u64,
+	},
+	/// Offer a file. The daemon opens `path`: absolute, regular file, no symlinks.
+	OfferFile {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Absolute path on this machine.
+		path: String,
+	},
+	/// Accept (into an absolute existing directory) or reject an offer.
+	RespondOffer {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Offer id (16 bytes).
+		offer_id: Vec<u8>,
+		/// Accept or reject.
+		accept: bool,
+		/// Destination directory when accepting.
+		destination_dir: String,
+		/// Suggested file name; empty keeps the offered one.
+		file_name: String,
+	},
+	/// Ask the sender for a text preview of an offered file.
+	RequestPreview {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Offer id.
+		offer_id: Vec<u8>,
+	},
+	/// Sender: approve or refuse a preview request.
+	ApprovePreview {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Offer id.
+		offer_id: Vec<u8>,
+		/// Approve the preview.
+		approve: bool,
+	},
+	/// Cancel a transfer or withdraw an offer.
+	CancelTransfer {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Offer id.
+		offer_id: Vec<u8>,
+	},
+	/// Change what a session accepts and sends; `None` is unchanged.
+	SetSessionPermissions {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Text messages.
+		allow_messages: Option<bool>,
+		/// Images and file offers.
+		allow_files: Option<bool>,
+	},
+	/// Pin or unpin a message locally.
+	PinMessage {
+		/// Session id.
+		session_id: Vec<u8>,
+		/// Whether the message is ours.
+		outgoing: bool,
+		/// Sender's sequence.
+		seq: u64,
+		/// Pin state.
+		pinned: bool,
+	},
+	/// Clear a transcript locally (an ended session is removed).
+	ClearSession {
+		/// Session id.
+		session_id: Vec<u8>,
+	},
+	/// Live messaging preferences; `None` is unchanged.
+	SetMessagingSettings {
+		/// `messages.enabled`.
+		enabled: Option<bool>,
+		/// `messages.max_offer_size_mib`.
+		max_offer_size_mib: Option<u32>,
+		/// `messages.transfer_rate_limit_mbps`.
+		transfer_rate_limit_mbps: Option<u32>,
+	},
+}
+
+impl Command {
+	/// True for the session messaging commands, which need the `messages` capability.
+	pub fn is_messaging(&self) -> bool {
+		matches!(
+			self,
+			Self::SendSessionMessage { .. }
+				| Self::SendSessionImage { .. }
+				| Self::RetrySessionMessage { .. }
+				| Self::OfferFile { .. }
+				| Self::RespondOffer { .. }
+				| Self::RequestPreview { .. }
+				| Self::ApprovePreview { .. }
+				| Self::CancelTransfer { .. }
+				| Self::SetSessionPermissions { .. }
+				| Self::PinMessage { .. }
+				| Self::ClearSession { .. }
+				| Self::SetMessagingSettings { .. }
+		)
+	}
 }

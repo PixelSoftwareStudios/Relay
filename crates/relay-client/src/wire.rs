@@ -13,7 +13,11 @@ use relay_api::pb::{
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
 
-use relay_api::pb::ChannelPolicy;
+use relay_api::pb::{
+	ApprovePreviewRequest, ChannelPolicy, ClearSessionRequest, OfferFileRequest, OfferRequest,
+	PinMessageRequest, RespondOfferRequest, RetrySessionMessageRequest, SendSessionImageRequest,
+	SendSessionMessageRequest, SetMessagingSettingsRequest, SetSessionPermissionsRequest,
+};
 
 use crate::command::{CallAction, CallTarget, ChannelOptions, Command};
 
@@ -81,6 +85,9 @@ fn call_mutation(context: MutationContext, call_id: Vec<u8>, generation: u64) ->
 /// Send one command and return the operation as the engine first reports it
 /// (possibly still `ACCEPTED`; see [`crate::operation::settle`]).
 pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operation, ApiError> {
+	if command.is_messaging() {
+		return send_messaging(client, command).await;
+	}
 	let context = mutation(client)?;
 	let rpc = client.raw();
 	let response = match command {
@@ -305,6 +312,153 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			})
 			.await
 		}
+		_ => return Err(ApiError::InvalidResponse("not an engine command")),
 	};
 	Ok(response?.into_inner())
+}
+
+/// Messaging commands answer with a [`relay_api::pb::SessionOpResult`]; the operation inside
+/// is final. Use the `RelayClient` helpers when the message reference or offer id is needed.
+async fn send_messaging(client: &mut RelayClient, command: Command) -> Result<Operation, ApiError> {
+	let context = mutation(client)?;
+	let rpc = client.raw();
+	let result = match command {
+		Command::SendSessionMessage { session_id, text } => {
+			rpc.send_session_message(SendSessionMessageRequest {
+				context: Some(context),
+				session_id,
+				text,
+			})
+			.await
+		}
+		Command::SendSessionImage { session_id, image } => {
+			rpc.send_session_image(SendSessionImageRequest {
+				context: Some(context),
+				session_id,
+				image,
+			})
+			.await
+		}
+		Command::RetrySessionMessage { session_id, seq } => {
+			rpc.retry_session_message(RetrySessionMessageRequest {
+				context: Some(context),
+				session_id,
+				seq,
+			})
+			.await
+		}
+		Command::OfferFile { session_id, path } => {
+			rpc.offer_file(OfferFileRequest {
+				context: Some(context),
+				session_id,
+				path,
+			})
+			.await
+		}
+		Command::RespondOffer {
+			session_id,
+			offer_id,
+			accept,
+			destination_dir,
+			file_name,
+		} => {
+			rpc.respond_offer(RespondOfferRequest {
+				context: Some(context),
+				session_id,
+				offer_id,
+				accept,
+				destination_dir,
+				file_name,
+			})
+			.await
+		}
+		Command::RequestPreview {
+			session_id,
+			offer_id,
+		} => {
+			rpc.request_preview(OfferRequest {
+				context: Some(context),
+				session_id,
+				offer_id,
+			})
+			.await
+		}
+		Command::ApprovePreview {
+			session_id,
+			offer_id,
+			approve,
+		} => {
+			rpc.approve_preview(ApprovePreviewRequest {
+				context: Some(context),
+				session_id,
+				offer_id,
+				approve,
+			})
+			.await
+		}
+		Command::CancelTransfer {
+			session_id,
+			offer_id,
+		} => {
+			rpc.cancel_transfer(OfferRequest {
+				context: Some(context),
+				session_id,
+				offer_id,
+			})
+			.await
+		}
+		Command::SetSessionPermissions {
+			session_id,
+			allow_messages,
+			allow_files,
+		} => {
+			rpc.set_session_permissions(SetSessionPermissionsRequest {
+				context: Some(context),
+				session_id,
+				allow_messages,
+				allow_files,
+			})
+			.await
+		}
+		Command::PinMessage {
+			session_id,
+			outgoing,
+			seq,
+			pinned,
+		} => {
+			rpc.pin_message(PinMessageRequest {
+				context: Some(context),
+				session_id,
+				outgoing,
+				seq,
+				pinned,
+			})
+			.await
+		}
+		Command::ClearSession { session_id } => {
+			rpc.clear_session(ClearSessionRequest {
+				context: Some(context),
+				session_id,
+			})
+			.await
+		}
+		Command::SetMessagingSettings {
+			enabled,
+			max_offer_size_mib,
+			transfer_rate_limit_mbps,
+		} => {
+			rpc.set_messaging_settings(SetMessagingSettingsRequest {
+				context: Some(context),
+				enabled,
+				max_offer_size_mib,
+				transfer_rate_limit_mbps,
+			})
+			.await
+		}
+		_ => return Err(ApiError::InvalidResponse("not a messaging command")),
+	};
+	result?
+		.into_inner()
+		.operation
+		.ok_or(ApiError::InvalidResponse("result without operation"))
 }

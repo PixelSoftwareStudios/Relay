@@ -349,6 +349,78 @@ impl Engine for FakeEngine {
 		}))
 	}
 
+	// Session messaging is not part of this test engine.
+	async fn list_sessions(&self, _: Request<ClientContext>) -> Resp<ListSessionsResponse> {
+		unsupported()
+	}
+	async fn get_transcript(&self, _: Request<GetTranscriptRequest>) -> Resp<Transcript> {
+		unsupported()
+	}
+	type WatchSessionStream = ReceiverStream<Result<SessionEnvelope, Status>>;
+	async fn watch_session(
+		&self,
+		_: Request<WatchSessionRequest>,
+	) -> Resp<Self::WatchSessionStream> {
+		unsupported()
+	}
+	async fn send_session_message(
+		&self,
+		_: Request<SendSessionMessageRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn send_session_image(
+		&self,
+		_: Request<SendSessionImageRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn retry_session_message(
+		&self,
+		_: Request<RetrySessionMessageRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn offer_file(&self, _: Request<OfferFileRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn respond_offer(&self, _: Request<RespondOfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn request_preview(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn approve_preview(&self, _: Request<ApprovePreviewRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn cancel_transfer(&self, _: Request<OfferRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn set_session_permissions(
+		&self,
+		_: Request<SetSessionPermissionsRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn pin_message(&self, _: Request<PinMessageRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn search_session(&self, _: Request<SearchSessionRequest>) -> Resp<SearchSessionResponse> {
+		unsupported()
+	}
+	async fn clear_session(&self, _: Request<ClearSessionRequest>) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+	async fn export_session(&self, _: Request<ExportSessionRequest>) -> Resp<ExportSessionResponse> {
+		unsupported()
+	}
+	async fn set_messaging_settings(
+		&self,
+		_: Request<SetMessagingSettingsRequest>,
+	) -> Resp<SessionOpResult> {
+		unsupported()
+	}
+
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;
 	async fn input_control(
 		&self,

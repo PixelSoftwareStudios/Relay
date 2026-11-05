@@ -4,6 +4,7 @@
 
 mod channels;
 mod fake;
+mod messages;
 
 use std::path::PathBuf;
 use std::sync::Arc;

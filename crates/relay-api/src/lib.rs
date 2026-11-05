@@ -5,6 +5,7 @@
 
 mod client;
 mod client_ext;
+mod client_messages;
 mod error;
 mod limits;
 mod middleware;
@@ -24,6 +25,9 @@ pub mod pb {
 }
 
 pub use client::{Endpoint, RelayClient};
+pub use client_messages::{
+	EXPORT_INLINE_MAX_BYTES, SessionItem, SessionTracker, SessionWatch, entry_text,
+};
 pub use error::ApiError;
 pub use limits::{AVATAR_MAX_BYTES, ApiLimits};
 pub use middleware::{GuardConfig, GuardLayer, SENSITIVE_METHODS, StreamGuard, StreamLimiter};

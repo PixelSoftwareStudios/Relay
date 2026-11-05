@@ -203,3 +203,38 @@ async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
 		]
 	);
 }
+
+#[tokio::test]
+async fn messaging_commands_use_their_own_rpcs_and_return_the_inner_operation() {
+	let h = Harness::start().await;
+	let mut c = connect_registered(&h.endpoint(), "test", "0", &["messages"])
+		.await
+		.unwrap();
+	let session_id = vec![3; 16];
+	let sent = Command::SendSessionMessage {
+		session_id: session_id.clone(),
+		text: "hello".into(),
+	};
+	assert!(sent.is_messaging());
+	let op = send(&mut c, sent).await.unwrap();
+	assert_eq!(op.state, OperationState::Applied as i32);
+	send(
+		&mut c,
+		Command::PinMessage {
+			session_id,
+			outgoing: true,
+			seq: 4,
+			pinned: true,
+		},
+	)
+	.await
+	.unwrap();
+	assert_eq!(
+		h.log(),
+		[
+			"send_session_message hello",
+			"pin outgoing=true seq=4 pinned=true"
+		]
+	);
+	assert!(!Command::PreviewTone.is_messaging());
+}

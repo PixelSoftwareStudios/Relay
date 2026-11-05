@@ -25,10 +25,17 @@ const PUBLIC_METHODS: [&str; 2] = [
 
 /// RPCs whose bodies carry passwords or invite secrets. The guard logs only the
 /// method path, never any request or response content, for every RPC.
-pub const SENSITIVE_METHODS: [&str; 3] = [
+pub const SENSITIVE_METHODS: [&str; 10] = [
 	"/relay.v1.Engine/CreateChannel",
 	"/relay.v1.Engine/JoinChannel",
 	"/relay.v1.Engine/CreateInvite",
+	"/relay.v1.Engine/SendSessionMessage",
+	"/relay.v1.Engine/SendSessionImage",
+	"/relay.v1.Engine/OfferFile",
+	"/relay.v1.Engine/RespondOffer",
+	"/relay.v1.Engine/GetTranscript",
+	"/relay.v1.Engine/SearchSession",
+	"/relay.v1.Engine/ExportSession",
 ];
 
 /// Configuration shared by all guarded requests.
