@@ -124,7 +124,7 @@ async fn every_other_command_reaches_its_rpc() {
 			"start_call peer=aaaa".to_owned(),
 			"start_call addr=10.0.0.2:7000".into(),
 			"call_controls muted=Some(true) gain=Some(0.5)".into(),
-			"global muted=None mic=Some(2.0)".into(),
+			"global muted=None mic=Some(2.0) ptt_delay=Some(150)".into(),
 			"devices mic spk".into(),
 			"ns rnn".into(),
 			"profile Ada".into(),

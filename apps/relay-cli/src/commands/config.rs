@@ -21,11 +21,15 @@ use crate::client::{self, Control, GlobalControls, Manage};
 /// Largest settings file accepted by `import`.
 const IMPORT_MAX_BYTES: u64 = 1024 * 1024;
 
+/// Longest push-to-talk release delay the engine accepts.
+const MAX_RELEASE_DELAY_MS: u32 = relay_config::prefs::MAX_RELEASE_DELAY_MS;
+
 /// Settings the engine can change while it runs.
-pub const LIVE_KEYS: [&str; 5] = [
+pub const LIVE_KEYS: [&str; 6] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
+	"ptt.release_delay_ms",
 	"privacy.inbound_policy",
 	"privacy.advert_mode",
 ];
@@ -206,6 +210,22 @@ pub async fn set_live<C: Control + Manage>(
 		"audio.playback_gain" => {
 			let controls = GlobalControls {
 				playback_gain: Some(gain(value)?),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
+		"ptt.release_delay_ms" => {
+			let delay = value
+				.parse::<u32>()
+				.ok()
+				.filter(|ms| *ms <= MAX_RELEASE_DELAY_MS)
+				.ok_or_else(|| {
+					CliError::Usage(
+						"release delay must be whole milliseconds from 0 to 2000".into(),
+					)
+				})?;
+			let controls = GlobalControls {
+				ptt_release_delay_ms: Some(delay),
 				..GlobalControls::default()
 			};
 			client.set_global_controls(controls).await?

@@ -193,6 +193,9 @@ async fn live_values_are_validated_before_the_engine_sees_them() {
 	for (key, value) in [
 		("audio.microphone_gain", "loud"),
 		("audio.playback_gain", "5"),
+		("ptt.release_delay_ms", "2001"),
+		("ptt.release_delay_ms", "-5"),
+		("ptt.release_delay_ms", "fast"),
 		("privacy.inbound_policy", "nobody"),
 		("privacy.advert_mode", "shy"),
 	] {
@@ -209,4 +212,28 @@ async fn live_values_are_validated_before_the_engine_sees_them() {
 	.await
 	.unwrap();
 	assert_eq!(c.log[0], "privacy Some(SharedChannelOnly) None");
+}
+
+#[tokio::test]
+async fn release_delay_is_a_live_setting_sent_as_a_global_control() {
+	assert!(LIVE_KEYS.contains(&"ptt.release_delay_ms"));
+	let mut c = FakeControl::new();
+	let mut buffer = Vec::new();
+	let mut out = Out::new(false, &mut buffer);
+	set_live(&mut c, "ptt.release_delay_ms", "350", &mut out)
+		.await
+		.unwrap();
+	set_live(&mut c, "ptt.release_delay_ms", "0", &mut out)
+		.await
+		.unwrap();
+	assert!(
+		c.log[0].contains("ptt_release_delay_ms: Some(350)"),
+		"{:?}",
+		c.log
+	);
+	assert!(
+		c.log[1].contains("ptt_release_delay_ms: Some(0)"),
+		"{:?}",
+		c.log
+	);
 }

@@ -211,6 +211,7 @@ fn devices_and_settings_screens_mark_the_selection() {
 	let settings = screen(&m, 80, 14);
 	assert!(settings.contains("Microphone gain") && settings.contains("x1.00"));
 	assert!(settings.contains("Mute microphone   off"));
+	assert!(settings.contains("PTT release delay 0 ms"), "{settings}");
 }
 
 #[test]

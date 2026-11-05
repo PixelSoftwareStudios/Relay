@@ -10,7 +10,10 @@ use crate::client::{CallAction, PttAction, PttRequest};
 pub const GAIN_STEP: f32 = 0.1;
 /// Highest gain reachable from the UI.
 pub const GAIN_MAX: f32 = 4.0;
-
+/// One `+`/`-` press on the release delay row.
+pub const RELEASE_DELAY_STEP_MS: i64 = 50;
+/// Longest release delay the engine accepts.
+pub const RELEASE_DELAY_MAX_MS: u32 = 2000;
 /// Something the app must ask the engine to do.
 #[derive(Debug, Clone, PartialEq)]
 pub enum TuiCommand {
@@ -25,6 +28,7 @@ pub enum TuiCommand {
 	SetDeafened(bool),
 	MicGain(f32),
 	PlaybackGain(f32),
+	PttReleaseDelay(u32),
 	SelectDevice {
 		direction: DeviceDirection,
 		device_id: String,
@@ -198,11 +202,23 @@ fn toggle_ptt(model: &mut Model) -> Option<TuiCommand> {
 }
 
 fn adjust_gain(model: &Model, delta: f32) -> Option<TuiCommand> {
+	let delay_step = if delta < 0.0 {
+		-RELEASE_DELAY_STEP_MS
+	} else {
+		RELEASE_DELAY_STEP_MS
+	};
 	let settings = model.snapshot.settings.clone().unwrap_or_default();
 	let step = |v: f32| (v + delta).clamp(0.0, GAIN_MAX);
 	match model.selection(Tab::Settings) {
 		0 => Some(TuiCommand::MicGain(step(settings.microphone_gain))),
 		1 => Some(TuiCommand::PlaybackGain(step(settings.playback_gain))),
+		4 => {
+			let current = i64::from(settings.ptt_release_delay_ms);
+			let next = (current + delay_step).clamp(0, i64::from(RELEASE_DELAY_MAX_MS));
+			Some(TuiCommand::PttReleaseDelay(
+				u32::try_from(next).unwrap_or(0),
+			))
+		}
 		_ => None,
 	}
 }

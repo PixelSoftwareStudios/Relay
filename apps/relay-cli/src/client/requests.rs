@@ -22,6 +22,8 @@ pub struct GlobalControls {
 	pub microphone_gain: Option<f32>,
 	/// Playback gain.
 	pub playback_gain: Option<f32>,
+	/// Push-to-talk release delay in milliseconds (0 to 2000).
+	pub ptt_release_delay_ms: Option<u32>,
 }
 
 /// A trust change for one peer.

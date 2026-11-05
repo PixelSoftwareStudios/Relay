@@ -121,7 +121,7 @@ impl Model {
 			Tab::Peers => self.snapshot.peers.len(),
 			Tab::Calls => self.live_calls().len(),
 			Tab::Devices => self.snapshot.devices.len(),
-			Tab::Settings => 4,
+			Tab::Settings => 5,
 		}
 	}
 

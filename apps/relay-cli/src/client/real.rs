@@ -189,6 +189,7 @@ impl Control for RealClient {
 			deafened: controls.deafened,
 			microphone_gain: controls.microphone_gain,
 			playback_gain: controls.playback_gain,
+			ptt_release_delay_ms: controls.ptt_release_delay_ms,
 		})
 		.await
 	}

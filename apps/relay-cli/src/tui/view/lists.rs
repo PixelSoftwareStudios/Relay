@@ -99,6 +99,7 @@ pub fn settings(frame: &mut Frame, area: Rect, model: &Model) {
 		format!("Playback gain     {}   (+/-)", gain(s.playback_gain)),
 		format!("Mute microphone   {}", on_off(s.global_muted)),
 		format!("Deafen playback   {}", on_off(s.global_deafened)),
+		format!("PTT release delay {} ms   (+/-)", s.ptt_release_delay_ms),
 	];
 	let items = rows.into_iter().map(ListItem::new).collect();
 	render_list(

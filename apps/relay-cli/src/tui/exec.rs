@@ -45,6 +45,13 @@ pub async fn execute<C: Control>(client: &mut C, command: TuiCommand) -> Result<
 			};
 			client.set_global_controls(controls).await?
 		}
+		TuiCommand::PttReleaseDelay(ms) => {
+			let controls = GlobalControls {
+				ptt_release_delay_ms: Some(ms),
+				..GlobalControls::default()
+			};
+			client.set_global_controls(controls).await?
+		}
 		TuiCommand::SelectDevice {
 			direction,
 			device_id,

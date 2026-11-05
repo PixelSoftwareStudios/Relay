@@ -267,3 +267,34 @@ fn global_toggles_and_gain_steps() {
 	};
 	assert!((v - 0.9).abs() < 1e-6);
 }
+
+#[test]
+fn release_delay_row_steps_by_50_ms_within_0_to_2000() {
+	let mut m = model();
+	m.tab = Tab::Settings;
+	for _ in 0..4 {
+		m.move_selection(1);
+	}
+	let at = |m: &mut Model, ms: u32| {
+		m.snapshot.settings.as_mut().unwrap().ptt_release_delay_ms = ms;
+	};
+	at(&mut m, 200);
+	assert_eq!(
+		handle_key(&mut m, key('+')),
+		Some(TuiCommand::PttReleaseDelay(250))
+	);
+	assert_eq!(
+		handle_key(&mut m, key('-')),
+		Some(TuiCommand::PttReleaseDelay(150))
+	);
+	at(&mut m, 0);
+	assert_eq!(
+		handle_key(&mut m, key('-')),
+		Some(TuiCommand::PttReleaseDelay(0))
+	);
+	at(&mut m, 2000);
+	assert_eq!(
+		handle_key(&mut m, key('+')),
+		Some(TuiCommand::PttReleaseDelay(2000))
+	);
+}
