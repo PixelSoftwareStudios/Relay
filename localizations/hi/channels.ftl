@@ -1,4 +1,54 @@
 # Relay desktop UI catalog, Hindi (hi), section: Channels, privacy and the connection string.
-# Not translated yet. Add only ids that exist in localizations/en/channels.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Same ids and $variables as localizations/en/channels.ftl. See docs/i18n.md.
+
+channels-heading = चैनल
+channels-note = चैनल तय करता है कि कौन आपको देख सकता है और आपको कॉल कर सकता है। यह आपका माइक्रोफ़ोन कभी चालू नहीं करता।
+channels-none = आप किसी चैनल में नहीं हैं।
+channel-listed = सूचीबद्ध
+channel-password = पासवर्ड
+channel-invite-only = सिर्फ़ आमंत्रण से
+channel-summary = { $role } · { $flags } · { $peers ->
+        [one] { $peers } साझा पीयर
+       *[other] { $peers } साझा पीयर
+    }
+channel-invite = आमंत्रित करें…
+channel-leave-yes = हाँ, छोड़ें
+channel-leave-stay = रहें
+channel-leave = छोड़ें
+invite-uses = { $count ->
+        [one] { $count } उपयोग
+       *[other] { $count } उपयोग
+    }
+invite-create = आमंत्रण बनाएँ
+invite-token-note = आमंत्रण टोकन (गोपनीय)। जिसके पास यह है, वह इसकी अवधि खत्म होने या उपयोग पूरे होने तक जुड़ सकता है:
+channel-create-heading = चैनल बनाएँ
+channel-name-hint = चैनल का नाम
+channel-listed-label = सूचीबद्ध: सदस्यों के डिवाइस पर नाम दिखाएँ
+channel-password-label = जुड़ने के लिए पासवर्ड ज़रूरी करें
+channel-invite-only-label = सिर्फ़ आमंत्रण से
+password-hint = पासवर्ड
+channel-join-heading = चैनल में जुड़ें
+channel-join-note = आमंत्रण टोकन चिपकाएँ, या चैनल आईडी और उसका पासवर्ड डालें।
+channel-join-hint = RLYI1… या चैनल आईडी
+password-optional-hint = पासवर्ड (आमंत्रण के लिए ज़रूरी नहीं)
+privacy-heading = गोपनीयता
+privacy-none = डेमन से जुड़ने के बाद गोपनीयता सेटिंग दिखेंगी।
+privacy-inbound-anyone = नेटवर्क पर कोई भी
+privacy-inbound-shared = सिर्फ़ मेरे चैनलों के सदस्य
+privacy-who-rings = मुझे कौन कॉल कर सकता है
+privacy-advert-visible = आस-पास के डिवाइस को दिखता है
+privacy-advert-hidden = छिपा हुआ (सिर्फ़ कनेक्शन स्ट्रिंग से पहुँचा जा सकता है)
+privacy-visibility = नेटवर्क पर दृश्यता
+invite-ttl-hour = 1 घंटा
+invite-ttl-day = 1 दिन
+invite-ttl-week = 7 दिन
+connection-heading = कनेक्शन
+connection-none = डेमन ने कनेक्शन स्ट्रिंग नहीं बताई।
+connection-share = अपने नेटवर्क के दूसरे कंप्यूटर से कॉल पाने के लिए यह स्ट्रिंग साझा करें:
+connection-addresses = पते: { $addresses } · पोर्ट { $port }
+connection-fingerprint = फ़िंगरप्रिंट { $fingerprint }
+connection-warning = इस स्ट्रिंग वाला कोई भी आपको कॉल कर सकता है; इससे भरोसा या माइक्रोफ़ोन की पहुँच नहीं मिलती।
+connection-qr-too-long = कनेक्शन स्ट्रिंग QR कोड के लिए बहुत लंबी है।
+connection-call = कनेक्शन स्ट्रिंग पर कॉल करें
+channel-hidden = छिपा हुआ

@@ -1,4 +1,56 @@
 # Relay desktop UI catalog, Hindi (hi), section: Calls: phases, transmit status, trust.
-# Not translated yet. Add only ids that exist in localizations/en/calls.ftl,
-# with the same $variables; anything missing falls back to English.
-# See docs/i18n.md.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Same ids and $variables as localizations/en/calls.ftl. See docs/i18n.md.
+
+phase-preparing = तैयारी हो रही है
+phase-ringing = घंटी बज रही है
+phase-incoming = आने वाली कॉल
+phase-connecting = जुड़ रहा है
+phase-connected = जुड़ा हुआ
+phase-interrupted = बाधित
+phase-ending = समाप्त हो रही है
+phase-ended = समाप्त
+phase-failed = विफल
+phase-declined = अस्वीकृत
+phase-cancelled = रद्द
+transmit-listening = सिर्फ़ सुन रहे हैं
+transmit-listening-detail = आपका माइक्रोफ़ोन भेजा नहीं जा रहा।
+transmit-no-consent = माइक्रोफ़ोन की अनुमति नहीं है
+transmit-no-consent-detail = इस कॉल के लिए आवाज़ भेजने की सहमति नहीं दी गई है।
+transmit-releasing = छोड़ा जा रहा है
+transmit-releasing-detail = कुंजी छोड़ दी गई है; वाक्य का अंत कट न जाए, इसलिए माइक्रोफ़ोन थोड़ी देर चालू रहता है।
+transmit-how-open = खुला माइक्रोफ़ोन
+transmit-how-key = पुश-टू-टॉक कुंजी दबी हुई है
+transmitting = आवाज़ भेजी जा रही है
+transmit-live-detail = माइक्रोफ़ोन चालू है ({ $how })।
+transmit-open-armed = खुला माइक तैयार है, आवाज़ नहीं भेजी जा रही
+transmit-open-armed-detail = इंजन अभी ऑडियो नहीं भेज रहा है।
+transmit-ptt-armed = पुश-टू-टॉक तैयार है
+transmit-ptt-armed-detail = इंजन की ओर के इनपुट स्रोत से कुंजी दबाए जाने का इंतज़ार है।
+engine-reason = इंजन का कारण: { $reason }।
+trust-unknown = अज्ञात
+trust-tofu = पहले देखा गया, सत्यापित नहीं
+trust-verified = सत्यापित
+trust-key-changed = कुंजी बदल गई: भरोसा न करें
+trust-blocked = ब्लॉक किया गया
+call-speaking = बोल रहे हैं
+mode-listen = सिर्फ़ सुनें
+mode-ptt = पुश-टू-टॉक
+mode-open = खुला माइक
+calls-heading = कॉल
+calls-none = कोई सक्रिय कॉल नहीं।
+meter-incoming = { $name } से आने वाला स्तर
+call-accept = स्वीकार करें
+call-decline = अस्वीकार करें
+call-accept-note = स्वीकार करने से आपका माइक्रोफ़ोन चालू नहीं होता।
+trust-line = { $trust }।
+trust-line-key = { $trust }। डिवाइस कुंजी { $fingerprint } (डिवाइस पहचानने के लिए, सत्यापन के लिए नहीं)।
+call-end = कॉल समाप्त करें
+call-messages-hover = इस कॉल के लिए टेक्स्ट, चित्र और फ़ाइलें
+call-unmute = अनम्यूट करें (कॉल)
+call-undeafen = सुनना चालू करें (कॉल)
+call-their-volume = उनकी आवाज़ { $value }
+call-your-mic = इस कॉल में आपका माइक्रोफ़ोन
+call-consent = { $name } को मेरा माइक्रोफ़ोन भेजे जाने की अनुमति है
+call-mute = म्यूट करें (कॉल)
+call-deafen = सुनना बंद करें (कॉल)
