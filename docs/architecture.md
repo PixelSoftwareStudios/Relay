@@ -13,6 +13,7 @@ Relay is a LAN-only voice tool. One per-user engine process owns devices, identi
 | `crates/relay-config` | TOML preferences, identity, avatars, diagnostics |
 | `crates/relay-api` | Local gRPC contract and server/client bindings |
 | `crates/relay-engine` | Daemon assembly of the crates above |
+| `crates/relay-client` | Request vocabulary, gRPC wire, endpoint and meter logic shared by the CLI and desktop clients |
 | `apps/relay-cli` | `relay` binary: scriptable CLI, TUI and the `relay daemon` engine host |
 | `apps/relay-desktop` | Optional Tauri/Svelte client (excluded from default workspace builds) |
 | `assets/` | Shared fonts and images |

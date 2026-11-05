@@ -18,7 +18,8 @@ Dependencies come from `[workspace.dependencies]` (a commented GUI section holds
 Logic is kept apart from drawing so it runs window-less in `tests/`.
 - Logic: `engine.rs` (port traits), `relay_link.rs` (adapter over `RelayClient`), `supervisor.rs`, `apply.rs` / `convert.rs` / `model.rs` (wire to view model), `hub.rs`, `controller.rs` (validation), `emitter.rs`, `format.rs` (text, transmit status), `viewmodel.rs` (cards and rows), `mock.rs`.
 - Drawing: `ui/` (`mod.rs` window glue, `sections.rs`, `widgets.rs`), `shell.rs` (tokio to egui glue, `Actions`), `tray.rs`, `main.rs`.
-- The logo `assets/relay-mark.png` (source `relay-mark.svg`) is embedded with `include_bytes!` and used for the window, tray and header. egui's built-in fonts are used; no fonts are bundled.
+- Shared client logic (wire commands, operation settling, endpoint resolution, meter scaling) lives in `crates/relay-client`; see `docs/client.md`.
+- `assets/default-avatar.png` is embedded (`avatar.rs`) and drawn for any profile, local or peer, without an avatar hash; it is never sent over the network. The view model resolves this (`Avatar::Placeholder`). The logo `assets/relay-mark.png` (source `relay-mark.svg`) is embedded with `include_bytes!` and used for the window, tray and header. egui's built-in fonts are used; no fonts are bundled.
 
 ## Threading and repaint
 A tokio runtime (2 worker threads) runs the supervisor, the emitter and every controller call. The UI thread never blocks on the engine: buttons spawn a controller future, and failures land in `Shared` and are shown in a banner. Writers call `egui::Context::request_repaint`; the UI never requests one itself and has no animations, so an idle app is not redrawn.
@@ -50,5 +51,5 @@ A call is shown as transmitting only when the engine reports `effective_transmit
 - No GUI interaction, screenshot or accessibility audit was done; the window, tray and close-to-tray were not observed by a person.
 - `RelayLink` is tested only on the unreachable-daemon path, not against a real engine process.
 - Linux and Windows builds are untried. Windows uses the loopback profile until the `relay-api` named pipe exists.
-- Peer avatars are not shown (the API carries a hash, not bytes); peers show initials.
+- Peer avatars are not shown (the API carries a hash, not bytes); peers show the default avatar.
 - Root `Cargo.lock` additions for eframe are not committed by this work package (the file is being edited by other agents).
