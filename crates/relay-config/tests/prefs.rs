@@ -230,3 +230,28 @@ fn push_to_talk_hotkey_is_a_validated_text_setting() {
 	let long = "x".repeat(65);
 	assert!(flat::set(&prefs, "hotkeys.push_to_talk", &long).is_err());
 }
+
+#[test]
+fn ptt_release_delay_defaults_validates_and_round_trips() {
+	let prefs = Preferences::default();
+	assert_eq!(flat::get(&prefs, "ptt.release_delay_ms").unwrap(), "200");
+	let changed = flat::set(&prefs, "ptt.release_delay_ms", "0").unwrap();
+	assert_eq!(changed.ptt.release_delay_ms, 0);
+	let max = flat::set(&prefs, "ptt.release_delay_ms", "2000").unwrap();
+	assert_eq!(max.ptt.release_delay_ms, 2000);
+	assert!(flat::set(&prefs, "ptt.release_delay_ms", "2001").is_err());
+	assert!(flat::set(&prefs, "ptt.release_delay_ms", "-1").is_err());
+	assert!(flat::set(&prefs, "ptt.release_delay_ms", "fast").is_err());
+	let text = export_toml(&max).unwrap();
+	assert!(text.contains("release_delay_ms = 2000"));
+	assert_eq!(import_toml(&text).unwrap(), max);
+	assert!(import_toml("[ptt]\nrelease_delay_ms = 5000\n").is_err());
+	assert_eq!(
+		import_toml("[audio]\nplayback_gain = 1.0\n")
+			.unwrap()
+			.ptt
+			.release_delay_ms,
+		200,
+		"missing key takes the default"
+	);
+}

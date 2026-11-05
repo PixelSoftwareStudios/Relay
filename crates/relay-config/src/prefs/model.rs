@@ -207,6 +207,26 @@ impl Default for Hotkeys {
 	}
 }
 
+/// Push-to-talk behaviour.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Ptt {
+	/// How long the transmit gate stays open after an ordinary key release, so the
+	/// end of a sentence is not clipped. `0` closes at once.
+	pub release_delay_ms: u32,
+}
+
+/// Longest accepted release delay.
+pub const MAX_RELEASE_DELAY_MS: u32 = 2000;
+
+impl Default for Ptt {
+	fn default() -> Self {
+		Self {
+			release_delay_ms: 200,
+		}
+	}
+}
+
 /// All user preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -219,6 +239,7 @@ pub struct Preferences {
 	pub diagnostics: Diagnostics,
 	pub identity: Identity,
 	pub hotkeys: Hotkeys,
+	pub ptt: Ptt,
 }
 
 impl Default for Preferences {
@@ -232,6 +253,7 @@ impl Default for Preferences {
 			diagnostics: Diagnostics::default(),
 			identity: Identity::default(),
 			hotkeys: Hotkeys::default(),
+			ptt: Ptt::default(),
 		}
 	}
 }
@@ -263,6 +285,9 @@ impl Preferences {
 		let hotkey = &self.hotkeys.push_to_talk;
 		if hotkey.chars().count() > MAX_ACCELERATOR_CHARS || hotkey.chars().any(char::is_control) {
 			return bad("push_to_talk hotkey must be at most 64 printable characters");
+		}
+		if self.ptt.release_delay_ms > MAX_RELEASE_DELAY_MS {
+			return bad("ptt.release_delay_ms must be within 0..=2000");
 		}
 		Ok(())
 	}
