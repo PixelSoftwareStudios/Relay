@@ -1,0 +1,77 @@
+# cargo-deny policy. Run: cargo deny check
+# Relay is Apache-2.0; every dependency must be redistributable alongside it.
+
+[graph]
+targets = [
+	"aarch64-apple-darwin",
+	"x86_64-apple-darwin",
+	"x86_64-pc-windows-msvc",
+	"x86_64-unknown-linux-gnu",
+	"aarch64-unknown-linux-gnu",
+]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Add an entry here only with a written reason and a re-check date.
+# The zbus family is flagged unmaintained as standalone crates (the code moved
+# into zbus 6). It arrives through ashpd, keyring's Secret Service store and
+# eframe's accessibility stack, none of which we control. No vulnerability is
+# reported; revisit when those crates move to zbus 6.
+ignore = [
+	{ id = "RUSTSEC-2026-0370", reason = "zvariant unmaintained, transitive via zbus 5; no fix available" },
+	{ id = "RUSTSEC-2026-0371", reason = "zbus_names unmaintained, transitive via zbus 5; no fix available" },
+	{ id = "RUSTSEC-2026-0372", reason = "zvariant_derive unmaintained, transitive via zbus 5; no fix available" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+# Permissive licenses only. Strong copyleft (GPL, AGPL, LGPL-only) is not listed.
+# Dual-licensed crates pass when at least one option is listed.
+allow = [
+	"Apache-2.0",
+	"Apache-2.0 WITH LLVM-exception",
+	"MIT",
+	"MIT-0",
+	"BSD-2-Clause",
+	"BSD-3-Clause",
+	"ISC",
+	"Zlib",
+	"0BSD",
+	"CC0-1.0",
+	"BSL-1.0",
+	"Unicode-3.0",
+	"Unlicense",
+]
+
+# Narrow, reviewed exceptions: not allowed anywhere else.
+exceptions = [
+	# File-level copyleft; used unmodified through `directories`.
+	{ allow = ["MPL-2.0"], crate = "option-ext" },
+	# Bundled fonts in the desktop client; attribution and font-name terms apply.
+	{ allow = ["OFL-1.1", "Ubuntu-font-1.0"], crate = "epaint_default_fonts" },
+]
+
+[bans]
+multiple-versions = "warn"
+# Workspace crates depend on each other by path without a version and are not
+# marked `publish = false`, so cargo-deny sees those as wildcards. Registry
+# dependencies are all versioned in [workspace.dependencies]. Switch to "deny"
+# once the crates are marked unpublishable.
+wildcards = "allow"
+highlight = "all"
+# Plain-text and non-RustCrypto TLS stacks are not part of the design: the
+# transport is Noise only. Fail loudly if one is pulled in.
+deny = [
+	{ crate = "openssl" },
+	{ crate = "openssl-sys" },
+	{ crate = "native-tls" },
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []
