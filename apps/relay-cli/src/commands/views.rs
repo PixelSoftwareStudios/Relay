@@ -6,6 +6,11 @@ use relay_api::pb::{Call, Device, Peer, Settings, Snapshot};
 use serde::Serialize;
 
 use super::names;
+use super::table::{self, Layout};
+
+fn short(id: &str) -> String {
+	id.chars().take(8).collect()
+}
 
 /// One discovered peer.
 #[derive(Debug, Serialize)]
@@ -40,28 +45,29 @@ impl PeerList {
 	}
 }
 
+impl PeerList {
+	/// Text table, or the empty-result message.
+	pub fn render(&self, layout: Layout) -> String {
+		if self.0.is_empty() {
+			return "no peers found".into();
+		}
+		let mut t = table::with_header(layout, &["ID", "NAME", "TRUST", "ONLINE", "ADDRESSES"]);
+		for p in &self.0 {
+			t.add_row([
+				short(&p.id),
+				p.name.clone(),
+				p.trust.to_owned(),
+				if p.reachable { "yes" } else { "no" }.to_owned(),
+				p.addresses.join(", "),
+			]);
+		}
+		table::render(t)
+	}
+}
+
 impl Display for PeerList {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		if self.0.is_empty() {
-			return write!(f, "no peers found");
-		}
-		writeln!(
-			f,
-			"{:<10} {:<24} {:<12} {:<6} ADDRESSES",
-			"ID", "NAME", "TRUST", "ONLINE"
-		)?;
-		for p in &self.0 {
-			writeln!(
-				f,
-				"{:<10} {:<24} {:<12} {:<6} {}",
-				p.id.chars().take(8).collect::<String>(),
-				p.name,
-				p.trust,
-				if p.reachable { "yes" } else { "no" },
-				p.addresses.join(", ")
-			)?;
-		}
-		Ok(())
+		f.write_str(&self.render(Layout::detect()))
 	}
 }
 
@@ -105,27 +111,33 @@ impl CallView {
 	}
 }
 
-impl Display for CallView {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		let peer = self.peer_name.as_deref().unwrap_or(&self.peer_id);
-		write!(
-			f,
-			"{} {} [{}] mode={} mic={}",
-			self.id.chars().take(8).collect::<String>(),
-			peer,
-			self.state,
-			self.mode,
+impl CallView {
+	fn row(&self) -> [String; 6] {
+		[
+			short(&self.id),
+			self.peer_name
+				.as_deref()
+				.unwrap_or(&self.peer_id)
+				.to_owned(),
+			self.state.to_owned(),
+			self.mode.to_owned(),
 			if self.transmitting {
 				"transmitting"
 			} else {
 				"closed"
-			},
-		)?;
-		if let Some(reason) = &self.blocked_reason {
-			write!(f, " (blocked: {reason})")?;
-		}
-		Ok(())
+			}
+			.to_owned(),
+			self.blocked_reason.clone().unwrap_or_default(),
+		]
 	}
+}
+
+fn call_table(calls: &[CallView], layout: Layout) -> String {
+	let mut t = table::with_header(layout, &["CALL", "PEER", "STATE", "MODE", "MIC", "BLOCKED"]);
+	for call in calls {
+		t.add_row(call.row());
+	}
+	table::render(t)
 }
 
 /// One audio device, marked when it is the selected one.
@@ -170,24 +182,36 @@ fn device_view(d: &Device, settings: &Settings) -> DeviceView {
 	}
 }
 
+impl DeviceList {
+	/// Text table, or the empty-result message.
+	pub fn render(&self, layout: Layout) -> String {
+		if self.0.is_empty() {
+			return "no audio devices reported".into();
+		}
+		let mut t = table::with_header(layout, &["", "DIRECTION", "NAME", "ID", "NOTES"]);
+		for d in &self.0 {
+			let mut notes = Vec::new();
+			if d.system_default {
+				notes.push("default");
+			}
+			if !d.available {
+				notes.push("unavailable");
+			}
+			t.add_row([
+				if d.selected { "*" } else { "" }.to_owned(),
+				d.direction.to_owned(),
+				d.name.clone(),
+				d.id.clone(),
+				notes.join(", "),
+			]);
+		}
+		table::render(t)
+	}
+}
+
 impl Display for DeviceList {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		if self.0.is_empty() {
-			return write!(f, "no audio devices reported");
-		}
-		for d in &self.0 {
-			writeln!(
-				f,
-				"{} {:<7} {}  ({}){}{}",
-				if d.selected { "*" } else { " " },
-				d.direction,
-				d.name,
-				d.id,
-				if d.system_default { " default" } else { "" },
-				if d.available { "" } else { " unavailable" },
-			)?;
-		}
-		Ok(())
+		f.write_str(&self.render(Layout::detect()))
 	}
 }
 
@@ -204,7 +228,7 @@ impl Display for Outcome {
 	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
 		write!(f, "{}", self.state)?;
 		if let Some(call) = &self.call_id {
-			write!(f, " call {}", call.chars().take(8).collect::<String>())?;
+			write!(f, " call {}", short(call))?;
 		}
 		Ok(())
 	}
@@ -264,37 +288,47 @@ fn or_dash(s: &str) -> &str {
 	if s.is_empty() { "-" } else { s }
 }
 
-impl Display for StatusView {
-	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-		writeln!(f, "engine   {} (api {})", self.engine_version, self.api)?;
-		writeln!(
-			f,
-			"peers    {} online of {}",
-			self.peers_online, self.peers_total
-		)?;
-		writeln!(f, "input    {}", or_dash(&self.input_device))?;
-		writeln!(f, "output   {}", or_dash(&self.output_device))?;
-		writeln!(f, "ns       {}", or_dash(&self.noise_suppression))?;
-		writeln!(
-			f,
-			"audio    mic x{:.2}{} playback x{:.2}{}",
+impl StatusView {
+	/// Settings as `label  value` rows, then the live calls table.
+	pub fn render(&self, layout: Layout) -> String {
+		let audio = format!(
+			"mic x{:.2}{} playback x{:.2}{}",
 			self.microphone_gain,
 			if self.muted { " (muted)" } else { "" },
 			self.playback_gain,
 			if self.deafened { " (deafened)" } else { "" },
-		)?;
+		);
+		let mut rows = vec![
+			(
+				"engine",
+				format!("{} (api {})", self.engine_version, self.api),
+			),
+			(
+				"peers",
+				format!("{} online of {}", self.peers_online, self.peers_total),
+			),
+			("input", or_dash(&self.input_device).to_owned()),
+			("output", or_dash(&self.output_device).to_owned()),
+			("ns", or_dash(&self.noise_suppression).to_owned()),
+			("audio", audio),
+		];
 		if self.calls.is_empty() {
-			write!(f, "calls    none")?;
-		}
-		for (i, call) in self.calls.iter().enumerate() {
-			if i > 0 {
-				writeln!(f)?;
-			}
-			write!(f, "{} {call}", if i == 0 { "calls   " } else { "        " })?;
+			rows.push(("calls", "none".into()));
 		}
 		for w in &self.warnings {
-			write!(f, "\nwarning  {w}")?;
+			rows.push(("warning", w.clone()));
 		}
-		Ok(())
+		let mut text = table::render(table::key_values(layout, &rows));
+		if !self.calls.is_empty() {
+			text.push_str("\n\n");
+			text.push_str(&call_table(&self.calls, layout));
+		}
+		text
+	}
+}
+
+impl Display for StatusView {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.write_str(&self.render(Layout::detect()))
 	}
 }

@@ -112,7 +112,8 @@ async fn mute_deafen_and_gain_target_global_or_call() {
 async fn devices_select_resolves_names_and_keeps_the_other_side() {
 	let mut c = FakeControl::new();
 	let list = run_with(&mut c, &["devices", "list"], false).await.unwrap();
-	assert!(list.contains("USB Mic") && list.contains("* input"));
+	let usb = list.lines().find(|l| l.contains("USB Mic")).unwrap();
+	assert!(usb.split_whitespace().any(|w| w == "input"), "{list}");
 	run_with(&mut c, &["devices", "select", "--input", "usb"], false)
 		.await
 		.unwrap();

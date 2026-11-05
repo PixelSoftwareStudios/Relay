@@ -9,6 +9,7 @@ pub mod names;
 mod output;
 mod query;
 pub mod resolve;
+pub mod table;
 pub mod trust;
 pub mod views;
 
@@ -16,7 +17,6 @@ use std::io::Write;
 
 use relay_api::pb::{Operation, OperationState};
 
-pub use daemon::{DaemonOptions, run_engine_host};
 pub use output::Out;
 
 use crate::cli::{Cli, CliError, Command, GlobalArgs};
