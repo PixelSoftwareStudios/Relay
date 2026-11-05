@@ -71,7 +71,13 @@ fn main() -> eframe::Result {
 				runtime.spawn(mock::run(hub.clone(), slot));
 			} else {
 				let engine = Arc::new(RelayLink::new(resolve_endpoint));
-				runtime.spawn(supervisor::supervise(engine, hub, slot));
+				runtime.spawn(supervisor::supervise(
+					engine,
+					hub,
+					slot,
+					actions.shell.clone(),
+					shared.autostart.clone(),
+				));
 			}
 			let tray = tray::build(&actions);
 			host.set_tray(tray.is_some());
