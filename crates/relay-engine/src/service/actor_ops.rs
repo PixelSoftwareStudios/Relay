@@ -145,11 +145,12 @@ impl Actor {
 		Ok(())
 	}
 
-	fn advertise_profile(&self) {
+	fn advertise_profile(&mut self) {
 		self.ports.peers.profile_changed(&LocalProfile {
 			display_name: self.directory.aux.display_name.clone(),
 			avatar: self.directory.aux.avatar,
 		});
+		self.publish_settings();
 	}
 }
 

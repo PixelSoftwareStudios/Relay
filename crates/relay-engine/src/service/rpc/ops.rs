@@ -135,7 +135,13 @@ pub(super) async fn profile(
 	{
 		return Err(invalid("display name must be 1 to 64 printable characters").into());
 	}
-	service_op(service, mutation, body, ServiceOp::Profile(name.to_owned())).await
+	service_op(
+		service,
+		mutation,
+		body,
+		ServiceOp::Profile(relay_net::discovery::sanitize_display_name(name)),
+	)
+	.await
 }
 
 pub(super) async fn avatar(

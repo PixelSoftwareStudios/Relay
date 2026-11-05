@@ -256,3 +256,75 @@ async fn idle_clients_are_detached_and_release_their_calls() {
 		.await
 		.expect("free to acquire");
 }
+
+fn png(width: u32, height: u32) -> Vec<u8> {
+	let mut out = std::io::Cursor::new(Vec::new());
+	image::RgbaImage::from_pixel(width, height, image::Rgba([200, 30, 30, 255]))
+		.write_to(&mut out, image::ImageFormat::Png)
+		.expect("encode");
+	out.into_inner()
+}
+
+#[tokio::test]
+async fn name_defaults_to_the_hostname_and_the_avatar_is_normalized() {
+	let dir = tempfile::Builder::new()
+		.prefix("rly")
+		.tempdir_in("/tmp")
+		.expect("dir");
+	let daemon = DaemonHandle::start(options(dir.path(), "e.sock"))
+		.await
+		.expect("start");
+	let mut cli = RelayClient::connect(&Endpoint::Unix(daemon.socket_path().to_path_buf()))
+		.await
+		.expect("connect");
+	cli.register("relay-cli", "test", &[])
+		.await
+		.expect("register");
+
+	let host = gethostname::gethostname().to_string_lossy().into_owned();
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert_eq!(
+		settings.display_name,
+		relay_net::discovery::sanitize_display_name(&host)
+	);
+	assert!(settings.avatar_sha256.is_empty());
+
+	let request = SetProfileRequest {
+		context: Some(ctx(&cli, 1)),
+		display_name: "Hall <b>way".to_owned(),
+	};
+	assert_applied(
+		&cli.raw()
+			.set_profile(request)
+			.await
+			.expect("profile")
+			.into_inner(),
+	);
+	// Oversized input is cropped and re-encoded to the canonical 128x128 form.
+	let request = UploadAvatarRequest {
+		context: Some(ctx(&cli, 2)),
+		encoded_image: png(300, 200),
+		declared_media_type: "image/png".to_owned(),
+	};
+	assert_applied(
+		&cli.raw()
+			.upload_avatar(request)
+			.await
+			.expect("avatar")
+			.into_inner(),
+	);
+	let settings = cli
+		.snapshot()
+		.await
+		.expect("snapshot")
+		.settings
+		.expect("settings");
+	assert_eq!(settings.display_name, "Hall bway");
+	assert_eq!(settings.avatar_sha256.len(), 32);
+	daemon.shutdown().await.expect("shutdown");
+}

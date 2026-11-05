@@ -3,7 +3,8 @@
 use std::sync::{Mutex, MutexGuard};
 
 use relay_config::avatar::{AvatarCache, process_avatar};
-use relay_config::prefs::{DeviceSelection, NoiseBackend, PreferenceStore, Preferences};
+use relay_config::prefs::{DeviceSelection, NoiseBackend, PreferenceStore, Preferences, Profile};
+use relay_net::discovery::sanitize_display_name;
 
 use crate::service::ports::{PortError, SettingsChange, SettingsStore, StoredSettings};
 
@@ -35,6 +36,16 @@ fn parse_backend(name: &str) -> Result<NoiseBackend, PortError> {
 	}
 }
 
+/// The name shown when the user never chose one: the computer's hostname.
+fn effective_name(stored: &str) -> String {
+	let unset = stored.trim().is_empty() || stored == Profile::default().display_name;
+	if !unset {
+		return sanitize_display_name(stored);
+	}
+	let host = gethostname::gethostname().to_string_lossy().into_owned();
+	sanitize_display_name(&host)
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 	mutex.lock().unwrap_or_else(|e| e.into_inner())
 }
@@ -60,7 +71,7 @@ impl SettingsStore for FileSettings {
 			DeviceSelection::SystemDefault => String::new(),
 		};
 		StoredSettings {
-			display_name: prefs.profile.display_name.clone(),
+			display_name: effective_name(&prefs.profile.display_name),
 			input_device: explicit(audio.input_selection, &audio.preferred_input_id),
 			output_device: explicit(audio.output_selection, &audio.preferred_output_id),
 			noise_backend: backend_name(audio.noise_backend).to_owned(),

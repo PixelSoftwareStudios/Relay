@@ -127,6 +127,10 @@ impl ServiceBuilder {
 			ports.devices.devices(),
 			config.warnings,
 		);
+		ports.peers.profile_changed(&super::ports::LocalProfile {
+			display_name: directory.aux.display_name.clone(),
+			avatar: directory.aux.avatar,
+		});
 		let ledger = Ledger::new(
 			config.limits.operation_cache_per_client,
 			config.limits.operation_cache_global,

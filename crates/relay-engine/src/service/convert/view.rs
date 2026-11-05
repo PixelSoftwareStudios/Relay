@@ -145,6 +145,8 @@ pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
 		global_deafened: global.deafened,
 		microphone_gain: aux.microphone_gain,
 		playback_gain: gain_to_f32(global.output_gain),
+		display_name: aux.display_name.clone(),
+		avatar_sha256: aux.avatar.map(|h| h.to_vec()).unwrap_or_default(),
 	}
 }
 

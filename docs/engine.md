@@ -74,6 +74,17 @@ notices from `relay-config` appear as `Snapshot.warnings`. Adapters are built by
 first (detaching every client and stopping every live call), then the server (2 s drain),
 then removes the socket.
 
+## Profile
+
+The advertised display name is the stored preference, or the computer's hostname (via
+`gethostname`) when the preference is empty or still the factory default; either way it passes
+`relay_net::discovery::sanitize_display_name`. `SetProfile` sanitizes and persists through
+`relay-config`. `UploadAvatar` goes through `relay_config::avatar::process_avatar`
+(size/dimension-capped decode, centre crop, 128x128 PNG re-encode, blake3 hash) and the avatar
+cache. `Settings.display_name` and `Settings.avatar_sha256` carry both in snapshots and
+settings events. The peers adapter learns the profile through `PeerControl::profile_changed`
+(called at start-up and on every change) and advertises/transfers it.
+
 ## Not done / owned elsewhere
 
 - `WatchTelemetry` is `UNIMPLEMENTED` (media owns telemetry).

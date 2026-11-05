@@ -25,9 +25,11 @@ arc-swap.workspace = true
 blake3.workspace = true
 hex.workspace = true
 prost.workspace = true
+gethostname.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+image.workspace = true
 
 [lints]
 workspace = true

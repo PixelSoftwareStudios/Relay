@@ -173,6 +173,8 @@ message Settings {
   bool global_deafened = 6;
   float microphone_gain = 7;
   float playback_gain = 8;
+  string display_name = 9; // advertised local name
+  bytes avatar_sha256 = 10; // empty when no avatar is set
 }
 message Snapshot {
   bytes engine_incarnation = 1;
