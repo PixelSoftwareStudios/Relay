@@ -279,7 +279,7 @@ Top five, in the order I would fix them:
   or require the id (join code) rather than the name.
 
 - **Resolution** (engine, `channels/advert.rs`, test `channels_hardening.rs`): a listed name binds to the first id seen; a different id for the same name marks the name ambiguous and joining by that name is refused (`ChannelHub::listed_id` is `None`), so the id is required. A first-seen attacker advertisement can still make a name ambiguous (a denial, not a misdirected join).
-### F-12 Low, CONFIRMED: attempt limiter lets pinned attackers lock legitimate joiners out; scales with identities
+### F-12 Low, CONFIRMED (mitigated): attempt limiter lets pinned attackers lock legitimate joiners out; scales with identities
 
 - Where: `crates/relay-net/src/channel/limiter.rs:110-131`, `join.rs:299-300` (charged at
   `begin`), limits in `limits.rs:49-61`.
@@ -296,7 +296,7 @@ Top five, in the order I would fix them:
   verified fingerprint.
 
 
-- **Resolution** (partly, docs b0e4484): documented that only pinned links reach admission and that the budget is a deliberate DoS trade-off. Not charging before the PAKE message is well-formed is already true (`wire::validate` runs first); finer charging by prior grant is not done.
+- **Resolution** (relay-net, `channel/limiter.rs`, tests `channel_limiter_lockout.rs`, `channel_join.rs`): documented that only pinned links reach admission (docs b0e4484); the PAKE message is validated before any charge. While the channel budget cools down, a reserved lane (`RESERVE_FAILURES` = 6 per cool-down) admits only identities with a clean record: no failure on any channel in the last hour and no entry for the pair. An attacker identity can spend the lane once per hour, so a few identities cannot drain it. Re-running the 24 h simulation with a manual clock (attackers retry whenever allowed, a fresh joiner probes every minute): locked-out probes drop from 1.0/3.1/29.2/47.9/84.4 % (1/2/4/8/16 identities) to 0.0/0.0/0.0/0.0/2.1 %. Residual: 64 pinned identities still lock the channel out 95.8 % of the time. Guessing resistance is unchanged in kind: per-pair lockout, per-peer budget and Argon2 are untouched, the channel budget (20 failures, then 15 min) is untouched, and the lane adds at most 6 attempts per 15 min cool-down (asserted against a ceiling in `guessing_ceiling_stays_bounded`; 24 h with 64 attackers: 2472 attempts). A joiner who already failed once is not eligible for the lane.
 ### F-13 Low, CONFIRMED: proven-membership state outlives certificate expiry
 
 - Where: `crates/relay-engine/src/channels/state.rs:67` (`scopes`),

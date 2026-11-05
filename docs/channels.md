@@ -156,6 +156,12 @@ Per admitter, sans-IO (`AttemptLimiter`, injected monotonic clock):
   bypassable because a LAN attacker can mint unlimited Noise identities; the channel cap is the
   real defence and is a deliberate DoS trade-off (an attacker can lock out legitimate joiners);
 - per peer across channels: 30 failures per hour;
+- reserved lane (F-12): while the channel budget cools down, an identity with no failure on any
+  channel in the last hour and no entry for the pair may still attempt, against a separate
+  6-attempt budget per cool-down. Each attacker identity can use it once per hour, so 16 pinned
+  attackers lock a fresh joiner out about 2 % of the time instead of 84 %; the guessing ceiling
+  grows by at most 6 attempts per cool-down, and per-pair lockout, per-peer budget and Argon2
+  are unchanged;
 - every attempt is **charged when the exchange starts** and refunded when it completes, because a
   guesser who sees a bad confirmation just stops and would otherwise never be counted. Open
   channels (public credential) are not charged;
@@ -265,7 +271,7 @@ only for `mono()`; tests move both with `advance`.
   independent human review gate. The epoch of a link is chosen by the dialler alone (F-23), so
   nothing here treats it as freshness; freshness comes from the Noise ephemerals and the PAKE.
 - Only trusted (pinned) links can reach admission, which bounds who can burn the channel-wide
-  attempt budget; the budget is still a deliberate denial-of-service trade-off (F-12).
+  attempt budget. While that budget cools down, a reserved lane (6 attempts per cool-down) admits identities with a clean record, so a few pinned attackers no longer lock out a fresh joiner; roughly 64 pinned identities still can (F-12).
 - The independent security review gate is **open**; `spake2` is unaudited; Ed25519 and Argon2
   come from maintained crates but the composition has not been reviewed.
 - Admin enrollment wire flow (see D2) and group-wide revocation guarantees are not implemented.
