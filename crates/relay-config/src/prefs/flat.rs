@@ -95,6 +95,23 @@ pub fn keys() -> Vec<String> {
 		.unwrap_or_default()
 }
 
+/// Every settable key with its value as [`get`] shows it (strings unquoted), sorted. This is
+/// what an export holds, and [`set`] accepts each entry back.
+pub fn all(prefs: &Preferences) -> Result<BTreeMap<String, String>> {
+	let mut out = BTreeMap::new();
+	for (key, value) in flatten(prefs)? {
+		if key == VERSION_KEY {
+			continue;
+		}
+		let shown = match parse_value(&value)? {
+			Value::String(s) => s,
+			_ => value,
+		};
+		out.insert(key, shown);
+	}
+	Ok(out)
+}
+
 /// Reads one setting as its TOML-encoded value (strings come back unquoted).
 pub fn get(prefs: &Preferences, key: &str) -> Result<String> {
 	let value = flatten(prefs)?

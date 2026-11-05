@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 
 use relay_core::{AudioGeneration, CallId, PeerId, PeerMessage, ReceiveMix, SessionId};
 
+use super::ports::{AdvertMode, InboundPolicy};
 use super::ports::{
 	ConnectionDetails, DeviceControl, DeviceInfo, ForgottenPeer, LocalProfile, MediaControl,
 	MediaTelemetry, PeerControl, PeerInfo, PeerSelector, PortError, Ports, SettingsChange,
@@ -236,6 +237,37 @@ impl DeviceControl for FakeDevices {
 pub struct MemorySettings {
 	stored: Mutex<StoredSettings>,
 	avatars: Mutex<Vec<([u8; 32], Vec<u8>)>>,
+	prefs: Mutex<relay_config::prefs::Preferences>,
+}
+
+/// Copies one saved preference into the typed view the engine reads live.
+fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences, key: &str) {
+	use relay_config::prefs as p;
+	let (audio, ring) = (&prefs.audio, &mut stored.ring);
+	match key {
+		"profile.display_name" => stored.display_name.clone_from(&prefs.profile.display_name),
+		"audio.microphone_gain" => stored.microphone_gain = audio.microphone_gain,
+		"audio.playback_gain" => stored.playback_gain = audio.playback_gain,
+		"ptt.release_delay_ms" => stored.ptt_release_delay_ms = prefs.ptt.release_delay_ms,
+		"clients.autostart_daemon" => stored.autostart_daemon = prefs.clients.autostart_daemon,
+		"audio.ringtone_enabled" => ring.ringtone_enabled = audio.ringtone_enabled,
+		"audio.ringtone_volume" => ring.ringtone_volume = audio.ringtone_volume,
+		"audio.ringback_enabled" => ring.ringback_enabled = audio.ringback_enabled,
+		"audio.call_sounds_enabled" => ring.call_sounds_enabled = audio.call_sounds_enabled,
+		"privacy.inbound_policy" => {
+			stored.inbound_policy = match prefs.privacy.inbound_policy {
+				p::InboundPolicy::Anyone => InboundPolicy::Anyone,
+				p::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+			}
+		}
+		"privacy.advert_mode" => {
+			stored.advert_mode = match prefs.privacy.advert_mode {
+				p::AdvertMode::Visible => AdvertMode::Visible,
+				p::AdvertMode::Hidden => AdvertMode::Hidden,
+			}
+		}
+		_ => {}
+	}
 }
 
 impl Default for MemorySettings {
@@ -249,6 +281,12 @@ impl Default for MemorySettings {
 				..StoredSettings::default()
 			}),
 			avatars: Mutex::default(),
+			prefs: Mutex::new(relay_config::prefs::Preferences {
+				profile: relay_config::prefs::Profile {
+					display_name: "Test device".to_owned(),
+				},
+				..Default::default()
+			}),
 		}
 	}
 }
@@ -284,6 +322,25 @@ impl SettingsStore for MemorySettings {
 		lock(&self.stored).avatar = Some(hash);
 		lock(&self.avatars).push((hash, encoded.to_vec()));
 		Ok(hash)
+	}
+	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
+		let mut prefs = lock(&self.prefs);
+		let mut answers = Vec::with_capacity(entries.len());
+		for (key, text) in entries {
+			match relay_config::prefs::flat::set(&prefs, key, text) {
+				Ok(next) => {
+					*prefs = next;
+					mirror(&mut lock(&self.stored), &prefs, key);
+					answers.push(None);
+				}
+				Err(error) => answers.push(Some(error.to_string())),
+			}
+		}
+		Ok(answers)
+	}
+	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
+		relay_config::prefs::flat::all(&lock(&self.prefs))
+			.map_err(|e| PortError::Unavailable(e.to_string()))
 	}
 	fn clear_avatar(&self) -> Result<(), PortError> {
 		lock(&self.stored).avatar = None;

@@ -3,6 +3,7 @@
 
 mod actor;
 mod actor_ops;
+mod actor_settings;
 mod clients;
 mod convert;
 mod directory;
@@ -17,6 +18,7 @@ pub mod ports;
 pub mod presence;
 mod rpc;
 mod runtime;
+mod settings_keys;
 pub mod telemetry;
 mod tones;
 
@@ -27,9 +29,11 @@ pub use handle::{ControlHandle, ServiceOp};
 pub use ids::{CounterEntropy, Entropy, Ids, OsEntropy};
 pub use ports::{
 	AdvertMode, CallMeter, ConnectionDetails, DeviceControl, DeviceDirection, DeviceInfo,
-	ForgottenPeer, InboundPolicy, PeerSelector, LocalProfile, MediaControl, MediaTelemetry, PeerControl, PeerInfo, PeerTrust,
-	PortError, Ports, SettingsChange, SettingsStore, StoredSettings, TrustRequest,
+	ForgottenPeer, InboundPolicy, LocalProfile, MediaControl, MediaTelemetry, PeerControl,
+	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, SettingsChange, SettingsStore,
+	StoredSettings, TrustRequest,
 };
 pub use rpc::EngineService;
+pub use settings_keys::{KeyOutcome, KeyResult, is_live, is_messaging, is_sensitive};
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};
 pub use tones::{RingPrefs, RingUpdate, ToneCommand, ToneDriver, ToneInput};

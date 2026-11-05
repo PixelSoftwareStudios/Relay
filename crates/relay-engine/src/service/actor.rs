@@ -279,6 +279,9 @@ impl Actor {
 			} => {
 				let _ = reply.send(self.service_op(client, operation, print, op));
 			}
+			Msg::Settings { entries, reply } => {
+				let _ = reply.send(self.settings(&entries));
+			}
 			Msg::Snapshot(reply) => {
 				let _ = reply.send(self.snapshot());
 			}

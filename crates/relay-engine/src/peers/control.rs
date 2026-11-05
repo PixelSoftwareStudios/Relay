@@ -11,8 +11,8 @@ use tokio::sync::watch;
 use super::handle::AdvertSpec;
 use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ports::{
-	ConnectionDetails, ForgottenPeer, LocalProfile as PortProfile, PeerControl, PeerInfo, PeerSelector,
-	PeerTrust, PortError, TrustRequest,
+	ConnectionDetails, ForgottenPeer, LocalProfile as PortProfile, PeerControl, PeerInfo,
+	PeerSelector, PeerTrust, PortError, TrustRequest,
 };
 use relay_net::connect::ConnectionString;
 

@@ -11,6 +11,7 @@ mod messages_watch;
 mod ops;
 mod privacy;
 mod session;
+mod settings;
 mod telemetry;
 mod watch;
 
@@ -411,16 +412,16 @@ impl Engine for EngineService {
 
 	async fn get_settings(
 		&self,
-		_: Request<ClientContext>,
+		request: Request<ClientContext>,
 	) -> Result<Response<SettingsDump>, Status> {
-		Err(Status::unimplemented("GetSettings"))
+		settings::get(self, request).await
 	}
 
 	async fn set_settings(
 		&self,
-		_: Request<SetSettingsRequest>,
+		request: Request<SetSettingsRequest>,
 	) -> Result<Response<SetSettingsResponse>, Status> {
-		Err(Status::unimplemented("SetSettings"))
+		settings::set(self, request).await
 	}
 
 	async fn create_channel(

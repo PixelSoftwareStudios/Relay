@@ -41,6 +41,22 @@ Each mutation carries a 16-byte `operation_id`. Same id + identical request retu
 - Trust, forgetting: `Peer.fingerprint_short` is the stored short form of the key digest (`A1B2-C3D4-E5F6-0718-293A`, 80 bits; a hint to tell devices apart, never a verification string: verification compares the full digest). `ForgetPeer(peer_id | query)` (or `DecidePeerTrust` with `requested_trust = UNKNOWN`, whose `expected_public_key_sha256` may be left empty) removes the stored trust decision, cuts the link and stops reconnecting. `query` is a hex fingerprint prefix (at least 8 digits; spaces, `-` and `:` and case are ignored, so the short form or its first groups work) or an exact, case-insensitive display name; a fingerprint is tried before a name. The match must be unambiguous. Failed operation codes: `NOT_FOUND` (nothing stored matches; an empty or oversized query is `INVALID_ARGUMENT`) and `PEER_AMBIGUOUS` (the message lists the candidates with their short fingerprints; nothing changes). Event: a `Removed{kind: "peer"}` state event with the peer id. A device that still trusts us and calls again is treated as an unknown peer (`TRUST_REQUIRED`). Needs `call-control`. `RelayClient::forget_peer(peer_id, query)` / `relay_client::Command::ForgetPeer`.
 - `GetConnectionInfo` returns eligible LAN addresses, listen port, local fingerprint and an opaque `connection_string` filled by the engine. `StartCallRequest.target` also accepts `manual_connection_string`.
 
+## Settings by key
+
+`GetSettings(ClientContext)` (needs `observe`) answers every preference as flat `section.key` text in `SettingsDump.values`, the same vocabulary as `relay config get|set|export` (`relay_config::prefs::flat`): strings unquoted, booleans `true`/`false`, numbers plain. `config_version` is not included. `RelayClient::get_settings()` returns a sorted map.
+
+`SetSettings(MutationContext, map<string,string>)` (needs `call-control`) changes any of them while the daemon runs. Values are parsed like `relay config set`. At most 64 entries (keys up to 128 bytes, values up to 1 KiB); an empty or oversized request is `INVALID_ARGUMENT`. The answer is a `SetSettingsResponse` with an `operation` (always `APPLIED`) and one `SettingResult` per key, sorted by key:
+
+| Outcome | Meaning |
+|---|---|
+| `APPLIED_LIVE` | saved and in effect now |
+| `SAVED_NEEDS_RESTART` | saved; the daemon reads it at its next start (`reason` says so) |
+| `REJECTED` | not saved; `reason` is the validation error (unknown key, bad value, out of range) |
+
+Valid keys are saved together even when others in the request are rejected. Live: `profile.display_name`, `audio.microphone_gain`, `audio.playback_gain`, `audio.ringtone_enabled`, `audio.ringtone_volume`, `audio.ringback_enabled`, `audio.call_sounds_enabled`, `privacy.inbound_policy`, `privacy.advert_mode`, `ptt.release_delay_ms`, `clients.autostart_daemon`, `messages.enabled`, `messages.max_offer_size_mib`, `messages.transfer_rate_limit_mbps`. Saved for the next start: `audio.input_*`, `audio.output_*` and `audio.noise_backend` (use `SelectDevices` / `SetNoiseSuppression` to change devices live), `network.*`, `hotkeys.*` (read by `relay hotkey` and the desktop app when they start), `diagnostics.*`, the other `privacy.*`. A live key whose follow-up fails (for example the media path refusing a microphone gain) is reported as `SAVED_NEEDS_RESTART`.
+
+Security-sensitive keys cannot be changed over the API: `identity.*` (where key material lives), `diagnostics.record_raw_audio`, `network.allow_wan` and `network.allow_overlay_manual`. A request that would change one is refused whole with `PERMISSION_DENIED` (`SETTING_RESTRICTED: <key>`) and nothing is applied; sending such a key with its current value is a no-op, so the output of `GetSettings` can be fed back in. Those keys change only with the daemon stopped (`relay config set`). `SetSettings` is naturally idempotent and is not tracked by operation id. Helpers: `RelayClient::set_settings(pairs)` (returns the per-key results), `relay_client::Command::SetSettings` (operation only). A CLI `config set` can therefore route every key through a running daemon instead of requiring it to be stopped.
+
 ## Client sketch
 ```rust
 let mut c = RelayClient::connect(&Endpoint::Unix(path)).await?;

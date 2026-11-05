@@ -123,6 +123,10 @@ pub(crate) enum Msg {
 		op: ServiceOp,
 		reply: Reply<Result<Operation, ServiceError>>,
 	},
+	Settings {
+		entries: Vec<(String, String)>,
+		reply: Reply<Result<Vec<super::settings_keys::KeyResult>, ServiceError>>,
+	},
 	Snapshot(Reply<Snapshot>),
 	Operation {
 		client: ClientId,
@@ -274,6 +278,16 @@ impl ControlHandle {
 			false,
 		)
 		.await?
+	}
+
+	/// Saves flat preference entries and applies the ones that can change a running daemon.
+	/// One result per entry, in request order.
+	pub async fn settings(
+		&self,
+		entries: Vec<(String, String)>,
+	) -> Result<Vec<super::settings_keys::KeyResult>, ServiceError> {
+		self.ask(|reply| Msg::Settings { entries, reply }, false)
+			.await?
 	}
 
 	/// A consistent snapshot.

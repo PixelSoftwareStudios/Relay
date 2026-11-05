@@ -158,6 +158,40 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   `AdvertSpec::hidden`, so discovery advertises neither name nor key hint (re-announced at once).
   The inbound policy is enforced by the channel driver (below).
 
+- `ClearAvatar` (`ServiceOp::ClearAvatar`): `SettingsStore::clear_avatar` drops the `state` row
+  that pins the local avatar (`AvatarCache::clear_local`; the bytes stay cached and age out),
+  the actor clears `Aux.avatar` and calls `profile_changed`, which sends every trusted link a
+  `Profile` with an empty avatar hash. The receiver publishes that profile with no avatar, so its
+  state feed shows an empty `Peer.avatar_sha256`.
+- `ForgetPeer` / `DecidePeerTrust(UNKNOWN)` (`ServiceOp::ForgetPeer`): `PeerControl::forget_peer`
+  resolves the selector against the trust store (`peers/forgetting.rs`: id, hex fingerprint
+  prefix of 8+ digits, or exact case-insensitive name; fingerprint first; several matches are
+  `PortError::Ambiguous`, problem `PEER_AMBIGUOUS`, and nothing changes), removes the record
+  under the trust lock and tells the manager (`Command::Forgotten`) to drop the link and stop
+  redialling. The directory emits `Removed{kind:"peer"}` and re-reads the peer list.
+  `Peer.fingerprint_short` is `Fingerprint::short()` of the peer id.
+
+## Settings by key
+
+`GetSettings` returns `SettingsStore::all()` (`relay_config::prefs::flat::all`: every settable
+key, strings unquoted, `config_version` left out). `SetSettings` (`rpc/settings.rs`) needs
+`call-control`; the whole call is `PERMISSION_DENIED` (`SETTING_RESTRICTED: <key>`) when it
+would change a key in `service/settings_keys.rs`'s sensitive list (`identity.*`,
+`diagnostics.record_raw_audio`, `network.allow_wan`, `network.allow_overlay_manual`); a sensitive
+key sent with its current value is a no-op so an export can be imported again. The entries (at
+most 64, keys 128 bytes, values 1 KiB) go to the actor in sorted order (`Msg::Settings`,
+`actor_settings.rs`): `SettingsStore::apply` validates them one after another on a copy of the
+preferences (`flat::set`, which refuses unknown keys, bad values and out-of-range numbers) and
+saves once. Then the live keys are applied: display name, privacy and ring keys, autostart and
+microphone gain in the actor (the microphone gain falls back to `SAVED_NEEDS_RESTART` when the
+media path refuses it); `audio.playback_gain` and `ptt.release_delay_ms` as a domain
+`SetGlobalControls` (under an operation id derived from the request, so the caller's own id never
+collides with it); `messages.*` through the messaging actor. A follow-up that fails turns its
+keys into `SAVED_NEEDS_RESTART`. Everything else (devices, noise backend, `network.*`,
+`hotkeys.*`, `diagnostics.*`, the other `privacy.*`) is saved and read at the next start.
+`SetSettings` is not tracked by operation id: repeating a request just saves the same values
+again.
+
 ## Telemetry and the microphone test
 
 - The media workers publish levels and counters as plain atomics (`media/meters.rs`): microphone

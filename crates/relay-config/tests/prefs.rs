@@ -316,3 +316,18 @@ fn messaging_defaults_validate_and_round_trip() {
 	let unlimited = flat::set(&prefs, "messages.transfer_rate_limit_mbps", "0").unwrap();
 	assert_eq!(unlimited.messages.transfer_rate_limit_mbps, 0);
 }
+
+#[test]
+fn all_lists_every_settable_key_in_the_form_set_accepts() {
+	let prefs = Preferences::default();
+	let all = flat::all(&prefs).unwrap();
+	assert_eq!(all.keys().cloned().collect::<Vec<_>>(), flat::keys());
+	assert!(!all.contains_key(flat::VERSION_KEY));
+	assert_eq!(all["hotkeys.push_to_talk"], "Ctrl+Alt+Space");
+	assert_eq!(all["ptt.release_delay_ms"], "200");
+	let mut round = prefs.clone();
+	for (key, value) in &all {
+		round = flat::set(&round, key, value).unwrap();
+	}
+	assert_eq!(round, prefs);
+}

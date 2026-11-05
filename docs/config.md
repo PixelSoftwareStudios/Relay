@@ -133,7 +133,7 @@ CLI-facing helpers (for `relay config get|set|export|import`):
 | `PreferenceStore::read_only(&Paths)` | Read without the lock, recovery or writes (for `doctor`, `config get` next to a running daemon) |
 | `Storage::open(&Paths)` | Lock + open + recover + import; returns `database`, `lock`, `notices` |
 
-Writing while the daemon runs must go through the daemon (it holds the writer lock).
+Writing while the daemon runs must go through the daemon (it holds the writer lock): `SetSettings` accepts any key of this table (`docs/api.md`, "Settings by key"), says per key whether it applied live or needs a restart, and refuses identity, raw-audio-capture and WAN/overlay keys. `prefs::flat::all(&Preferences)` is the sorted `key -> text` map `GetSettings` returns.
 
 ## Identity
 

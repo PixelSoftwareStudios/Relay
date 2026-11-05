@@ -341,6 +341,16 @@ pub trait SettingsStore: Send + Sync {
 	fn save(&self, change: &SettingsChange) -> Result<(), PortError>;
 	/// Validates, normalizes and stores an avatar, returning its content hash.
 	fn store_avatar(&self, encoded: &[u8]) -> Result<[u8; 32], PortError>;
+	/// Validates and saves flat `section.key` entries together (one write for all that pass),
+	/// in order. One answer per entry: `None` when saved, else why it was refused. The whole
+	/// call fails only if the store cannot be written.
+	fn apply(&self, _entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
+		Err(PortError::Unsupported("settings by key"))
+	}
+	/// Every preference as flat `section.key` text, sorted.
+	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
+		Err(PortError::Unsupported("settings by key"))
+	}
 	/// Removes the local avatar (it is no longer pinned in the cache).
 	fn clear_avatar(&self) -> Result<(), PortError>;
 	/// The canonical PNG stored under `hash` (local or received), if cached.

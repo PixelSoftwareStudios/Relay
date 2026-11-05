@@ -5,6 +5,7 @@ use std::sync::{Arc, Mutex};
 
 use super::channels::Channels;
 use super::messages::Messages;
+use super::settings::Settings;
 use prost::Message;
 use relay_api::pb::engine_server::Engine;
 use relay_api::pb::state_envelope::Body;
@@ -31,6 +32,7 @@ pub struct Inner {
 	events: broadcast::Sender<StateEnvelope>,
 	pub channels: Channels,
 	pub messages: Messages,
+	pub settings: Settings,
 }
 
 /// Cheaply cloneable handle; the server and the test share one state.
@@ -57,6 +59,7 @@ impl FakeEngine {
 			events: broadcast::channel(limits.subscriber_queue).0,
 			channels: Channels::default(),
 			messages: Messages::default(),
+			settings: Settings::default(),
 		}))
 	}
 
@@ -309,17 +312,17 @@ impl Engine for FakeEngine {
 	async fn decide_peer_trust(&self, _: Request<DecidePeerTrustRequest>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn clear_avatar(&self, _: Request<MutationContext>) -> Resp<Operation> {
-		unsupported()
+	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		Ok(Response::new(self.settings.clear_avatar(r.get_ref())))
 	}
-	async fn forget_peer(&self, _: Request<ForgetPeerRequest>) -> Resp<Operation> {
-		unsupported()
+	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
+		self.settings.forget(r.get_ref()).map(Response::new)
 	}
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
-		unsupported()
+		Ok(Response::new(self.settings.dump()))
 	}
-	async fn set_settings(&self, _: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
-		unsupported()
+	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
+		self.settings.apply(r.get_ref()).map(Response::new)
 	}
 
 	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {

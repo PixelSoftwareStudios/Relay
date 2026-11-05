@@ -158,6 +158,32 @@ impl SettingsStore for FileSettings {
 		Ok(avatar.hash)
 	}
 
+	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
+		let mut current = lock(&self.current);
+		let mut next = current.clone();
+		let mut answers = Vec::with_capacity(entries.len());
+		for (key, text) in entries {
+			match prefs::flat::set(&next, key, text) {
+				Ok(updated) => {
+					next = updated;
+					answers.push(None);
+				}
+				Err(error) => answers.push(Some(error.to_string())),
+			}
+		}
+		if answers.iter().any(Option::is_none) {
+			self.store
+				.save(&next)
+				.map_err(|e| PortError::Unavailable(e.to_string()))?;
+			*current = next;
+		}
+		Ok(answers)
+	}
+
+	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
+		prefs::flat::all(&lock(&self.current)).map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+
 	fn clear_avatar(&self) -> Result<(), PortError> {
 		self.avatars
 			.clear_local()
