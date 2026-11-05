@@ -10,9 +10,10 @@ members = [
 	"crates/relay-engine",
 	"crates/relay-platform",
 	"apps/relay-cli",
+	"apps/relay-desktop",
 	"benches",
 ]
-# The desktop shell pulls in a WebView toolchain, so headless builds skip it.
+# The desktop GUI links windowing libraries, so headless builds skip it.
 default-members = [
 	"crates/relay-core",
 	"crates/relay-protocol",
@@ -25,7 +26,6 @@ default-members = [
 	"apps/relay-cli",
 	"benches",
 ]
-exclude = ["apps/relay-desktop"]
 
 [workspace.package]
 version = "0.1.0"
@@ -93,6 +93,11 @@ crossterm = "0.29.0"
 global-hotkey = "0.9.0"
 ashpd = { version = "0.13.13", default-features = false, features = ["tokio", "global_shortcuts"] }
 windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging"] }
+
+# Desktop GUI (apps/relay-desktop only; not in default-members)
+eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "accesskit"] }
+tray-icon = { version = "0.26.1", default-features = false }
+async-trait = "0.1"
 
 # Errors and diagnostics
 thiserror = "2.0.21"
