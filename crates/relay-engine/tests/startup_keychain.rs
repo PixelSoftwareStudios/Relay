@@ -5,9 +5,10 @@
 #[macro_use]
 mod service_support;
 mod support_daemon;
+mod support_prompt;
 
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use relay_api::pb::{StartupReason, StartupState};
@@ -34,15 +35,6 @@ fn dir() -> tempfile::TempDir {
 		.prefix("rlyk")
 		.tempdir_in("/tmp")
 		.expect("dir")
-}
-
-/// A failing assertion must not leave the fake prompt open: the runtime would wait for it.
-struct OpenOnDrop(Arc<Prompt>);
-
-impl Drop for OpenOnDrop {
-	fn drop(&mut self) {
-		self.0.set(Mode::Open);
-	}
 }
 
 #[tokio::test]

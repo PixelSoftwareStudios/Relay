@@ -112,7 +112,9 @@ pub fn launch_result(result: Result<Outcome, RefreshError>) -> LaunchRefresh {
 /// stopped and replaced by one from this app's own build, so a binary left over from an
 /// earlier build never lingers. A call in progress keeps the daemon. Other attached clients
 /// do not matter: they reconnect through their own supervisors. Runs under the daemon start
-/// lock, so a CLI autostarting at the same moment cannot race it.
+/// lock, so a CLI autostarting at the same moment cannot race it. A service that is still
+/// starting or waits for the user (keychain) is never touched, and the app replaces the service
+/// at most once per launch.
 pub async fn restart_idle_at_launch(
 	endpoint: &Endpoint,
 	autostart: &AutoStart,

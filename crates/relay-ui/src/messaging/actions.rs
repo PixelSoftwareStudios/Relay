@@ -93,7 +93,7 @@ fn session_id(key: &str) -> Option<Vec<u8>> {
 fn failure_text(error: &EngineError) -> String {
 	match error {
 		EngineError::Rejected { code, .. } => problem_text(code),
-		EngineError::Unavailable(_) | EngineError::Broken(_) => {
+		EngineError::Unavailable(_) | EngineError::Broken(_) | EngineError::Starting(_) => {
 			tr!("msg-connection-lost").to_owned()
 		}
 		EngineError::Timeout => tr!("msg-daemon-timeout").to_owned(),
