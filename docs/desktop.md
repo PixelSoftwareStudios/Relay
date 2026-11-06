@@ -37,7 +37,7 @@ A tokio runtime (2 worker threads, owned by `main`/`DesktopApp`; `relay-ui` only
 
 Peer and local avatars arrive from `GetAvatar` as lossless WebP (`AvatarImage.media_type`); `imaging::decode_for_texture` decodes them with the `image` crate (WebP enabled), under the same dimension and allocation limits as other images. The upload picker offers all six formats the engine accepts; the host reads the file only after the size check, then sniffs it.
 
-Not implemented: marking a peer verified (a peer's short fingerprint is shown on the incoming-call prompt and in the people list; `ClearAvatar` and "Forget this device" (`ForgetPeer`) are wired, but `DecidePeerTrust` needs the full digest the view model does not carry), mic test, noise-suppression selection, the `InputControl` stream, latency figures.
+Not implemented: marking a peer verified (a peer's short fingerprint is shown on the incoming-call prompt and in the people list; `ClearAvatar`, "Forget this device" (`ForgetPeer`) and "Trust this device" for found devices (`TrustPeer`, the peer id is the full digest, unverified first use only) are wired), mic test, noise-suppression selection, the `InputControl` stream, latency figures.
 
 ## Microphone permission
 
