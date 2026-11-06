@@ -1,11 +1,15 @@
 //! Device enumeration, selection, stream opening and health signalling.
 
+#[cfg(target_os = "android")]
+mod aaudio;
 mod backend;
 mod cpal_backend;
 mod descriptor;
 mod fake;
 mod health;
 
+#[cfg(target_os = "android")]
+pub use aaudio::AAudioBackend;
 pub use backend::{
 	ActualConfig, AudioBackend, CaptureStream, PlaybackStream, StreamHandle, StreamRequest,
 	ring_samples_for,

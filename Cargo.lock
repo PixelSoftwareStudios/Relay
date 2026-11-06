@@ -5749,6 +5749,7 @@ dependencies = [
  "cpal",
  "libc",
  "mach2",
+ "ndk",
  "nnnoiseless",
  "opus",
  "relay-testkit",
