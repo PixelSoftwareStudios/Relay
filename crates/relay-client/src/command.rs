@@ -180,6 +180,18 @@ pub enum Command {
 		/// Hex fingerprint prefix (at least 8 digits) or exact display name.
 		query: String,
 	},
+	/// Replace the pinned key of a contact whose key changed by the key it presents now.
+	/// `peer_id` is that new key (32 bytes). The engine accepts it only when `fingerprint`
+	/// (the 64 hex digits the user typed or scanned) is that key's full fingerprint and
+	/// `verified` says they compared it on the other device.
+	ReplacePinnedKey {
+		/// The new (refused) key digest, 32 bytes.
+		peer_id: Vec<u8>,
+		/// Full fingerprint, separators and case ignored.
+		fingerprint: String,
+		/// The user compared it with the other device.
+		verified: bool,
+	},
 	/// Replace the favorites (the quick-call grid) by this ordered list of trusted peers,
 	/// each a 32-byte peer id. More than 6, a repeat or an untrusted peer fails the operation.
 	SetFavorites {

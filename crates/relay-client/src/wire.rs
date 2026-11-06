@@ -5,8 +5,8 @@
 use relay_api::pb::{
 	AcquireControllerRequest, CallMutation, ConnectAndTrustRequest, CreateChannelRequest,
 	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
-	MutationContext, Operation, RevokeChannelMemberRequest, SelectDevicesRequest,
-	SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
+	MutationContext, Operation, ReplacePinnedKeyRequest, RevokeChannelMemberRequest,
+	SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
 	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetSettingsRequest,
 	SetTransmitModeRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
 	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
@@ -247,6 +247,19 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				context: Some(context),
 				peer_id,
 				query,
+			})
+			.await
+		}
+		Command::ReplacePinnedKey {
+			peer_id,
+			fingerprint,
+			verified,
+		} => {
+			rpc.replace_pinned_key(ReplacePinnedKeyRequest {
+				context: Some(context),
+				peer_id,
+				expected_fingerprint: fingerprint,
+				verified,
 			})
 			.await
 		}
