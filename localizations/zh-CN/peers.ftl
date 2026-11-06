@@ -49,3 +49,5 @@ contacts-go-connect = 前往“连接”
 contact-more = 更多
 peer-addresses = 地址：{ $addresses }
 home-online = 当前在线
+contact-last-seen = 最后在线：{ $when }
+peer-port = 端口 { $port }

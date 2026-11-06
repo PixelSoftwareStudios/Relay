@@ -23,6 +23,10 @@ fn stranger() -> Peer {
 		avatar_hash: String::new(),
 		fingerprint_short: "ABAB-ABAB-ABAB-ABAB-ABAB".into(),
 		shared_channels: Vec::new(),
+		favorite: false,
+		favorite_position: 0,
+		port: 7000,
+		last_seen_unix_ms: 0,
 	}
 }
 

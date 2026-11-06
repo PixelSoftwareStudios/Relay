@@ -42,6 +42,10 @@ pub struct PeerRow {
 	pub address: String,
 	/// Every address seen for it, as the engine reported them.
 	pub addresses: Vec<String>,
+	/// Its listener port; zero when unknown.
+	pub port: u32,
+	/// When the engine last saw it (unix ms); zero when never.
+	pub last_seen_ms: u64,
 	/// The device answers on the network now.
 	pub reachable: bool,
 	/// A trust decision is stored for it (so it can be forgotten).
@@ -163,6 +167,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			can_call: callable(state, p),
 			address: p.addresses.first().map_or_else(String::new, |a| host_of(a)),
 			addresses: p.addresses.clone(),
+			port: p.port,
+			last_seen_ms: p.last_seen_unix_ms,
 			reachable: p.reachable,
 			known: p.trust != Trust::Unknown,
 			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),

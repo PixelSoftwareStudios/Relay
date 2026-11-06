@@ -49,3 +49,5 @@ contacts-go-connect = 연결로 이동
 contact-more = 더보기
 peer-addresses = 주소: { $addresses }
 home-online = 지금 온라인
+contact-last-seen = 마지막 확인: { $when }
+peer-port = 포트 { $port }

@@ -47,3 +47,5 @@ contacts-go-connect = Перейти к подключению
 contact-more = Ещё
 peer-addresses = Адреса: { $addresses }
 home-online = Сейчас в сети
+contact-last-seen = Был в сети: { $when }
+peer-port = Порт { $port }

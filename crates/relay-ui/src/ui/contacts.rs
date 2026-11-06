@@ -48,6 +48,12 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 					ui.label(RichText::new(&row.subtitle).weak());
 					if row.reachable && !row.address.is_empty() {
 						ui.label(RichText::new(&row.address).weak().small().monospace());
+					} else if !row.reachable && row.last_seen_ms > 0 {
+						ui.label(
+							RichText::new(last_seen(cx, row.last_seen_ms))
+								.weak()
+								.small(),
+						);
 					}
 				});
 			});
@@ -83,6 +89,13 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 	}
 }
 
+/// "Last seen 5 min ago" in the user's time zone.
+fn last_seen(cx: &Cx, then_ms: u64) -> String {
+	let zone = cx.actions.shell.time_zone();
+	let when = crate::timefmt::format(&zone, cx.actions.shell.now_unix_ms(), then_ms);
+	tr!("contact-last-seen", when = when.as_str())
+}
+
 fn peer_details(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	if row.fingerprint.is_empty() {
 		kit::help(ui, tr!("peer-no-key"));
@@ -94,6 +107,9 @@ fn peer_details(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	}
 	if !row.addresses.is_empty() {
 		ui.label(tr!("peer-addresses", addresses = row.addresses.join(", ")));
+	}
+	if row.port > 0 {
+		ui.label(tr!("peer-port", port = row.port));
 	}
 	if !row.badges.is_empty() {
 		ui.label(tr!("peer-shared-channels", names = row.badges.join(", ")));

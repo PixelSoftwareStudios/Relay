@@ -47,3 +47,5 @@ contacts-go-connect = Ir a Conectar
 contact-more = Más
 peer-addresses = Direcciones: { $addresses }
 home-online = En línea ahora
+contact-last-seen = Visto por última vez: { $when }
+peer-port = Puerto { $port }

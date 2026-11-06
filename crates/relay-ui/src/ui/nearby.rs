@@ -72,6 +72,9 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 			if !row.addresses.is_empty() {
 				ui.label(tr!("peer-addresses", addresses = row.addresses.join(", ")));
 			}
+			if row.port > 0 {
+				ui.label(tr!("peer-port", port = row.port));
+			}
 		});
 	});
 }

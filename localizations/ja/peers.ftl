@@ -47,3 +47,5 @@ contacts-go-connect = 「接続」を開く
 contact-more = その他
 peer-addresses = アドレス: { $addresses }
 home-online = オンライン中
+contact-last-seen = 最終確認: { $when }
+peer-port = ポート { $port }
