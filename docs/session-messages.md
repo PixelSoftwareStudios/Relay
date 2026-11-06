@@ -320,6 +320,8 @@ from the earlier draft, all decided during integration:
 
 The daemon, not the client, owns transcripts, so a CLI and the desktop UI see the same session.
 
+In the desktop UI a session is shown as part of its call, not as a page: the call card's Messages button opens the chat of the live call, and a call-history row's Messages button opens that call's transcript read only. The UI maps a history entry to its session through `call_id` (`SessionSummary.call_id`, hex in the UI model). Because messages are memory-only, after a daemon restart or an eviction the session is gone and the row says so; see `docs/ui.md`, "Session messaging UI".
+
 ## Engine decisions
 
 - Sessions are keyed by peer: at most one per peer; a message is routed by the authenticated
