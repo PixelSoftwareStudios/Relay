@@ -86,6 +86,17 @@ service Engine {
   rpc ExportSession(ExportSessionRequest) returns (ExportSessionResponse);
   rpc SetMessagingSettings(SetMessagingSettingsRequest) returns (SessionOpResult);
   rpc InputControl(stream InputControlMessage) returns (stream InputControlAck);
+  // Start-up of the background service (docs/api.md). These three need no registered client:
+  // they are what a client can do while the service waits for the system's secure storage
+  // (keychain prompt) or after that failed. All answer with the fresh EngineInfo.
+  // Reads the secure storage again after a failure.
+  rpc RetryKeychain(Empty) returns (EngineInfo);
+  // Chooses the file-backed store (less secure) for identity and channel secrets, then retries.
+  // Never done by itself: only on this explicit request.
+  rpc UseFileStore(Empty) returns (EngineInfo);
+  // Deletes the stored identity so the next start creates a new one; contacts must re-verify.
+  // The service stops afterwards. The caller must have confirmed with the user.
+  rpc ResetIdentity(Empty) returns (EngineInfo);
 }
 
 message Empty {}
@@ -107,6 +118,23 @@ message EngineInfo {
   ResourceLimits limits = 6;
   string build_revision = 7; // git commit of the daemon build, or "<version>-dev"
   uint32 api_revision = 8; // bumped when the API changes in a way clients depend on
+  Startup startup = 9; // absent or READY once the service is fully running
+}
+enum StartupState {
+  STARTUP_STATE_READY = 0;
+  STARTUP_STATE_STARTING = 1; // identity and secrets are being opened; calls are not available yet
+  STARTUP_STATE_FAILED = 2; // stays up and waits for RetryKeychain / UseFileStore / ResetIdentity
+}
+enum StartupReason {
+  STARTUP_REASON_NONE = 0;
+  STARTUP_REASON_WAITING_FOR_KEYCHAIN = 1; // the system may be asking the user for permission
+  STARTUP_REASON_KEYCHAIN_UNAVAILABLE = 2; // denied, locked, interrupted or timed out
+  STARTUP_REASON_IDENTITY_UNREADABLE = 3; // stored data is corrupt or from a newer version
+}
+message Startup {
+  StartupState state = 1;
+  StartupReason reason = 2;
+  string detail = 3; // technical text from the system, for logs and "details"
 }
 message ResourceLimits {
   uint32 active_calls = 1;

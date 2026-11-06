@@ -125,7 +125,20 @@ impl Engine for FakeEngine {
 				clients: self.limits.max_clients as u32,
 				..ResourceLimits::default()
 			}),
+			startup: None,
 		}))
+	}
+
+	async fn retry_keychain(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
+	}
+
+	async fn use_file_store(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
+	}
+
+	async fn reset_identity(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
 	}
 
 	async fn register_client(&self, r: Request<RegisterClientRequest>) -> Resp<ClientSession> {

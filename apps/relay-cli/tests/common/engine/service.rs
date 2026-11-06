@@ -24,7 +24,20 @@ impl Engine for FakeEngine {
 			limits: None,
 			build_revision: "test".into(),
 			api_revision: relay_api::API_REVISION - 1,
+			startup: None,
 		}))
+	}
+
+	async fn retry_keychain(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
+	}
+
+	async fn use_file_store(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
+	}
+
+	async fn reset_identity(&self, _: Request<Empty>) -> Resp<EngineInfo> {
+		unsupported()
 	}
 
 	async fn register_client(&self, r: Request<RegisterClientRequest>) -> Resp<ClientSession> {

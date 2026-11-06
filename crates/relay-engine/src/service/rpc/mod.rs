@@ -178,6 +178,20 @@ impl Engine for EngineService {
 		Ok(Response::new(session::info(self)))
 	}
 
+	// The three start-up calls are answered by `relay_api::EngineSwitch` in front of this
+	// service, in every state; they never reach it.
+	async fn retry_keychain(&self, _: Request<Empty>) -> Result<Response<EngineInfo>, Status> {
+		Err(Status::unimplemented("answered before the engine"))
+	}
+
+	async fn use_file_store(&self, _: Request<Empty>) -> Result<Response<EngineInfo>, Status> {
+		Err(Status::unimplemented("answered before the engine"))
+	}
+
+	async fn reset_identity(&self, _: Request<Empty>) -> Result<Response<EngineInfo>, Status> {
+		Err(Status::unimplemented("answered before the engine"))
+	}
+
 	async fn register_client(
 		&self,
 		request: Request<RegisterClientRequest>,

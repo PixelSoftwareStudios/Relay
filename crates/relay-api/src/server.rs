@@ -41,12 +41,62 @@ pub async fn serve_unix<E: Engine>(
 	limits: ApiLimits,
 	shutdown: impl Future<Output = ()>,
 ) -> Result<(), ApiError> {
+	serve_unix_service(
+		engine_server(engine, &limits),
+		listener,
+		validator,
+		limits,
+		shutdown,
+	)
+	.await
+}
+
+/// [`serve_unix`] for any `relay.v1.Engine` service, such as an [`crate::EngineSwitch`].
+#[cfg(unix)]
+pub async fn serve_unix_service<S>(
+	service: S,
+	listener: crate::UdsListener,
+	validator: Arc<dyn ClientValidator>,
+	limits: ApiLimits,
+	shutdown: impl Future<Output = ()>,
+) -> Result<(), ApiError>
+where
+	S: EngineService,
+	S::Future: Send + 'static,
+{
 	Server::builder()
 		.layer(guard(validator, &limits, None))
-		.add_service(engine_server(engine, &limits))
+		.add_service(service)
 		.serve_with_incoming_shutdown(listener.incoming(), shutdown)
 		.await?;
 	Ok(())
+}
+
+/// What the transport can serve as the engine: the generated server or a switch.
+pub trait EngineService:
+	tower::Service<
+		tonic::codegen::http::Request<tonic::body::Body>,
+		Response = tonic::codegen::http::Response<tonic::body::Body>,
+		Error = std::convert::Infallible,
+	> + tonic::server::NamedService
+	+ Clone
+	+ Send
+	+ Sync
+	+ 'static
+{
+}
+
+impl<S> EngineService for S where
+	S: tower::Service<
+			tonic::codegen::http::Request<tonic::body::Body>,
+			Response = tonic::codegen::http::Response<tonic::body::Body>,
+			Error = std::convert::Infallible,
+		> + tonic::server::NamedService
+		+ Clone
+		+ Send
+		+ Sync
+		+ 'static
+{
 }
 
 /// Serve over loopback TCP, requiring the profile's bearer token on every RPC.
@@ -58,9 +108,33 @@ pub async fn serve_tcp<E: Engine>(
 	limits: ApiLimits,
 	shutdown: impl Future<Output = ()>,
 ) -> Result<(), ApiError> {
+	serve_tcp_service(
+		engine_server(engine, &limits),
+		listener,
+		profile,
+		validator,
+		limits,
+		shutdown,
+	)
+	.await
+}
+
+/// [`serve_tcp`] for any `relay.v1.Engine` service, such as an [`crate::EngineSwitch`].
+pub async fn serve_tcp_service<S>(
+	service: S,
+	listener: TcpListener,
+	profile: &TcpProfile,
+	validator: Arc<dyn ClientValidator>,
+	limits: ApiLimits,
+	shutdown: impl Future<Output = ()>,
+) -> Result<(), ApiError>
+where
+	S: EngineService,
+	S::Future: Send + 'static,
+{
 	Server::builder()
 		.layer(guard(validator, &limits, Some(profile)))
-		.add_service(engine_server(engine, &limits))
+		.add_service(service)
 		.serve_with_incoming_shutdown(TcpListenerStream::new(listener), shutdown)
 		.await?;
 	Ok(())

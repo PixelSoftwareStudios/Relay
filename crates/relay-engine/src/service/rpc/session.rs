@@ -35,6 +35,7 @@ pub(super) fn info(service: &EngineService) -> EngineInfo {
 			meters_max_hz: super::telemetry::MAX_HZ,
 			ptt_lease_max_ms: u32::try_from(limits.ptt_lease_max.as_millis()).unwrap_or(u32::MAX),
 		}),
+		startup: None,
 	}
 }
 

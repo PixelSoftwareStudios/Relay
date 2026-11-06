@@ -15,6 +15,7 @@ mod redact;
 mod registry;
 mod revision;
 mod server;
+mod switch;
 mod tcp;
 mod watch;
 
@@ -36,12 +37,13 @@ pub use limits::{AVATAR_MAX_BYTES, ApiLimits};
 pub use middleware::{GuardConfig, GuardLayer, SENSITIVE_METHODS, StreamGuard, StreamLimiter};
 pub use registry::{ClientId, ClientRegistry, ClientValidator};
 pub use revision::{API_REVISION, BUILD_REVISION, Revision};
-pub use server::{engine_server, serve_tcp};
+pub use server::{EngineService, engine_server, serve_tcp, serve_tcp_service};
+pub use switch::{EngineSlot, EngineSwitch, LateValidator, StartupControl};
 pub use tcp::{TcpProfile, bind_loopback, profile_path};
 pub use watch::{BoundedWatch, StateTracker, StateWatch, WatchItem, WatchOptions};
 
 #[cfg(unix)]
-pub use server::serve_unix;
+pub use server::{serve_unix, serve_unix_service};
 #[cfg(unix)]
 pub use uds::{UdsListener, check_peer, current_uid, default_socket_path, prepare_runtime_dir};
 

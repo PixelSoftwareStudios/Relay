@@ -69,6 +69,10 @@ pub enum ApiError {
 	/// Operation did not finish within the polling deadline.
 	#[error("operation did not complete in time")]
 	OperationTimeout,
+	/// The background service is running but not ready: it waits for the system's secure
+	/// storage, or that failed. The text is the daemon's own description.
+	#[error("the background service is not ready yet")]
+	Starting(Box<crate::pb::Startup>),
 	/// Response lacked a required field.
 	#[error("malformed response: {0}")]
 	InvalidResponse(&'static str),

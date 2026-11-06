@@ -135,13 +135,50 @@ impl RelayClient {
 		self.context().ok_or(ApiError::NotRegistered)
 	}
 
-	/// Register this client. The id is an identifier, not authentication.
+	/// How far the service's start-up is, as of the last `GetInfo`.
+	pub fn startup(&self) -> crate::pb::Startup {
+		self.info.startup.clone().unwrap_or_default()
+	}
+
+	/// Ask `GetInfo` again. A service that was still starting at connect time may be ready now.
+	pub async fn refresh_info(&mut self) -> Result<&EngineInfo, ApiError> {
+		self.info = self.inner.get_info(Empty {}).await?.into_inner();
+		Ok(&self.info)
+	}
+
+	/// Read the secure storage again after a failure; answers the fresh info.
+	pub async fn retry_keychain(&mut self) -> Result<EngineInfo, ApiError> {
+		self.info = self.inner.retry_keychain(Empty {}).await?.into_inner();
+		Ok(self.info.clone())
+	}
+
+	/// Choose the file-backed (less secure) store for secrets and retry.
+	pub async fn use_file_store(&mut self) -> Result<EngineInfo, ApiError> {
+		self.info = self.inner.use_file_store(Empty {}).await?.into_inner();
+		Ok(self.info.clone())
+	}
+
+	/// Delete the stored identity; the service stops. Ask the user first.
+	pub async fn reset_identity(&mut self) -> Result<EngineInfo, ApiError> {
+		self.info = self.inner.reset_identity(Empty {}).await?.into_inner();
+		Ok(self.info.clone())
+	}
+
+	/// Register this client. The id is an identifier, not authentication. A service that is
+	/// still starting (or failed to start) cannot register anyone: [`ApiError::Starting`].
 	pub async fn register(
 		&mut self,
 		display_name: &str,
 		client_version: &str,
 		capabilities: &[&str],
 	) -> Result<ClientSession, ApiError> {
+		if self.startup().state() != crate::pb::StartupState::Ready {
+			self.refresh_info().await?;
+		}
+		let startup = self.startup();
+		if startup.state() != crate::pb::StartupState::Ready {
+			return Err(ApiError::Starting(Box::new(startup)));
+		}
 		let session = self
 			.inner
 			.register_client(RegisterClientRequest {

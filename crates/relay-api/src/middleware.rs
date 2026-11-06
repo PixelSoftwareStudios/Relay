@@ -1,8 +1,8 @@
 //! Tower layer applied to every inbound request before any handler runs.
 //!
 //! Order of checks: loopback bearer token (when configured), declared body
-//! size, in-flight cap, then client-context validation. Only `GetInfo` and
-//! `RegisterClient` may be called without a registered client id.
+//! size, in-flight cap, then client-context validation. Only `GetInfo`,
+//! `RegisterClient` and the start-up calls may be called without a registered client id.
 
 use std::future::Future;
 use std::pin::Pin;
@@ -139,7 +139,8 @@ fn check_request(
 	let permit = Arc::clone(permits)
 		.try_acquire_owned()
 		.map_err(|_| Status::resource_exhausted("too many requests in flight"))?;
-	if !PUBLIC_METHODS.contains(&req.uri().path()) {
+	let path = req.uri().path();
+	if !PUBLIC_METHODS.contains(&path) && !crate::switch::STARTUP_METHODS.contains(&path) {
 		let client = hex_header::<16>(headers, CLIENT_ID_HEADER)?
 			.ok_or_else(|| Status::unauthenticated("missing client context"))?;
 		let incarnation = hex_bytes(headers, INCARNATION_HEADER)?;

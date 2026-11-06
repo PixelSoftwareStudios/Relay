@@ -38,6 +38,8 @@ pub enum ConfigError {
 	InvalidPreference(String),
 	#[error("credential store error: {0}")]
 	CredentialStore(String),
+	#[error("the stored secrets cannot be read: {0}")]
+	BundleUnreadable(String),
 	#[error("no identity is stored")]
 	IdentityMissing,
 	#[error("stored identity is malformed: {0}")]
