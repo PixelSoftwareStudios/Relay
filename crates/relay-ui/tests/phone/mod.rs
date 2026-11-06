@@ -45,6 +45,9 @@ pub struct PhoneShell {
 	pub scans: AtomicUsize,
 	pub scan_reply: Mutex<Option<Result<Option<String>, ScanError>>>,
 	pub camera_settings: AtomicUsize,
+	/// `can_manage_daemon`, and what the UI asked of the daemon ("stop", "start").
+	pub manage_daemon: AtomicBool,
+	pub daemon_log: Mutex<Vec<&'static str>>,
 }
 
 impl FilePicker for PhoneShell {
@@ -106,6 +109,17 @@ impl Shell for PhoneShell {
 	}
 	fn open_camera_settings(&self) {
 		self.camera_settings.fetch_add(1, Ordering::SeqCst);
+	}
+	fn can_manage_daemon(&self) -> bool {
+		self.manage_daemon.load(Ordering::SeqCst)
+	}
+	fn start_daemon(&self) -> BoxFuture<'_, Result<String, String>> {
+		self.daemon_log.lock().unwrap().push("start");
+		Box::pin(async { Ok("started".to_owned()) })
+	}
+	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {
+		self.daemon_log.lock().unwrap().push("stop");
+		Box::pin(async { Ok(()) })
 	}
 }
 

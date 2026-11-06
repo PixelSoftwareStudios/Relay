@@ -132,3 +132,7 @@ advanced-revision = Revision { $revision }
 history-setting-label = Keep call history
 history-setting-help = Remembers who called whom, how each call ended and how long it lasted, on this device only. It is never sent to the other person and can be cleared at any time. When this is off, nothing new is recorded and existing entries stay until you clear them.
 setting-unsupported = Not supported by the running background service: restart it.
+daemon-outdated = The background service is out of date. Restart it to finish updating.
+daemon-restart = Restart
+daemon-restarting = Restarting…
+daemon-restart-in-call = End the active call first: restarting would end it.

@@ -127,3 +127,7 @@ advanced-revision = リビジョン { $revision }
 history-setting-label = 通話履歴を保存する
 history-setting-help = 誰が誰に電話したか、どのように終了したか、通話時間を、このデバイスにのみ記録します。相手に送信されることはなく、いつでも削除できます。オフにすると新しい記録は残らず、既存の項目は削除するまで残ります。
 setting-unsupported = 実行中のバックグラウンドサービスは対応していません。再起動してください。
+daemon-outdated = バックグラウンドサービスが古くなっています。再起動して更新を完了してください。
+daemon-restart = 再起動
+daemon-restarting = 再起動しています…
+daemon-restart-in-call = 先に通話を終了してください。再起動すると通話が切れます。

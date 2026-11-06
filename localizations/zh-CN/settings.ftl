@@ -129,3 +129,7 @@ advanced-revision = 修订 { $revision }
 history-setting-label = 保留通话记录
 history-setting-help = 仅在此设备上记住谁呼叫了谁、通话如何结束以及持续了多久。这些内容绝不会发送给对方,并且可以随时清除。关闭后不会记录新的通话,现有条目会保留,直到您清除。
 setting-unsupported = 正在运行的后台服务不支持此项：请重启它。
+daemon-outdated = 后台服务已过期。请重启它以完成更新。
+daemon-restart = 重启
+daemon-restarting = 正在重启…
+daemon-restart-in-call = 请先结束当前通话，重启会中断通话。

@@ -130,3 +130,7 @@ advanced-revision = Revision { $revision }
 history-setting-label = Anrufverlauf speichern
 history-setting-help = Merkt sich, wer wen angerufen hat, wie der Anruf endete und wie lange er dauerte, nur auf diesem Gerät. Nichts davon wird an die andere Person gesendet, und der Verlauf lässt sich jederzeit löschen. Ist dies aus, wird nichts Neues aufgezeichnet, und vorhandene Einträge bleiben, bis Sie sie löschen.
 setting-unsupported = Vom laufenden Hintergrunddienst nicht unterstützt: Starte ihn neu.
+daemon-outdated = Der Hintergrunddienst ist veraltet. Starte ihn neu, um die Aktualisierung abzuschließen.
+daemon-restart = Neu starten
+daemon-restarting = Startet neu…
+daemon-restart-in-call = Beende zuerst das laufende Gespräch, denn ein Neustart würde es beenden.

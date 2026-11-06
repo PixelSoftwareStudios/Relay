@@ -19,7 +19,11 @@ const REFRESH: Duration = Duration::from_secs(30);
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	kit::section_title(ui, tr!("history-heading"));
-	let enabled = cx.state.settings.as_ref().is_none_or(|s| s.history_enabled);
+	let enabled = cx
+		.state
+		.settings
+		.as_ref()
+		.is_none_or(super::outdated::history_on);
 	if !enabled {
 		kit::help(ui, tr!("history-off-note"));
 	}

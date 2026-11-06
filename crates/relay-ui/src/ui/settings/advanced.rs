@@ -11,11 +11,13 @@ use crate::model::Link;
 
 use super::super::banners::start_daemon_button;
 use super::super::kit::{self, Cx};
+use super::super::outdated;
 use super::super::widgets::button_row;
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	let caps = Capabilities::of(&*cx.actions.shell);
+	outdated::card(ui, cx);
 	kit::card(ui, |ui| daemon(ui, cx, caps));
 	kit::gap(ui);
 	kit::card(ui, |ui| about(ui, cx));

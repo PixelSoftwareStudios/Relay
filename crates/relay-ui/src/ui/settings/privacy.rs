@@ -11,6 +11,7 @@ use crate::viewmodel::peer_rows;
 
 use super::super::contacts;
 use super::super::kit::{self, Cx};
+use super::super::outdated;
 use super::super::widgets::{banner, combo};
 use crate::tr;
 
@@ -53,7 +54,7 @@ fn history_switch(ui: &mut Ui, cx: &mut Cx) {
 		return;
 	};
 	kit::card(ui, |ui| {
-		let mut keep = settings.history_enabled;
+		let mut keep = outdated::history_on(settings);
 		let changed = ui
 			.add_enabled(
 				!cx.local.history_saving,

@@ -129,3 +129,7 @@ advanced-revision = 리비전 { $revision }
 history-setting-label = 통화 기록 보관
 history-setting-help = 누가 누구에게 전화했는지, 통화가 어떻게 끝났는지, 얼마나 오래 했는지를 이 기기에만 기억합니다. 상대방에게 전송되지 않으며 언제든 삭제할 수 있습니다. 끄면 새 기록은 저장되지 않고 기존 항목은 삭제할 때까지 남아 있습니다.
 setting-unsupported = 실행 중인 백그라운드 서비스가 지원하지 않습니다. 다시 시작하세요.
+daemon-outdated = 백그라운드 서비스가 오래되었습니다. 업데이트를 마치려면 다시 시작하세요.
+daemon-restart = 다시 시작
+daemon-restarting = 다시 시작하는 중…
+daemon-restart-in-call = 먼저 진행 중인 통화를 끝내세요. 다시 시작하면 통화가 끊깁니다.

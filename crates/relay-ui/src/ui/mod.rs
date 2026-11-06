@@ -22,6 +22,7 @@ pub mod messages;
 mod microphone;
 mod nav;
 mod nearby;
+mod outdated;
 mod settings;
 mod sidebar;
 mod textures;

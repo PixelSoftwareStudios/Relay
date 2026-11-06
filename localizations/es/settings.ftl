@@ -131,3 +131,7 @@ advanced-revision = Revisión { $revision }
 history-setting-label = Guardar el historial de llamadas
 history-setting-help = Recuerda quién llamó a quién, cómo terminó cada llamada y cuánto duró, solo en este dispositivo. Nunca se envía a la otra persona y se puede borrar en cualquier momento. Si está desactivado, no se registra nada nuevo y las entradas existentes permanecen hasta que las borres.
 setting-unsupported = El servicio en segundo plano en ejecución no lo admite: reinícialo.
+daemon-outdated = El servicio en segundo plano está desactualizado. Reinícialo para terminar de actualizar.
+daemon-restart = Reiniciar
+daemon-restarting = Reiniciando…
+daemon-restart-in-call = Termina primero la llamada en curso: reiniciar la cortaría.
