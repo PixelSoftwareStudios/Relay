@@ -7,6 +7,7 @@
 //! compact layout with bottom tabs. Messages are not a page: the chat of a
 //! call opens from its call card or its history row (see `chat`).
 
+mod back;
 mod banners;
 mod call_card;
 mod channels;
@@ -256,7 +257,7 @@ impl RelayApp {
 	/// Keyboard: Esc closes the open chat, or leaves Settings (or a category in
 	/// the compact layout), Ctrl/Cmd+1 to 4 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
 	/// to an open drop-down.
-	fn handle_keys(&mut self, ctx: &egui::Context, class: LayoutClass) {
+	fn handle_keys(&mut self, ctx: &egui::Context) {
 		use egui::{Key, Modifiers};
 		let (escape, jump) = ctx.input_mut(|i| {
 			let escape = i.consume_key(Modifiers::NONE, Key::Escape);
@@ -268,14 +269,8 @@ impl RelayApp {
 			let settings = i.consume_key(Modifiers::COMMAND, Key::Comma);
 			(escape, jump.or(settings.then_some(Page::Settings)))
 		});
-		if escape && self.local.chat.is_some() && !ctx.any_popup_open() {
-			self.local.chat = None;
-		} else if escape && self.page == Page::Settings && !ctx.any_popup_open() {
-			if class.is_compact() {
-				settings::step_back(&mut self.category);
-			} else {
-				self.close_settings();
-			}
+		if escape && !ctx.any_popup_open() {
+			self.step_out();
 		}
 		if let Some(page) = jump {
 			if page == Page::Settings && self.page == Page::Settings {
@@ -290,7 +285,7 @@ impl RelayApp {
 		let class = self.class.unwrap_or(LayoutClass::Regular);
 		let insets = self.actions.shell.safe_area_insets();
 		let keyboard = self.actions.shell.keyboard_height().max(0.0);
-		self.handle_keys(ui.ctx(), class);
+		self.handle_keys(ui.ctx());
 		inset_panels(ui, insets, keyboard);
 		let state = self.actions.shared.state();
 		let meters = self.actions.shared.meters();
