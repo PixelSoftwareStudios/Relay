@@ -60,8 +60,10 @@ without publishing. Each target builds on its own runner with the pinned toolcha
 | `aarch64-apple-darwin`, `x86_64-apple-darwin` | `macos-latest` (the Intel build is cross-compiled) |
 | `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `windows-latest`, `windows-11-arm` |
 
-Each yields `relay-v<version>-<target>.tar.gz` (`.zip` on Windows) from `scripts/package.sh`: `bin/relayd`,
-`bin/relay`, `bin/relay-desktop`, and `share/doc/relay/` with the licences and `THIRD_PARTY_LICENSES`. The
+Each yields `relay-v<version>-<target>.tar.gz` (`.zip` on Windows) from `scripts/packaging/archive.sh`: `bin/relayd`,
+`bin/relay`, `bin/relay-desktop`, and `share/doc/relay/` with the licences and `THIRD_PARTY_LICENSES`. On Linux, `scripts/packaging/linux.sh` also builds `relay-v<version>-<amd64|arm64>.deb`, `relay-v<version>-<x86_64|aarch64>.rpm`
+(both with nfpm, from `packaging/linux/nfpm.yaml`) and a `.AppImage` (appimagetool). The AppImage and the packages rely on the host's
+GTK, ALSA and display libraries; none is bundled. The
 Android job runs `just android-apk` and attaches `relay-v<version>.apk`. The publish job writes
 `SHA256SUMS`, a GitHub build-provenance attestation, and creates the release with generated notes.
 

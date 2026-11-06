@@ -96,7 +96,19 @@ jobs:
           -p relay-daemon -p relay-cli -p relay-desktop
       - name: Package
         shell: bash
-        run: scripts/package.sh ${{ matrix.target }}
+        run: scripts/packaging/archive.sh ${{ matrix.target }}
+      - name: Linux packages (.deb, .rpm, .AppImage)
+        if: runner.os == 'Linux'
+        run: |
+          arch=$(uname -m)
+          nfpm_arch=$([ "$arch" = x86_64 ] && echo x86_64 || echo arm64)
+          mkdir -p "$HOME/bin"
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v2.41.1/nfpm_2.41.1_Linux_${nfpm_arch}.tar.gz" \
+            | tar -xz -C "$HOME/bin" nfpm
+          curl -fsSL -o "$HOME/bin/appimagetool" \
+            "https://github.com/AppImage/appimagetool/releases/download/1.9.0/appimagetool-${arch}.AppImage"
+          chmod +x "$HOME/bin/appimagetool"
+          PATH="$HOME/bin:$PATH" scripts/packaging/linux.sh ${{ matrix.target }}
       - uses: actions/upload-artifact@v4
         with:
           name: relay-${{ matrix.target }}

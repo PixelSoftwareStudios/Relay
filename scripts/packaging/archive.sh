@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Package the built binaries for one target into dist/relay-v<version>-<target>.<tar.gz|zip>.
-# Usage: scripts/package.sh <rust-target-triple>   (after cargo build --release --target <triple>)
+# Usage: scripts/packaging/archive.sh <rust-target-triple>   (after cargo build --release --target <triple>)
 set -euo pipefail
 
-target="${1:?usage: package.sh <rust-target-triple>}"
+target="${1:?usage: archive.sh <rust-target-triple>}"
 version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
 name="relay-v${version}-${target}"
 bin="target/${target}/release"
