@@ -87,6 +87,21 @@ impl StreamHandle for NoopHandle {
 	}
 }
 
+/// Starts a fake playback driver: like real hardware, it pulls nothing until
+/// the stream is played.
+struct StartHandle(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl StreamHandle for StartHandle {
+	fn play(&self) -> Result<()> {
+		self.0.store(true, std::sync::atomic::Ordering::Release);
+		Ok(())
+	}
+
+	fn pause(&self) -> Result<()> {
+		Ok(())
+	}
+}
+
 /// Test-side controller of a fake capture device.
 pub struct FakeCaptureDriver {
 	callback: CaptureCallback,
@@ -152,6 +167,7 @@ pub struct FakePlaybackDriver {
 	recorded: Vec<f32>,
 	record_limit: usize,
 	unplugged: bool,
+	started: std::sync::Arc<std::sync::atomic::AtomicBool>,
 }
 
 impl FakePlaybackDriver {
@@ -167,7 +183,7 @@ impl FakePlaybackDriver {
 
 	/// Simulate one hardware callback requesting `frames` frames.
 	pub fn render(&mut self, frames: usize) {
-		if self.unplugged {
+		if self.unplugged || !self.started.load(std::sync::atomic::Ordering::Acquire) {
 			return;
 		}
 		let channels = usize::from(self.config.channels);
@@ -206,6 +222,7 @@ pub struct FakeBackend {
 	generation: u64,
 	capture_driver: Option<FakeCaptureDriver>,
 	playback_driver: Option<FakePlaybackDriver>,
+	open_delay: std::time::Duration,
 }
 
 impl FakeBackend {
@@ -215,7 +232,14 @@ impl FakeBackend {
 			generation: 0,
 			capture_driver: None,
 			playback_driver: None,
+			open_delay: std::time::Duration::ZERO,
 		}
+	}
+
+	/// Makes every playback open take `delay`, like a device that needs time
+	/// to wake up.
+	pub fn set_playback_open_delay(&mut self, delay: std::time::Duration) {
+		self.open_delay = delay;
 	}
 
 	/// Simulate hot-plug: remove a device by name before the next scan.
@@ -252,6 +276,7 @@ impl FakeBackend {
 			channels: spec.channels,
 			format: spec.format,
 			buffer_frames: None,
+			callback_frames: Some(spec.max_callback_frames),
 			max_callback_frames: spec.max_callback_frames,
 		}
 	}
@@ -337,6 +362,7 @@ impl AudioBackend for FakeBackend {
 		device: DeviceHandle,
 		_request: &StreamRequest,
 	) -> Result<PlaybackStream> {
+		std::thread::sleep(self.open_delay);
 		let spec = self.spec(device, Direction::Output)?;
 		let config = Self::actual(spec);
 		let (callback, writer, shared) = playback_pair(
@@ -345,6 +371,7 @@ impl AudioBackend for FakeBackend {
 		);
 		let health = StreamHealth::default();
 		let samples = config.max_callback_frames as usize * usize::from(config.channels);
+		let started = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 		self.playback_driver = Some(FakePlaybackDriver {
 			callback,
 			config,
@@ -354,13 +381,14 @@ impl AudioBackend for FakeBackend {
 			recorded: Vec::new(),
 			record_limit: 0,
 			unplugged: false,
+			started: std::sync::Arc::clone(&started),
 		});
 		Ok(PlaybackStream {
 			config,
 			writer,
 			shared,
 			health,
-			handle: Box::new(NoopHandle),
+			handle: Box::new(StartHandle(started)),
 		})
 	}
 }

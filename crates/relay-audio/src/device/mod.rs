@@ -11,8 +11,8 @@ mod health;
 #[cfg(target_os = "android")]
 pub use aaudio::AAudioBackend;
 pub use backend::{
-	ActualConfig, AudioBackend, CaptureStream, PlaybackStream, StreamHandle, StreamRequest,
-	ring_samples_for,
+	ActualConfig, AudioBackend, CaptureStream, LOW_LATENCY_BUFFER_FRAMES, PlaybackStream,
+	StreamHandle, StreamRequest, ring_samples_for,
 };
 pub use cpal_backend::{CpalBackend, report_cpal_error};
 pub use descriptor::{

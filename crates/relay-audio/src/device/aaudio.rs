@@ -39,6 +39,18 @@ fn report(health: &StreamHealth, error: NdkError) {
 	});
 }
 
+/// Bursts of output buffer to run with (the native burst is the callback size).
+const OUTPUT_BURSTS: i32 = 2;
+
+/// The callback size to plan for: what the stream reports, else its burst.
+fn callback_hint(stream: &AudioStream) -> Option<u32> {
+	let frames = stream
+		.frames_per_data_callback()
+		.filter(|f| *f > 0)
+		.unwrap_or_else(|| stream.frames_per_burst());
+	u32::try_from(frames).ok().filter(|f| *f > 0)
+}
+
 struct AAudioHandle(AudioStream);
 
 impl StreamHandle for AAudioHandle {
@@ -135,7 +147,7 @@ impl AudioBackend for AAudioBackend {
 		});
 		let health = StreamHealth::default();
 		let on_error = health.clone();
-		let mut builder = AudioStreamBuilder::new()
+		let builder = AudioStreamBuilder::new()
 			.map_err(backend_err)?
 			.direction(AudioDirection::Input)
 			.sample_rate(request.sample_rate as i32)
@@ -152,9 +164,6 @@ impl AudioBackend for AAudioBackend {
 				AudioCallbackResult::Continue
 			}))
 			.error_callback(Box::new(move |_, error| report(&on_error, error)));
-		if let Some(frames) = request.buffer_frames {
-			builder = builder.frames_per_data_callback(frames as i32);
-		}
 		let stream = builder.open_stream().map_err(backend_err)?;
 		tracing::info!(
 			rate = stream.sample_rate(),
@@ -169,6 +178,7 @@ impl AudioBackend for AAudioBackend {
 				channels: 1,
 				format: SampleFormatKind::I16,
 				buffer_frames: Some(stream.buffer_size_in_frames() as u32),
+				callback_frames: callback_hint(&stream),
 				max_callback_frames: max_callback,
 			},
 			reader,
@@ -193,7 +203,7 @@ impl AudioBackend for AAudioBackend {
 		let health = StreamHealth::default();
 		let on_error = health.clone();
 		let width = usize::from(channels);
-		let mut builder = AudioStreamBuilder::new()
+		let builder = AudioStreamBuilder::new()
 			.map_err(backend_err)?
 			.direction(AudioDirection::Output)
 			.sample_rate(request.sample_rate as i32)
@@ -210,15 +220,17 @@ impl AudioBackend for AAudioBackend {
 				AudioCallbackResult::Continue
 			}))
 			.error_callback(Box::new(move |_, error| report(&on_error, error)));
-		if let Some(frames) = request.buffer_frames {
-			builder = builder.frames_per_data_callback(frames as i32);
-		}
 		let stream = builder.open_stream().map_err(backend_err)?;
+		// Low latency means a buffer of a few bursts: two bursts absorb the
+		// render worker's 10 ms schedule without the default's deep queue.
+		let burst = stream.frames_per_burst();
+		let sized = stream.set_buffer_size_in_frames(burst * OUTPUT_BURSTS);
 		tracing::info!(
 			rate = stream.sample_rate(),
 			usage = ?stream.usage(),
 			mode = ?stream.performance_mode(),
-			burst = stream.frames_per_burst(),
+			burst,
+			buffer = ?sized,
 			"AAudio playback opened"
 		);
 		Ok(PlaybackStream {
@@ -227,6 +239,7 @@ impl AudioBackend for AAudioBackend {
 				channels,
 				format: SampleFormatKind::I16,
 				buffer_frames: Some(stream.buffer_size_in_frames() as u32),
+				callback_frames: callback_hint(&stream),
 				max_callback_frames: max_callback,
 			},
 			writer,

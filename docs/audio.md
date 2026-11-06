@@ -136,6 +136,44 @@ Tones have no path to capture, encoders or send gates; the tests
 `media_tone_playback` assert that a local ring sends zero packets and that the
 peer hears only the microphone.
 
+#### Start-up of a ring (no stutter at the start)
+
+The first part of each ring used to stutter. Causes, all fixed:
+
+- The playout FIFO targets 20 ms, but the retarget to the device's callback size
+  only ran at the first drift period (500 ms). A device with a 1024-frame callback
+  therefore underran for the first half second. The sink now takes the callback
+  size the backend announced at open (`ActualConfig::callback_frames`) and retargets
+  before the first write (`RenderSink::with_callback_hint`).
+- The stream was started before the worker owned it and before any data existed,
+  so the first callbacks pulled an empty FIFO. The device thread now fills the FIFO
+  with silence up to the target (`RenderSink::prefill`), hands the worker its
+  output (`RenderCmd::Attach`) and only then calls `play()`.
+- Streams used the device's default buffer. Call, tone and capture streams now
+  request `LOW_LATENCY_BUFFER_FRAMES` (512 frames, about 10.7 ms at 48 kHz). cpal
+  clamps it to the supported range and uses the default when the range is unknown
+  or the stream refuses a fixed size (a warning is logged). AAudio runs at the native
+  burst with a buffer of two bursts. `ActualConfig` reports what was granted, and
+  the engine logs it at `info` ("playback opened"); the backend-reported output
+  latency (cpal's playback timestamp minus callback timestamp) is stored in
+  `PlaybackShared::reported_latency_us` and logged once per stream.
+- An outgoing call sends `ToneCommand::Prewarm` when it starts preparing, so the
+  output is open and prefilled (held 3 s) before the ringback begins. An incoming
+  ring cannot be earlier than the invite; it starts on the first worker tick after
+  the output is attached, with the 10 ms fade-in. Looping stays inside the player:
+  there is no stream restart between ring cycles.
+
+The sounds are `include_bytes!` raw PCM decoded once in `TonePlayer::new`; the
+callback side only copies and scales (`tones_are_the_embedded_raw_pcm_decoded_once`),
+and tone render, mix, FIFO write and callback pull allocate nothing
+(`tone_to_speaker_path_is_allocation_free`, counting allocator on the real
+`TonePlayer`); the queues are lock-free `rtrb` rings and the callback never logs.
+Measured with the fake backend whose output takes 250 ms to open
+(`a_ring_on_a_slow_to_open_output_has_no_underruns_at_the_start`): 962 underrun
+frames before the fix, 0 after; the first ring sample comes about 39 ms after the
+output finished opening (silent prefill plus the fade-in). The fake playback device
+now pulls nothing until `play()`, like hardware.
+
 Which tone plays is decided by `service/tones.rs` (`ToneDriver`, pure) from the
 control actor, after every message and tick:
 

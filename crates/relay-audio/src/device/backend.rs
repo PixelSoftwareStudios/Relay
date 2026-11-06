@@ -7,6 +7,14 @@ use crate::error::Result;
 use crate::playback::{PlaybackShared, PlaybackWriter};
 use std::sync::Arc;
 
+/// Device buffer requested for call, tone and capture streams, in frames at the
+/// internal rate (about 10.7 ms at 48 kHz). The default buffer of a desktop
+/// device is often 1024 frames or more, which a 20 ms playout FIFO cannot
+/// cover; a small fixed buffer keeps the callback size known and the latency
+/// low. Backends clamp it to the device's supported range and fall back to the
+/// device default when the range is unknown or the stream refuses it.
+pub const LOW_LATENCY_BUFFER_FRAMES: u32 = 512;
+
 /// Requested stream shape. The backend reports what it actually opened.
 #[derive(Debug, Clone, Copy)]
 pub struct StreamRequest {
@@ -36,6 +44,10 @@ pub struct ActualConfig {
 	pub channels: u16,
 	pub format: SampleFormatKind,
 	pub buffer_frames: Option<u32>,
+	/// The callback size the device is expected to use, when the backend can
+	/// say before the first callback (a fixed buffer was granted, or the
+	/// native burst). The playout FIFO is sized from it before play starts.
+	pub callback_frames: Option<u32>,
 	pub max_callback_frames: u32,
 }
 

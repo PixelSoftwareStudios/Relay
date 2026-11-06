@@ -16,6 +16,7 @@ pub struct PlaybackShared {
 	max_callback_frames: AtomicU32,
 	underrun_frames: AtomicU64,
 	overflow_frames: AtomicU64,
+	reported_latency_us: AtomicU64,
 }
 
 impl PlaybackShared {
@@ -47,6 +48,18 @@ impl PlaybackShared {
 	/// Frames the writer dropped because the ring was full.
 	pub fn overflow_frames(&self) -> u64 {
 		self.overflow_frames.load(Ordering::Relaxed)
+	}
+
+	/// Output latency the backend reported for the latest callback, in
+	/// microseconds (0 when the backend reports none).
+	pub fn reported_latency_us(&self) -> u64 {
+		self.reported_latency_us.load(Ordering::Relaxed)
+	}
+
+	/// Records the backend-reported output latency (one atomic store; safe in a
+	/// callback).
+	pub fn set_reported_latency_us(&self, micros: u64) {
+		self.reported_latency_us.store(micros, Ordering::Relaxed);
 	}
 
 	pub(super) fn add_overflow(&self, frames: u64) {

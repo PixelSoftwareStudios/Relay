@@ -17,6 +17,26 @@ use crate::playback::{PlaybackCallback, playback_pair};
 /// callbacks are still safe: overflow is counted, never written past.
 const ASSUMED_MAX_CALLBACK: u32 = 4096;
 
+/// The fixed buffer to ask for: the request clamped into the device's supported
+/// range, or `None` (device default) when no size was requested or the range is
+/// unknown.
+fn fixed_buffer(requested: Option<u32>, supported: &SupportedBufferSize) -> Option<u32> {
+	match (requested?, supported) {
+		(frames, SupportedBufferSize::Range { min, max }) if min <= max => {
+			Some(frames.clamp(*min, *max))
+		}
+		_ => None,
+	}
+}
+
+/// Records the output latency cpal predicts for a callback: the time between
+/// the callback and the instant its data reaches the DAC.
+fn note_latency(info: &cpal::OutputCallbackInfo, shared: &crate::playback::PlaybackShared) {
+	let stamp = info.timestamp();
+	let latency = stamp.playback.duration_since(stamp.callback);
+	shared.set_reported_latency_us(u64::try_from(latency.as_micros()).unwrap_or(u64::MAX));
+}
+
 fn backend_err(error: cpal::Error) -> AudioError {
 	AudioError::Backend(error.to_string())
 }
@@ -144,7 +164,8 @@ impl CpalBackend {
 		};
 		let kind = kind_of(supported.sample_format())
 			.ok_or_else(|| AudioError::UnsupportedFormat("sample format".into()))?;
-		let max_callback = match (request.buffer_frames, supported.buffer_size()) {
+		let fixed = fixed_buffer(request.buffer_frames, supported.buffer_size());
+		let max_callback = match (fixed, supported.buffer_size()) {
 			(Some(n), _) => n,
 			(None, SupportedBufferSize::Range { max, .. }) => (*max).min(ASSUMED_MAX_CALLBACK),
 			(None, SupportedBufferSize::Unknown) => ASSUMED_MAX_CALLBACK,
@@ -152,9 +173,7 @@ impl CpalBackend {
 		let config = StreamConfig {
 			channels: supported.channels(),
 			sample_rate: supported.sample_rate(),
-			buffer_size: request
-				.buffer_frames
-				.map_or(BufferSize::Default, BufferSize::Fixed),
+			buffer_size: fixed.map_or(BufferSize::Default, BufferSize::Fixed),
 		};
 		Ok((config, kind, max_callback))
 	}
@@ -219,13 +238,15 @@ fn build_output<T: SizedSample + Sample>(
 	config: StreamConfig,
 	mut callback: PlaybackCallback,
 	health: StreamHealth,
+	shared: std::sync::Arc<crate::playback::PlaybackShared>,
 ) -> Result<cpal::Stream> {
 	let promote = CallbackPromotion::new(&config, health.clone());
 	device
 		.build_output_stream::<T, _, _>(
 			config,
-			move |data, _| {
+			move |data, info| {
 				promote.once();
+				note_latency(info, &shared);
 				callback.process(data);
 			},
 			health_callback(health),
@@ -310,27 +331,26 @@ impl AudioBackend for CpalBackend {
 				"channel selection out of range".into(),
 			));
 		}
-		let (callback, reader, shared) = capture_pair(CaptureSetup {
-			channels: config.channels,
-			select: request.select,
-			ring_samples: ring_samples_for(config.sample_rate, max_callback),
-		});
-		let health = StreamHealth::default();
-		let h = health.clone();
-		let stream = match kind {
-			SampleFormatKind::F32 => build_input::<f32>(device, config, callback, h),
-			SampleFormatKind::I16 => build_input::<i16>(device, config, callback, h),
-			SampleFormatKind::U16 => build_input::<u16>(device, config, callback, h),
-			SampleFormatKind::I32 => build_input::<i32>(device, config, callback, h),
-		}?;
-		Ok(CaptureStream {
-			config: ActualConfig {
-				sample_rate: config.sample_rate,
+		let attempt = |config: StreamConfig, max_callback: u32| {
+			let (callback, reader, shared) = capture_pair(CaptureSetup {
 				channels: config.channels,
-				format: kind,
-				buffer_frames: request.buffer_frames,
-				max_callback_frames: max_callback,
-			},
+				select: request.select,
+				ring_samples: ring_samples_for(config.sample_rate, max_callback),
+			});
+			let health = StreamHealth::default();
+			let h = health.clone();
+			let stream = match kind {
+				SampleFormatKind::F32 => build_input::<f32>(device, config, callback, h),
+				SampleFormatKind::I16 => build_input::<i16>(device, config, callback, h),
+				SampleFormatKind::U16 => build_input::<u16>(device, config, callback, h),
+				SampleFormatKind::I32 => build_input::<i32>(device, config, callback, h),
+			}?;
+			Ok((stream, reader, shared, health))
+		};
+		let ((stream, reader, shared, health), config, max_callback) =
+			with_default_fallback(config, max_callback, attempt)?;
+		Ok(CaptureStream {
+			config: actual(&config, kind, max_callback),
 			reader,
 			shared,
 			health,
@@ -345,30 +365,68 @@ impl AudioBackend for CpalBackend {
 	) -> Result<PlaybackStream> {
 		let device = self.device(device, Direction::Output)?;
 		let (config, kind, max_callback) = Self::choose(device, Direction::Output, request)?;
-		let (callback, writer, shared) = playback_pair(
-			config.channels,
-			ring_samples_for(config.sample_rate, max_callback),
-		);
-		let health = StreamHealth::default();
-		let h = health.clone();
-		let stream = match kind {
-			SampleFormatKind::F32 => build_output::<f32>(device, config, callback, h),
-			SampleFormatKind::I16 => build_output::<i16>(device, config, callback, h),
-			SampleFormatKind::U16 => build_output::<u16>(device, config, callback, h),
-			SampleFormatKind::I32 => build_output::<i32>(device, config, callback, h),
-		}?;
+		let attempt = |config: StreamConfig, max_callback: u32| {
+			let (callback, writer, shared) = playback_pair(
+				config.channels,
+				ring_samples_for(config.sample_rate, max_callback),
+			);
+			let health = StreamHealth::default();
+			let (h, s) = (health.clone(), std::sync::Arc::clone(&shared));
+			let stream = match kind {
+				SampleFormatKind::F32 => build_output::<f32>(device, config, callback, h, s),
+				SampleFormatKind::I16 => build_output::<i16>(device, config, callback, h, s),
+				SampleFormatKind::U16 => build_output::<u16>(device, config, callback, h, s),
+				SampleFormatKind::I32 => build_output::<i32>(device, config, callback, h, s),
+			}?;
+			Ok((stream, writer, shared, health))
+		};
+		let ((stream, writer, shared, health), config, max_callback) =
+			with_default_fallback(config, max_callback, attempt)?;
 		Ok(PlaybackStream {
-			config: ActualConfig {
-				sample_rate: config.sample_rate,
-				channels: config.channels,
-				format: kind,
-				buffer_frames: request.buffer_frames,
-				max_callback_frames: max_callback,
-			},
+			config: actual(&config, kind, max_callback),
 			writer,
 			shared,
 			health,
 			handle: Box::new(CpalStream(stream)),
 		})
+	}
+}
+
+/// What was opened. `buffer_frames` and `callback_frames` are set only when a
+/// fixed buffer was granted.
+fn actual(config: &StreamConfig, kind: SampleFormatKind, max_callback: u32) -> ActualConfig {
+	let fixed = match config.buffer_size {
+		BufferSize::Fixed(frames) => Some(frames),
+		BufferSize::Default => None,
+	};
+	ActualConfig {
+		sample_rate: config.sample_rate,
+		channels: config.channels,
+		format: kind,
+		buffer_frames: fixed,
+		callback_frames: fixed,
+		max_callback_frames: max_callback,
+	}
+}
+
+/// Opens with `config`; when a fixed buffer is refused, opens again with the
+/// device's default buffer.
+fn with_default_fallback<T>(
+	config: StreamConfig,
+	max_callback: u32,
+	mut attempt: impl FnMut(StreamConfig, u32) -> Result<T>,
+) -> Result<(T, StreamConfig, u32)> {
+	match attempt(config, max_callback) {
+		Ok(opened) => Ok((opened, config, max_callback)),
+		Err(error) if matches!(config.buffer_size, BufferSize::Fixed(_)) => {
+			tracing::warn!(%error, "fixed audio buffer refused; using the device default");
+			let config = StreamConfig {
+				buffer_size: BufferSize::Default,
+				..config
+			};
+			let opened = attempt(config, ASSUMED_MAX_CALLBACK)?;
+			Ok((opened, config, ASSUMED_MAX_CALLBACK))
+		}
+		Err(error) => Err(error),
 	}
 }

@@ -262,3 +262,47 @@ fn tone_render_is_allocation_free() {
 	});
 	assert_eq!(n, 0);
 }
+
+/// The whole tone-to-speaker path, as the render tick and the device callback
+/// run it: tone render, mix, FIFO write, callback pull. Decoding happened in
+/// `TonePlayer::new`; here nothing allocates, and the queues are lock-free.
+#[test]
+fn tone_to_speaker_path_is_allocation_free() {
+	use relay_audio::tones::{Sound, TonePlayer};
+	let (mut player, mut control) = TonePlayer::new();
+	let mut mixer = Mixer::new(480);
+	let (mut callback, mut writer, shared) = playback_pair(1, 4096);
+	let mut mixed = [0.0_f32; 480];
+	let mut device = [0.0_f32; 480];
+	let mut loudest = 0.0_f32;
+	let n = allocations_in(|| {
+		control.start(Sound::Ring, true, 0.7).unwrap();
+		for _ in 0..300 {
+			mixer.begin();
+			mixer.add_tones(&mut player);
+			mixer.finish(&mut mixed).unwrap();
+			writer.write(&mixed);
+			callback.process(&mut device);
+			loudest = device.iter().fold(loudest, |m, s| m.max(s.abs()));
+		}
+	});
+	assert_eq!(n, 0);
+	assert!(loudest > 0.05, "the ring reached the device buffer");
+	assert_eq!(shared.underrun_frames(), 0);
+}
+
+/// Sounds are embedded raw PCM decoded once at construction: what the
+/// callback side plays is the file's samples scaled by the volume.
+#[test]
+fn tones_are_the_embedded_raw_pcm_decoded_once() {
+	use relay_audio::tones::{FADE_SAMPLES, Sound, TonePlayer};
+	let raw = include_bytes!("../../../assets/sound/ring.raw");
+	let (mut player, mut control) = TonePlayer::new();
+	control.start(Sound::Ring, true, 0.5).unwrap();
+	let mut out = vec![0.0_f32; 4 * FADE_SAMPLES];
+	player.render_into(&mut out);
+	for i in 2 * FADE_SAMPLES..4 * FADE_SAMPLES {
+		let file = f32::from(i16::from_le_bytes([raw[2 * i], raw[2 * i + 1]])) / 32768.0;
+		assert!((out[i] - file * 0.5).abs() < 1e-6, "sample {i}");
+	}
+}
