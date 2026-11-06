@@ -120,9 +120,10 @@ proptest! {
 
 	#[test]
 	fn control_receiver_survives_arbitrary_stream_bytes(bytes in proptest::collection::vec(any::<u8>(), 0..2000)) {
+		// Built before the runtime starts: the shared pair blocks on its own runtime,
+		// which panics when this is the first test in its process (nextest).
+		let (_, resp) = fixed_pair().clone();
 		runtime().block_on(async {
-			let (init, resp) = fixed_pair().clone();
-			let _ = init;
 			let (mut raw, near) = tokio::io::duplex(1 << 16);
 			let (_tx, mut rx) = control_channel(near, resp);
 			raw.write_all(&bytes).await.unwrap();
