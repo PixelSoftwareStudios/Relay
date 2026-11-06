@@ -340,7 +340,7 @@ fn closing_the_stream_releases_at_once_even_with_the_client_attached() {
 		host.talk(Some(id.clone()), true);
 		rig.expect_gate(true, "button down").await;
 
-		host.ptt.reset();
+		host.ptt.cancel();
 		let started = Instant::now();
 		rig.expect_gate(false, "stream closed").await;
 		assert!(

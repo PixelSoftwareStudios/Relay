@@ -19,6 +19,7 @@ use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
 use relay_api::Endpoint;
+use relay_client::ptt::PttWorker;
 use relay_config::Paths;
 use relay_engine::daemon::{AudioSetup, DaemonHandle, RunOptions, Transport};
 use relay_engine::peers::{DiscoverySetup, Hint, HintSender, hint_channel};
@@ -40,8 +41,6 @@ use crate::bridge::{CallSummary, EngineConfig, EngineError, FoundService, HostBr
 use crate::sealed::{KeystoreSealer, SealedIdentityStore, SealedVault};
 use crate::shell::AndroidShell;
 
-mod ptt;
-use ptt::Ptt;
 
 static HOST: Mutex<Option<Arc<Host>>> = Mutex::new(None);
 
@@ -66,7 +65,7 @@ pub struct Host {
 	endpoint: Endpoint,
 	daemon: tokio::sync::Mutex<Option<DaemonHandle>>,
 	attached: Mutex<Vec<JoinHandle<()>>>,
-	ptt: Ptt,
+	ptt: PttWorker,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
 }
@@ -150,7 +149,11 @@ impl Host {
 				last: Mutex::new(CallSummary::idle()),
 			});
 			handle.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
-			let ptt = Ptt::spawn(&handle, hub.clone(), endpoint.clone());
+			let ptt = PttWorker::spawn(
+				&handle,
+				endpoint.clone(),
+				relay_ui::ptt_target::resolver(hub.clone()),
+			);
 			Self {
 				runtime: Mutex::new(None),
 				handle: handle.clone(),
@@ -253,7 +256,7 @@ impl Host {
 			return;
 		}
 		// The stream closes first: a held press must not outlive the client.
-		self.ptt.reset();
+		self.ptt.cancel();
 		tasks.iter().for_each(JoinHandle::abort);
 		self.slot.clear();
 		self.hub.clear_meters();
@@ -265,7 +268,7 @@ impl Host {
 		self.in_call.store(summary.active, Ordering::Release);
 		self.bridge.call_changed(summary.clone());
 		if !summary.active {
-			self.ptt.reset();
+			self.ptt.cancel();
 		}
 		if !summary.active && !self.foreground.load(Ordering::Acquire) {
 			self.detach();
@@ -298,9 +301,9 @@ impl Host {
 			return;
 		};
 		if pressed {
-			self.ptt.down(id);
+			self.ptt.press(id);
 		} else {
-			self.ptt.up(id);
+			self.ptt.release();
 		}
 	}
 

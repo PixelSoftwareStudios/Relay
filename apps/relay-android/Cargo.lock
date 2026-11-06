@@ -3839,6 +3839,7 @@ dependencies = [
  "hex",
  "relay-api",
  "relay-audio",
+ "relay-client",
  "relay-config",
  "relay-core",
  "relay-engine",
@@ -3903,8 +3904,11 @@ dependencies = [
  "relay-api",
  "relay-io",
  "subtle",
+ "thiserror 2.0.21",
  "tokio",
+ "tokio-stream",
  "tonic",
+ "tracing",
  "zeroize",
 ]
 

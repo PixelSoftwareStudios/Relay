@@ -17,6 +17,7 @@ crate-type = ["cdylib", "lib"]
 [dependencies]
 relay-ui = { path = "../../crates/relay-ui" }
 relay-engine = { path = "../../crates/relay-engine" }
+relay-client = { path = "../../crates/relay-client" }
 relay-config = { path = "../../crates/relay-config" }
 relay-audio = { path = "../../crates/relay-audio" }
 relay-net = { path = "../../crates/relay-net" }
