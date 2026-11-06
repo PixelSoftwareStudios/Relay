@@ -70,6 +70,13 @@ impl Engine for FakeEngine {
 			startup: None,
 		}))
 	}
+	async fn replace_pinned_key(
+		&self,
+		_: Request<relay_api::pb::ReplacePinnedKeyRequest>,
+	) -> Resp<Operation> {
+		unsupported()
+	}
+
 	async fn retry_keychain(&self, _: Request<Empty>) -> Resp<EngineInfo> {
 		unsupported()
 	}

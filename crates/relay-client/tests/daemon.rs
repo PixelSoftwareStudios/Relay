@@ -111,7 +111,7 @@ async fn a_daemon_that_dies_reports_its_log() {
 }
 
 #[tokio::test]
-async fn a_daemon_that_never_binds_times_out_and_is_not_left_behind() {
+async fn a_daemon_that_never_binds_is_reported_and_not_killed() {
 	let home = Home::new();
 	let mut launch = home.launch();
 	mode(&mut launch, "hang");
@@ -119,7 +119,9 @@ async fn a_daemon_that_never_binds_times_out_and_is_not_left_behind() {
 	let Started::FailedToStart { reason, .. } = daemon::start(&launch).await else {
 		panic!("expected FailedToStart");
 	};
-	assert!(reason.contains("did not become ready"), "{reason}");
+	// It may only be slow (or waiting for the user): it is left running, never killed.
+	assert!(reason.contains("did not answer"), "{reason}");
+	assert!(reason.contains("left running"), "{reason}");
 	assert!(!daemon::reachable(&launch.endpoint).await);
 }
 
