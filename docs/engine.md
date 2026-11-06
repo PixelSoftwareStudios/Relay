@@ -386,7 +386,9 @@ disk), `messages_secrets` (TRACE grep).
 ## Not done / owned elsewhere
 
 - Discovered devices have no peer id until their first handshake, so only peers with a known key
-  are listed. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
+  are listed. The manager therefore dials every discovered device that carries a key hint, is not
+  this device and is not linked (`peers/probing.rs`: at most 8 at once, each instance again after
+  30 s); the resulting link is untrusted and waits for the user's decision. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
 - `InputControlMessage.transmit_route_generation` is not validated; the core binds a press to
   the route generation internally.
 - `MutationContext.expected_revision` is honoured for `SetGlobalControls` only (settings

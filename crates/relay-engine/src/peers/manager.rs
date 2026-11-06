@@ -55,6 +55,7 @@ pub(super) struct Actor {
 	pub(super) dialling: HashMap<LinkId, Option<Fingerprint>>,
 	pub(super) addresses: HashMap<Fingerprint, Vec<SocketAddr>>,
 	pub(super) table: DiscoveryTable,
+	pub(super) probed: super::probing::Probed,
 	/// Authenticated links nobody trusts yet, bounded in total and per source.
 	pub(super) untrusted: UntrustedLinks<LinkId>,
 	pub(super) pending: HashMap<Fingerprint, VecDeque<Envelope>>,
@@ -98,6 +99,8 @@ impl Actor {
 	fn upkeep(&mut self) {
 		self.table.expire(DISCOVERY_TTL);
 		self.table.take_evicted();
+		self.prune_probed();
+		self.probe_discovered();
 	}
 
 	pub(super) async fn emit(&self, output: PeerOutput) {
@@ -212,6 +215,7 @@ impl Actor {
 			.output
 			.try_send(PeerOutput::Channel(ChannelEvent::Advert(Box::new(hints))));
 		matches.into_iter().for_each(|peer| self.try_dial(peer));
+		self.probe_discovered();
 	}
 
 	pub(super) fn trusted_link(&self, peer: &Fingerprint) -> Option<&Entry> {

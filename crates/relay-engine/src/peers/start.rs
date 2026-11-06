@@ -83,6 +83,7 @@ pub async fn spawn(
 		dialling: HashMap::new(),
 		addresses: HashMap::new(),
 		table: DiscoveryTable::new(),
+		probed: HashMap::new(),
 		untrusted: UntrustedLinks::new(),
 		pending: HashMap::new(),
 		sessions: Arc::clone(&sessions),

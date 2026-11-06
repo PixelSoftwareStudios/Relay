@@ -12,6 +12,7 @@ mod link;
 mod manager;
 mod names;
 mod overlay;
+mod probing;
 mod profile;
 mod profiling;
 mod rtt;
