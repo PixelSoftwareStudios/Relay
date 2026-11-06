@@ -77,6 +77,8 @@ impl Settings {
 
 	pub fn dump(&self) -> SettingsDump {
 		SettingsDump {
+			build_revision: "fake".into(),
+			api_revision: 0,
 			values: self.values.lock().unwrap().clone().into_iter().collect(),
 			usage: [("limits.avatar_cache_mib".to_owned(), 7)].into(),
 		}

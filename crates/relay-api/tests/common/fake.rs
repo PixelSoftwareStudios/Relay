@@ -118,6 +118,8 @@ impl Engine for FakeEngine {
 			application_version: "fake".into(),
 			api_major: 1,
 			api_minor: 0,
+			build_revision: "fake".into(),
+			api_revision: 0,
 			capabilities: vec!["observe".into(), "call-control".into()],
 			limits: Some(ResourceLimits {
 				clients: self.limits.max_clients as u32,
@@ -138,6 +140,8 @@ impl Engine for FakeEngine {
 			}),
 			granted_capabilities: vec!["observe".into()],
 			revision,
+			daemon_build_revision: "fake".into(),
+			daemon_api_revision: 0,
 		}))
 	}
 
@@ -276,7 +280,14 @@ impl Engine for FakeEngine {
 	async fn release_controller(&self, _: Request<ReleaseControllerRequest>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_transmit_route(&self, _: Request<SetTransmitRouteRequest>) -> Resp<Operation> {
+	async fn set_transmit_mode(&self, _: Request<SetTransmitModeRequest>) -> Resp<Operation> {
+		unsupported()
+	}
+	async fn connect_and_trust(&self, _: Request<ConnectAndTrustRequest>) -> Resp<Operation> {
+		unsupported()
+	}
+	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
+	async fn watch_call_stats(&self, _: Request<WatchCallStatsRequest>) -> Resp<Self::WatchCallStatsStream> {
 		unsupported()
 	}
 	async fn set_call_controls(&self, _: Request<SetCallControlsRequest>) -> Resp<Operation> {
@@ -318,6 +329,9 @@ impl Engine for FakeEngine {
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		self.settings.forget(r.get_ref()).map(Response::new)
 	}
+	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.settings.set_favorites(r.get_ref())))
+	}
 	async fn list_call_history(&self, r: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
 		Ok(Response::new(self.settings.list_history(r.get_ref())))
 	}
@@ -329,9 +343,6 @@ impl Engine for FakeEngine {
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
 		self.settings.apply(r.get_ref()).map(Response::new)
-	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
-		Ok(Response::new(self.settings.set_favorites(r.get_ref())))
-	}
 	}
 
 	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {

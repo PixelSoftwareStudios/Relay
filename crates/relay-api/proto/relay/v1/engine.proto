@@ -18,7 +18,8 @@ service Engine {
   rpc EndCall(CallMutation) returns (Operation);
   rpc AcquireController(AcquireControllerRequest) returns (ControllerLease);
   rpc ReleaseController(ReleaseControllerRequest) returns (Operation);
-  rpc SetTransmitRoute(SetTransmitRouteRequest) returns (Operation);
+  // The one atomic microphone control of a call: mode is also the consent (MUTED withdraws it).
+  rpc SetTransmitMode(SetTransmitModeRequest) returns (Operation);
   rpc SetCallControls(SetCallControlsRequest) returns (Operation);
   rpc SetGlobalControls(SetGlobalControlsRequest) returns (Operation);
   rpc SelectDevices(SelectDevicesRequest) returns (Operation);
@@ -31,8 +32,17 @@ service Engine {
   // Removes the local avatar and tells trusted peers (a Profile with an empty avatar hash).
   rpc ClearAvatar(MutationContext) returns (Operation);
   rpc DecidePeerTrust(DecidePeerTrustRequest) returns (Operation);
+  // Dials a scanned `relay://host:port#fingerprint` string and, when the authenticated static key
+  // matches the scanned fingerprint, trusts the peer as VERIFIED (out of band). A mismatch or an
+  // unreachable address FAILS the operation and stores nothing. Needs `call-control`.
+  rpc ConnectAndTrust(ConnectAndTrustRequest) returns (Operation);
+  // Live measurements of one call at 1 Hz (docs/engine.md). Needs `observe`.
+  rpc WatchCallStats(WatchCallStatsRequest) returns (stream CallStats);
   // Removes a stored trust decision, found by peer id, fingerprint prefix or exact name.
   rpc ForgetPeer(ForgetPeerRequest) returns (Operation);
+  // Replaces the favorites by this ordered list of trusted peers (docs/engine.md). More than 6,
+  // a repeated or an untrusted peer FAILS the operation and changes nothing. Needs `call-control`.
+  rpc SetFavorites(SetFavoritesRequest) returns (Operation);
   rpc CreateChannel(CreateChannelRequest) returns (Operation);
   rpc JoinChannel(JoinChannelRequest) returns (Operation);
   rpc LeaveChannel(LeaveChannelRequest) returns (Operation);
@@ -40,9 +50,6 @@ service Engine {
   rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
   rpc RevokeChannelMember(RevokeChannelMemberRequest) returns (Operation);
   rpc SetPrivacy(SetPrivacyRequest) returns (Operation);
-  // Replaces the favorites by this ordered list of trusted peers (docs/engine.md). More than 6,
-  // a repeated or an untrusted peer FAILS the operation and changes nothing. Needs `call-control`.
-  rpc SetFavorites(SetFavoritesRequest) returns (Operation);
   rpc GetAvatar(GetAvatarRequest) returns (AvatarImage);
   rpc GetConnectionInfo(ClientContext) returns (ConnectionInfo);
   // Every preference as flat `section.key` text (for export). Needs `observe`.
@@ -98,6 +105,8 @@ message EngineInfo {
   uint32 api_minor = 4;
   repeated string capabilities = 5;
   ResourceLimits limits = 6;
+  string build_revision = 7; // git commit of the daemon build, or "<version>-dev"
+  uint32 api_revision = 8; // bumped when the API changes in a way clients depend on
 }
 message ResourceLimits {
   uint32 active_calls = 1;
@@ -116,6 +125,8 @@ message ClientSession {
   ClientContext context = 1;
   repeated string granted_capabilities = 2;
   uint64 revision = 3;
+  string daemon_build_revision = 4; // as EngineInfo.build_revision
+  uint32 daemon_api_revision = 5; // as EngineInfo.api_revision
 }
 enum CallState {
   CALL_STATE_UNSPECIFIED = 0;
@@ -131,11 +142,13 @@ enum CallState {
   CALL_STATE_DECLINED = 10;
   CALL_STATE_CANCELLED = 11;
 }
+// Per-call microphone mode. UNMUTED (open mic) and PUSH_TO_TALK are the user's explicit
+// consent to send the microphone to that call; MUTED withdraws it.
 enum TransmitMode {
   TRANSMIT_MODE_UNSPECIFIED = 0;
-  TRANSMIT_MODE_RECEIVE_ONLY = 1;
+  TRANSMIT_MODE_MUTED = 1;
   TRANSMIT_MODE_PUSH_TO_TALK = 2;
-  TRANSMIT_MODE_OPEN_MIC = 3;
+  TRANSMIT_MODE_UNMUTED = 3;
 }
 enum OperationState {
   OPERATION_STATE_UNSPECIFIED = 0;
@@ -179,6 +192,11 @@ message Peer {
   bytes avatar_sha256 = 6;
   repeated bytes shared_channel_ids = 7; // only channels with proven shared membership
   string fingerprint_short = 8; // e.g. A1B2-C3D4-E5F6-0718-293A: a hint to tell devices apart, never a verification string
+  uint32 port = 9; // peer listener port of the first local address, 0 when unknown
+  uint64 last_seen_unix_ms = 10; // last time discovery or a link showed it; 0 when never
+  // Favorites (the quick-call grid): at most 6 trusted peers in a user-chosen order.
+  bool favorite = 20;
+  uint32 favorite_position = 21; // 0-based place in the favorites; 0 and meaningless when not a favorite
 }
 message Device {
   string device_id = 1; // opaque adapter-qualified ID; never an enumeration index
@@ -192,17 +210,12 @@ message ControllerLease {
   bytes call_id = 1;
   bytes controller_client_id = 2;
   uint64 generation = 3;
-  uint32 port = 9; // peer listener port of the first local address, 0 when unknown
-  uint64 last_seen_unix_ms = 10; // last time discovery or a link showed it; 0 when never
-  // Favorites (the quick-call grid): at most 6 trusted peers in a user-chosen order.
-  bool favorite = 20;
-  uint32 favorite_position = 21; // 0-based place in the favorites; 0 and meaningless when not a favorite
   bytes lease_id = 4;
   uint32 expires_in_ms = 5;
 }
 message TransmitRoute {
   TransmitMode mode = 1;
-  bool consent_granted = 2;
+  bool consent_granted = 2; // derived: mode is not MUTED
   bool effective_transmitting = 3;
   string blocked_reason = 4;
   uint64 generation = 5;
@@ -221,6 +234,9 @@ message Call {
   float receive_gain = 9;
   string negotiated_profile = 10;
   Problem problem = 11;
+  // Engine wall clock when the call became connected (path validated); 0 while not connected.
+  // Show durations as now - connected_at_unix_ms so both ends and every client agree.
+  uint64 connected_at_unix_ms = 12;
 }
 message Settings {
   uint64 revision = 1;
@@ -251,6 +267,11 @@ message Settings {
   bool output_pinned_missing = 24; // the pinned playback device is absent; the system default is used
   bool history_enabled = 25; // finished calls are recorded in the call history (history.enabled)
   uint64 history_revision = 26; // changes whenever an entry is added or the history is cleared; refetch then
+  TransmitMode default_transmit_mode = 27; // calls.default_transmit_mode as saved
+  TransmitMode effective_default_transmit_mode = 28; // what a new call gets (differs when ptt is off)
+  bool ptt_enabled = 29; // ptt.enabled: push-to-talk may be chosen
+  string daemon_build_revision = 30; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
+  uint32 daemon_api_revision = 31;
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -305,13 +326,55 @@ message ReleaseControllerRequest {
   bytes lease_id = 3;
   uint64 controller_generation = 4;
 }
-message SetTransmitRouteRequest {
+message SetTransmitModeRequest {
   MutationContext context = 1;
   bytes call_id = 2;
   uint64 controller_generation = 3;
-  TransmitMode mode = 4;
-  bool explicit_microphone_consent = 5;
-  bool authorize_background_open_mic = 6;
+  TransmitMode mode = 4; // UNMUTED / PUSH_TO_TALK are the consent; there is no separate flag
+  bool authorize_background_open_mic = 5; // UNMUTED only
+}
+message ConnectAndTrustRequest {
+  MutationContext context = 1;
+  string connection_string = 2; // relay://host:port#fingerprint, as scanned from a QR code
+}
+message WatchCallStatsRequest { ClientContext client = 1; bytes call_id = 2; }
+enum MediaPathState {
+  MEDIA_PATH_STATE_UNSPECIFIED = 0;
+  MEDIA_PATH_STATE_WAITING = 1; // waiting for the UDP path to be validated
+  MEDIA_PATH_STATE_CONNECTED = 2;
+  MEDIA_PATH_STATE_FAILED = 3; // see path_reason
+}
+// One call's live measurements, about once per second while it is connected. All estimates:
+// see docs/engine.md for the formulas.
+message CallStats {
+  bytes call_id = 1;
+  MediaPathState path_state = 2;
+  string path_reason = 3; // why FAILED or still WAITING; empty when connected
+  bool sending = 4; // a packet was sent in the last 500 ms
+  bool receiving = 5; // a packet was received in the last 500 ms
+  uint64 packets_sent = 6;
+  uint64 packets_received = 7;
+  optional float mic_level_dbfs = 8; // while the microphone is open
+  optional double rtt_ms = 9; // smoothed round trip on the media path
+  optional double rtt_min_ms = 10; // over the last 10 s
+  optional double rtt_max_ms = 11;
+  optional double jitter_ms = 12; // RFC 3550 interarrival jitter
+  double loss_percent_5s = 13;
+  double loss_percent_total = 14;
+  double jitter_buffer_target_ms = 15;
+  double jitter_buffer_depth_ms = 16;
+  double playout_delay_ms = 17;
+  optional double mouth_to_ear_ms = 18; // estimate
+  uint32 codec_bitrate_bps = 19;
+  uint32 packet_bytes = 20; // typical sealed packet size
+  string local_addr = 21;
+  string remote_addr = 22;
+  string transport = 23; // "lan" or "overlay"
+  optional double clock_drift_ppm = 24;
+  uint32 capture_buffer_frames = 25;
+  double capture_buffer_ms = 26;
+  uint32 playback_buffer_frames = 27;
+  double playback_buffer_ms = 28;
 }
 message SetCallControlsRequest {
   MutationContext context = 1;
@@ -395,6 +458,8 @@ message CallHistoryPage {
   uint64 revision = 3;                // Settings.history_revision at read time
 }
 message SettingsDump {
+  string build_revision = 3; // as EngineInfo.build_revision
+  uint32 api_revision = 4; // as EngineInfo.api_revision
   map<string, string> values = 1;
   // Bytes in use next to the limit that bounds them, keyed by that limit's preference key
   // (limits.avatar_cache_mib, limits.messages_retained_mib, limits.messages_session_mib).
