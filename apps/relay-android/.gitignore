@@ -1,0 +1,8 @@
+# Gradle and Android Studio
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+# Rust (the target directory is kept outside the tree, see docs/android.md)
+target/
