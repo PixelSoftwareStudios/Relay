@@ -298,6 +298,7 @@ impl Engine for FakeEngine {
 		self.log.lock().unwrap().push("get_settings".into());
 		Ok(Response::new(SettingsDump {
 			values: [("ptt.release_delay_ms".to_owned(), "200".to_owned())].into(),
+			usage: Default::default(),
 		}))
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
