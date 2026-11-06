@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+	<Package Name="Relay" Manufacturer="Relay maintainers" Version="$(var.Version)"
+		Scope="perMachine" UpgradeCode="a5545073-2163-4263-970a-c777273705b1">
+		<MajorUpgrade AllowSameVersionUpgrades="yes"
+			DowngradeErrorMessage="A newer Relay version is already installed." />
+		<MediaTemplate EmbedCab="yes" />
+		<Icon Id="RelayIcon" SourceFile="$(var.Icon)" />
+		<Property Id="ARPPRODUCTICON" Value="RelayIcon" />
+		<Property Id="ARPHELPLINK" Value="https://github.com/PixelSoftwareStudios/Relay" />
+		<StandardDirectory Id="ProgramFiles6432Folder">
+			<Directory Id="INSTALLFOLDER" Name="Relay">
+				<!-- relay-desktop and relay look for relayd next to themselves. -->
+				<Component Id="Programs" Guid="*" Bitness="always64">
+					<File Id="RelayDesktopExe" Source="$(var.Desktop)" Name="relay-desktop.exe" KeyPath="yes">
+						<Shortcut Id="LaunchRelay" Name="Relay" Directory="ProgramMenuFolder"
+							Advertise="yes" WorkingDirectory="INSTALLFOLDER" Icon="RelayIcon" />
+					</File>
+					<File Id="RelayExe" Source="$(var.Cli)" Name="relay.exe" />
+					<File Id="RelaydExe" Source="$(var.Daemon)" Name="relayd.exe" />
+				</Component>
+				<!-- Puts relay on PATH for new terminals; removed again on uninstall. -->
+				<Component Id="PathEntry" Guid="*" Bitness="always64">
+					<RegistryValue Root="HKLM" Key="Software\Relay" Name="InstallFolder"
+						Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+					<Environment Id="RelayPath" Name="PATH" Value="[INSTALLFOLDER]" Action="set"
+						Part="last" System="yes" Permanent="no" />
+				</Component>
+				<Directory Id="DOCFOLDER" Name="doc" />
+			</Directory>
+		</StandardDirectory>
+		<StandardDirectory Id="ProgramMenuFolder" />
+		<Feature Id="MainFeature" Title="Relay" Level="1">
+			<ComponentRef Id="Programs" />
+			<ComponentRef Id="PathEntry" />
+			<ComponentGroupRef Id="Documents" />
+		</Feature>
+	</Package>
+</Wix>

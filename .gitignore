@@ -7,3 +7,4 @@
 /THIRD_PARTY_LICENSES
 /dist
 /apps/relay-android/.kotlin
+__pycache__/

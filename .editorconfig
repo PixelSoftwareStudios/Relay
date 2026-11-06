@@ -7,7 +7,7 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{rs,kt,kts,xml,toml,proto,sh,gradle}]
+[*.{rs,kt,kts,xml,wxs,toml,proto,sh,gradle}]
 indent_style = tab
 
 # Fluent only accepts spaces as continuation indent.
@@ -18,3 +18,7 @@ indent_size = 4
 [*.{md,yml,yaml,json}]
 indent_style = space
 indent_size = 2
+
+[*.{py,ps1}]
+indent_style = space
+indent_size = 4

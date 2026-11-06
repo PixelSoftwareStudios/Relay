@@ -1,0 +1,29 @@
+# git-cliff configuration for the release changelog and the release notes.
+# CHANGELOG.md is generated in CI (git cliff --output CHANGELOG.md) and not committed.
+[changelog]
+header = "# Changelog\n\n"
+body = """
+## {{ version | default(value="Unreleased") }}
+{% for group, commits in commits | group_by(attribute="group") %}
+### {{ group | striptags | trim | upper_first }}
+{% for commit in commits -%}
+- {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | split(pat="\n") | first | upper_first }} ({{ commit.id | truncate(length=7, end="") }})
+{% endfor %}
+{% endfor %}
+"""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+tag_pattern = '^v[0-9]+\.[0-9]+\.[0-9]+(?:[-+].*)?$'
+sort_commits = "oldest"
+commit_parsers = [
+	{ message = "^docs?", skip = true },
+	{ message = "^feat", group = "Features" },
+	{ message = "^fix", group = "Fixes" },
+	{ message = "^perf", group = "Performance" },
+	{ message = "^refactor", group = "Refactoring" },
+	{ message = "^(ci|build|test|chore|style)", group = "Maintenance" },
+	{ message = ".*", group = "Other changes" },
+]
