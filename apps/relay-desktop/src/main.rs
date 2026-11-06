@@ -9,6 +9,7 @@ use relay_desktop::prefs::DesktopPrefs;
 use relay_desktop::tray;
 use relay_ui::actions::{Actions, Shared, ShellSink};
 use relay_ui::controller::{Controller, SessionSlot};
+use relay_ui::daemon_control;
 use relay_ui::emitter::{self, Cadence};
 use relay_ui::host_options::HostOptions;
 use relay_ui::hub::Hub;
@@ -110,13 +111,19 @@ fn main() -> eframe::Result {
 					actions.shell.clone(),
 				));
 				let engine = Arc::new(RelayLink::new(resolve_endpoint));
-				runtime.spawn(supervisor::supervise(
-					engine,
-					hub,
-					slot,
-					actions.shell.clone(),
-					shared.autostart.clone(),
-				));
+				let (shell, autostart, shared) =
+					(actions.shell.clone(), shared.autostart.clone(), shared);
+				runtime.spawn(async move {
+					// Once per launch, before the first connect: an idle daemon left over from
+					// an earlier build is replaced by one from this build.
+					if shell.can_manage_daemon()
+						&& let Ok(endpoint) = resolve_endpoint()
+					{
+						daemon_control::restart_idle_at_launch(&endpoint, &autostart, &hub, &shared)
+							.await;
+					}
+					supervisor::supervise(engine, hub, slot, shell, autostart).await;
+				});
 			}
 			let tray = tray::build(&actions);
 			host.set_tray(tray.is_some());
