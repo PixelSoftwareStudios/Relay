@@ -19,8 +19,10 @@ members = [
 	"crates/relay-testkit",
 	"benches",
 ]
-# The desktop GUI links windowing libraries and relay-benches pulls bench and
-# neural tooling, so default builds skip both (`-p relay-ui`, `-p relay-benches`).
+# A plain `cargo build` / `cargo run` builds the desktop app and everything it
+# needs. relay-benches pulls bench and neural tooling, so it is built explicitly
+# (`-p relay-benches`). The terminal-only crates stay free of GUI dependencies
+# (`cargo tree -p relay-cli`).
 default-members = [
 	"crates/relay-core",
 	"crates/relay-protocol",
@@ -33,8 +35,10 @@ default-members = [
 	"crates/relay-client",
 	"crates/relay-messages",
 	"crates/relay-io",
+	"crates/relay-ui",
 	"apps/relay-cli",
 	"apps/relay-daemon",
+	"apps/relay-desktop",
 ]
 
 [workspace.package]
@@ -162,7 +166,7 @@ skrifa = { version = "0.44.0", default-features = false, features = ["std"] }
 # Shaper behind egui text layout; the same copy, used by the Devanagari shaping tests
 harfrust = { version = "0.12.0", default-features = false, features = ["std"] }
 
-# GUI (relay-ui, apps/relay-desktop; not in default-members)
+# GUI (relay-ui, apps/relay-desktop)
 egui = { version = "0.37.0", default-features = false }
 eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "wayland", "x11", "accesskit"] }
 tray-icon = { version = "0.26.1", default-features = false }

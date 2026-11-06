@@ -128,7 +128,7 @@ enables yet), and ALSA devices.
 Current CI already runs `headless` and `desktop` on ubuntu, macos and windows.
 
 1. Fix the failing Windows test targets (required changes 3 and 4) so the `headless` job passes on `windows-latest`, and the Linux tray feature (change 2) so the `desktop` job builds on `ubuntu-latest`. Until then those cells are expected to fail.
-2. Add `cargo check --workspace --all-targets` for the UI crate on all three OSes (the `desktop` job covers relay-desktop only; relay-ui is outside `default-members`).
+2. Add `cargo check --workspace --all-targets` for the UI crate on all three OSes (the `desktop` job covers relay-desktop and relay-ui).
 3. Add a Linux cell with `--features wayland` for relay-platform: `cargo check -p relay-platform --features wayland --all-targets`, so the portal backend is not left uncompiled.
 4. Add Windows named-pipe and ACL tests only when those exist; until then add a Windows smoke test that starts `relayd --tcp-profile` and checks the profile's access rights.
 5. Run one headless Linux job with real audio-less devices (`ALSA` null device or none) so the cpal code path at least initializes with no hardware.

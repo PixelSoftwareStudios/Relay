@@ -3,11 +3,11 @@
 Living notes for `apps/relay-desktop`: an optional, pure-Rust native window (egui via eframe, `glow` backend) over the local engine API. The app is a thin shell: the UI, view models, supervisor and mock live in `crates/relay-ui` (see `docs/ui.md`). It is a controller and display only. There is no WebView, no gRPC-Web, no audio, no PCM and no inference in the client; the daemon owns all of that. egui and eframe are MIT/Apache-2.0, compatible with this project's Apache-2.0 licence (Slint was ruled out on licensing).
 
 ## Build isolation
-`apps/relay-desktop` and `crates/relay-ui` are normal workspace members but is deliberately **not** in `default-members`, so a plain `cargo build` / `cargo test` stays free of windowing dependencies. Build it explicitly:
+`apps/relay-desktop` and `crates/relay-ui` are default workspace members, so a plain `cargo build` and `cargo test` include the desktop app, and `cargo run` launches it (`default-run` in its manifest). The build also produces `relayd` next to it, which the desktop starts when no daemon is running. Run the terminal client with `cargo run -p relay-cli`. The terminal-only crates (`relay-cli`, `relay-daemon`) never depend on the GUI crates; build just those with `cargo build -p relay-cli -p relay-daemon`. To run the desktop app:
 
 | Task | Command |
 |---|---|
-| Build / run | `cargo run -p relay-desktop` (daemon running) |
+| Build / run | `cargo run` (starts `relayd` if none is running) |
 | UI without a daemon | `cargo run -p relay-desktop -- --mock` (or `RELAY_DESKTOP_MOCK=1`) |
 | Tests | `cargo test -p relay-ui -p relay-desktop` |
 | Lints | `cargo clippy -p relay-ui -p relay-desktop --all-targets --no-deps` |

@@ -104,7 +104,7 @@ A hardware or review gate is never marked met by a test that uses fakes.
 
 | Gate | Status | Evidence / what is needed |
 |---|---|---|
-| Terminal-only install calls without WebView or GUI dependencies | met-by-test | Structural: `apps/relay-desktop` is outside `default-members`; `cargo tree -p relay-cli` shows no eframe or webview. Exercised by relay-cli `engine_e2e` and the CI `headless` job (not yet run). |
+| Terminal-only install calls without WebView or GUI dependencies | met-by-test | Structural: `relay-cli` and `relay-daemon` do not depend on `relay-ui`; the CI `headless` job fails if `cargo tree -p relay-cli -p relay-daemon` lists eframe, egui or winit (not yet run). Exercised by relay-cli `engine_e2e`. |
 | PTT press, release, focus, game and lock behaviour on the supported matrix | unmet-needs-hardware | Fake-backend logic is tested (relay-platform `ptt::lock_releases_and_requires_repress`, `focus_loss_and_target_change_release`, `backend_stop_releases`). Real key delivery on macOS, Windows, X11 and Wayland portals is a manual gate in `docs/platform.md`. |
 | An unsupported portal reports honestly, never false success | met-by-test | relay-platform `hotkey::unavailable_backends_refuse_to_start`, `detected_backend_probe_is_never_a_false_success`. |
 | TUI push-to-talk against a real engine `InputControl` handler | unmet-needs-hardware | Engine-side stream semantics listed as open in `docs/cli.md` and `docs/platform.md`; a real-engine run is missing. |

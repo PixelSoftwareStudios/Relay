@@ -5,6 +5,7 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 description = "Optional native (egui) desktop client for the Relay daemon"
+default-run = "relay-desktop"
 
 [lib]
 name = "relay_desktop"
