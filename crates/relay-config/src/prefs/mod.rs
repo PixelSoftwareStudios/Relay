@@ -11,8 +11,8 @@ mod store;
 pub use devices::DeviceChoice;
 pub use limits::{LimitSpec, Limits};
 pub use model::{
-	AdvertMode, Audio, CURRENT_VERSION, Calls, DeviceSelection, Diagnostics, Discovery, History, Hotkeys,
-	Identity, InboundPolicy, KeyStorage, MAX_OFFER_SIZE_MIB, MAX_RELEASE_DELAY_MS,
+	AdvertMode, Audio, CURRENT_VERSION, Calls, DeviceSelection, Diagnostics, Discovery, History,
+	Hotkeys, Identity, InboundPolicy, KeyStorage, MAX_OFFER_SIZE_MIB, MAX_RELEASE_DELAY_MS,
 	MAX_TRANSFER_RATE_MBPS, Messages, Network, NoiseBackend, Preferences, Privacy, Profile, Ptt,
 	TransmitModePref,
 };

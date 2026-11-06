@@ -1,8 +1,8 @@
 mod support;
 
 use relay_config::prefs::{
-	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, TransmitModePref, export_toml, flat,
-	import_toml,
+	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, TransmitModePref, export_toml,
+	flat, import_toml,
 };
 use relay_config::{ConfigError, Paths};
 use support::{chosen_mic, storage};

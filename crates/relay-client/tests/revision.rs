@@ -15,9 +15,15 @@ async fn the_daemon_revision_comes_from_the_connection() {
 		revision,
 		Revision {
 			build: "test".into(),
-			api: 0
+			api: relay_api::API_REVISION
 		}
 	);
-	assert!(!revision.is_current(), "another build than this program");
+	// Staleness follows the API revision alone: another build text is not stale.
+	assert!(revision.is_current(), "same API revision as this program");
 	assert!(Revision::local().is_current());
+	let older = Revision {
+		build: "test".into(),
+		api: relay_api::API_REVISION - 1,
+	};
+	assert!(!older.is_current(), "an older API revision is stale");
 }

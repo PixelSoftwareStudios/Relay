@@ -6,7 +6,10 @@ use relay_core::testing::Node;
 use relay_core::*;
 
 fn defaults(node: &mut Node, mode: RouteMode, ptt_enabled: bool) {
-	node.feed(Input::System(SystemEvent::CallDefaults { mode, ptt_enabled }));
+	node.feed(Input::System(SystemEvent::CallDefaults {
+		mode,
+		ptt_enabled,
+	}));
 }
 
 /// A node whose next call connects under the given defaults.
@@ -68,7 +71,11 @@ fn an_explicit_choice_before_the_call_connects_beats_the_default() {
 #[test]
 fn ptt_off_rejects_choosing_it_and_falls_back_to_muted() {
 	let (mut node, client, call, lease) = connect(RouteMode::PushToTalk, false);
-	assert_eq!(route_of(&node, call), TransmitRoute::MUTED, "muted fallback");
+	assert_eq!(
+		route_of(&node, call),
+		TransmitRoute::MUTED,
+		"muted fallback"
+	);
 	let result = node.command(
 		client,
 		Command::SetTransmitMode {

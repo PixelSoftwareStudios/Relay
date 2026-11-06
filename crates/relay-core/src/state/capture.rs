@@ -42,7 +42,9 @@ impl State {
 				}
 				Ok(Reply::Done)
 			}
-			SystemEvent::CallDefaults { mode, ptt_enabled } => self.set_call_defaults(mode, ptt_enabled),
+			SystemEvent::CallDefaults { mode, ptt_enabled } => {
+				self.set_call_defaults(mode, ptt_enabled)
+			}
 			SystemEvent::MediaPrepared { call, session } => {
 				let id = self.checked_session(call, session)?;
 				let entry = self.calls.get_mut(&id).ok_or(Reject::UnknownCall(call))?;
