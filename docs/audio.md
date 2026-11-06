@@ -254,3 +254,9 @@ published from the workers as atomics (`media/meters.rs`, `RecvStats`, `SendStat
 - Mouth-to-ear latency, worker p99 under load, and any suppressor qualification
   benchmark: no measurements exist.
 - Neural suppressor qualification: no candidate has a qualified manifest.
+
+## Worker watchdog
+
+The render and capture workers are watched for hangs only while they have work (a call, a tone, the
+monitor, an open microphone). An idle engine never raises a warning, and a process that was frozen
+by the system is not a hung worker (see `docs/engine.md`, Supervision).

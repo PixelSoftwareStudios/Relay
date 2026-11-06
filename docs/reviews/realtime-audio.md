@@ -653,3 +653,12 @@ simulation and fake-device evidence; nothing was measured on real hardware.
   a fake OS; `thread_policy_get` read-back and demotion on drop). Windows and Linux paths are only
   type-checked and clippy-clean; effect unmeasured on every OS, and the first-callback promotion has
   not been run against a real WASAPI or ALSA device.
+
+## Update: false hang warning while idle (RT-01 follow-up)
+
+Users saw "The daemon's audio playback stopped responding" with no call, on Android and possibly
+desktop. The only source is the watchdog (`media/supervise.rs`): it judged every worker, idle or
+not, by heartbeat age alone, so a process frozen for longer than 3 s (screen off, app cached) was
+reported on thaw before the parked workers could beat. Now only an active worker is judged, a late
+watchdog wake restarts all deadlines, the log says what was expected and observed, and the text no
+longer says "daemon". Tests: `relay-engine` `media_watchdog`, `media_supervision`.

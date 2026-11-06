@@ -133,6 +133,10 @@ impl Supervised for Worker {
 		}
 	}
 
+	fn active(&self) -> bool {
+		self.input.is_some()
+	}
+
 	/// Drops the stream and the suspect suppressor, and tells the domain the
 	/// microphone is gone: it closes every gate and the device. Senders are
 	/// disarmed, so nothing is sent until a fresh stream has been polled.

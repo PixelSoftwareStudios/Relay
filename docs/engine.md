@@ -590,8 +590,13 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   the worker is reset (capture: stream dropped, suppressor replaced by pass-through, domain told
   `CaptureLost`; render: the call being rendered is removed), `MediaEvent::WorkerFailed` is
   emitted and the daemon shows `MEDIA_WORKER_FAILED`. The fourth panic within 60 s is final.
-  A watchdog reports a worker with no heartbeat for 3 s. Idle workers sleep 500 ms and are woken
-  by their command queue. The UDP send is `try_send_to`: a full socket buffer drops the packet
+  A watchdog reports a worker with no heartbeat for 3 s, but only a worker that is expected to run
+  (`Supervised::active`: render has a call, a tone or the monitor; capture has a microphone stream).
+  An idle worker is never judged, and a check that fires much later than its period (the process
+  was frozen: phone asleep, app cached, laptop suspended) restarts every deadline instead of
+  reporting. The log line `media worker is not responding` carries the worker, the silence and the
+  expectation. The user text is plain (`Audio from the other side stopped. Relay restarted it.`).
+  Idle workers sleep 500 ms and are woken by their command queue. The UDP send is `try_send_to`: a full socket buffer drops the packet
   and counts it (`SendStats::send_dropped`).
 - Devices: nothing has to be chosen. Both directions start as `FollowDefault` (the OS default
   input and output, `AAudioBackend` on Android reports its one routed device as default);

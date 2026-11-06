@@ -141,6 +141,10 @@ impl Supervised for Worker {
 		}
 	}
 
+	fn active(&self) -> bool {
+		!self.idle_hint()
+	}
+
 	/// Removes the call whose receiver panicked, or every call when the
 	/// culprit is unknown; the output stays attached when only a call failed.
 	fn recover(&mut self) -> Option<CallId> {

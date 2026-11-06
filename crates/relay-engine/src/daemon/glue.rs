@@ -30,23 +30,21 @@ fn problem(code: &str, message: String, recovery: &str) -> Problem {
 /// What the user is told when a media thread panicked, hung or gave up.
 fn worker_failed_message(failure: &crate::media::WorkerFailure) -> String {
 	use crate::media::{FailureKind, WorkerId};
+	if failure.permanent {
+		return "Audio stopped working and could not be restarted. Restart Relay.".to_owned();
+	}
 	let part = match failure.worker {
-		WorkerId::Capture => "microphone processing",
-		WorkerId::Render => "audio playback",
-		WorkerId::Devices => "audio device handling",
-		WorkerId::Network => "the media connection",
+		WorkerId::Capture => "Your microphone",
+		WorkerId::Render => "Audio from the other side",
+		WorkerId::Devices => "Audio device handling",
+		WorkerId::Network => "The media connection",
 	};
 	let what = match failure.kind {
 		FailureKind::Panic => "failed",
-		FailureKind::Hang => "stopped responding",
-		FailureKind::Socket => "lost its socket",
+		FailureKind::Hang => "stopped",
+		FailureKind::Socket => "lost its connection",
 	};
-	let tail = if failure.permanent {
-		"It will not restart; restart the daemon."
-	} else {
-		"It was reset; affected calls may have lost audio."
-	};
-	format!("The daemon's {part} {what}. {tail}")
+	format!("{part} {what}. Relay restarted it.")
 }
 
 /// The warning code raised when the microphone cannot be opened.

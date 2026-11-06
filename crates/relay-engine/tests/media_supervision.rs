@@ -203,6 +203,10 @@ impl Supervised for Fake {
 		Duration::from_millis(1)
 	}
 
+	fn active(&self) -> bool {
+		true
+	}
+
 	fn recover(&mut self) -> Option<CallId> {
 		self.recovered.lock().unwrap().push(());
 		self.culprit
@@ -257,6 +261,7 @@ fn the_supervisor_names_the_culprit_call_and_stops_stepping_after_the_limit() {
 #[tokio::test]
 async fn a_worker_that_stops_beating_is_reported_once_as_hung() {
 	let heartbeat = Arc::new(Heartbeat::default());
+	heartbeat.set_active(true);
 	let reports = Arc::new(Mutex::new(Vec::new()));
 	let stop = Arc::new(AtomicBool::new(false));
 	let task = tokio::spawn(watchdog(
