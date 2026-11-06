@@ -653,8 +653,12 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   `SAVED_DEVICE_UNAVAILABLE`); no other device is ever picked. Streams already open are never
   restarted mid-call: a changed default applies at the next open (next call, next test, the
   playback stream reopens after tones or calls stop). A pinned device unplugged at startup stays on
-  the default until the next `SelectDevices` or restart. A lost open device makes the worker drop the stream and send `CaptureLost` (or `OutputLost`); the domain closes
-  the gate, and only `ResumeCapture` opens a device again.
+  the default until the next `SelectDevices` or restart. A lost microphone makes the worker drop the stream and send `CaptureLost`; the domain closes
+  the gate, and only `ResumeCapture` opens a device again. A lost output is different: a phone
+  disconnects its streams at every route change (call mode, speaker, headset, Bluetooth), so the
+  device thread watches the stream's health and reopens it with the same request (`Reconnect`:
+  retries after 20, 100, 250 and 500 ms). Only when that keeps failing does `OutputLost` become
+  the warning (once); it keeps retrying every 2 s and `OutputRestored` withdraws the warning.
 - Admission: `AdmissionLimits::admit` refuses a call at the call cap or when the projected
   per-frame time of the capture or render worker (measured EWMA plus one more call's worth)
   exceeds the budget (default 50% of 10 ms, assumed first-call cost 400 us; both are

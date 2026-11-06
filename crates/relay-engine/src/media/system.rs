@@ -212,7 +212,6 @@ impl MediaSystem {
 		capture.set_waker(capture_thread.thread().clone());
 		let render_thread = render_worker::spawn(
 			render_rx,
-			Arc::clone(&events),
 			Arc::clone(&render_load),
 			Arc::clone(&meters),
 			monitor_rx,

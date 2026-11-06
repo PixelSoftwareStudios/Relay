@@ -19,7 +19,6 @@ use relay_audio::{FRAME_SAMPLES, MAX_CALLS};
 use relay_core::{CallId, ReceiveMix};
 use rtrb::Consumer;
 
-use super::events::{EventSink, MediaEvent};
 use super::load::LoadMeter;
 use super::meters::{Meters, MonitorRx};
 use super::packet::Ingress;
@@ -77,7 +76,6 @@ struct Rendering {
 
 struct Worker {
 	commands: Consumer<RenderCmd>,
-	events: EventSink,
 	load: Arc<LoadMeter>,
 	output: Option<Box<RenderOutput>>,
 	calls: Vec<Rendering>,
@@ -98,7 +96,6 @@ struct Worker {
 /// Starts the render worker thread under `supervision`.
 pub fn spawn(
 	commands: Consumer<RenderCmd>,
-	events: EventSink,
 	load: Arc<LoadMeter>,
 	meters: Arc<Meters>,
 	monitor: MonitorRx,
@@ -106,7 +103,6 @@ pub fn spawn(
 ) -> std::io::Result<JoinHandle<()>> {
 	let worker = Worker {
 		commands,
-		events,
 		load,
 		output: None,
 		calls: Vec::with_capacity(MAX_CALLS),
@@ -306,8 +302,9 @@ impl Worker {
 		if recovery_for(Direction::Output, output.health.state()) == Recovery::Continue {
 			return false;
 		}
+		// The device thread watches the same health cell: it reopens the
+		// output on the new route and tells the user only if that keeps failing.
 		self.output = None;
-		(self.events)(MediaEvent::OutputLost);
 		true
 	}
 

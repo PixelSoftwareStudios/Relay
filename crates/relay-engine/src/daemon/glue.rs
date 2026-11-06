@@ -61,6 +61,9 @@ fn worker_failed_recovery(failure: &crate::media::WorkerFailure) -> &'static str
 	}
 }
 
+/// The warning code raised when the playback device is gone for good.
+const OUTPUT_DEVICE_LOST: &str = "OUTPUT_DEVICE_LOST";
+
 /// The warning code raised when the microphone cannot be opened.
 const MICROPHONE_UNAVAILABLE: &str = "MICROPHONE_UNAVAILABLE";
 
@@ -100,12 +103,13 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 				MediaEvent::Peer(event) => handle.peer(event).await,
 				MediaEvent::OutputLost => {
 					let warning = problem(
-						"OUTPUT_DEVICE_LOST",
+						OUTPUT_DEVICE_LOST,
 						"The playback device went away; remote audio is paused.".to_owned(),
 						"select_output_device",
 					);
 					handle.attention(None, warning).await
 				}
+				MediaEvent::OutputRestored => handle.clear_warning(OUTPUT_DEVICE_LOST).await,
 				MediaEvent::CaptureUnavailable(reason) => {
 					let warning = problem(
 						MICROPHONE_UNAVAILABLE,

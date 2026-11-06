@@ -36,7 +36,6 @@ fn a_ring_tone_is_rendered_with_no_call_and_wakes_an_idle_worker() {
 	let (_tx, monitor_rx) = monitor_pair();
 	let thread = spawn_render_worker(
 		commands,
-		Arc::new(|_| {}),
 		Arc::new(LoadMeter::default()),
 		Arc::new(Meters::default()),
 		monitor_rx,

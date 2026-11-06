@@ -8,14 +8,14 @@
 use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use arc_swap::ArcSwap;
 use relay_audio::AudioError;
 use relay_audio::capture::CaptureChain;
 use relay_audio::device::{
-	AudioBackend, DeviceDescriptor, DeviceSelection, Direction, Resolution, StreamHandle,
-	StreamRequest,
+	AudioBackend, DeviceDescriptor, DeviceSelection, Direction, Outcome, Poll, Reconnect,
+	Resolution, StreamHandle, StreamHealth, StreamRequest, StreamState,
 };
 use relay_core::{AudioGeneration, SystemEvent};
 use tokio::sync::oneshot;
@@ -51,6 +51,9 @@ impl Default for Selection {
 /// How often the device thread re-scans the hardware while idle, so a
 /// plugged-in headset or a new system default shows up in the device list.
 const RESCAN_EVERY: Duration = Duration::from_secs(2);
+/// How often an open playback stream's health is looked at: a stream the
+/// platform disconnected is reopened within this much plus the first backoff.
+const HEALTH_EVERY: Duration = Duration::from_millis(20);
 
 /// Requests to the device thread.
 pub enum DeviceCmd {
@@ -92,6 +95,12 @@ struct Thread {
 	listing: Arc<ArcSwap<Vec<DeviceDescriptor>>>,
 	open_capture: Option<(AudioGeneration, Box<dyn StreamHandle>)>,
 	open_playback: Option<Box<dyn StreamHandle>>,
+	/// Health of the open playback stream, shared with the render worker.
+	playback_health: Option<StreamHealth>,
+	/// Recovery of the playback stream after the platform disconnected it.
+	playback_recovery: Reconnect,
+	started: Instant,
+	last_scan: Instant,
 }
 
 /// A running device thread.
@@ -127,6 +136,10 @@ impl DeviceThread {
 					listing: shared,
 					open_capture: None,
 					open_playback: None,
+					playback_health: None,
+					playback_recovery: Reconnect::new(),
+					started: Instant::now(),
+					last_scan: Instant::now(),
 				};
 				thread.refresh();
 				thread.run(&requests);
@@ -151,10 +164,18 @@ impl Drop for DeviceThread {
 impl Thread {
 	fn run(&mut self, requests: &Receiver<DeviceCmd>) {
 		loop {
-			let request = match requests.recv_timeout(RESCAN_EVERY) {
+			let wait = if self.playback_health.is_some() {
+				HEALTH_EVERY
+			} else {
+				RESCAN_EVERY
+			};
+			let request = match requests.recv_timeout(wait) {
 				Ok(request) => request,
 				Err(RecvTimeoutError::Timeout) => {
-					self.refresh();
+					self.keep_playback_alive();
+					if self.last_scan.elapsed() >= RESCAN_EVERY {
+						self.refresh();
+					}
 					continue;
 				}
 				Err(RecvTimeoutError::Disconnected) => break,
@@ -163,7 +184,11 @@ impl Thread {
 				DeviceCmd::OpenCapture(generation) => self.open_capture(generation),
 				DeviceCmd::CloseCapture(generation) => self.close_capture(generation),
 				DeviceCmd::OpenPlayback(reply) => {
-					let _ = reply.send(self.open_playback().map_err(|e| e.to_string()));
+					let opened = self.open_playback();
+					if opened.is_ok() {
+						self.playback_opened_by_request();
+					}
+					let _ = reply.send(opened.map_err(|e| e.to_string()));
 				}
 				DeviceCmd::ClosePlayback => self.close_playback(),
 				DeviceCmd::Select(selection) => {
@@ -181,6 +206,7 @@ impl Thread {
 	}
 
 	fn refresh(&mut self) {
+		self.last_scan = Instant::now();
 		if let Ok(enumeration) = self.backend.enumerate() {
 			self.listing.store(Arc::new(enumeration.devices));
 		}
@@ -288,6 +314,7 @@ impl Thread {
 		// device starts pulling: the first callbacks then have data and the
 		// first tone sample is never late.
 		sink.prefill();
+		let health = stream.health.clone();
 		let output = Box::new(RenderOutput {
 			sink,
 			health: stream.health,
@@ -298,13 +325,57 @@ impl Thread {
 			.map_err(|_| AudioError::InvalidArgument("render worker queue is full"))?;
 		stream.handle.play()?;
 		self.open_playback = Some(stream.handle);
+		self.playback_health = Some(health);
 		Ok(())
 	}
 
 	fn close_playback(&mut self) {
+		self.playback_health = None;
+		self.playback_recovery = Reconnect::new();
 		if let Some(handle) = self.open_playback.take() {
 			let _ = handle.pause();
 			let _ = self.render.push(RenderCmd::Detach);
+		}
+	}
+
+	/// An explicit open succeeded: it ends any outage being worked on.
+	fn playback_opened_by_request(&mut self) {
+		if self.playback_recovery.warned() {
+			self.events_out(MediaEvent::OutputRestored);
+		}
+		self.playback_recovery = Reconnect::new();
+	}
+
+	/// Reopens the playback stream when the platform disconnected it. A route
+	/// change (call mode, headset, Bluetooth) does that during every call and
+	/// is no reason to tell anyone; the user hears about an output that stays
+	/// gone, once, and about it coming back.
+	fn keep_playback_alive(&mut self) {
+		let Some(health) = self.playback_health.clone() else {
+			return;
+		};
+		let now = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+		let healthy = health.state() == StreamState::Running;
+		if self.playback_recovery.poll(now, healthy) != Poll::Reopen {
+			return;
+		}
+		if let Some(handle) = self.open_playback.take() {
+			let _ = handle.pause();
+		}
+		let reopened = self.open_playback();
+		let now = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
+		if let Err(error) = &reopened {
+			tracing::warn!(%error, "playback reopen failed");
+		}
+		match self.playback_recovery.attempted(now, reopened.is_ok()) {
+			Outcome::Restored { was_warned } => {
+				tracing::info!("playback reopened on the new route");
+				if was_warned {
+					self.events_out(MediaEvent::OutputRestored);
+				}
+			}
+			Outcome::Retry => {}
+			Outcome::Warn => self.events_out(MediaEvent::OutputLost),
 		}
 	}
 

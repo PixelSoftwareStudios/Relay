@@ -119,6 +119,24 @@ impl Sim {
 		}
 	}
 
+	/// The speaker's stream reports the device lost, as a route change does.
+	pub fn disconnect_speaker(&self) {
+		if let Some(driver) = self.playback.lock().unwrap().as_mut() {
+			driver.unplug();
+		}
+	}
+
+	/// The speaker stops existing: reopening it fails until it is added back.
+	pub fn remove_speaker(&self) {
+		self.backend.0.lock().unwrap().remove_device("spk");
+	}
+
+	pub fn add_speaker(&self) {
+		let mut spk = FakeDeviceSpec::new("spk", Direction::Output);
+		spk.is_default = true;
+		self.backend.0.lock().unwrap().add_device(spk);
+	}
+
 	/// Everything the speaker played so far.
 	pub fn heard(&self) -> Vec<f32> {
 		self.playback
@@ -153,6 +171,10 @@ pub struct Node {
 	pub client: ClientId,
 	pub effects: Vec<Effect>,
 	pub trust: SharedTrust,
+	/// `OutputLost` warnings the media layer raised.
+	pub output_lost: usize,
+	/// `OutputRestored` withdrawals the media layer raised.
+	pub output_restored: usize,
 	peer_out: mpsc::Receiver<PeerOutput>,
 	media_rx: Receiver<MediaEvent>,
 	started: Instant,
@@ -240,6 +262,8 @@ impl Node {
 			client,
 			effects: Vec::new(),
 			trust,
+			output_lost: 0,
+			output_restored: 0,
 			peer_out,
 			media_rx,
 			started: Instant::now(),
@@ -306,13 +330,18 @@ impl Node {
 	pub fn poll(&mut self) {
 		while let Ok(event) = self.media_rx.try_recv() {
 			match event {
-				MediaEvent::System(event) => self.feed(Input::System(event)),
-				MediaEvent::Peer(event) => self.feed(Input::Peer(event)),
-				MediaEvent::OutputLost
-				| MediaEvent::CaptureUnavailable(_)
+				MediaEvent::System(event) => {
+					self.feed(Input::System(event));
+				}
+				MediaEvent::Peer(event) => {
+					self.feed(Input::Peer(event));
+				}
+				MediaEvent::OutputLost => self.output_lost += 1,
+				MediaEvent::OutputRestored => self.output_restored += 1,
+				MediaEvent::CaptureUnavailable(_)
 				| MediaEvent::CaptureOpened
-				| MediaEvent::WorkerFailed(_) => continue,
-			};
+				| MediaEvent::WorkerFailed(_) => {}
+			}
 		}
 		while let Ok(output) = self.peer_out.try_recv() {
 			match output {

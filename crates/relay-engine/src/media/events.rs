@@ -12,9 +12,13 @@ pub enum MediaEvent {
 	System(SystemEvent),
 	/// Media-path validation.
 	Peer(PeerEvent),
-	/// The playback device went away. Remote audio is paused until the user
-	/// chooses an output; nothing is redirected automatically.
+	/// The playback device went away and reopening it keeps failing. Remote
+	/// audio is paused until it returns or the user chooses an output; the
+	/// media layer keeps trying and sends `OutputRestored` when it succeeds.
+	/// A route change that a reopen fixes never produces this.
 	OutputLost,
+	/// The playback device is back after `OutputLost`.
+	OutputRestored,
 	/// The microphone could not be opened (no device, permission refused, in
 	/// use). The domain also gets `CaptureFailed`; this carries the reason so
 	/// the user is told what to do.
