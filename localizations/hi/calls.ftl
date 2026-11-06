@@ -58,3 +58,28 @@ incoming-title = { $name } कॉल कर रहे हैं
 call-mic-help = ऊपर का बॉक्स चुनने तक आपका माइक्रोफ़ोन बंद रहेगा।
 calls-sounds = ध्वनियाँ
 ring-help = ध्वनियाँ केवल इस कंप्यूटर पर बजती हैं।
+history-heading = इतिहास
+history-empty = अभी तक कोई कॉल इतिहास नहीं
+history-empty-help = आपके किए और प्राप्त किए गए कॉल यहाँ सूचीबद्ध होंगे।
+history-off-note = कॉल इतिहास बंद है। कुछ नया दर्ज नहीं होता; नीचे की प्रविष्टियाँ आपके हटाने तक बनी रहती हैं।
+history-incoming = आने वाला
+history-outgoing = जाने वाला
+history-missed = छूटा हुआ
+history-declined = अस्वीकृत
+history-not-reached = संपर्क नहीं हुआ
+history-cancelled = रद्द किया गया
+history-call-back = वापस कॉल करें
+history-show-more = और दिखाएँ
+history-clear = इतिहास हटाएँ
+history-clear-ask = इस डिवाइस का पूरा कॉल इतिहास हटाएँ?
+history-clear-yes = इतिहास हटाएँ
+history-clear-keep = रहने दें
+history-time-now = अभी
+history-time-minutes = { $count } मिनट पहले
+history-time-hours = { $count } घंटे पहले
+history-time-yesterday = कल, { $time }
+history-time-days =
+    { $count ->
+        [one] 1 दिन पहले
+       *[other] { $count } दिन पहले
+    }

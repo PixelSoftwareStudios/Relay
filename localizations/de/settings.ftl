@@ -128,3 +128,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Geräte { $peers } · Anrufe { $calls } · Kanäle { $channels }
 advanced-revision = Revision { $revision }
+history-setting-label = Anrufverlauf speichern
+history-setting-help = Merkt sich, wer wen angerufen hat, wie der Anruf endete und wie lange er dauerte, nur auf diesem Gerät. Nichts davon wird an die andere Person gesendet, und der Verlauf lässt sich jederzeit löschen. Ist dies aus, wird nichts Neues aufgezeichnet, und vorhandene Einträge bleiben, bis Sie sie löschen.

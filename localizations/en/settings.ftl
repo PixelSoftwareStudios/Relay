@@ -130,3 +130,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Devices { $peers } · Calls { $calls } · Channels { $channels }
 advanced-revision = Revision { $revision }
+history-setting-label = Keep call history
+history-setting-help = Remembers who called whom, how each call ended and how long it lasted, on this device only. It is never sent to the other person and can be cleared at any time. When this is off, nothing new is recorded and existing entries stay until you clear them.

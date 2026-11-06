@@ -128,3 +128,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = डिवाइस { $peers } · कॉल { $calls } · चैनल { $channels }
 advanced-revision = संस्करण क्रम { $revision }
+history-setting-label = कॉल इतिहास रखें
+history-setting-help = यह केवल इसी डिवाइस पर याद रखता है कि किसने किसे कॉल किया, कॉल कैसे समाप्त हुआ और कितनी देर चला। यह दूसरे व्यक्ति को कभी नहीं भेजा जाता और किसी भी समय हटाया जा सकता है। बंद होने पर कुछ नया दर्ज नहीं होता और मौजूदा प्रविष्टियाँ आपके हटाने तक बनी रहती हैं।

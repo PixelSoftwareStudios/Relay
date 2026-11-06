@@ -57,3 +57,28 @@ incoming-title = { $name } te está llamando
 call-mic-help = Tu micrófono sigue apagado hasta que marques la casilla de arriba.
 calls-sounds = Sonidos
 ring-help = Los sonidos suenan solo en este equipo.
+history-heading = Historial
+history-empty = Aún no hay historial de llamadas
+history-empty-help = Aquí aparecerán las llamadas que hagas y recibas.
+history-off-note = El historial de llamadas está desactivado. No se registra nada nuevo; las entradas de abajo permanecen hasta que las borres.
+history-incoming = Entrante
+history-outgoing = Saliente
+history-missed = Perdida
+history-declined = Rechazada
+history-not-reached = Sin respuesta
+history-cancelled = Cancelada
+history-call-back = Devolver la llamada
+history-show-more = Mostrar más
+history-clear = Borrar historial
+history-clear-ask = ¿Borrar todo el historial de llamadas de este dispositivo?
+history-clear-yes = Borrar historial
+history-clear-keep = Conservar
+history-time-now = Ahora mismo
+history-time-minutes = hace { $count } min
+history-time-hours = hace { $count } h
+history-time-yesterday = Ayer, { $time }
+history-time-days =
+    { $count ->
+        [one] hace 1 día
+       *[other] hace { $count } días
+    }

@@ -127,3 +127,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = 기기 { $peers } · 통화 { $calls } · 채널 { $channels }
 advanced-revision = 리비전 { $revision }
+history-setting-label = 통화 기록 보관
+history-setting-help = 누가 누구에게 전화했는지, 통화가 어떻게 끝났는지, 얼마나 오래 했는지를 이 기기에만 기억합니다. 상대방에게 전송되지 않으며 언제든 삭제할 수 있습니다. 끄면 새 기록은 저장되지 않고 기존 항목은 삭제할 때까지 남아 있습니다.

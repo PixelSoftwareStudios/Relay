@@ -127,3 +127,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = 设备 { $peers } · 通话 { $calls } · 频道 { $channels }
 advanced-revision = 修订 { $revision }
+history-setting-label = 保留通话记录
+history-setting-help = 仅在此设备上记住谁呼叫了谁、通话如何结束以及持续了多久。这些内容绝不会发送给对方,并且可以随时清除。关闭后不会记录新的通话,现有条目会保留,直到您清除。

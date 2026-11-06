@@ -129,3 +129,5 @@ advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Dispositivos { $peers } · Chamadas { $calls } · Canais { $channels }
 advanced-revision = Revisão { $revision }
+history-setting-label = Manter o histórico de chamadas
+history-setting-help = Lembra quem ligou para quem, como cada chamada terminou e quanto durou, somente neste dispositivo. Nunca é enviado à outra pessoa e pode ser apagado a qualquer momento. Se estiver desativado, nada novo é registrado e as entradas existentes permanecem até você apagá-las.

@@ -57,3 +57,29 @@ incoming-title = Звонит { $name }
 call-mic-help = Микрофон остается выключенным, пока вы не отметите флажок выше.
 calls-sounds = Звуки
 ring-help = Звуки воспроизводятся только на этом компьютере.
+history-heading = История
+history-empty = Истории звонков пока нет
+history-empty-help = Здесь будут показаны звонки, которые вы совершаете и принимаете.
+history-off-note = История звонков выключена. Новые звонки не записываются; записи ниже остаются, пока вы их не удалите.
+history-incoming = Входящий
+history-outgoing = Исходящий
+history-missed = Пропущенный
+history-declined = Отклонённый
+history-not-reached = Не дозвонились
+history-cancelled = Отменён
+history-call-back = Перезвонить
+history-show-more = Показать ещё
+history-clear = Очистить историю
+history-clear-ask = Удалить всю историю звонков на этом устройстве?
+history-clear-yes = Очистить историю
+history-clear-keep = Оставить
+history-time-now = Только что
+history-time-minutes = { $count } мин назад
+history-time-hours = { $count } ч назад
+history-time-yesterday = Вчера, { $time }
+history-time-days =
+    { $count ->
+        [one] { $count } день назад
+        [few] { $count } дня назад
+       *[many] { $count } дней назад
+    }

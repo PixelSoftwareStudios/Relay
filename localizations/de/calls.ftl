@@ -58,3 +58,28 @@ incoming-title = { $name } ruft an
 call-mic-help = Ihr Mikrofon bleibt aus, bis Sie das Kästchen oben ankreuzen.
 calls-sounds = Töne
 ring-help = Die Töne werden nur auf diesem Computer abgespielt.
+history-heading = Verlauf
+history-empty = Noch kein Anrufverlauf
+history-empty-help = Anrufe, die Sie tätigen und erhalten, erscheinen hier.
+history-off-note = Der Anrufverlauf ist aus. Es wird nichts Neues aufgezeichnet; die Einträge unten bleiben, bis Sie sie löschen.
+history-incoming = Eingehend
+history-outgoing = Ausgehend
+history-missed = Verpasst
+history-declined = Abgelehnt
+history-not-reached = Nicht erreicht
+history-cancelled = Abgebrochen
+history-call-back = Zurückrufen
+history-show-more = Mehr anzeigen
+history-clear = Verlauf löschen
+history-clear-ask = Den gesamten Anrufverlauf auf diesem Gerät löschen?
+history-clear-yes = Verlauf löschen
+history-clear-keep = Behalten
+history-time-now = Gerade eben
+history-time-minutes = vor { $count } Min.
+history-time-hours = vor { $count } Std.
+history-time-yesterday = Gestern, { $time }
+history-time-days =
+    { $count ->
+        [one] vor 1 Tag
+       *[other] vor { $count } Tagen
+    }

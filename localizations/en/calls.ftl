@@ -60,3 +60,28 @@ incoming-title = { $name } is calling
 call-mic-help = Your microphone stays off until you tick the box above.
 calls-sounds = Sounds
 ring-help = Sounds play on this computer only.
+history-heading = History
+history-empty = No call history yet
+history-empty-help = The calls you make and receive will be listed here.
+history-off-note = Call history is off. Nothing new is recorded; the entries below stay until you clear them.
+history-incoming = Incoming
+history-outgoing = Outgoing
+history-missed = Missed
+history-declined = Declined
+history-not-reached = Not reached
+history-cancelled = Cancelled
+history-call-back = Call back
+history-show-more = Show more
+history-clear = Clear history
+history-clear-ask = Delete the whole call history on this device?
+history-clear-yes = Clear history
+history-clear-keep = Keep
+history-time-now = Just now
+history-time-minutes = { $count } min ago
+history-time-hours = { $count } h ago
+history-time-yesterday = Yesterday, { $time }
+history-time-days =
+    { $count ->
+        [one] 1 day ago
+       *[other] { $count } days ago
+    }
