@@ -29,6 +29,8 @@ pub struct FakeControl {
 	/// One entry per `open_watch` call; an exhausted list makes it fail.
 	pub watches: VecDeque<Vec<Result<WatchItem, ApiError>>>,
 	pub telemetry: Vec<TelemetrySnapshot>,
+	/// What `open_call_stats` yields, then the stream ends.
+	pub call_stats: Vec<CallStats>,
 	/// Secrets that reached the engine side (never part of `log`).
 	pub secrets: Vec<String>,
 	/// When set, `create_invite` answers with a FAILED operation and no token.
@@ -64,6 +66,7 @@ impl FakeControl {
 			},
 			watches: VecDeque::new(),
 			telemetry: Vec::new(),
+			call_stats: Vec::new(),
 			secrets: Vec::new(),
 			invite_failure: None,
 			chat: super::chat::ChatState::new(),
@@ -164,10 +167,19 @@ impl Control for FakeControl {
 impl Subscribe for FakeControl {
 	type Watch = Script<WatchItem>;
 	type Telemetry = Script<TelemetrySnapshot>;
+	type CallStats = Script<CallStats>;
 
 	async fn open_watch(&mut self) -> Result<Self::Watch, ApiError> {
 		let items = self.watches.pop_front().ok_or(ApiError::StreamClosed)?;
 		Ok(Script(items.into()))
+	}
+
+	async fn open_call_stats(&mut self, call_id: &[u8]) -> Result<Self::CallStats, ApiError> {
+		self.log
+			.push(format!("call_stats {}", hex::encode(call_id)));
+		Ok(Script(
+			self.call_stats.clone().into_iter().map(Ok).collect(),
+		))
 	}
 
 	async fn open_telemetry(&mut self, _: u32) -> Result<Self::Telemetry, ApiError> {

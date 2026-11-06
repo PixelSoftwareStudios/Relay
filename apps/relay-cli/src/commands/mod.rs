@@ -22,6 +22,7 @@ mod output;
 mod privacy;
 mod query;
 pub mod resolve;
+mod stats;
 pub mod table;
 pub mod trust;
 pub mod views;
@@ -110,6 +111,8 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 	match command {
 		Command::Status => query::status(client, out).await,
 		Command::Peers => query::peers(client, out).await,
+		Command::Calls => stats::calls(client, out).await,
+		Command::Stats(args) => stats::run(client, &args, out).await,
 		Command::Call { peer } => call::start(client, &peer, out).await,
 		Command::Accept(t) => {
 			call::lifecycle(client, crate::client::CallAction::Accept, t, out).await

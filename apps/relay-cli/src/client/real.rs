@@ -352,8 +352,19 @@ impl Feed for RealTelemetry {
 	}
 }
 
+/// Call statistics stream adapter.
+pub struct RealCallStats(Streaming<relay_api::pb::CallStats>);
+
+impl Feed for RealCallStats {
+	type Item = relay_api::pb::CallStats;
+	async fn next(&mut self) -> Result<Option<relay_api::pb::CallStats>, ApiError> {
+		Ok(self.0.message().await?)
+	}
+}
+
 impl Subscribe for RealClient {
 	type Watch = RealWatch;
+	type CallStats = RealCallStats;
 	type Telemetry = RealTelemetry;
 
 	async fn open_watch(&mut self) -> Result<RealWatch, ApiError> {
@@ -361,6 +372,12 @@ impl Subscribe for RealClient {
 			.watch(WatchOptions::default())
 			.await
 			.map(RealWatch)
+	}
+
+	async fn open_call_stats(&mut self, call_id: &[u8]) -> Result<RealCallStats, ApiError> {
+		relay_client::wire::open_call_stats(&mut self.client, call_id)
+			.await
+			.map(RealCallStats)
 	}
 
 	async fn open_telemetry(&mut self, meters_hz: u32) -> Result<RealTelemetry, ApiError> {

@@ -34,10 +34,10 @@ async fn status_reports_engine_calls_and_settings() {
 	assert_eq!(v["peers_online"], 1);
 	assert_eq!(v["input_device"], "mic1");
 	assert_eq!(v["calls"][0]["peer_name"], "Alice");
-	assert_eq!(v["calls"][0]["mode"], "receive-only");
+	assert_eq!(v["calls"][0]["mode"], "muted");
 	assert_eq!(v["calls"][0]["transmitting"], false);
 	let text = run_with(&mut c, &["status"], false).await.unwrap();
-	assert!(text.contains("Alice") && text.contains("receive-only"));
+	assert!(text.contains("Alice") && text.contains("muted"));
 }
 
 #[tokio::test]
@@ -76,10 +76,9 @@ async fn talk_sets_the_mode_which_is_the_consent_in_one_request() {
 	assert!(c.log[0].contains("PushToTalk"));
 	assert!(c.log[1].contains("Unmuted"));
 	assert!(c.log[2].contains("Muted"));
+	use clap::Parser;
 	assert!(
-		run_with(&mut c, &["talk", "ptt", "--consent"], false)
-			.await
-			.is_err(),
+		relay_cli::cli::Cli::try_parse_from(["relay", "talk", "ptt", "--consent"]).is_err(),
 		"the consent flag is gone"
 	);
 }

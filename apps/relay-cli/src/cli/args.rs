@@ -480,6 +480,16 @@ pub enum TalkMode {
 	Ptt,
 }
 
+/// Arguments of `relay stats`.
+#[derive(Debug, Clone, Args)]
+pub struct StatsArgs {
+	/// Call id prefix or peer name; optional with one live call.
+	pub call: Option<String>,
+	/// Keep printing one sample per second (one JSON line each with `--json`).
+	#[arg(long)]
+	pub watch: bool,
+}
+
 /// Arguments of `relay talk`.
 #[derive(Debug, Clone, Args)]
 pub struct TalkArgs {

@@ -91,6 +91,23 @@ pub struct CallView {
 	pub muted: bool,
 	pub deafened: bool,
 	pub receive_gain: f32,
+	/// Engine wall clock (unix ms) when the call became connected; 0 while it is not.
+	pub connected_at_unix_ms: u64,
+	/// Connected time so far, from `connected_at_unix_ms`; the same on both ends.
+	pub duration_ms: Option<u64>,
+	/// Live measurements; only `relay calls` and `relay stats` add them.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub diagnostics: Option<super::stats::StatsView>,
+}
+
+/// Connected time as `m:ss` (or `h:mm:ss`).
+pub fn clock(ms: u64) -> String {
+	let s = ms / 1000;
+	if s >= 3600 {
+		format!("{}:{:02}:{:02}", s / 3600, s % 3600 / 60, s % 60)
+	} else {
+		format!("{}:{:02}", s / 60, s % 60)
+	}
 }
 
 impl CallView {
@@ -112,7 +129,45 @@ impl CallView {
 			muted: call.user_muted,
 			deafened: call.user_deafened,
 			receive_gain: call.receive_gain,
+			connected_at_unix_ms: call.connected_at_unix_ms,
+			duration_ms: (call.connected_at_unix_ms > 0)
+				.then(|| relay_io::clock::unix_millis().saturating_sub(call.connected_at_unix_ms)),
+			diagnostics: None,
 		}
+	}
+}
+
+/// The live calls.
+#[derive(Debug, Serialize)]
+pub struct CallList {
+	pub calls: Vec<CallView>,
+}
+
+impl CallList {
+	pub fn from_snapshot(snapshot: &Snapshot) -> Self {
+		Self {
+			calls: snapshot
+				.calls
+				.iter()
+				.filter(|c| names::call_is_live(c.state))
+				.map(|c| CallView::new(c, snapshot))
+				.collect(),
+		}
+	}
+}
+
+impl Display for CallList {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		if self.calls.is_empty() {
+			return f.write_str("no calls");
+		}
+		f.write_str(&call_table(&self.calls, Layout::detect()))?;
+		for call in &self.calls {
+			if let Some(d) = &call.diagnostics {
+				write!(f, "\n\n{}\n{d}", short(&call.id))?;
+			}
+		}
+		Ok(())
 	}
 }
 
@@ -125,6 +180,7 @@ impl CallView {
 				.unwrap_or(&self.peer_id)
 				.to_owned(),
 			self.state.to_owned(),
+			self.duration_ms.map_or_else(|| "-".to_owned(), clock),
 			self.mode.to_owned(),
 			if self.transmitting {
 				"transmitting"
@@ -138,7 +194,10 @@ impl CallView {
 }
 
 fn call_table(calls: &[CallView], layout: Layout) -> String {
-	let mut t = table::with_header(layout, &["CALL", "PEER", "STATE", "MODE", "MIC", "BLOCKED"]);
+	let mut t = table::with_header(
+		layout,
+		&["CALL", "PEER", "STATE", "TIME", "MODE", "MIC", "BLOCKED"],
+	);
 	for call in calls {
 		t.add_row(call.row());
 	}

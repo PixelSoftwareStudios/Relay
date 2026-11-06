@@ -43,8 +43,15 @@ pub trait Subscribe: Send {
 	type Watch: Feed<Item = WatchItem>;
 	/// Telemetry stream (meters, speaking).
 	type Telemetry: Feed<Item = TelemetrySnapshot>;
+	/// One call's statistics stream (about one sample per second).
+	type CallStats: Feed<Item = relay_api::pb::CallStats>;
 	/// Open a fresh state watch.
 	fn open_watch(&mut self) -> impl Future<Output = Result<Self::Watch, ApiError>> + Send;
+	/// Open the statistics of one call.
+	fn open_call_stats(
+		&mut self,
+		call_id: &[u8],
+	) -> impl Future<Output = Result<Self::CallStats, ApiError>> + Send;
 	/// Open telemetry at roughly `meters_hz`.
 	fn open_telemetry(
 		&mut self,
