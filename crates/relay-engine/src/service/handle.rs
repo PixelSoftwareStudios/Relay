@@ -4,7 +4,8 @@ use std::sync::Arc;
 
 use relay_api::pb::{Operation, Problem, Snapshot, StateEvent};
 use relay_core::{
-	ClientId, Input, MonoTime, OpResult, OperationId, PeerEvent, Request, Revision, SystemEvent,
+	ClientId, Input, MonoTime, OpResult, OperationId, PeerEvent, PeerId, Request, Revision,
+	SystemEvent,
 };
 use tokio::sync::{broadcast, mpsc, oneshot};
 

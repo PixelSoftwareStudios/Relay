@@ -21,13 +21,13 @@ use tokio::sync::oneshot;
 
 use super::capture_worker::{self, CaptureCmd};
 use super::devices::{BackendFactory, DeviceCmd, DeviceSetup, DeviceThread, Selection};
+use super::diag::{DeviceBuffers, PathStatus};
 use super::events::{EventSink, MediaEvent};
 use super::gate::GateBoard;
 use super::inbox::Inbox;
 use super::live::{MicTest, filter_events};
 use super::load::{AdmissionLimits, LoadMeter, LoadSnapshot, Refusal};
 use super::meters::{Meters, monitor_pair};
-use super::diag::{DeviceBuffers, PathStatus};
 use super::net::{EndpointSink, PeerSocket};
 
 use super::render_worker::{self, RenderCmd};

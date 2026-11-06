@@ -168,7 +168,9 @@ impl CallReceiver {
 
 	/// Tracks the sequence range (for loss) and the arrival time (for "receiving").
 	fn note_arrival(&mut self, sequence: u16) {
-		let (first, high) = self.seq.get_or_insert((u64::from(sequence), u64::from(sequence)));
+		let (first, high) = self
+			.seq
+			.get_or_insert((u64::from(sequence), u64::from(sequence)));
 		// Distance forward in 16-bit space; a small backwards step is a reordered packet.
 		let step = sequence.wrapping_sub((*high & 0xffff) as u16) as i16;
 		if step > 0 {
@@ -176,7 +178,9 @@ impl CallReceiver {
 		}
 		let expected = *high - *first + 1;
 		self.stats.expected.store(expected, Ordering::Relaxed);
-		self.stats.last_packet_ms.store(now_ms().max(1), Ordering::Relaxed);
+		self.stats
+			.last_packet_ms
+			.store(now_ms().max(1), Ordering::Relaxed);
 	}
 
 	/// Produces exactly one 10 ms frame into `out`.

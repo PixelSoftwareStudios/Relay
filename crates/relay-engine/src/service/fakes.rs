@@ -327,7 +327,11 @@ impl SettingsStore for MemorySettings {
 		if ordered.len() > MAX_FAVORITES {
 			return Err(PortError::Invalid(FULL.to_owned()));
 		}
-		if ordered.iter().enumerate().any(|(i, p)| ordered[..i].contains(p)) {
+		if ordered
+			.iter()
+			.enumerate()
+			.any(|(i, p)| ordered[..i].contains(p))
+		{
 			return Err(PortError::Invalid(DUPLICATE.to_owned()));
 		}
 		*lock(&self.favorites) = ordered.to_vec();

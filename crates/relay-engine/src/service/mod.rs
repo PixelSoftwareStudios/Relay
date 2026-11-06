@@ -5,7 +5,9 @@ mod actor;
 mod actor_history;
 mod actor_ops;
 mod actor_settings;
+pub mod call_stats;
 mod clients;
+mod connect_trust;
 mod convert;
 mod directory;
 mod error;
@@ -17,8 +19,6 @@ mod ids;
 mod ledger;
 pub mod ports;
 pub mod presence;
-mod connect_trust;
-pub mod call_stats;
 mod recorder;
 mod rpc;
 mod runtime;
@@ -27,7 +27,9 @@ pub mod telemetry;
 mod tones;
 pub mod usage;
 
+pub use call_stats::{CallRaw, PathKind, StatsWindow, Windowed, mouth_to_ear_ms};
 pub use clients::Capability;
+pub use connect_trust::ConnectFailure;
 pub use error::ServiceError;
 pub use gates::{GateReader, GateTable};
 pub use handle::{ControlHandle, ServiceOp};
@@ -38,8 +40,6 @@ pub use ports::{
 	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, SettingsChange, SettingsStore,
 	StoredSettings, TrustRequest,
 };
-pub use connect_trust::ConnectFailure;
-pub use call_stats::{CallRaw, PathKind, StatsWindow, Windowed, mouth_to_ear_ms};
 pub use recorder::WallClock;
 pub use rpc::EngineService;
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};

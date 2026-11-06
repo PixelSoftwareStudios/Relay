@@ -261,7 +261,9 @@ impl Worker {
 			.render_underruns
 			.store(output.shared.underrun_frames(), Ordering::Relaxed);
 		let latency_us = output.shared.reported_latency_us();
-		meters.output_latency_us.store(latency_us, Ordering::Relaxed);
+		meters
+			.output_latency_us
+			.store(latency_us, Ordering::Relaxed);
 		meters
 			.playout_fifo_us
 			.store(output.sink.occupancy_micros(), Ordering::Relaxed);

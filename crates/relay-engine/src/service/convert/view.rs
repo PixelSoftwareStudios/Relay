@@ -244,7 +244,9 @@ pub fn events_of(event: &Event, revision: u64, directory: &mut Directory) -> Vec
 		Event::GlobalUpdated(view) => single(state_event::Event::Settings(settings_to_pb(
 			view, directory,
 		))),
-		Event::CallUpdated(view) => single(state_event::Event::Call(call_to_pb(view, revision, directory))),
+		Event::CallUpdated(view) => single(state_event::Event::Call(call_to_pb(
+			view, revision, directory,
+		))),
 		Event::CallForgotten(id) => single(state_event::Event::Removed(pb::Removed {
 			id: id.to_bytes().to_vec(),
 			kind: "call".to_owned(),

@@ -33,7 +33,9 @@ fn rtp(sequence: u16, ts_step: u32) -> Vec<u8> {
 		ssrc: SSRC,
 	};
 	let mut out = vec![0u8; 256];
-	let n = RtpProfile::V1.write(&header, &[1, 2, 3, 4], &mut out).unwrap();
+	let n = RtpProfile::V1
+		.write(&header, &[1, 2, 3, 4], &mut out)
+		.unwrap();
 	out.truncate(n);
 	out
 }
@@ -94,7 +96,13 @@ fn sequence_wrap_does_not_count_as_loss() {
 	let start: u16 = 65_500;
 	for i in 0u32..100 {
 		let sequence = start.wrapping_add(i as u16);
-		let packet = Ingress::new(call.to_bytes(), 1, u64::from(i) * 10_000, &rtp(sequence, 480)).unwrap();
+		let packet = Ingress::new(
+			call.to_bytes(),
+			1,
+			u64::from(i) * 10_000,
+			&rtp(sequence, 480),
+		)
+		.unwrap();
 		receiver.ingest(1, &packet);
 	}
 	assert_eq!(stats.expected.load(Relaxed), 100);
@@ -115,7 +123,9 @@ fn raw(expected: u64, received: u64, rtt: f64) -> CallRaw {
 fn windows_report_loss_and_round_trip_extremes() {
 	let mut window = StatsWindow::default();
 	let (mut expected, mut received) = (0u64, 0u64);
-	let wander = [0.0, 4.0, -6.0, 2.0, 6.0, -3.0, 1.0, -5.0, 3.0, 0.0, 5.0, -2.0];
+	let wander = [
+		0.0, 4.0, -6.0, 2.0, 6.0, -3.0, 1.0, -5.0, 3.0, 0.0, 5.0, -2.0,
+	];
 	let mut last = None;
 	for second in 0u64..12 {
 		expected += 100;

@@ -198,7 +198,10 @@ impl MediaSystem {
 			}
 		}
 		tracing::warn!(%call, reason = %last_error, "no media path could be validated");
-		self.set_path(call, failed_path(&format!("no media path validated ({last_error})")));
+		self.set_path(
+			call,
+			failed_path(&format!("no media path validated ({last_error})")),
+		);
 	}
 
 	/// Records the call's media path for diagnostics.

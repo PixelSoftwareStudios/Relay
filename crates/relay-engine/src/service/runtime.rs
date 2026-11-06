@@ -169,7 +169,7 @@ impl ServiceBuilder {
 		)
 		.map_err(|e| ServiceError::Config(e.to_string()))?;
 		let ids = Ids::new(Arc::clone(&config.entropy));
-		let directory = Directory::new(
+		let mut directory = Directory::new(
 			Aux::from(ports.settings.load()),
 			ports.peers.peers(),
 			ports.devices.devices(),

@@ -23,8 +23,8 @@ use tokio::task::JoinHandle;
 
 pub use channel_store::SqliteChannelStore;
 pub use env::Environment;
-pub use favorites::FavoriteBook;
 pub use error::DaemonError;
+pub use favorites::FavoriteBook;
 pub use options::{
 	AdapterFactory, AudioSetup, BackendFactory, NetworkOptions, RunOptions, Transport,
 };

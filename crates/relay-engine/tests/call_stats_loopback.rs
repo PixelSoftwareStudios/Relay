@@ -26,13 +26,12 @@ async fn open(cli: &mut RelayClient, call: &[u8]) -> tonic::Streaming<CallStats>
 }
 
 /// Reads samples until `done` accepts one (at most ten seconds of them).
-async fn until(stream: &mut tonic::Streaming<CallStats>, done: impl Fn(&CallStats) -> bool) -> CallStats {
+async fn until(
+	stream: &mut tonic::Streaming<CallStats>,
+	done: impl Fn(&CallStats) -> bool,
+) -> CallStats {
 	for _ in 0..10 {
-		let sample = stream
-			.message()
-			.await
-			.expect("stream")
-			.expect("sample");
+		let sample = stream.message().await.expect("stream").expect("sample");
 		if done(&sample) {
 			return sample;
 		}
@@ -58,7 +57,10 @@ async fn a_connected_call_reports_path_packets_and_addresses_both_ways() {
 	// Muted by choice: connected, nothing sent.
 	route(&mut a.cli, 50, &call, TransmitMode::Muted).await;
 	route(&mut b.cli, 51, &call, TransmitMode::Muted).await;
-	let quiet = until(&mut at_a, |s| s.path_state == MediaPathState::Connected as i32 && !s.sending).await;
+	let quiet = until(&mut at_a, |s| {
+		s.path_state == MediaPathState::Connected as i32 && !s.sending
+	})
+	.await;
 	assert_eq!(quiet.packets_sent, 0);
 	assert!(!quiet.local_addr.is_empty() && !quiet.remote_addr.is_empty());
 	assert_eq!(quiet.transport, "lan");
@@ -69,10 +71,16 @@ async fn a_connected_call_reports_path_packets_and_addresses_both_ways() {
 	for stream in [&mut at_a, &mut at_b] {
 		let live = until(stream, |s| s.sending && s.receiving).await;
 		assert_eq!(live.path_state, MediaPathState::Connected as i32);
-		assert!(live.packets_sent > 0 && live.packets_received > 0, "{live:?}");
+		assert!(
+			live.packets_sent > 0 && live.packets_received > 0,
+			"{live:?}"
+		);
 		assert!(live.codec_bitrate_bps > 0);
 		assert!(live.packet_bytes > 0);
-		assert!(live.mic_level_dbfs.is_some(), "the fake microphone plays a tone");
+		assert!(
+			live.mic_level_dbfs.is_some(),
+			"the fake microphone plays a tone"
+		);
 	}
 	a.daemon.shutdown().await.expect("a stops");
 	b.daemon.shutdown().await.expect("b stops");

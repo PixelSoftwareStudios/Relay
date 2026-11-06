@@ -54,9 +54,9 @@ impl MediaSystem {
 		}
 		let meters = &inner.meters;
 		raw.mic_dbfs = meters.microphone.get().filter(|l| *l > FLOOR_DBFS);
-		raw.playout_delay_ms =
-			(meters.playout_fifo_us.load(Relaxed) + meters.output_latency_us.load(Relaxed)) as f64
-				/ 1000.0;
+		raw.playout_delay_ms = (meters.playout_fifo_us.load(Relaxed)
+			+ meters.output_latency_us.load(Relaxed)) as f64
+			/ 1000.0;
 		raw.drift_ppm = Some(meters.drift_ppm_milli.load(Relaxed) as f64 / 1000.0);
 		let (frames, rate) = inner.buffers.capture();
 		(raw.capture_frames, raw.capture_rate) = (frames, rate);

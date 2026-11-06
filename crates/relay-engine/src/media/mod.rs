@@ -29,8 +29,8 @@ use thiserror::Error;
 
 pub use capture_worker::{CaptureCmd, CaptureInput, spawn as spawn_capture_worker};
 pub use control::device_id;
-pub use diag::{DeviceBuffers, PathState, PathStatus, now_ms};
 pub use devices::{BackendFactory, DeviceCmd, DeviceSetup, DeviceThread, Selection};
+pub use diag::{DeviceBuffers, PathState, PathStatus, now_ms};
 pub use early::{EARLY_PER_PEER, EARLY_TOTAL, EARLY_TTL, EarlyReady};
 pub use events::{EventSink, MediaEvent};
 pub use gate::{FrameStamp, GateBoard, GateCell};
