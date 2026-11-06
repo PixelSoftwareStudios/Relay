@@ -227,6 +227,7 @@ async fn screenshots() {
 					&dir.join(format!("{name}-{lang}-{page:?}.png")),
 				);
 			}
+			people_shots(&mut phone, &mut textures, &dir, &format!("{name}-{lang}"));
 			for category in SettingsCategory::ALL {
 				phone.app.open_settings(Some(category));
 				shoot(
@@ -237,4 +238,39 @@ async fn screenshots() {
 			}
 		}
 	}
+}
+
+/// People with nobody known (connect section open), with people (collapsed),
+/// and the sidebar chip for a private and an offline device.
+fn people_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Path, tag: &str) {
+	let base = phone::busy_state();
+	let mut empty = base.clone();
+	empty.peers.clear();
+	let mut private = base.clone();
+	if let Some(s) = private.settings.as_mut() {
+		s.advert = relay_ui::model::Advert::Hidden;
+	}
+	let mut offline = base.clone();
+	offline.link = relay_ui::model::Link::Offline;
+	for (name, state) in [
+		("people-empty", empty),
+		("people-peers", base.clone()),
+		("people-private", private),
+		("people-offline", offline),
+	] {
+		phone.show_state(&state);
+		phone
+			.actions
+			.shared
+			.inbox
+			.set_connection(Ok(relay_ui::model::ConnectionView {
+				addresses: vec!["192.168.1.40".into()],
+				port: 7000,
+				fingerprint: "ab".repeat(32),
+				connection_string: format!("relay://192.168.1.40:7000#{}", "ab".repeat(32)),
+			}));
+		phone.app.set_page(Page::People);
+		shoot(phone, textures, &dir.join(format!("{tag}-{name}.png")));
+	}
+	phone.show_state(&base);
 }

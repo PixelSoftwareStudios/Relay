@@ -9,10 +9,15 @@ use crate::viewmodel::PeerRow;
 
 use super::kit::{self, Cx};
 use super::widgets::{avatar, button_row, field_width};
+use super::{connect, visibility};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	kit::page_title(ui, tr!("nav-people"));
+	visibility::card(ui, cx);
+	kit::gap(ui);
+	connect::show(ui, cx, rows.is_empty());
+	kit::gap(ui);
 	add_by_address(ui, cx);
 	let (near, far): (Vec<_>, Vec<_>) = rows.iter().partition(|r| r.reachable);
 	kit::section_title(ui, tr!("home-nearby"));

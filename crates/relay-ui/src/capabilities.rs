@@ -52,12 +52,11 @@ pub enum SettingsCategory {
 	Privacy,
 	Language,
 	Startup,
-	Connection,
 	Advanced,
 }
 
 impl SettingsCategory {
-	pub const ALL: [SettingsCategory; 9] = [
+	pub const ALL: [SettingsCategory; 8] = [
 		Self::Profile,
 		Self::Audio,
 		Self::PushToTalk,
@@ -65,7 +64,6 @@ impl SettingsCategory {
 		Self::Privacy,
 		Self::Language,
 		Self::Startup,
-		Self::Connection,
 		Self::Advanced,
 	];
 
@@ -78,7 +76,6 @@ impl SettingsCategory {
 			Self::Privacy => tr!("settings-privacy"),
 			Self::Language => tr!("settings-language"),
 			Self::Startup => tr!("settings-startup"),
-			Self::Connection => tr!("settings-connection"),
 			Self::Advanced => tr!("settings-advanced"),
 		}
 	}
@@ -93,7 +90,6 @@ impl SettingsCategory {
 			Self::Privacy => tr!("settings-privacy-sub"),
 			Self::Language => tr!("settings-language-sub"),
 			Self::Startup => tr!("settings-startup-sub"),
-			Self::Connection => tr!("settings-connection-sub"),
 			Self::Advanced => tr!("settings-advanced-sub"),
 		}
 	}

@@ -48,6 +48,8 @@ pub struct Local {
 	pub connection_requested: bool,
 	pub qr: Option<(String, TextureHandle)>,
 	pub paste: String,
+	/// The user's choice for the "Connect a device" section; `None` follows the default.
+	pub connect_open: Option<bool>,
 
 	pub picked: Option<PickedImage>,
 

@@ -6,7 +6,6 @@
 mod advanced;
 mod audio;
 mod calls;
-mod connection;
 mod hotkey;
 mod language;
 mod privacy;
@@ -108,14 +107,9 @@ pub fn show_compact(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 	category_page(ui, selected, cx);
 }
 
-/// Drop what a category holds while it is not on screen (the connection
-/// string and its QR texture, the hotkey panel's draft).
+/// Drop what a category holds while it is not on screen (the hotkey
+/// panel's draft).
 pub fn release_unseen(local: &mut Local, shown: Option<SettingsCategory>) {
-	if shown != Some(SettingsCategory::Connection)
-		&& (local.connection.is_some() || local.connection_requested || local.qr.is_some())
-	{
-		connection::forget(local);
-	}
 	if shown != Some(SettingsCategory::PushToTalk) {
 		local.hotkey.reset();
 	}
@@ -138,7 +132,6 @@ fn category_page(ui: &mut Ui, category: SettingsCategory, cx: &mut Cx) {
 		SettingsCategory::Privacy => privacy::show(ui, cx),
 		SettingsCategory::Language => language::show(ui, cx),
 		SettingsCategory::Startup => startup::show(ui, cx),
-		SettingsCategory::Connection => connection::show(ui, cx),
 		SettingsCategory::Advanced => advanced::show(ui, cx),
 	}
 }

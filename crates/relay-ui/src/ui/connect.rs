@@ -1,26 +1,71 @@
-//! Connection: how others reach this device. The connection string and QR
-//! code are what another person scans or pastes into "Add by address".
+//! "Connect a device": how others reach this device. The address (connection
+//! string), its QR code and the paste field for the other device's address
+//! sit together at the top of the People page. The section is open while
+//! nobody is known yet and collapsed afterwards, unless the user chose.
 
 use egui::{self, RichText, Ui};
 
 use crate::model::ConnectionView;
 use crate::qr;
 
-use super::super::kit::{self, Cx};
-use super::super::local::Local;
-use super::super::textures::upload;
-use super::super::widgets::{banner, button_row};
+use super::kit::{self, Cx};
+use super::local::Local;
+use super::textures::upload;
+use super::widgets::{banner, button_row};
 use crate::actions::Actions;
 use crate::tr;
 
 /// Pixels per QR module.
 const QR_SCALE: usize = 4;
 
-pub fn show(ui: &mut Ui, cx: &mut Cx) {
+/// Whether the section shows its body: the user's choice, else open exactly
+/// when no device is known yet.
+pub fn is_open(local: &Local, no_peers: bool) -> bool {
+	local.connect_open.unwrap_or(no_peers)
+}
+
+pub fn show(ui: &mut Ui, cx: &mut Cx, no_peers: bool) {
 	if !cx.local.connection_requested {
 		cx.local.connection_requested = true;
 		cx.actions.fetch_connection();
 	}
+	let open = is_open(cx.local, no_peers);
+	kit::card(ui, |ui| {
+		let header = egui::CollapsingHeader::new(
+			RichText::new(tr!("connect-title"))
+				.size(crate::theme::TEXT_HEADING)
+				.strong(),
+		)
+		.id_salt("connect-section")
+		.open(Some(open))
+		.show(ui, |ui| body(ui, cx));
+		if header.header_response.clicked() {
+			cx.local.connect_open = Some(!open);
+		}
+		if !open {
+			collapsed(ui, cx);
+		}
+	});
+	if !open {
+		cx.local.qr = None;
+	}
+}
+
+/// The collapsed section: Copy address stays one click away.
+fn collapsed(ui: &mut Ui, cx: &mut Cx) {
+	if let Some(Ok(info)) = &cx.local.connection
+		&& !info.connection_string.is_empty()
+	{
+		let text = info.connection_string.clone();
+		button_row(ui, |ui| {
+			if ui.button(tr!("connection-copy")).clicked() {
+				cx.actions.copy_text(&text);
+			}
+		});
+	}
+}
+
+fn body(ui: &mut Ui, cx: &mut Cx) {
 	match cx.local.connection.clone() {
 		None => kit::help(ui, tr!("asking-daemon")),
 		Some(Err(message)) => {
@@ -31,14 +76,12 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 			}
 		}
 		Some(Ok(info)) => {
-			kit::card(ui, |ui| {
-				show_info(ui, cx.actions, &info);
-				details(ui, &info);
-			});
+			show_info(ui, cx.actions, &info);
 			if !info.connection_string.is_empty() {
 				kit::gap(ui);
-				kit::card(ui, |ui| qr_code(ui, cx.local, &info.connection_string));
+				qr_code(ui, cx.local, &info.connection_string);
 			}
+			details(ui, &info);
 		}
 	}
 }

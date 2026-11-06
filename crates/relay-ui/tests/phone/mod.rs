@@ -31,6 +31,8 @@ pub struct PhoneShell {
 	pub insets: Mutex<Insets>,
 	pub keyboard: AtomicU32,
 	pub ptt: Mutex<Vec<(String, bool)>>,
+	/// Everything handed to `copy_text`.
+	pub copied: Mutex<Vec<String>>,
 	visible: AtomicBool,
 	/// Behave like a desktop shell: closing hides to a tray, no talk button.
 	pub desktop: AtomicBool,
@@ -43,7 +45,9 @@ impl FilePicker for PhoneShell {
 }
 
 impl Shell for PhoneShell {
-	fn copy_text(&self, _: &str) {}
+	fn copy_text(&self, text: &str) {
+		self.copied.lock().unwrap().push(text.to_owned());
+	}
 	fn request_repaint(&self) {}
 	fn window_visible(&self) -> bool {
 		self.visible.load(Ordering::SeqCst)
@@ -100,6 +104,8 @@ pub struct Drawn {
 	pub texts: Vec<(egui::Rect, usize)>,
 	/// The strings of all painted text.
 	pub labels: Vec<String>,
+	/// Each painted string with its visible bounds.
+	pub named: Vec<(String, egui::Rect)>,
 }
 
 pub struct Phone {
@@ -201,6 +207,17 @@ impl Phone {
 				_ => None,
 			})
 			.collect();
+		let named = out
+			.shapes
+			.iter()
+			.filter_map(|s| match &s.shape {
+				egui::Shape::Text(t) => Some((
+					t.galley.text().to_owned(),
+					t.visual_bounding_rect().intersect(s.clip_rect),
+				)),
+				_ => None,
+			})
+			.collect();
 		let mut widgets = Vec::new();
 		let mut tappable = Vec::new();
 		let mut visible = Vec::new();
@@ -223,6 +240,7 @@ impl Phone {
 			painted,
 			texts,
 			labels,
+			named,
 		}
 	}
 
@@ -248,6 +266,27 @@ impl Phone {
 			self.frame_with(Vec::new());
 		}
 		self.frame_with(Vec::new())
+	}
+
+	/// Click the first painted text that equals `label`.
+	pub fn click_label(&mut self, label: &str) {
+		let drawn = self.settle();
+		let (_, rect) = drawn
+			.named
+			.iter()
+			.find(|(t, _)| t == label)
+			.unwrap_or_else(|| panic!("no {label:?} in {:?}", drawn.labels));
+		let pos = rect.center();
+		let button = |pressed| egui::Event::PointerButton {
+			pos,
+			button: egui::PointerButton::Primary,
+			pressed,
+			modifiers: Default::default(),
+		};
+		self.frame_with(vec![egui::Event::PointerMoved(pos)]);
+		self.frame_with(vec![button(true)]);
+		self.frame_with(vec![button(false)]);
+		self.settle();
 	}
 
 	pub fn page(&mut self, page: Page) -> Drawn {

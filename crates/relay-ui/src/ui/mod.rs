@@ -9,6 +9,7 @@
 mod banners;
 mod call_card;
 mod channels;
+mod connect;
 mod home;
 mod incoming;
 mod kit;
@@ -19,6 +20,7 @@ mod people;
 mod settings;
 mod sidebar;
 mod textures;
+mod visibility;
 mod widgets;
 
 use std::time::Instant;
@@ -321,6 +323,9 @@ impl RelayApp {
 			false => Some(settings::current(self.category, caps)),
 		});
 		settings::release_unseen(&mut self.local, shown.flatten());
+		if self.page != Page::People && self.local.connection_requested {
+			connect::forget(&mut self.local);
+		}
 	}
 }
 

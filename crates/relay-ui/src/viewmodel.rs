@@ -3,7 +3,9 @@
 
 use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
-use crate::model::{AppState, Call, CallMeter, Channel, Meters, Mode, Peer, Phase, Trust};
+use crate::model::{
+	Advert, AppState, Call, CallMeter, Channel, Link, Meters, Mode, Peer, Phase, Trust,
+};
 use crate::tr;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -181,4 +183,29 @@ pub fn local_avatar(state: &AppState) -> Avatar {
 			.as_ref()
 			.map_or("", |s| s.avatar_hash.as_str()),
 	)
+}
+
+/// Whether other devices on the network can find this one. The engine reports
+/// the stored preference (`Settings.advert`) but not the live advertising
+/// state, so this combines it with what the app knows: the daemon advertises
+/// only while a client is attached, i.e. while the link is connected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Discoverability {
+	/// Advertised on the network: others can find and call this device.
+	Discoverable,
+	/// Not advertised: reachable only by someone with the address.
+	Private,
+	/// Meant to be advertised, but the daemon is not (the link state says why).
+	NotAdvertising(Link),
+}
+
+/// `None` while the preference is unknown (no settings yet) and the link is up.
+pub fn discoverability(state: &AppState) -> Option<Discoverability> {
+	match (state.link, state.settings.as_ref().map(|s| s.advert)) {
+		(Link::Connected, Some(Advert::Visible)) => Some(Discoverability::Discoverable),
+		(Link::Connected, Some(Advert::Hidden)) => Some(Discoverability::Private),
+		(Link::Connected, None) => None,
+		(_, Some(Advert::Hidden)) => Some(Discoverability::Private),
+		(link, _) => Some(Discoverability::NotAdvertising(link)),
+	}
 }

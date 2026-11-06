@@ -8,9 +8,10 @@ use crate::format::link_label;
 use crate::layout::Page;
 use crate::model::Link;
 use crate::theme;
-use crate::viewmodel::local_avatar;
+use crate::viewmodel::{discoverability, local_avatar};
 
 use super::kit::Cx;
+use super::visibility;
 use super::widgets::avatar;
 use crate::tr;
 
@@ -55,12 +56,18 @@ fn identity(ui: &mut Ui, cx: &mut Cx) {
 		let tex = cx.textures.texture(&local_avatar(cx.state), cx.actions);
 		avatar(ui, &tex, theme::AVATAR_ROW);
 		ui.vertical(|ui| {
-			ui.add(egui::Label::new(RichText::new(name).strong()).truncate());
+			ui.add(
+				egui::Label::new(RichText::new(name).size(theme::TEXT_SIDEBAR_NAME).strong())
+					.truncate(),
+			);
 			let (color, text) = link_state(cx.state.link);
 			ui.horizontal(|ui| {
 				ui.label(RichText::new("\u{25CF}").color(color).small());
 				ui.add(egui::Label::new(RichText::new(text).small().weak()).truncate());
 			});
+			if let Some(d) = discoverability(cx.state) {
+				visibility::chip(ui, d);
+			}
 		});
 	});
 }
