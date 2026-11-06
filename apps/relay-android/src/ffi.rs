@@ -62,13 +62,7 @@ impl RelayEngine {
 		self.host.hang_up();
 	}
 
-	/// A volume key went down or up. Returns true when the key was used for
-	/// hold-to-talk (a push-to-talk call is up), false to let Android change the volume.
-	pub fn talk_key(&self, pressed: bool) -> bool {
-		self.host.talk_key(pressed)
-	}
-
-	/// The talk button or keys can no longer report their release (pause,
+	/// The talk button can no longer report their release (pause,
 	/// focus or surface loss): release whatever is held. Always safe to call.
 	pub fn cancel_talk(&self) {
 		self.host.cancel_talk();

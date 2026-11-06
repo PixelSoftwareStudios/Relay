@@ -1,6 +1,6 @@
 //! Hold-to-talk through the engine's push-to-talk lease.
 //!
-//! The on-screen button and the volume keys both end up here. A press is an
+//! The on-screen button ends up here. A press is an
 //! `InputControl` message with a short lease (400 ms) that this worker renews
 //! every 150 ms while the key is down, exactly like the CLI and the desktop
 //! `PttDriver`; the engine opens the transmit gate only while a lease is

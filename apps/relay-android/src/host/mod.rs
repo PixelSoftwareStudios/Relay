@@ -29,7 +29,7 @@ use relay_ui::controller::{Controller, SessionSlot};
 use relay_ui::emitter::{self, Cadence, Sink, TraySummary};
 use relay_ui::hub::Hub;
 use relay_ui::messaging::link::MsgLink;
-use relay_ui::model::{AppState, Link, Meters, Mode};
+use relay_ui::model::{AppState, Link, Meters};
 use relay_ui::relay_link::RelayLink;
 use relay_ui::shell::Shell;
 use relay_ui::{messaging, supervisor};
@@ -67,7 +67,6 @@ pub struct Host {
 	daemon: tokio::sync::Mutex<Option<DaemonHandle>>,
 	attached: Mutex<Vec<JoinHandle<()>>>,
 	ptt: Ptt,
-	talk_held: AtomicBool,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
 	/// 0 unknown, 1 granted, 2 denied.
@@ -167,7 +166,6 @@ impl Host {
 				daemon: tokio::sync::Mutex::new(Some(daemon)),
 				attached: Mutex::new(Vec::new()),
 				ptt,
-				talk_held: AtomicBool::new(false),
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
 				microphone: AtomicU8::new(0),
@@ -256,7 +254,6 @@ impl Host {
 			return;
 		}
 		// The stream closes first: a held press must not outlive the client.
-		self.talk_held.store(false, Ordering::Release);
 		self.ptt.reset();
 		tasks.iter().for_each(JoinHandle::abort);
 		self.slot.clear();
@@ -269,7 +266,6 @@ impl Host {
 		self.in_call.store(summary.active, Ordering::Release);
 		self.bridge.call_changed(summary.clone());
 		if !summary.active {
-			self.talk_held.store(false, Ordering::Release);
 			self.ptt.reset();
 		}
 		if !summary.active && !self.foreground.load(Ordering::Acquire) {
@@ -299,52 +295,20 @@ impl Host {
 
 	/// Hold-to-talk from the on-screen button.
 	pub fn talk(&self, call_id: Option<String>, pressed: bool) {
-		if let Some(id) = call_id {
-			self.send_talk(id, pressed);
-		}
-	}
-
-	fn send_talk(&self, call_id: String, pressed: bool) {
+		let Some(id) = call_id else {
+			return;
+		};
 		if pressed {
-			self.ptt.down(call_id);
+			self.ptt.down(id);
 		} else {
-			self.ptt.up(call_id);
+			self.ptt.up(id);
 		}
 	}
 
-	/// The key or button went away without an up event (pause, focus or
+	/// The button went away without an up event (pause, focus or
 	/// surface loss): release whatever is held.
 	pub fn cancel_talk(&self) {
-		self.talk_held.store(false, Ordering::Release);
 		self.ptt.cancel();
-	}
-
-	/// A volume key. It is a talk key only while a push-to-talk call is up (or
-	/// held down); otherwise Android keeps it for the volume. Returns whether
-	/// the key was taken.
-	pub fn talk_key(&self, pressed: bool) -> bool {
-		let ptt_call = self.hub.read(|s| {
-			s.calls
-				.iter()
-				.find(|c| !c.phase.is_terminal() && c.transmit.mode == Mode::PushToTalk)
-				.map(|c| c.call_id.clone())
-		});
-		let held = self.talk_held.load(Ordering::Acquire);
-		if pressed && held {
-			// Auto-repeat of the key already taken.
-			return true;
-		}
-		let id = match (pressed, ptt_call) {
-			(true, Some(id)) => id,
-			(false, _) if held => match self.active_call_id() {
-				Some(id) => id,
-				None => return false,
-			},
-			_ => return false,
-		};
-		self.talk_held.store(pressed, Ordering::Release);
-		self.send_talk(id, pressed);
-		true
 	}
 
 	fn active_call_id(&self) -> Option<String> {

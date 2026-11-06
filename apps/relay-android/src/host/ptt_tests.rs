@@ -7,7 +7,7 @@ use std::time::Instant;
 use relay_core::{CallId, DeviceKeyId, PeerEvent, PeerMessage, SystemEvent};
 use relay_engine::service::fakes::{FakePorts, MediaCall};
 use relay_engine::service::{PeerInfo, PeerTrust};
-use relay_ui::model::Phase;
+use relay_ui::model::{Mode, Phase};
 
 use super::tests::{FakeBridge, SERIAL, wait_for};
 use super::*;
@@ -241,33 +241,6 @@ fn the_button_holds_the_lease_and_release_closes_the_gate() {
 }
 
 #[test]
-fn volume_keys_use_the_same_lease_and_a_lone_key_up_is_released() {
-	let _serial = SERIAL
-		.lock()
-		.unwrap_or_else(std::sync::PoisonError::into_inner);
-	let rig = Rig::start();
-	let host = rig.host.clone();
-	rig.handle.block_on(async {
-		rig.arm().await;
-		rig.release_delay(0).await;
-		assert!(
-			host.talk_key(true),
-			"the key is taken during a push-to-talk call"
-		);
-		rig.expect_gate(true, "volume key down").await;
-		assert!(host.talk_key(true), "auto-repeat stays taken");
-		rig.gate_stays(true, "held across repeats").await;
-		assert!(host.talk_key(false));
-		rig.expect_gate(false, "volume key up").await;
-		assert!(
-			!host.talk_key(false),
-			"a stray key-up is left to the volume"
-		);
-	});
-	rig.finish();
-}
-
-#[test]
 fn a_cancelled_button_releases() {
 	let _serial = SERIAL
 		.lock()
@@ -282,18 +255,12 @@ fn a_cancelled_button_releases() {
 		// Surface loss, pause or focus loss: no up event ever arrives.
 		host.cancel_talk();
 		rig.expect_gate(false, "cancelled").await;
-
-		assert!(host.talk_key(true));
-		rig.expect_gate(true, "key down").await;
-		host.cancel_talk();
-		rig.expect_gate(false, "cancelled key").await;
-		assert!(!host.talk_key(false), "the cancelled key is no longer held");
 	});
 	rig.finish();
 }
 
 #[test]
-fn going_to_the_background_releases_a_held_key() {
+fn going_to_the_background_releases_a_held_press() {
 	let _serial = SERIAL
 		.lock()
 		.unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -355,7 +322,6 @@ fn ending_the_call_releases_and_drops_the_stream() {
 			s.calls.iter().all(|c| c.phase.is_terminal())
 		})
 		.await;
-		assert!(!host.talk_key(true), "no call, so the key is the volume's");
 	});
 	rig.finish();
 }

@@ -5,7 +5,6 @@ import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.util.Log
-import android.view.KeyEvent
 import android.view.SurfaceHolder
 import android.view.WindowManager
 import androidx.activity.result.contract.ActivityResultContracts
@@ -65,26 +64,8 @@ class MainActivity : GameActivity() {
         super.onDestroy()
     }
 
-    /**
-     * Volume keys are hold-to-talk while a push-to-talk call is up, through
-     * the same engine path as the on-screen button. A key-up for a key taken
-     * on the way down is always consumed and forwarded.
-     */
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        val volume = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        if (volume) {
-            val taken = when (event.action) {
-                KeyEvent.ACTION_DOWN -> RelayRuntime.engine != null && talkKeys.press(event.keyCode)
-                KeyEvent.ACTION_UP -> talkKeys.release(event.keyCode)
-                else -> false
-            }
-            if (taken) return true
-        }
-        return super.dispatchKeyEvent(event)
-    }
-
-    /** Anything that could swallow a key-up releases the talk keys and the on-screen button. */
-    private fun releaseTalk() = talkKeys.cancel()
+    /** Anything that could swallow the button's release lets go of the talk lease. */
+    private fun releaseTalk() = RelayRuntime.engine?.cancelTalk()
 
     override fun onPause() {
         releaseTalk()
@@ -106,11 +87,6 @@ class MainActivity : GameActivity() {
     fun askForMicrophone() {
         if (microphone().shouldRequest()) requestMissingPermissions()
     }
-
-    private val talkKeys = TalkKeys(
-        talk = { pressed -> RelayRuntime.engine?.talkKey(pressed) ?: false },
-        cancel = { RelayRuntime.engine?.cancelTalk() },
-    )
 
     private val nsd by lazy { NsdDiscovery(this) { RelayRuntime.engine } }
 
