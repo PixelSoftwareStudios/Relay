@@ -8,6 +8,7 @@
 //! - [`refresh`]: replacing a stale or idle daemon with this program's own build.
 //! - [`operation`]: waiting for an accepted operation to settle.
 //! - [`meter`]: level scaling for meters.
+//! - [`ptt`]: the one push-to-talk lease worker.
 //!
 //! UI toolkits, argument parsing and each client's own error taxonomy stay in
 //! the apps. Nothing here carries audio.
@@ -18,6 +19,7 @@ pub mod daemon;
 pub mod endpoint;
 pub mod meter;
 pub mod operation;
+pub mod ptt;
 pub mod refresh;
 pub mod wire;
 

@@ -17,6 +17,27 @@ type Resp<T> = Result<Response<T>, Status>;
 pub struct FakeEngine {
 	registry: Arc<ClientRegistry>,
 	pub log: Arc<Mutex<Vec<String>>>,
+	/// Every `InputControl` message received, in order.
+	pub inputs: Arc<Mutex<Vec<InputControlMessage>>>,
+	/// How the engine answers `InputControl` messages.
+	pub reply: Arc<Mutex<InputReply>>,
+	/// Input streams the client opened, and how many of them ended.
+	pub streams_opened: Arc<std::sync::atomic::AtomicUsize>,
+	pub streams_closed: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+/// The engine's answer to a push-to-talk message.
+#[derive(Clone)]
+#[allow(dead_code)]
+pub enum InputReply {
+	Accept { transmitting: bool },
+	Reject(&'static str),
+}
+
+impl Default for InputReply {
+	fn default() -> Self {
+		Self::Accept { transmitting: true }
+	}
 }
 
 impl FakeEngine {
@@ -460,9 +481,42 @@ impl Engine for FakeEngine {
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;
 	async fn input_control(
 		&self,
-		_: Request<tonic::Streaming<InputControlMessage>>,
+		request: Request<tonic::Streaming<InputControlMessage>>,
 	) -> Resp<Self::InputControlStream> {
-		unsupported()
+		use std::sync::atomic::Ordering;
+		let mut incoming = request.into_inner();
+		let (tx, rx) = mpsc::channel(8);
+		let (inputs, reply) = (self.inputs.clone(), self.reply.clone());
+		let closed = self.streams_closed.clone();
+		self.streams_opened.fetch_add(1, Ordering::SeqCst);
+		tokio::spawn(async move {
+			while let Ok(Some(message)) = incoming.message().await {
+				inputs.lock().unwrap().push(message.clone());
+				let mut ack = InputControlAck {
+					source_id: message.source_id,
+					input_sequence: message.input_sequence,
+					..InputControlAck::default()
+				};
+				match reply.lock().unwrap().clone() {
+					InputReply::Accept { transmitting } => {
+						ack.accepted = true;
+						ack.effective_lease_ms = message.requested_lease_ms;
+						ack.effective_transmitting = transmitting;
+					}
+					InputReply::Reject(code) => {
+						ack.problem = Some(Problem {
+							code: code.into(),
+							..Problem::default()
+						});
+					}
+				}
+				if tx.send(Ok(ack)).await.is_err() {
+					break;
+				}
+			}
+			closed.fetch_add(1, Ordering::SeqCst);
+		});
+		Ok(Response::new(ReceiverStream::new(rx)))
 	}
 }
 
@@ -485,6 +539,10 @@ impl Harness {
 		let engine = FakeEngine {
 			registry: Arc::clone(&registry),
 			log: Arc::default(),
+			inputs: Arc::default(),
+			reply: Arc::default(),
+			streams_opened: Arc::default(),
+			streams_closed: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");
 		let (tx, rx) = oneshot::channel();
