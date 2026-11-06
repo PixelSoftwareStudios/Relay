@@ -8,6 +8,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use relay_config::error::ConfigError;
 use relay_config::identity::{TrustEntry, TrustLevel, TrustStore as ConfigStore};
 use relay_net::discovery::name_skeleton;
 use relay_net::identity::{
@@ -114,7 +115,7 @@ impl KeyedTrustStore for MemoryTrust {
 	fn replace(&mut self, old: &Fingerprint, new: &Fingerprint) -> Result<TrustRecord, TrustError> {
 		let previous = self.store.get(old).ok_or(TrustError::Unknown)?;
 		if self.store.get(new).is_some() {
-			return Err(TrustError::Full);
+			return Err(TrustError::Exists);
 		}
 		let record = TrustRecord {
 			fingerprint: *new,
@@ -199,12 +200,10 @@ impl TrustStore for ConfigTrust {
 		if existing.is_none() {
 			self.store
 				.pin_tofu(bytes, &record.display_name, now)
-				.map_err(|_| TrustError::Full)?;
+				.map_err(trust_error)?;
 		}
 		if record.state == TrustState::Verified {
-			self.store
-				.mark_verified(bytes)
-				.map_err(|_| TrustError::Full)?;
+			self.store.mark_verified(bytes).map_err(trust_error)?;
 		}
 		Ok(())
 	}
@@ -240,8 +239,18 @@ impl KeyedTrustStore for ConfigTrust {
 		let entry = self
 			.store
 			.replace_key(&old_key, new_key.as_bytes())
-			.map_err(|_| TrustError::Full)?;
+			.map_err(trust_error)?;
 		Self::record(&entry).ok_or(TrustError::Unknown)
+	}
+}
+
+/// Names what went wrong in the trust table: only a real cap is reported as "full".
+fn trust_error(error: ConfigError) -> TrustError {
+	match error {
+		ConfigError::TrustFull(limit) => TrustError::Full(limit),
+		ConfigError::KeyPinned => TrustError::Exists,
+		ConfigError::KeyNotPinned => TrustError::Unknown,
+		other => TrustError::Storage(other.to_string()),
 	}
 }
 

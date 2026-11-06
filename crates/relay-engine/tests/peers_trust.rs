@@ -100,3 +100,47 @@ fn a_new_key_under_a_pinned_name_is_a_key_change_and_remove_works() {
 		PeerTrust::New
 	);
 }
+
+#[test]
+fn a_database_fault_is_never_reported_as_a_full_store() {
+	let dir = tempfile::tempdir().unwrap();
+	let lock = Arc::new(WriterLock::acquire(&dir.path().join("writer.lock")).unwrap());
+	let opened = Database::open(dir.path().join("relay.db"), lock).unwrap();
+	let mut trust = ConfigTrust::new(ConfigStore::open(&opened.database).unwrap());
+	let (old, new) = (Identity::generate().unwrap(), Identity::generate().unwrap());
+	for peer in [&old, &new] {
+		trust.observe(peer.public());
+	}
+	trust
+		.put(record(&old, "laptop", TrustState::UnverifiedFirstUse))
+		.unwrap();
+	opened
+		.database
+		.with(|c| Ok(c.execute_batch("DROP TABLE favorites")?))
+		.unwrap();
+	let error = trust
+		.replace(&old.fingerprint(), &new.fingerprint())
+		.unwrap_err();
+	assert!(
+		matches!(&error, TrustError::Storage(detail) if detail.contains("favorites")),
+		"{error:?}"
+	);
+	assert!(!error.to_string().contains("limit"));
+}
+
+#[test]
+fn replacing_with_an_already_trusted_key_says_so() {
+	let dir = tempfile::tempdir().unwrap();
+	let (old, new) = (Identity::generate().unwrap(), Identity::generate().unwrap());
+	let mut trust = open(dir.path());
+	for peer in [&old, &new] {
+		trust.observe(peer.public());
+		trust
+			.put(record(peer, "x", TrustState::UnverifiedFirstUse))
+			.unwrap();
+	}
+	assert_eq!(
+		trust.replace(&old.fingerprint(), &new.fingerprint()),
+		Err(TrustError::Exists)
+	);
+}

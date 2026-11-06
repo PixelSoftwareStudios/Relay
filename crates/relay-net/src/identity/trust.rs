@@ -31,10 +31,14 @@ pub struct TrustRecord {
 
 #[derive(Debug, Error, PartialEq, Eq)]
 pub enum TrustError {
-	#[error("trust store is full")]
-	Full,
+	#[error("trust limit reached: {0}")]
+	Full(usize),
 	#[error("no trust record for this fingerprint")]
 	Unknown,
+	#[error("that key is already trusted")]
+	Exists,
+	#[error("could not save the device: {0}")]
+	Storage(String),
 }
 
 /// Storage for trust decisions. Persistence is supplied by the configuration layer.
@@ -122,7 +126,7 @@ impl TrustStore for InMemoryTrustStore {
 		if !self.records.contains_key(&record.fingerprint)
 			&& self.records.len() >= TRUST_RECORDS_MAX
 		{
-			return Err(TrustError::Full);
+			return Err(TrustError::Full(TRUST_RECORDS_MAX));
 		}
 		// A verified record is never silently downgraded by a later first-use decision.
 		if let Some(existing) = self.records.get(&record.fingerprint)
