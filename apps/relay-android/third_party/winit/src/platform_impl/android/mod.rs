@@ -516,7 +516,7 @@ impl<T: 'static> EventLoop<T> {
                                     text,
                                     platform_specific: KeyEventExtra {},
                                 },
-                                is_synthetic: true,
+                                is_synthetic: false,
                             },
                         };
                         callback(event, self.window_target());
