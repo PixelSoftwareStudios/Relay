@@ -5,6 +5,7 @@
 //!   becomes gRPC calls (mutation contexts, controller leases, operations).
 //! - [`connection`]: a lightweight `relay://` string check.
 //! - [`daemon`]: finding, starting and stopping the separate `relayd` process.
+//! - [`refresh`]: replacing a stale or idle daemon with this program's own build.
 //! - [`operation`]: waiting for an accepted operation to settle.
 //! - [`meter`]: level scaling for meters.
 //!
@@ -17,6 +18,7 @@ pub mod daemon;
 pub mod endpoint;
 pub mod meter;
 pub mod operation;
+pub mod refresh;
 pub mod wire;
 
 pub use command::{CallAction, CallTarget, ChannelOptions, Command, Secret};

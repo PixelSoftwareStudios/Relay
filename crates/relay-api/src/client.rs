@@ -106,6 +106,15 @@ impl RelayClient {
 		&self.info
 	}
 
+	/// The daemon's build and API revision, reported by `GetInfo` at connect time. A daemon
+	/// built before revisions existed reports an empty build and API revision 0.
+	pub fn daemon_revision(&self) -> crate::Revision {
+		crate::Revision {
+			build: self.info.build_revision.clone(),
+			api: self.info.api_revision,
+		}
+	}
+
 	/// Raw generated client for RPCs without a wrapper.
 	pub fn raw(&mut self) -> &mut Inner {
 		&mut self.inner

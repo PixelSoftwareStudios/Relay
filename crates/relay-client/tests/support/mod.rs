@@ -204,10 +204,7 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(
 			r.context.as_ref(),
-			format!(
-				"route mode={} gen={}",
-				r.mode, r.controller_generation
-			),
+			format!("route mode={} gen={}", r.mode, r.controller_generation),
 		)
 	}
 	async fn connect_and_trust(&self, r: Request<ConnectAndTrustRequest>) -> Resp<Operation> {

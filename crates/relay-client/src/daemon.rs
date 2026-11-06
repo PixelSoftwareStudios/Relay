@@ -207,6 +207,14 @@ pub async fn start(launch: &Launch) -> Started {
 	start_unguarded(launch).await
 }
 
+/// Starts the daemon for a caller that holds the start lock and just stopped the previous
+/// one itself: the "we stopped it" guard is lifted, as for an explicit start.
+pub(crate) async fn start_replacement(launch: &Launch) -> Started {
+	let outcome = start_unguarded(launch).await;
+	STOPPED_BY_US.store(false, Ordering::Release);
+	outcome
+}
+
 async fn start_unguarded(launch: &Launch) -> Started {
 	if reachable(&launch.endpoint).await {
 		return Started::AlreadyRunning;

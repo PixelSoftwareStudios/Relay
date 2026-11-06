@@ -60,10 +60,7 @@ async fn the_mode_is_the_consent_and_travels_in_one_request() {
 	.unwrap();
 	assert_eq!(
 		h.log(),
-		[format!(
-			"route mode={} gen=2",
-			TransmitMode::Unmuted as i32
-		)]
+		[format!("route mode={} gen=2", TransmitMode::Unmuted as i32)]
 	);
 }
 

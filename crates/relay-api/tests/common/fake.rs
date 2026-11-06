@@ -287,7 +287,10 @@ impl Engine for FakeEngine {
 		unsupported()
 	}
 	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
-	async fn watch_call_stats(&self, _: Request<WatchCallStatsRequest>) -> Resp<Self::WatchCallStatsStream> {
+	async fn watch_call_stats(
+		&self,
+		_: Request<WatchCallStatsRequest>,
+	) -> Resp<Self::WatchCallStatsStream> {
 		unsupported()
 	}
 	async fn set_call_controls(&self, _: Request<SetCallControlsRequest>) -> Resp<Operation> {

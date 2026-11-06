@@ -3,12 +3,13 @@
 //! the telemetry stream.
 
 use relay_api::pb::{
-	AcquireControllerRequest, CallMutation, ConnectAndTrustRequest, CreateChannelRequest, DecidePeerTrustRequest,
-	ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
-	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest,
-	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest,
-	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
-	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	AcquireControllerRequest, CallMutation, ConnectAndTrustRequest, CreateChannelRequest,
+	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
+	MutationContext, Operation, RevokeChannelMemberRequest, SelectDevicesRequest,
+	SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
+	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetSettingsRequest,
+	SetTransmitModeRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
+	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -72,6 +73,18 @@ pub async fn open_telemetry(
 		stats_hz,
 	};
 	Ok(client.raw().watch_telemetry(request).await?.into_inner())
+}
+
+/// Open one call's live statistics (about one `CallStats` per second). Needs `observe`.
+pub async fn open_call_stats(
+	client: &mut RelayClient,
+	call_id: &[u8],
+) -> Result<Streaming<relay_api::pb::CallStats>, ApiError> {
+	let request = relay_api::pb::WatchCallStatsRequest {
+		client: Some(client.context().ok_or(ApiError::NotRegistered)?),
+		call_id: call_id.to_vec(),
+	};
+	Ok(client.raw().watch_call_stats(request).await?.into_inner())
 }
 
 fn call_mutation(context: MutationContext, call_id: Vec<u8>, generation: u64) -> CallMutation {

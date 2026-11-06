@@ -16,6 +16,7 @@ doctest = false
 relay-api.workspace = true
 relay-io.workspace = true
 subtle.workspace = true
+thiserror.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 zeroize = { workspace = true, features = ["derive"] }
