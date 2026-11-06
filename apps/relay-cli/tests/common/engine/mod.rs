@@ -160,7 +160,8 @@ impl EngineHarness {
 	pub async fn run(&self, args: &[&str]) -> Result<String, relay_cli::cli::CliError> {
 		use clap::Parser;
 		let socket = self.socket.to_str().expect("utf8 path");
-		let mut argv = vec!["relay", "--socket", socket];
+		// No autostart: the stale-daemon probe would register an extra client these tests count.
+		let mut argv = vec!["relay", "--socket", socket, "--no-autostart"];
 		argv.extend_from_slice(args);
 		let cli = relay_cli::cli::Cli::try_parse_from(argv).expect("valid arguments");
 		let mut buffer = Vec::new();

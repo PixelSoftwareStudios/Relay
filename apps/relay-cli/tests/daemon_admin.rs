@@ -29,12 +29,16 @@ async fn admin_is_requested_for_stop_and_for_nothing_else() {
 async fn status_shows_the_daemon_build_and_flags_a_mismatch() {
 	let h = EngineHarness::start().await;
 	let text = h.run(&["daemon", "status"]).await.expect("status");
-	assert!(text.contains("build test (api 0)"), "{text}");
-	assert!(text.contains("out of date"), "the stand-in is another build: {text}");
+	let older = relay_api::API_REVISION - 1;
+	assert!(text.contains(&format!("build test (api {older})")), "{text}");
+	assert!(
+		text.contains("out of date"),
+		"the stand-in is another build: {text}"
+	);
 	let json = h.run(&["--json", "daemon", "status"]).await.expect("json");
 	let value: serde_json::Value = serde_json::from_str(&json).unwrap();
 	assert_eq!(value["build_revision"], "test");
-	assert_eq!(value["api_revision"], 0);
+	assert_eq!(value["api_revision"], older);
 	assert!(value["out_of_date"].is_string(), "{value}");
 }
 

@@ -43,7 +43,7 @@ impl Engine for FakeEngine {
 			api_major: 1,
 			api_minor: 0,
 			build_revision: "test".into(),
-			api_revision: 0,
+			api_revision: relay_api::API_REVISION,
 			capabilities: vec!["observe".into(), "call-control".into()],
 			limits: None,
 		}))
@@ -58,7 +58,7 @@ impl Engine for FakeEngine {
 			granted_capabilities: vec!["observe".into()],
 			revision: 1,
 			daemon_build_revision: "test".into(),
-			daemon_api_revision: 0,
+			daemon_api_revision: relay_api::API_REVISION,
 		}))
 	}
 	async fn get_snapshot(&self, _: Request<ClientContext>) -> Resp<Snapshot> {
@@ -333,7 +333,7 @@ impl Engine for FakeEngine {
 		self.log.lock().unwrap().push("get_settings".into());
 		Ok(Response::new(SettingsDump {
 			build_revision: "test".into(),
-			api_revision: 0,
+			api_revision: relay_api::API_REVISION,
 			values: [("ptt.release_delay_ms".to_owned(), "200".to_owned())].into(),
 			usage: Default::default(),
 		}))

@@ -23,7 +23,7 @@ impl Engine for FakeEngine {
 			capabilities: vec!["observe".into(), "call-control".into()],
 			limits: None,
 			build_revision: "test".into(),
-			api_revision: 0,
+			api_revision: relay_api::API_REVISION - 1,
 		}))
 	}
 
@@ -50,7 +50,7 @@ impl Engine for FakeEngine {
 			],
 			revision: 10,
 			daemon_build_revision: "test".into(),
-			daemon_api_revision: 0,
+			daemon_api_revision: relay_api::API_REVISION - 1,
 		}))
 	}
 
@@ -149,10 +149,7 @@ impl Engine for FakeEngine {
 	}
 	async fn set_transmit_mode(&self, r: Request<SetTransmitModeRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
-		self.op(
-			r.context.as_ref(),
-			format!("route mode={}", r.mode),
-		)
+		self.op(r.context.as_ref(), format!("route mode={}", r.mode))
 	}
 	async fn connect_and_trust(&self, r: Request<ConnectAndTrustRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
@@ -475,6 +472,9 @@ impl Engine for FakeEngine {
 	async fn clear_call_history(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_call_history".into())
 	}
+	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		self.op(Some(&r.into_inner()), "clear_avatar".into())
+	}
 	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		{
@@ -488,9 +488,6 @@ impl Engine for FakeEngine {
 		let ids: Vec<String> = r.peer_ids.iter().map(|id| hex::encode(&id[..1])).collect();
 		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
 	}
-	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
-		self.op(Some(&r.into_inner()), "clear_avatar".into())
-	}
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		let what = format!("forget {} {}", hex::encode(&r.peer_id), r.query);
@@ -503,7 +500,7 @@ impl Engine for FakeEngine {
 			// A scripted cache of 3 MiB so `relay limits` has something to show.
 			usage: [("limits.avatar_cache_mib".to_owned(), 3 * 1024 * 1024)].into(),
 			build_revision: "test".into(),
-			api_revision: 0,
+			api_revision: relay_api::API_REVISION - 1,
 		}))
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
