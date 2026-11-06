@@ -20,6 +20,11 @@ use relay_ui::ui::RelayApp;
 use relay_ui::{messaging, mock, supervisor};
 
 /// Embedded from the repo-root assets folder.
+/// macOS draws the icon as given in the Dock, so it uses the padded, shadowed
+/// artwork that follows the macOS icon grid; other systems use the edge-to-edge mark.
+#[cfg(target_os = "macos")]
+const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-app-512.png");
+#[cfg(not(target_os = "macos"))]
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-256.png");
 
 fn main() -> eframe::Result {
