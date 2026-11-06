@@ -83,7 +83,7 @@ NativeActivity cannot host a foreground service, runtime-permission dialogs, SAF
 | Identity key in Keystore | The Noise static key must be exportable to Rust, so Keystore cannot hold it directly: wrap it (AES-GCM key in Keystore, ciphertext in app files). Implements `IdentityStore` | `RunOptions::identity_store` and `channel_vault` already accept injected stores. Kotlin exposes `wrap(bytes)`/`unwrap(bytes)` over JNI; a Rust `AndroidKeystoreStore` calls it | ~100 + ~80 Rust |
 | SAF/content-URI picker | `ActivityResultContracts.OpenDocument("image/*")`; read size from `OpenableColumns.SIZE` before reading (1 MiB limit), then bytes | Fits `FilePicker::pick_image`: Rust passes a request id, Kotlin completes it with `PickedFile{name,bytes}` or cancel (JNI callback into a oneshot) | ~60 |
 | Clipboard | `ClipboardManager.setPrimaryClip`; Android 13+ shows its own toast | `Shell::copy_text` -> JNI static call | ~15 |
-| Push-to-talk | On-screen hold button is a relay-ui widget (already works with touch). Volume keys: override `dispatchKeyEvent` while the activity is foreground (cannot be global without an accessibility service: not recommended) | Key down/up -> existing PTT command stream | ~30 |
+| Push-to-talk | The on-screen hold button (relay-ui, `Shell::push_to_talk`) and the volume keys (`MainActivity.dispatchKeyEvent` through `TalkKeys`, active while the activity is foreground; not global without an accessibility service: not recommended) both drive the engine's push-to-talk lease. See "Push-to-talk" below | `RelayEngine.talkKey` / `cancelTalk`, `AndroidShell::push_to_talk` -> `Host` -> `InputControl` | ~60 + ~290 Rust |
 | Lifecycle | `onStop`/`onStart` -> `Shell::window_visible`; surface loss handled by android-activity/winit; call survives via the service | small JNI setter | ~30 |
 | Battery / doze | Foreground service exempts the app during a call; idle (no call) should keep nothing running. Do **not** request battery-optimization exemption by default. Incoming calls while idle are not possible on a LAN-only design without a running discovery; this is a product limit to state, not engineer around | n/a | n/a |
 | Wi-Fi power save | `WIFI_MODE_FULL_LOW_LATENCY` lock is the lever (API 29+); effect on jitter is **unmeasured** | | in locks above |
@@ -91,6 +91,29 @@ NativeActivity cannot host a foreground service, runtime-permission dialogs, SAF
 | Audio focus / headset / Bluetooth routing | `AudioManager` focus and `setCommunicationDevice` (31+) | JNI | ~100 |
 
 Total Kotlin: roughly 700-900 lines for the above, excluding Gradle setup and tests (estimate).
+
+## Push-to-talk
+
+Hold-to-talk uses the engine's real lease path, the same one `relay-cli` and the desktop hotkey use, not a mode switch. `AndroidShell::push_to_talk` (the large on-screen button) and `RelayEngine::talk_key` (volume keys) both call `Host`, which sends key down and up to one worker (`apps/relay-android/src/host/ptt.rs`). The worker holds an `InputControl` stream and sends `PRESS` with a 400 ms lease, renews it every 150 ms while the key is down and sends `RELEASE` on key up. The engine opens the transmit gate only while a lease is alive. Consent and the push-to-talk route are still set by the UI (`set_transmit`), and the press is refused unless the UI client controls a non-terminal push-to-talk call.
+
+Shell capabilities: `has_global_hotkey() = false`, `has_talk_button() = true`, `runs_in_background() = true` (the microphone foreground service keeps a call alive without the activity), `hides_to_tray() = false`.
+
+**Client identity.** The engine accepts a press only from the client that holds the call's controller lease (the UI's client), and `relay-ui` keeps that connection private. The worker opens a second connection to the same in-process engine and adopts the UI client's registered context (`RelayClient::adopt_context`; the client id is an identifier, not a credential, and both ends are in this process). The lease generation comes from the UI state. Taking over the lease with a separate client is not an option: a takeover resets the call's transmit route. A `relay-ui` operation that sends presses on its own connection would remove this adoption; it is a recorded follow-up, not done here because `relay-ui` is owned elsewhere.
+
+**Every way a key can vanish ends in a release.**
+
+| Event | Path |
+|---|---|
+| Key or button up | `RELEASE` on the stream (the engine holds the gate for the release delay) |
+| Button no longer drawn | relay-ui reports `push_to_talk(.., false)` |
+| `onPause`, window focus lost, `surfaceDestroyed`, `onStop` | Kotlin `TalkKeys.cancel` -> `RelayEngine.cancelTalk` -> the stream is closed (immediate release) |
+| Process sent to the background | `Host::set_foreground(false)` cancels, even when a call keeps the client attached |
+| Client detach (`Host::detach`), call end, engine stop | `Ptt::reset`: the stream is closed, which the engine treats as an immediate release of everything the source held (no release delay) |
+| Call no longer push-to-talk, not controlled, or terminal | checked every renewal; the worker releases |
+| Engine refuses a renewal | the worker stops renewing |
+| This process dies or stalls | the lease lapses within 400 ms |
+
+Tests: Rust `host::ptt_tests` (in-process engine on a Unix socket, UI client attached the way the app attaches it, fake media and peers; the engine's published gate is the assertion): button hold across several lease periods and release, no press without a push-to-talk route, volume key press, auto-repeat and stray key-up, cancel (stream closed), background, detach, closing the stream while attached releases without the release delay, a normal key-up keeps the tail for the release delay, and call end. Engine-side guarantees they build on: relay-engine `service_gate` (`a_held_press_opens_the_gate_and_closing_the_stream_closes_it`, `takeover_drops_the_previous_holders_press`). JVM: `TalkKeysTest`.
 
 ## Required changes in shared crates (recorded, not made)
 

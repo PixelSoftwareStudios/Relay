@@ -136,6 +136,7 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Published claims match measured configurations and known limits | blocked | Needs the measurements above; the support matrix in `docs/release.md` stays empty of claims until then. |
 | Dependency licenses and provenance | simulated | `deny.toml` written, `LICENSE` and manifests agree (Apache-2.0). Mechanical checks pass only once recorded as run; third-party notices and SBOM are generated at release time (`docs/release.md`). |
 | Reproducible, hashed, signed artifacts | unmet-needs-review | Plan in `docs/release.md`; no signing identity, notarization or Windows signing exists. |
+| Signed-bundle keychain behaviour (Developer ID, hardened runtime, entitlements) | unmet-needs-hardware | Not tested: whether the single `relay-voice`/`vault` item prompts once, and keeps "Always Allow" across updates, for a Developer ID signed, hardened-runtime, entitled bundle needs a signed build on a real Mac. `scripts/dev-sign-macos.sh` (`docs/packaging.md`) is a local self-signed dev convenience only and is no evidence for this gate; its effect on the keychain prompt was not observed either. |
 | Clean-machine install, run and uninstall on each supported OS | unmet-needs-hardware | Not performed. |
 
 ### WP-12 Speaker-mode AEC
@@ -176,6 +177,7 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Real call between the phone and the laptop (audio both ways, echo, latency) | unmet-needs-hardware | Needs a physical phone on a LAN with a desktop. The AAudio voice-communication path opened on the emulator but carried no real microphone or speaker. |
 | mDNS and NSD discovery on a physical Wi-Fi network, multicast lock effect | unmet-needs-hardware | Locks were acquired on the emulator; the emulator's NAT carries no multicast. |
 | Mobile resource gate (CPU, RSS, battery per hour of call and idle) | unmet-needs-hardware | Not measured. |
-| Hold to talk through the engine's push-to-talk lease | blocked | The interim mode switch is implemented; the lease path needs `relay-ui` to expose the controlling client. |
+| Hold to talk through the engine's push-to-talk lease | met-by-test (engine side), unmet-needs-hardware (phone) | `apps/relay-android` `host::ptt_tests` (in-process engine, fake media; gate follows press, renewal, release, cancel, background, detach and stream close) and JVM `TalkKeysTest`. On a phone, unverified: touch hold and release on the large button, thumb leaving the button, multi-touch, volume-key delivery per vendor (some route them elsewhere while the screen is locked or a media UI is up), the held key surviving `onPause`/`surfaceDestroyed` events as simulated, rotation during a hold, 400 ms lease renewals under Doze or Wi-Fi power save, audible latency from press to first audio, and hold behaviour with a Bluetooth headset. See `docs/android.md`. |
+| Android adopts the UI client's context for the lease stream | unmet-needs-review | The push-to-talk worker reuses the UI's registered client id on a second in-process connection (`docs/android.md`, "Push-to-talk"). Needs review, or a `relay-ui` operation that owns the stream, before release. |
 | Security review of the Keystore wrapping and of the app's exported surface | unmet-needs-review | Needs a named reviewer. |
 
