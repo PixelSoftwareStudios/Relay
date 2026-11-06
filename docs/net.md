@@ -77,6 +77,11 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
   private-use and excess combining character; `name_skeleton` (UTS 39 skeleton, lowercase, no
   spaces) is what `TrustStore::find_by_name` implementations must compare, so lookalikes of a
   trusted contact raise `KeyChanged`.
+- A refused key is remembered in memory by the engine (offending key -> pinned key) so a shell can
+  offer a repair; the threat model is unchanged: a changed key stays refused until the user has
+  compared the new key's full fingerprint out of band (typed from the other device's Connect a
+  device > Details, or scanned from its QR code). Only then is the pinned record replaced, as
+  verified, in one transaction. A name, an address or a short hint never replaces a key.
 - Remote static keys with bit 255 set or a low-order point are rejected after the handshake
   (`identity::check_remote_key`).
 - `DiscoveryTable` caps entries per source address (8), evicts the oldest of the busiest source

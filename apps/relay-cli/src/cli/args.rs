@@ -582,10 +582,21 @@ pub enum TrustCommand {
 		#[arg(long, value_name = "HEX")]
 		fingerprint: String,
 	},
-	/// Forget a peer's trust decision.
+	/// Forget a peer's trust decision. After a key change either the pinned key's or the new
+	/// key's prefix works.
 	Forget {
 		/// Fingerprint prefix (at least 8 hex digits, short form works) or exact peer name.
 		peer: String,
+	},
+	/// Trust the new key of a peer whose key changed, after comparing its full fingerprint
+	/// with what the other device shows (Connect a device, Details). Keeps the name and the
+	/// favorite place. Refused unless the fingerprint is exactly the new key's.
+	Replace {
+		/// Peer name or id prefix (as `relay peers` shows the key-changed device).
+		peer: String,
+		/// Full fingerprint (64 hex digits) of the new key.
+		#[arg(long, value_name = "HEX")]
+		fingerprint: String,
 	},
 }
 

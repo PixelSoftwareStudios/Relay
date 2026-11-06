@@ -1,4 +1,4 @@
-//! `trust list|verify|forget`.
+//! `trust list|verify|replace|forget`.
 
 use relay_api::pb::TrustState;
 
@@ -41,6 +41,21 @@ pub async fn run<C: Control + Manage>(
 			// The engine matches a fingerprint prefix or an exact name; an ambiguous query is
 			// answered with the candidates and their short fingerprints, never a guess.
 			let op = client.forget_peer(&[], query).await?;
+			return report(&op, out);
+		}
+		TrustCommand::Replace { peer, fingerprint } => {
+			let digits = parse_fingerprint(&fingerprint)?;
+			let snapshot = client.snapshot().await?;
+			let found = resolve_peer(&snapshot, &peer)?;
+			if !found.key_changed {
+				return Err(CliError::Usage(format!(
+					"{} has no changed key to replace; `relay peers` marks a changed key",
+					found.display_name
+				)));
+			}
+			let op = client
+				.replace_pinned_key(&found.peer_id, &hex::encode(digits))
+				.await?;
 			return report(&op, out);
 		}
 	};

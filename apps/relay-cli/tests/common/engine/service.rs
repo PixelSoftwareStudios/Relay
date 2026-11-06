@@ -506,6 +506,15 @@ impl Engine for FakeEngine {
 		let what = format!("forget {} {}", hex::encode(&r.peer_id), r.query);
 		self.op(r.context.as_ref(), what)
 	}
+	async fn replace_pinned_key(&self, r: Request<ReplacePinnedKeyRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let what = format!(
+			"replace {} {}",
+			hex::encode(&r.peer_id),
+			r.expected_fingerprint
+		);
+		self.op(r.context.as_ref(), what)
+	}
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
 		let values = self.settings.lock().unwrap().clone();
 		Ok(Response::new(SettingsDump {

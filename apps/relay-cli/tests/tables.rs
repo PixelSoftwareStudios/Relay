@@ -11,6 +11,8 @@ fn peer(name: &str, addresses: &[&str]) -> PeerView {
 		trust: "verified",
 		reachable: true,
 		addresses: addresses.iter().map(|a| (*a).to_owned()).collect(),
+		key_changed: false,
+		previous_fingerprint_short: None,
 	}
 }
 

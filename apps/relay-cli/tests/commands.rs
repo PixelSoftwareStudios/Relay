@@ -243,3 +243,48 @@ async fn connect_trust_sends_the_scanned_string_once() {
 		"the command exists to trust, so --trust is required"
 	);
 }
+
+#[tokio::test]
+async fn trust_replace_needs_a_changed_key_and_the_full_fingerprint() {
+	let mut c = FakeControl::new();
+	let fp = "59f1".repeat(16);
+	// Alice has no key change: nothing is sent.
+	let plain = run_with(
+		&mut c,
+		&["trust", "replace", "alice", "--fingerprint", &fp],
+		false,
+	)
+	.await;
+	assert_eq!(plain.unwrap_err().exit_code(), exit::USAGE);
+	c.snapshot.peers[0].key_changed = true;
+	c.snapshot.peers[0].previous_fingerprint_short = "1A10-1A10-1A10-1A10-1A10".into();
+	let short = run_with(
+		&mut c,
+		&["trust", "replace", "alice", "--fingerprint", "59f1"],
+		false,
+	)
+	.await;
+	assert_eq!(short.unwrap_err().exit_code(), exit::USAGE);
+	assert!(c.log.is_empty());
+	let spaced = fp
+		.as_bytes()
+		.chunks(4)
+		.map(|c| String::from_utf8_lossy(c).to_uppercase())
+		.collect::<Vec<_>>()
+		.join(" ");
+	run_with(
+		&mut c,
+		&["trust", "replace", "alice", "--fingerprint", &spaced],
+		false,
+	)
+	.await
+	.unwrap();
+	assert_eq!(c.log, [format!("replace {} {fp}", hex::encode(ALICE))]);
+	let list = run_with(&mut c, &["peers"], false).await.unwrap();
+	assert!(
+		list.contains("KEY CHANGED") && list.contains("1A10-1A10"),
+		"{list}"
+	);
+	let json = run_with(&mut c, &["peers"], true).await.unwrap();
+	assert!(json.contains("\"key_changed\":true"), "{json}");
+}

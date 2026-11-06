@@ -22,6 +22,11 @@ pub struct PeerView {
 	pub trust: &'static str,
 	pub reachable: bool,
 	pub addresses: Vec<String>,
+	/// The device presented a key other than the pinned one and is blocked.
+	pub key_changed: bool,
+	/// Short form of the pinned key, when `key_changed`.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	pub previous_fingerprint_short: Option<String>,
 }
 
 impl From<&Peer> for PeerView {
@@ -33,6 +38,9 @@ impl From<&Peer> for PeerView {
 			trust: names::trust_state(p.trust),
 			reachable: p.reachable,
 			addresses: p.local_addresses.clone(),
+			key_changed: p.key_changed,
+			previous_fingerprint_short: Some(p.previous_fingerprint_short.clone())
+				.filter(|_| p.key_changed),
 		}
 	}
 }
@@ -63,7 +71,10 @@ impl PeerList {
 				short(&p.id),
 				p.name.clone(),
 				p.fingerprint_short.clone(),
-				p.trust.to_owned(),
+				match &p.previous_fingerprint_short {
+					Some(was) if p.key_changed => format!("KEY CHANGED, blocked (was {was})"),
+					_ => p.trust.to_owned(),
+				},
 				if p.reachable { "yes" } else { "no" }.to_owned(),
 				p.addresses.join(", "),
 			]);

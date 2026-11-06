@@ -91,6 +91,13 @@ pub trait Manage {
 	async fn clear_avatar(&mut self) -> Result<Operation, ApiError>;
 	/// Forget a stored trust decision by peer id or by `query` (fingerprint prefix or name).
 	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError>;
+	/// Replace the pinned key of a key-changed peer (`peer_id` is its new key) after the user
+	/// compared the full `fingerprint`.
+	async fn replace_pinned_key(
+		&mut self,
+		peer_id: &[u8],
+		fingerprint: &str,
+	) -> Result<Operation, ApiError>;
 	/// Replace the favorites by this ordered list of trusted peer ids.
 	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError>;
 	/// One page of the call history, newest first.
@@ -305,6 +312,19 @@ impl Manage for RealClient {
 		self.run_command(relay_client::Command::ForgetPeer {
 			peer_id: peer_id.to_vec(),
 			query: query.to_owned(),
+		})
+		.await
+	}
+
+	async fn replace_pinned_key(
+		&mut self,
+		peer_id: &[u8],
+		fingerprint: &str,
+	) -> Result<Operation, ApiError> {
+		self.run_command(relay_client::Command::ReplacePinnedKey {
+			peer_id: peer_id.to_vec(),
+			fingerprint: fingerprint.to_owned(),
+			verified: true,
 		})
 		.await
 	}
