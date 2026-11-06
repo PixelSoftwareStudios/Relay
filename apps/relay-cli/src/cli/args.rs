@@ -108,6 +108,8 @@ pub enum Command {
 	/// Your avatar.
 	#[command(subcommand)]
 	Avatar(AvatarCommand),
+	/// Past calls on this device, newest first (`history clear` deletes them).
+	History(super::HistoryArgs),
 	/// Text, images and file offers inside a call.
 	Messages(super::MessagesArgs),
 	/// Print a shell completion script.

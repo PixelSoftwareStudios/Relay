@@ -2,7 +2,10 @@
 
 use std::collections::BTreeMap;
 
-use crate::pb::{ForgetPeerRequest, Operation, SetSettingsRequest, SetSettingsResponse};
+use crate::pb::{
+	CallHistoryPage, ForgetPeerRequest, ListCallHistoryRequest, Operation, SetSettingsRequest,
+	SetSettingsResponse,
+};
 use crate::{ApiError, RelayClient};
 
 impl RelayClient {
@@ -54,5 +57,26 @@ impl RelayClient {
 				.collect(),
 		};
 		Ok(self.inner.set_settings(request).await?.into_inner())
+	}
+
+	/// One page of the call history, newest first. `limit` 0 takes the engine default;
+	/// `before_id` continues after the last `id` of the previous page.
+	pub async fn list_call_history(
+		&mut self,
+		limit: u32,
+		before_id: Option<u64>,
+	) -> Result<CallHistoryPage, ApiError> {
+		let request = ListCallHistoryRequest {
+			client: Some(self.require_context()?),
+			limit,
+			before_id,
+		};
+		Ok(self.inner.list_call_history(request).await?.into_inner())
+	}
+
+	/// Delete every call history entry on this device.
+	pub async fn clear_call_history(&mut self) -> Result<Operation, ApiError> {
+		let context = self.new_mutation()?;
+		Ok(self.inner.clear_call_history(context).await?.into_inner())
 	}
 }

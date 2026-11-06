@@ -318,6 +318,12 @@ impl Engine for FakeEngine {
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		self.settings.forget(r.get_ref()).map(Response::new)
 	}
+	async fn list_call_history(&self, r: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
+		Ok(Response::new(self.settings.list_history(r.get_ref())))
+	}
+	async fn clear_call_history(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		Ok(Response::new(self.settings.clear_history(r.get_ref())))
+	}
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
 		Ok(Response::new(self.settings.dump()))
 	}

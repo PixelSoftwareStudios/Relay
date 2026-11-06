@@ -50,6 +50,10 @@ service Engine {
   // Graceful stop of the whole engine: ends calls, releases the microphone, removes the
   // endpoint. Needs the explicit `admin` capability (never granted by default). Idempotent.
   rpc Shutdown(MutationContext) returns (Operation);
+  // Call history (local only, never sent to peers). Needs `observe`; clearing needs `call-control`.
+  // Newest first; `before_id` continues after the last id of the previous page.
+  rpc ListCallHistory(ListCallHistoryRequest) returns (CallHistoryPage);
+  rpc ClearCallHistory(MutationContext) returns (Operation);
   // Session messaging (docs/session-messages.md). Every method below, reads included, needs the
   // `messages` capability: without it the answer is PERMISSION_DENIED and no event is ever
   // delivered. Messaging operations are applied synchronously: the answer is final and
@@ -237,6 +241,8 @@ message Settings {
   string output_device_name = 22; // the playback device that is opened (empty when none)
   bool input_pinned_missing = 23; // the pinned microphone is absent; the system default is used
   bool output_pinned_missing = 24; // the pinned playback device is absent; the system default is used
+  bool history_enabled = 25; // finished calls are recorded in the call history (history.enabled)
+  uint64 history_revision = 26; // changes whenever an entry is added or the history is cleared; refetch then
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -344,6 +350,41 @@ message ForgetPeerRequest {
   MutationContext context = 1;
   bytes peer_id = 2; // 32 bytes; when empty `query` is used
   string query = 3; // hex fingerprint prefix (>= 8 digits, separators ignored) or an exact display name
+}
+enum CallDirection {
+  CALL_DIRECTION_UNSPECIFIED = 0;
+  CALL_DIRECTION_INCOMING = 1;
+  CALL_DIRECTION_OUTGOING = 2;
+}
+enum CallOutcome {
+  CALL_OUTCOME_UNSPECIFIED = 0;
+  CALL_OUTCOME_COMPLETED = 1; // connected, then ended
+  CALL_OUTCOME_MISSED = 2;    // incoming, never answered
+  CALL_OUTCOME_DECLINED = 3;  // declined by either side
+  CALL_OUTCOME_FAILED = 4;    // outgoing, never reached the peer or never connected
+  CALL_OUTCOME_CANCELLED = 5; // outgoing, cancelled by the user before it connected
+}
+// One past call. Metadata only: no audio, no message content, no addresses.
+message CallHistoryEntry {
+  uint64 id = 1;                      // grows with every entry; the paging cursor
+  bytes call_id = 2;                  // 16 bytes; names the call's chat session
+  string peer_name = 3;               // as seen at the time
+  bytes peer_id = 4;                  // 32 bytes; the full fingerprint
+  string peer_fingerprint_short = 5;  // same hint as Peer.fingerprint_short
+  CallDirection direction = 6;
+  CallOutcome outcome = 7;
+  uint64 started_at_unix_ms = 8;
+  uint64 duration_ms = 9;             // connected time; 0 when it never connected
+}
+message ListCallHistoryRequest {
+  ClientContext client = 1;
+  uint32 limit = 2;                   // 0 = engine default; capped by the engine
+  optional uint64 before_id = 3;
+}
+message CallHistoryPage {
+  repeated CallHistoryEntry entries = 1;
+  bool more = 2;                      // older entries exist
+  uint64 revision = 3;                // Settings.history_revision at read time
 }
 message SettingsDump { map<string, string> values = 1; }
 message SetSettingsRequest {

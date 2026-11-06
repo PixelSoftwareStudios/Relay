@@ -11,6 +11,7 @@ pub struct Settings {
 	pub values: Mutex<BTreeMap<String, String>>,
 	pub avatar_clears: Mutex<u32>,
 	pub forgotten: Mutex<Vec<String>>,
+	pub history: Mutex<Vec<CallHistoryEntry>>,
 }
 
 fn applied(context: Option<&MutationContext>) -> Operation {
@@ -85,5 +86,33 @@ impl Settings {
 			operation: Some(applied(body.context.as_ref())),
 			results,
 		})
+	}
+
+	/// Newest first by id; one extra row is looked up to set `more`.
+	pub fn list_history(&self, body: &ListCallHistoryRequest) -> CallHistoryPage {
+		let limit = if body.limit == 0 {
+			50
+		} else {
+			body.limit as usize
+		};
+		let rows = self.history.lock().unwrap();
+		let mut found: Vec<_> = rows
+			.iter()
+			.filter(|e| body.before_id.is_none_or(|b| e.id < b))
+			.cloned()
+			.collect();
+		found.sort_by_key(|e| std::cmp::Reverse(e.id));
+		let more = found.len() > limit;
+		found.truncate(limit);
+		CallHistoryPage {
+			entries: found,
+			more,
+			revision: rows.len() as u64,
+		}
+	}
+
+	pub fn clear_history(&self, context: &MutationContext) -> Operation {
+		self.history.lock().unwrap().clear();
+		applied(Some(context))
 	}
 }

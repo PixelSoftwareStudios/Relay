@@ -111,6 +111,7 @@ async fn every_other_command_reaches_its_rpc() {
 			media_type: "image/png".into(),
 		},
 		Command::ClearAvatar,
+		Command::ClearCallHistory,
 		Command::ForgetPeer {
 			peer_id: Vec::new(),
 			query: "kitchen".into(),
@@ -148,6 +149,7 @@ async fn every_other_command_reaches_its_rpc() {
 			"profile Ada".into(),
 			"avatar 3 image/png".into(),
 			"clear_avatar".into(),
+			"clear_call_history".into(),
 			"forget_peer id=0 query=kitchen".into(),
 			"set_settings hotkeys.push_to_talk=F9".into(),
 			"mic_test_start".into(),

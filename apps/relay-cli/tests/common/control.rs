@@ -42,6 +42,8 @@ pub struct FakeControl {
 	pub settings: BTreeMap<String, String>,
 	/// Scripted per-key answers of `set_settings` (default: applied live).
 	pub setting_results: BTreeMap<String, SettingResult>,
+	/// What the call history holds, newest first.
+	pub history: Vec<CallHistoryEntry>,
 }
 
 impl FakeControl {
@@ -69,6 +71,7 @@ impl FakeControl {
 			session_watches: VecDeque::new(),
 			settings: BTreeMap::new(),
 			setting_results: BTreeMap::new(),
+			history: Vec::new(),
 		}
 	}
 
@@ -280,6 +283,29 @@ impl Manage for FakeControl {
 	}
 	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError> {
 		self.record(format!("forget {} {query}", hex::encode(peer_id)))
+	}
+	async fn call_history(
+		&mut self,
+		limit: u32,
+		before_id: Option<u64>,
+	) -> Result<CallHistoryPage, ApiError> {
+		self.log.push(format!("call_history {limit} {before_id:?}"));
+		let entries: Vec<_> = self
+			.history
+			.iter()
+			.filter(|e| before_id.is_none_or(|b| e.id < b))
+			.take(limit as usize)
+			.cloned()
+			.collect();
+		Ok(CallHistoryPage {
+			entries,
+			more: false,
+			revision: 1,
+		})
+	}
+	async fn clear_call_history(&mut self) -> Result<Operation, ApiError> {
+		self.history.clear();
+		self.record("clear_call_history")
 	}
 	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError> {
 		Ok(self.settings.clone())

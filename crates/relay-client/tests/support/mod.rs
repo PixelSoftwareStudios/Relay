@@ -280,6 +280,13 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(Some(&r), "clear_avatar".into())
 	}
+	async fn clear_call_history(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(Some(&r), "clear_call_history".into())
+	}
+	async fn list_call_history(&self, _: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
+		unsupported()
+	}
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(

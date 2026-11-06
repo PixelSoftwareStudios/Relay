@@ -242,6 +242,7 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				"settings answer without operation",
 			));
 		}
+		Command::ClearCallHistory => rpc.clear_call_history(context).await,
 		Command::StartMicTest {
 			local_playback,
 			confirmed_feedback,

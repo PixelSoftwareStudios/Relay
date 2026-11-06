@@ -454,6 +454,12 @@ impl Engine for FakeEngine {
 		unsupported()
 	}
 
+	async fn list_call_history(&self, _: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
+		Ok(Response::new(CallHistoryPage::default()))
+	}
+	async fn clear_call_history(&self, r: Request<MutationContext>) -> Resp<Operation> {
+		self.op(Some(&r.into_inner()), "clear_call_history".into())
+	}
 	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_avatar".into())
 	}

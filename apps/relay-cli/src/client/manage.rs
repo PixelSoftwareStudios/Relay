@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use relay_api::ApiError;
 use relay_api::pb::{
-	AdvertMode, ChannelInfo, ChannelPolicy, ConnectionInfo, CreateChannelRequest,
+	AdvertMode, CallHistoryPage, ChannelInfo, ChannelPolicy, ConnectionInfo, CreateChannelRequest,
 	CreateInviteRequest, CreateInviteResponse, InboundPolicy, JoinChannelRequest,
 	LeaveChannelRequest, ListChannelsRequest, Operation, RevokeChannelMemberRequest,
 	SetPrivacyRequest, SettingResult, StartCallRequest, start_call_request,
@@ -91,6 +91,14 @@ pub trait Manage {
 	async fn clear_avatar(&mut self) -> Result<Operation, ApiError>;
 	/// Forget a stored trust decision by peer id or by `query` (fingerprint prefix or name).
 	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError>;
+	/// One page of the call history, newest first.
+	async fn call_history(
+		&mut self,
+		limit: u32,
+		before_id: Option<u64>,
+	) -> Result<CallHistoryPage, ApiError>;
+	/// Delete the whole call history.
+	async fn clear_call_history(&mut self) -> Result<Operation, ApiError>;
 	/// Every preference as flat `section.key` text.
 	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError>;
 	/// Change preferences by key; one result per key, sorted by key.
@@ -293,6 +301,19 @@ impl Manage for RealClient {
 			query: query.to_owned(),
 		})
 		.await
+	}
+
+	async fn call_history(
+		&mut self,
+		limit: u32,
+		before_id: Option<u64>,
+	) -> Result<CallHistoryPage, ApiError> {
+		self.client_mut().list_call_history(limit, before_id).await
+	}
+
+	async fn clear_call_history(&mut self) -> Result<Operation, ApiError> {
+		self.run_command(relay_client::Command::ClearCallHistory)
+			.await
 	}
 
 	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError> {

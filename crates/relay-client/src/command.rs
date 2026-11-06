@@ -181,6 +181,8 @@ pub enum Command {
 		/// `section.key` and text value, parsed like `relay config set`.
 		values: Vec<(String, String)>,
 	},
+	/// Delete every call history entry on this device.
+	ClearCallHistory,
 	/// Start the microphone test.
 	StartMicTest {
 		/// Play the microphone back locally.

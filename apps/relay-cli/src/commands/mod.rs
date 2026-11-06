@@ -10,6 +10,7 @@ mod controls;
 mod daemon;
 mod docs;
 mod doctor;
+mod history;
 mod hold;
 mod hotkey;
 pub mod messages;
@@ -127,6 +128,7 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		Command::Privacy(cmd) => privacy::run(client, cmd, out).await,
 		Command::Channel(cmd) => channel::run(client, cmd, out).await,
 		Command::Avatar(cmd) => avatar::run(client, cmd, out).await,
+		Command::History(args) => history::run(client, args, out).await,
 		Command::Daemon(_)
 		| Command::Doctor(_)
 		| Command::Tui(_)
