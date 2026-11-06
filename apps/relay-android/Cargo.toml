@@ -22,6 +22,7 @@ relay-audio = { path = "../../crates/relay-audio" }
 relay-net = { path = "../../crates/relay-net" }
 relay-api = { path = "../../crates/relay-api" }
 relay-io = { path = "../../crates/relay-io" }
+tokio-stream = "0.1.19"
 egui = { version = "0.37.0", default-features = false }
 eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts"] }
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync", "time", "macros"] }
@@ -33,6 +34,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = ["r
 hex = "0.4.3"
 
 [dev-dependencies]
+relay-core = { path = "../../crates/relay-core" }
 tempfile = "3"
 
 [target.'cfg(target_os = "android")'.dependencies]

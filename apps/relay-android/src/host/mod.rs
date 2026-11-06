@@ -40,6 +40,9 @@ use crate::bridge::{CallSummary, EngineConfig, EngineError, FoundService, HostBr
 use crate::sealed::{KeystoreSealer, SealedIdentityStore, SealedVault};
 use crate::shell::AndroidShell;
 
+mod ptt;
+use ptt::Ptt;
+
 static HOST: Mutex<Option<Arc<Host>>> = Mutex::new(None);
 
 /// The running host, if the engine was started.
@@ -63,7 +66,7 @@ pub struct Host {
 	endpoint: Endpoint,
 	daemon: tokio::sync::Mutex<Option<DaemonHandle>>,
 	attached: Mutex<Vec<JoinHandle<()>>>,
-	talk_tx: tokio::sync::mpsc::UnboundedSender<(String, bool)>,
+	ptt: Ptt,
 	talk_held: AtomicBool,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
@@ -149,8 +152,7 @@ impl Host {
 				last: Mutex::new(CallSummary::idle()),
 			});
 			handle.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
-			let (talk_tx, talk_rx) = tokio::sync::mpsc::unbounded_channel();
-			handle.spawn(talk_worker(actions.clone(), talk_rx));
+			let ptt = Ptt::spawn(&handle, hub.clone(), endpoint.clone());
 			Self {
 				runtime: Mutex::new(None),
 				handle: handle.clone(),
@@ -164,7 +166,7 @@ impl Host {
 				endpoint,
 				daemon: tokio::sync::Mutex::new(Some(daemon)),
 				attached: Mutex::new(Vec::new()),
-				talk_tx,
+				ptt,
 				talk_held: AtomicBool::new(false),
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
@@ -199,6 +201,10 @@ impl Host {
 		self.foreground.store(foreground, Ordering::Release);
 		self.hub.set_visible(foreground);
 		self.shell.set_visible(foreground);
+		if !foreground {
+			// A process sent to the background never keeps a key down.
+			self.cancel_talk();
+		}
 		if foreground {
 			self.attach();
 		} else if !self.in_call.load(Ordering::Acquire) {
@@ -249,6 +255,9 @@ impl Host {
 		if tasks.is_empty() {
 			return;
 		}
+		// The stream closes first: a held press must not outlive the client.
+		self.talk_held.store(false, Ordering::Release);
+		self.ptt.reset();
 		tasks.iter().for_each(JoinHandle::abort);
 		self.slot.clear();
 		self.hub.clear_meters();
@@ -259,6 +268,10 @@ impl Host {
 	fn on_call(&self, summary: CallSummary) {
 		self.in_call.store(summary.active, Ordering::Release);
 		self.bridge.call_changed(summary.clone());
+		if !summary.active {
+			self.talk_held.store(false, Ordering::Release);
+			self.ptt.reset();
+		}
 		if !summary.active && !self.foreground.load(Ordering::Acquire) {
 			self.detach();
 		}
@@ -284,12 +297,26 @@ impl Host {
 			.run(|c| async move { c.accept_call(&id).await });
 	}
 
-	/// Hold-to-talk from the on-screen button. See [`talk_worker`] for how it
-	/// reaches the engine.
+	/// Hold-to-talk from the on-screen button.
 	pub fn talk(&self, call_id: Option<String>, pressed: bool) {
 		if let Some(id) = call_id {
-			let _ = self.talk_tx.send((id, pressed));
+			self.send_talk(id, pressed);
 		}
+	}
+
+	fn send_talk(&self, call_id: String, pressed: bool) {
+		if pressed {
+			self.ptt.down(call_id);
+		} else {
+			self.ptt.up(call_id);
+		}
+	}
+
+	/// The key or button went away without an up event (pause, focus or
+	/// surface loss): release whatever is held.
+	pub fn cancel_talk(&self) {
+		self.talk_held.store(false, Ordering::Release);
+		self.ptt.cancel();
 	}
 
 	/// A volume key. It is a talk key only while a push-to-talk call is up (or
@@ -316,7 +343,7 @@ impl Host {
 			_ => return false,
 		};
 		self.talk_held.store(pressed, Ordering::Release);
-		let _ = self.talk_tx.send((id, pressed));
+		self.send_talk(id, pressed);
 		true
 	}
 
@@ -348,28 +375,6 @@ impl Host {
 
 	pub fn lost(&self, fullname: String) {
 		self.hints.send(Hint::Lost(fullname));
-	}
-}
-
-/// Applies talk presses in order. The engine's push-to-talk lease belongs to
-/// the connection that controls the call and `relay-ui` keeps that connection
-/// private, so until it exposes it, holding the button opens the microphone
-/// (the press is the explicit consent) and releasing returns the call to
-/// push-to-talk, which keeps the gate closed.
-async fn talk_worker(
-	actions: Actions,
-	mut presses: tokio::sync::mpsc::UnboundedReceiver<(String, bool)>,
-) {
-	while let Some((call_id, pressed)) = presses.recv().await {
-		let mode = if pressed {
-			Mode::OpenMic
-		} else {
-			Mode::PushToTalk
-		};
-		let result = actions.controller.set_transmit(&call_id, mode, true).await;
-		if let Err(error) = result {
-			tracing::warn!(%error, pressed, "talk button was not applied");
-		}
 	}
 }
 
@@ -437,5 +442,7 @@ impl Sink for CallSink {
 	}
 }
 
+#[cfg(test)]
+mod ptt_tests;
 #[cfg(test)]
 mod tests;

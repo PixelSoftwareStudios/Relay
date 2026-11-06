@@ -6,6 +6,7 @@ import android.os.Build
 import android.os.Bundle
 import android.util.Log
 import android.view.KeyEvent
+import android.view.SurfaceHolder
 import android.view.WindowManager
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
@@ -51,6 +52,7 @@ class MainActivity : GameActivity() {
     }
 
     override fun onStop() {
+        releaseTalk()
         RelayRuntime.whenReady { it.setForeground(false) }
         nsd.stop()
         RelayRuntime.locks.drop(OWNER)
@@ -63,14 +65,40 @@ class MainActivity : GameActivity() {
         super.onDestroy()
     }
 
-    /** Volume keys are hold-to-talk while a push-to-talk call is up. */
+    /**
+     * Volume keys are hold-to-talk while a push-to-talk call is up, through
+     * the same engine path as the on-screen button. A key-up for a key taken
+     * on the way down is always consumed and forwarded.
+     */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         val volume = event.keyCode == KeyEvent.KEYCODE_VOLUME_UP || event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN
-        val engine = RelayRuntime.engine
-        if (volume && engine != null && event.action != KeyEvent.ACTION_MULTIPLE) {
-            if (engine.talkKey(pressed = event.action == KeyEvent.ACTION_DOWN)) return true
+        if (volume) {
+            val taken = when (event.action) {
+                KeyEvent.ACTION_DOWN -> RelayRuntime.engine != null && talkKeys.press(event.keyCode)
+                KeyEvent.ACTION_UP -> talkKeys.release(event.keyCode)
+                else -> false
+            }
+            if (taken) return true
         }
         return super.dispatchKeyEvent(event)
+    }
+
+    /** Anything that could swallow a key-up releases the talk keys and the on-screen button. */
+    private fun releaseTalk() = talkKeys.cancel()
+
+    override fun onPause() {
+        releaseTalk()
+        super.onPause()
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        if (!hasFocus) releaseTalk()
+        super.onWindowFocusChanged(hasFocus)
+    }
+
+    override fun surfaceDestroyed(holder: SurfaceHolder) {
+        releaseTalk()
+        super.surfaceDestroyed(holder)
     }
 
     fun pickDocument(id: ULong, kind: PickKind) = picker.launch(id, kind)
@@ -78,6 +106,11 @@ class MainActivity : GameActivity() {
     fun askForMicrophone() {
         if (microphone().shouldRequest()) requestMissingPermissions()
     }
+
+    private val talkKeys = TalkKeys(
+        talk = { pressed -> RelayRuntime.engine?.talkKey(pressed) ?: false },
+        cancel = { RelayRuntime.engine?.cancelTalk() },
+    )
 
     private val nsd by lazy { NsdDiscovery(this) { RelayRuntime.engine } }
 

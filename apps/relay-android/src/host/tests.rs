@@ -11,10 +11,13 @@ use relay_ui::model::Link;
 use super::*;
 use crate::bridge::{HostError, PickKind};
 
+/// The host is a process-wide singleton, so host tests run one at a time.
+pub(super) static SERIAL: Mutex<()> = Mutex::new(());
+
 #[derive(Default)]
-struct FakeBridge {
-	seals: AtomicU64,
-	calls: Mutex<Vec<CallSummary>>,
+pub(super) struct FakeBridge {
+	pub(super) seals: AtomicU64,
+	pub(super) calls: Mutex<Vec<CallSummary>>,
 }
 
 impl HostBridge for FakeBridge {
@@ -45,7 +48,7 @@ impl HostBridge for FakeBridge {
 	fn quit_app(&self) {}
 }
 
-fn tweak() -> Tweak {
+pub(super) fn tweak() -> Tweak {
 	Box::new(|options: &mut RunOptions| {
 		options.network = NetworkOptions::loopback();
 		options.audio = AudioSetup::Backend(Box::new(|| {
@@ -57,7 +60,7 @@ fn tweak() -> Tweak {
 	})
 }
 
-async fn wait_for(hub: &Hub, what: &str, mut done: impl FnMut(&AppState) -> bool) {
+pub(super) async fn wait_for(hub: &Hub, what: &str, mut done: impl FnMut(&AppState) -> bool) {
 	for _ in 0..200 {
 		if hub.read(&mut done) {
 			return;
@@ -69,6 +72,9 @@ async fn wait_for(hub: &Hub, what: &str, mut done: impl FnMut(&AppState) -> bool
 
 #[test]
 fn engine_starts_attaches_detaches_and_stops() {
+	let _serial = SERIAL
+		.lock()
+		.unwrap_or_else(std::sync::PoisonError::into_inner);
 	let dir = tempfile::tempdir().unwrap();
 	let bridge = Arc::new(FakeBridge::default());
 	let config = EngineConfig {
@@ -130,4 +136,16 @@ fn call_summary_reflects_the_active_call() {
 	let summary = summarize(&relay_ui::mock::seed());
 	assert!(summary.active && summary.incoming && !summary.muted);
 	assert_eq!(summary.peer, "Ada Lovelace");
+}
+
+#[test]
+fn the_shell_declares_what_a_phone_has() {
+	let shell = AndroidShell::new(Arc::new(FakeBridge::default()));
+	assert!(!shell.has_global_hotkey(), "no system-wide key on a phone");
+	assert!(shell.has_talk_button(), "touch needs the on-screen button");
+	assert!(
+		shell.runs_in_background(),
+		"the foreground service keeps a call alive"
+	);
+	assert!(!shell.hides_to_tray());
 }

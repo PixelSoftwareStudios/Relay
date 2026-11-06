@@ -68,6 +68,12 @@ impl RelayEngine {
 		self.host.talk_key(pressed)
 	}
 
+	/// The talk button or keys can no longer report their release (pause,
+	/// focus or surface loss): release whatever is held. Always safe to call.
+	pub fn cancel_talk(&self) {
+		self.host.cancel_talk();
+	}
+
 	/// A service the platform browser resolved.
 	pub fn service_found(&self, service: FoundService) {
 		self.host.found(service);
