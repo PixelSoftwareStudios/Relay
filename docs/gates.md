@@ -165,3 +165,17 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Overlay (Tailscale) call carries audio | unmet-needs-hardware | Media address comes from the authenticated link when the opt-in is on (`docs/net.md`); unit-tested only, because tests cannot create a 100.64.0.0/10 interface. Needs a real call over a Tailscale pair. |
 | Desktop rendered on screen in every language | unmet-needs-hardware | Never seen by a person. Check Hindi shaping (क्षत्रिय, हिन्दी, कर्म; names, messages and text fields, cursor across conjuncts), German and Russian string overflow in buttons and tabs, and CJK fallback; then drop "(experimental)" from the Hindi picker label. |
 | GUI packaging and footprint | unmet-needs-hardware | Clean-machine build, signing, install and footprint measurement not done. |
+
+### WP-18 Android app
+
+| Gate | Status | Evidence / what is needed |
+|---|---|---|
+| Engine starts, attaches, detaches and stops in-process over a Unix socket in app storage | met-by-test | `apps/relay-android` `host::tests::engine_starts_attaches_detaches_and_stops` (host build, fake audio and Keystore); started and stopped for real on the `Medium_Phone_API_35` emulator (`docs/android.md`, verification log). |
+| Identity and channel secrets are sealed by a non-exportable Keystore key and bound to their slot | simulated | Rust `sealed::tests` and JVM `SealerTest` use a software key; `KeystoreSealerTest` ran against the emulator's Keystore. Not run on StrongBox or on a phone. No independent review of the scheme. |
+| Foreground microphone service lifecycle and permission state machines | simulated | JVM tests of `ServicePolicy` and `PermissionGate`; service start and notification observed on the emulator only. |
+| Real call between the phone and the laptop (audio both ways, echo, latency) | unmet-needs-hardware | Needs a physical phone on a LAN with a desktop. The AAudio voice-communication path opened on the emulator but carried no real microphone or speaker. |
+| mDNS and NSD discovery on a physical Wi-Fi network, multicast lock effect | unmet-needs-hardware | Locks were acquired on the emulator; the emulator's NAT carries no multicast. |
+| Mobile resource gate (CPU, RSS, battery per hour of call and idle) | unmet-needs-hardware | Not measured. |
+| Hold to talk through the engine's push-to-talk lease | blocked | The interim mode switch is implemented; the lease path needs `relay-ui` to expose the controlling client. |
+| Security review of the Keystore wrapping and of the app's exported surface | unmet-needs-review | Needs a named reviewer. |
+

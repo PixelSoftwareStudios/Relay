@@ -67,7 +67,7 @@ val cargoNdk = tasks.register<Exec>("cargoNdk") {
     abis.forEach { args += listOf("-t", it) }
     args += listOf("-P", minSdkLevel.toString(), "-o", jniOut.get().asFile.path, "build", "--release")
     commandLine(args)
-    inputs.files(fileTree(rustDir) { include("src/**", "Cargo.toml", "Cargo.lock") })
+    inputs.files(fileTree(rustDir) { include("src/**", "third_party/**", "Cargo.toml", "Cargo.lock") })
     inputs.dir(rustDir.resolve("../../crates"))
     outputs.dir(jniOut)
 }

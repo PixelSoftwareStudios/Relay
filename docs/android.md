@@ -56,13 +56,13 @@ Result: 4.0 MB APK, signature verified by `apksigner`, `aapt2 dump badging` show
 - Soft keyboard: tapping the profile name field showed the Gboard IME (`mInputShown=true`); `adb input text abc` appended to the field. This is key-event injection, not real IME composition.
 - Home then relaunch: same pid, same screen afterwards (the activity was backgrounded and resumed; no crash). Not an explicit surface-loss stress test.
 
-### Defects seen in the screenshots (all in the spike or relay-ui, not fixed)
+### Defects seen in the screenshots
 
-1. No safe-area/inset handling: the header sits under the status bar and the bottom nav overlaps the gesture bar (target 35 is edge-to-edge).
-2. Cards and long labels run off the right edge (text clipped, card border missing on the right): the layout assumes more width than the window gives on this density or `available_width` is exceeded by non-wrapping rows. Needs investigation in relay-ui at ~411 dp width.
-3. The "Channels" tab label wraps to "Channel/s".
-4. The soft keyboard does not push content up (no resize/inset handling); the focused field stayed visible here by luck.
-5. Settings copy still says "no tray", "no on-screen button" (accurate, but desktop wording).
+1. No safe-area/inset handling: the header sat under the status bar and the bottom nav overlapped the gesture bar (target 35 is edge-to-edge). Fixed in relay-ui: `Shell::safe_area_insets`; the Android shell must supply the values.
+2. Cards and long labels ran off the right edge. Cause: non-wrapping `horizontal` rows, 280 point text fields, and labels beside sliders wider than the row, so the frame grew past the viewport. Fixed in relay-ui for 320 to 430 points at 2.6 pixels per point and longer German and Russian text (tests `phone_overflow`).
+3. The "Channels" tab label wrapped to "Channel/s". Fixed: the tab font shrinks, then an ellipsis (test `phone_tabs`).
+4. The soft keyboard did not push content up. Fixed in relay-ui: `Shell::keyboard_height` (the shell supplies it); the tabs hide, the bottom is padded and the focused field is scrolled into view.
+5. Settings copy said "no tray", "no on-screen button" (desktop wording). Fixed: capability hooks `has_global_hotkey`, `has_talk_button` and `runs_in_background` select the wording.
 
 ### Not verified
 

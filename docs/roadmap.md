@@ -24,7 +24,7 @@ test names and missing evidence are in `docs/gates.md`.
 | 15 | Daemon split (`relayd`), presence, call ownership, ringtone, PTT release delay | implemented, gates met by tests; autostart verified on macOS only |
 | 16 | Overlay (Tailscale) peers | implemented behind an opt-in; unit-tested, no real overlay call yet |
 | 17 | Desktop localization (en plus eight languages, Noto Sans) | implemented; translations machine-written and unreviewed, Hindi flagged experimental, not seen on screen |
-| 18 | Android | feasibility spike only (workspace-excluded); app shell not started, estimate 9 to 15 weeks to beta |
+| 18 | Android | app implemented (Gradle + Kotlin shell, in-process engine, Keystore-sealed secrets, foreground call service, AAudio voice path, NSD fallback), verified on an emulator only; gates open (real phone, real call, mobile resource gate, security review of the Keystore scheme) |
 
 Hardware, multi-device and external-review gates cannot be closed from a single development machine;
 they are tracked as open in `docs/gates.md`, and measurements are recorded in `docs/evidence.md`.

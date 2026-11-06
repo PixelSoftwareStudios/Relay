@@ -46,3 +46,7 @@ debug = false
 # Keep the symbol table: UniFFI reads its metadata from the library. Gradle strips it again.
 strip = "debuginfo"
 panic = "unwind"
+
+# winit 0.30 drops GameActivity soft-keyboard text; see third_party/winit/RELAY.md.
+[patch.crates-io]
+winit = { path = "third_party/winit" }
