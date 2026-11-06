@@ -205,6 +205,12 @@ pub trait Operations: Send + Sync {
 		Err(unsupported())
 	}
 
+	/// Bytes in use next to the limits that bound them, keyed by the limit's preference key
+	/// (`GetSettings`). Empty when the engine does not report them.
+	async fn limit_usage(&self) -> Result<std::collections::BTreeMap<String, u64>, EngineError> {
+		Ok(std::collections::BTreeMap::new())
+	}
+
 	/// Change preferences (`SetSettings`); one result per key.
 	async fn set_settings(
 		&self,

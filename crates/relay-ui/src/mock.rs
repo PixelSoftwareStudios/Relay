@@ -15,6 +15,7 @@ use crate::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, S
 use crate::history_settings::KEY_ENABLED as KEY_HISTORY;
 use crate::hotkey_settings::{KEY_ACCELERATOR, KEY_RELEASE_DELAY};
 use crate::hub::Hub;
+use crate::limits_settings::{DEFS, LimitValues};
 use crate::model::{
 	Advert, AppState, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
 	Inbound, Link, Meters, Mode, Peer, Phase, Settings, Transmit, Trust,
@@ -129,9 +130,35 @@ struct MockOps {
 	hub: Arc<Hub>,
 	/// The hotkey text the mock "stores"; read at the next start, like the daemon.
 	hotkey: std::sync::Mutex<String>,
+	/// The `limits.*` values the mock "stores", as the daemon would report them.
+	limits: std::sync::Mutex<BTreeMap<String, String>>,
 }
 
 impl MockOps {
+	/// A `limits.*` change: in range and not leaving the retained budget under the session one.
+	fn set_limit(&self, key: &str, value: &str) -> (SettingOutcome, &'static str) {
+		let Some(def) = DEFS.iter().find(|d| d.key == key) else {
+			return (SettingOutcome::Rejected, "unknown key");
+		};
+		let Ok(number) = value.parse::<u32>() else {
+			return (SettingOutcome::Rejected, "must be a whole number");
+		};
+		if !(def.min..=def.max).contains(&number) {
+			return (SettingOutcome::Rejected, "out of range");
+		}
+		let mut stored = self.limits.lock_unpoisoned();
+		let mut next = stored.clone();
+		next.insert(key.to_owned(), number.to_string());
+		if LimitValues::from_dump(&next).is_ok_and(|v| v.check().is_err()) {
+			return (
+				SettingOutcome::Rejected,
+				"the budget for ended chats must not be smaller than one chat's budget",
+			);
+		}
+		*stored = next;
+		(SettingOutcome::AppliedLive, "")
+	}
+
 	fn with_call(&self, call_id: &[u8], f: impl FnOnce(&mut Call)) {
 		let wanted = hex::encode(call_id);
 		self.hub.update(|s| {
@@ -353,12 +380,20 @@ impl Operations for MockOps {
 		let delay = self
 			.hub
 			.read(|s| s.settings.as_ref().map_or(0, |g| g.ptt_release_delay_ms));
+		let mut dump = self.limits.lock_unpoisoned().clone();
+		dump.insert(
+			KEY_ACCELERATOR.to_owned(),
+			self.hotkey.lock_unpoisoned().clone(),
+		);
+		dump.insert(KEY_RELEASE_DELAY.to_owned(), delay.to_string());
+		Ok(dump)
+	}
+
+	async fn limit_usage(&self) -> Result<BTreeMap<String, u64>, EngineError> {
 		Ok(BTreeMap::from([
-			(
-				KEY_ACCELERATOR.to_owned(),
-				self.hotkey.lock_unpoisoned().clone(),
-			),
-			(KEY_RELEASE_DELAY.to_owned(), delay.to_string()),
+			("limits.avatar_cache_mib".to_owned(), 3 * 1024 * 1024),
+			("limits.messages_retained_mib".to_owned(), 1024 * 1024),
+			("limits.messages_session_mib".to_owned(), 512 * 1024),
 		]))
 	}
 
@@ -398,6 +433,7 @@ impl Operations for MockOps {
 					}
 					Err(_) => (SettingOutcome::Rejected, "must be true or false"),
 				},
+				key if DEFS.iter().any(|d| d.key == key) => self.set_limit(key, &value),
 				_ => (SettingOutcome::Rejected, "unknown key"),
 			};
 			results.push(SettingResult {
@@ -442,6 +478,11 @@ pub async fn run(hub: Arc<Hub>, slot: Arc<SessionSlot>) {
 	slot.set(Arc::new(MockOps {
 		hub: hub.clone(),
 		hotkey: std::sync::Mutex::new("Ctrl+Alt+Space".to_owned()),
+		limits: std::sync::Mutex::new(
+			DEFS.iter()
+				.map(|d| (d.key.to_owned(), d.default.to_string()))
+				.collect(),
+		),
 	}));
 	let started = tokio::time::Instant::now();
 	loop {

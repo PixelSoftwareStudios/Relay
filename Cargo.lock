@@ -6040,6 +6040,7 @@ dependencies = [
  "qrcode",
  "relay-api",
  "relay-client",
+ "relay-config",
  "relay-io",
  "relay-messages",
  "rust-embed",

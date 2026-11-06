@@ -6,6 +6,7 @@ use crate::actions::Actions;
 use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::{avatar_check, decode_for_texture};
 use crate::inbox::{Invite, Picked};
+use crate::limits_settings::LimitValues;
 use crate::shell::PickedFile;
 use crate::tr;
 
@@ -123,6 +124,47 @@ impl Actions {
 				shared
 					.inbox
 					.set_hotkey_loaded(reread.map_err(|e| e.to_string()));
+			}
+			shell.request_repaint();
+		});
+	}
+
+	/// Read the storage limits (`GetSettings`) for the settings panel.
+	pub fn fetch_limits(&self) {
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = controller
+				.limits_settings()
+				.await
+				.map_err(|e| e.to_string());
+			shared.inbox.set_limits_loaded(result);
+			shell.request_repaint();
+		});
+	}
+
+	/// Send the changed limits (`SetSettings`), then read them back.
+	pub fn save_limits(&self, stored: LimitValues, wanted: LimitValues) {
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = controller
+				.save_limits(&stored, &wanted)
+				.await
+				.map_err(|e| e.to_string());
+			let sent = result.is_ok();
+			shared.inbox.set_limits_saved(result);
+			if sent {
+				let reread = controller.limits_settings().await;
+				shared
+					.inbox
+					.set_limits_loaded(reread.map_err(|e| e.to_string()));
 			}
 			shell.request_repaint();
 		});

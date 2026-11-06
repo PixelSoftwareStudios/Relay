@@ -342,6 +342,11 @@ impl Operations for Ops {
 		dump.map_err(map_error)
 	}
 
+	async fn limit_usage(&self) -> Result<BTreeMap<String, u64>, EngineError> {
+		let usage = self.client.lock().await.get_limit_usage().await;
+		usage.map_err(map_error)
+	}
+
 	async fn set_settings(
 		&self,
 		values: Vec<(String, String)>,

@@ -8,6 +8,7 @@ mod audio;
 mod calls;
 mod hotkey;
 mod language;
+mod limits;
 mod privacy;
 mod profile;
 mod ptt;
@@ -130,6 +131,7 @@ fn category_page(ui: &mut Ui, category: SettingsCategory, cx: &mut Cx) {
 		SettingsCategory::PushToTalk => ptt::show(ui, cx),
 		SettingsCategory::Calls => calls::show(ui, cx),
 		SettingsCategory::Privacy => privacy::show(ui, cx),
+		SettingsCategory::Limits => limits::show(ui, cx),
 		SettingsCategory::Language => language::show(ui, cx),
 		SettingsCategory::Startup => startup::show(ui, cx),
 		SettingsCategory::Advanced => advanced::show(ui, cx),

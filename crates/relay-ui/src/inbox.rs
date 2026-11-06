@@ -10,6 +10,7 @@ use relay_client::Secret;
 use crate::engine::SettingResult;
 use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::Decoded;
+use crate::limits_settings::Loaded;
 use crate::model::ConnectionView;
 
 /// A profile image the user chose, ready to preview and upload.
@@ -34,6 +35,8 @@ pub struct Inbox {
 	hotkey_loaded: Mutex<Option<Result<HotkeyValues, String>>>,
 	hotkey_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 	history_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
+	limits_loaded: Mutex<Option<Result<Loaded, String>>>,
+	limits_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 }
 
 /// Decoded avatars queued before the UI catches up; older results drop.
@@ -94,6 +97,22 @@ impl Inbox {
 
 	pub fn take_history_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
 		self.history_saved.lock_unpoisoned().take()
+	}
+
+	pub fn set_limits_loaded(&self, result: Result<Loaded, String>) {
+		*self.limits_loaded.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_limits_loaded(&self) -> Option<Result<Loaded, String>> {
+		self.limits_loaded.lock_unpoisoned().take()
+	}
+
+	pub fn set_limits_saved(&self, result: Result<Vec<SettingResult>, String>) {
+		*self.limits_saved.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_limits_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
+		self.limits_saved.lock_unpoisoned().take()
 	}
 
 	pub fn take_invite(&self) -> Option<Invite> {

@@ -26,6 +26,7 @@ pub mod i18n;
 pub mod imaging;
 pub mod inbox;
 pub mod layout;
+pub mod limits_settings;
 pub mod messaging;
 pub mod mock;
 pub mod model;
