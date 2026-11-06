@@ -91,8 +91,18 @@ only (JIS X 0208 level 1 plus Joyo for Japanese, GB2312 for Simplified Chinese, 
 syllables and Jamo for Korean) plus every non-ASCII character in UI strings. Full CJK fonts are
 4 to 16 MB each; the subsets total about 3.1 MB. Regular weight only: egui synthesises no bold or
 italic, so extra weights would only be dead weight. Rarer characters fall back to egui's built-in
-fonts or show as missing. Revisit when a shaping text stack is adopted (Devanagari conjuncts). Font order is per language (`fonts::order`). Build recipe and licences:
+fonts or show as missing. Devanagari shaping needs no extra stack (see the next decision). Font order is per language (`fonts::order`). Build recipe and licences:
 `assets/font/README.md`.
+
+## Devanagari shaping comes from egui 0.37's harfrust, not from an extra stack
+
+Status: accepted.
+
+Finding: epaint 0.37 depends on `harfrust` 0.12 and shapes every text run in `text_layout.rs` (`shape_text`), with GPOS kerning, per-run font fallback, cluster-aware cursors and zero-width continuation glyphs. Earlier docs saying egui does no shaping described egui 0.27 and older. So conjuncts, matra reordering and reph already apply to labels, buttons, wrapped paragraphs, peer names, messages and editable fields; the bundled Devanagari subset keeps all its layout features. Tests (`crates/relay-ui/tests/shaping_*.rs`) shape क्षत्रिय, हिन्दी, कि and कर्म with harfrust on the bundled face and check egui galley widths and the Hindi catalog for `.notdef`.
+
+Candidates (all MIT or Apache-2.0, so allowed by `deny.toml`): harfrust (MIT, HarfBuzz port on read-fonts, already in the tree through epaint); rustybuzz (MIT, ttf-parser based, superseded by harfrust); swash (Apache-2.0 or MIT, shaper plus rasteriser, used by older Linebender code); parley 0.12 (Apache-2.0 or MIT, MSRV 1.88, layout over fontique, harfrust and ICU4X: bidi, line breaking, alignment); cosmic-text 0.19 (MIT or Apache-2.0, same role for COSMIC). Parley was evaluated first as requested. It is a layout engine that yields glyph runs, and egui has no hook to take them: `Galley` rows and glyph atlas are built inside epaint, no parley or egui-parley integration exists for 0.37 (web search found none), so using it would mean painting our own glyph meshes with a second rasteriser and atlas, re-implementing text editing, accessibility and wrapping for every widget, and its default `system` feature (fontique scanning installed fonts) would have to be disabled to stay bundled-only. That adds a large dependency tree and a parallel text path for zero shaping gain, since both end up in harfrust.
+
+Decision: no new shaping crate and no wrapper module; `harfrust` is a dev-dependency only (same version as epaint) for the tests. Revisit parley only if egui gains a pluggable text backend or Relay needs bidi (Arabic, Hebrew), which egui 0.37 does not do.
 
 ## Desktop translations use Project Fluent, one folder per language
 

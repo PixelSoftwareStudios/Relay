@@ -45,9 +45,9 @@ PATH=$PWD/venv/bin:$PATH python3 -I assets/font/subset.py SRC SRC/../unihan/Unih
 
 `subset.py` builds each code point set (ranges, legacy codecs, Joyo, `ui-chars.txt`) and runs
 `pyftsubset FONT --unicodes-file=SET --output-file=OUT --layout-features=FEATURES --no-hinting --drop-tables+=DSIG --notdef-outline --name-IDs=* --glyph-names=false`.
-Layout features: `kern,ccmp,locl,mark,mkmk` for Noto Sans, all for Devanagari, none for CJK (egui does no GSUB/GPOS shaping). Hinting is dropped because egui rasterises unhinted outlines. The CJK faces stay OpenType/CFF, which egui's font loader (skrifa) reads directly.
+Layout features: `kern,ccmp,locl,mark,mkmk` for Noto Sans, all for Devanagari (egui 0.37 shapes with harfrust, so the GSUB/GPOS tables are used), none for CJK. Hinting is dropped because egui rasterises unhinted outlines. The CJK faces stay OpenType/CFF, which egui's font loader (skrifa) reads directly.
 
 ## Limits
 
-- egui does not shape text: Devanagari glyphs are drawn in logical order without conjunct formation or matra reordering, so Hindi is legible but not typographically correct until a shaping text stack is used.
+- Devanagari is shaped by egui's own harfrust layout (conjuncts, matras, reph; tests in `crates/relay-ui/tests/shaping_*.rs`). Not yet confirmed on screen by a person, which is why Hindi keeps its experimental label.
 - egui has no per-locale font choice: Han characters shared by Japanese and Chinese resolve to the first face that has them (JP, then KR, then SC), so Chinese text may show Japanese glyph forms for shared characters. Characters outside GB2312, JIS level 1/Joyo and KS X 1001 show as missing glyphs.
