@@ -48,6 +48,26 @@ as a snapshot but is only authoritative when regenerated at the release revision
 7. **Hash and sign** (below), publish, then record the release in `docs/evidence.md` with the commit,
    toolchain, host OS and artifact hashes.
 
+## Release workflow
+
+`.github/workflows/release.yml` runs on a `vX.Y.Z` tag (the tag must equal the workspace version) or by hand
+without publishing. Each target builds on its own runner with the pinned toolchain and `Swatinem/rust-cache`
+(restored on tags, saved only from `main`):
+
+| Target | Runner |
+|---|---|
+| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
+| `aarch64-apple-darwin`, `x86_64-apple-darwin` | `macos-latest` (the Intel build is cross-compiled) |
+| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `windows-latest`, `windows-11-arm` |
+
+Each yields `relay-v<version>-<target>.tar.gz` (`.zip` on Windows) from `scripts/package.sh`: `bin/relayd`,
+`bin/relay`, `bin/relay-desktop`, and `share/doc/relay/` with the licences and `THIRD_PARTY_LICENSES`. The
+Android job runs `just android-apk` and attaches `relay-v<version>.apk`. The publish job writes
+`SHA256SUMS`, a GitHub build-provenance attestation, and creates the release with generated notes.
+
+Not yet done: the APK is debug-signed (installable, not a Play Store build), macOS binaries are not
+Developer-ID signed or notarized, Windows binaries are unsigned, and the workflow has never run.
+
 ## Hashing and signing plan
 
 Planned, not in place:

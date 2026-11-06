@@ -1,0 +1,168 @@
+name: release
+
+# Tag vX.Y.Z (matching the workspace version) to build every artifact and publish a GitHub release.
+# Run it by hand (workflow_dispatch) to build the same artifacts without publishing.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: "0"
+
+jobs:
+  check:
+    name: tag matches version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compare the tag with the workspace version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml)
+          if [ "${GITHUB_REF_NAME}" != "v${version}" ]; then
+            echo "tag ${GITHUB_REF_NAME} does not match workspace version ${version}" >&2
+            exit 1
+          fi
+
+  notices:
+    name: third-party notices
+    needs: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: notices
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+      - run: cargo about generate about.hbs > THIRD_PARTY_LICENSES
+      - uses: actions/upload-artifact@v4
+        with:
+          name: notices
+          path: THIRD_PARTY_LICENSES
+
+  desktop:
+    name: ${{ matrix.target }}
+    needs: [check, notices]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04, target: x86_64-unknown-linux-gnu }
+          - { os: ubuntu-24.04-arm, target: aarch64-unknown-linux-gnu }
+          - { os: macos-latest, target: aarch64-apple-darwin }
+          - { os: macos-latest, target: x86_64-apple-darwin }
+          - { os: windows-latest, target: x86_64-pc-windows-msvc }
+          - { os: windows-11-arm, target: aarch64-pc-windows-msvc }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-${{ matrix.target }}
+          # Tag builds restore the cache but only main-branch CI saves it, so a release never
+          # evicts the cache that day-to-day builds rely on.
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Linux system packages
+        if: runner.os == 'Linux'
+        run: >-
+          sudo apt-get update && sudo apt-get install -y
+          libasound2-dev pkg-config libgtk-3-dev
+          libxkbcommon-dev libwayland-dev libayatana-appindicator3-dev
+      - uses: actions/download-artifact@v4
+        with:
+          name: notices
+      - name: Build
+        shell: bash
+        run: >-
+          cargo build --release --locked --target ${{ matrix.target }}
+          -p relay-daemon -p relay-cli -p relay-desktop
+      - name: Package
+        shell: bash
+        run: scripts/package.sh ${{ matrix.target }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay-${{ matrix.target }}
+          path: dist/relay-v*
+          if-no-files-found: error
+
+  android:
+    name: android apk
+    needs: check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.99.1"
+          targets: aarch64-linux-android
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-android
+          workspaces: |
+            .
+            apps/relay-android
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - uses: gradle/actions/setup-gradle@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: just,cargo-ndk
+      - name: Android NDK
+        run: >-
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          "ndk;28.2.13676358"
+      - run: just android-apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: relay-android
+          path: dist/android/relay-v*.apk
+          if-no-files-found: error
+
+  publish:
+    needs: [desktop, android]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          pattern: relay-*
+          merge-multiple: true
+      - name: Checksums
+        working-directory: artifacts
+        run: sha256sum relay-v* > SHA256SUMS
+      - uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: artifacts/relay-v*
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh release create "$GITHUB_REF_NAME" artifacts/*
+          --repo "$GITHUB_REPOSITORY" --title "Relay $GITHUB_REF_NAME"
+          --generate-notes --verify-tag
