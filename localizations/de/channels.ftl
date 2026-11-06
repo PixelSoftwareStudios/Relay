@@ -72,3 +72,6 @@ scan-added-unnamed = Das Gerät wurde zu den Kontakten hinzugefügt.
 scan-unreachable = Das Gerät ist nicht erreichbar. Prüfe, ob es im selben Netzwerk ist und Relay geöffnet hat, und scanne erneut.
 scan-mismatch = Das Gerät stimmt nicht mit dem Code überein. Ihm wurde nicht vertraut.
 scan-trust-failed = Das Gerät konnte nicht hinzugefügt werden: { $reason }
+privacy-blocked = Blockierte Geräte
+privacy-blocked-none = Du hast kein Gerät blockiert.
+privacy-blocked-help = Blockierte Geräte können dich nicht anrufen und werden nicht als in der Nähe angezeigt. Beim Freigeben kann es wieder gefunden werden; es wird dadurch kein Kontakt.

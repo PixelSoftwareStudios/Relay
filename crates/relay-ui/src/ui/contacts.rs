@@ -80,6 +80,7 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 							cx.local.forget_confirm = Some(row.peer_id.clone());
 							ui.close();
 						}
+						block_entry(ui, cx, row);
 					});
 				}
 			});
@@ -88,6 +89,7 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 			}
 			if full {
 				forget_ask(ui, cx, row);
+				block_ask(ui, cx, row);
 				kit::details(ui, ("peer-details", &row.peer_id), |ui| {
 					peer_details(ui, row, cx);
 				});
@@ -188,6 +190,32 @@ fn forget_ask(ui: &mut Ui, cx: &mut Cx, row: &PeerRow) {
 		}
 		if ui.button(tr!("revoke-keep")).clicked() {
 			cx.local.forget_confirm = None;
+		}
+	});
+}
+
+/// The menu entry "Block device": the first step, a confirmation follows under the card.
+pub(super) fn block_entry(ui: &mut Ui, cx: &mut Cx, row: &PeerRow) {
+	if icon_label_red(ui, Icon::Lock, tr!("block-device")).clicked() {
+		cx.local.block_confirm = Some(row.peer_id.clone());
+		ui.close();
+	}
+}
+
+/// The confirmation under a device whose "Block device" was chosen.
+pub(super) fn block_ask(ui: &mut Ui, cx: &mut Cx, row: &PeerRow) {
+	if cx.local.block_confirm.as_deref() != Some(row.peer_id.as_str()) {
+		return;
+	}
+	ui.label(tr!("block-ask", name = row.name.as_str()));
+	button_row(ui, |ui| {
+		if kit::danger_button(ui, tr!("block-yes")).clicked() {
+			let id = row.peer_id.clone();
+			cx.actions.run(|c| async move { c.block_peer(&id).await });
+			cx.local.block_confirm = None;
+		}
+		if ui.button(tr!("revoke-keep")).clicked() {
+			cx.local.block_confirm = None;
 		}
 	});
 }

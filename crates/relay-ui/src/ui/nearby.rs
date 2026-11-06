@@ -5,7 +5,8 @@
 
 use egui::{RichText, Ui};
 
-use crate::icons::{Icon, icon_label, icon_label_primary};
+use crate::icons::{Icon, icon_button, icon_label, icon_label_enabled, icon_label_primary};
+use crate::layout::Page;
 use crate::tr;
 use crate::viewmodel::PeerRow;
 
@@ -61,6 +62,7 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 			});
 		});
 		trust_row(ui, row, cx);
+		super::contacts::block_ask(ui, cx, row);
 		kit::details(ui, ("found-details", &row.peer_id), |ui| {
 			ui.label(
 				RichText::new(tr!(
@@ -80,7 +82,9 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	});
 }
 
-/// Two-step trust: the first click explains, the second one acts.
+/// A nearby device can be called at once; answering makes it a contact (unverified). The
+/// careful option is to compare its fingerprint first and trust it. Two-step trust: the
+/// first click explains, the second one acts.
 fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	if cx.local.trust_confirm.as_deref() == Some(row.peer_id.as_str()) {
 		kit::help(ui, &tr!("found-trust-ask", name = row.name.as_str()));
@@ -97,9 +101,17 @@ fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 		});
 	} else {
 		button_row(ui, |ui| {
+			if icon_label_enabled(ui, row.can_call, Icon::Call, tr!("peer-call")).clicked() {
+				let id = row.peer_id.clone();
+				cx.local.goto = Some(Page::Calls);
+				cx.actions.run(|c| async move { c.start_call(&id).await });
+			}
 			if icon_label(ui, Icon::Trust, tr!("found-trust")).clicked() {
 				cx.local.trust_confirm = Some(row.peer_id.clone());
 			}
+			let more = icon_button(ui, Icon::More, tr!("contact-more"));
+			egui::Popup::menu(&more).show(|ui| super::contacts::block_entry(ui, cx, row));
 		});
+		kit::help(ui, tr!("found-call-help"));
 	}
 }

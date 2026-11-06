@@ -141,6 +141,11 @@ pub enum Command {
 	TrustPeer {
 		peer_id: Vec<u8>,
 	},
+	/// Block a device (32 byte key digest): its calls and links are refused silently. A
+	/// stored contact is forgotten with it. Unblocking is `ForgetPeer` on the same id.
+	BlockPeer {
+		peer_id: Vec<u8>,
+	},
 	/// Dial a scanned `relay://` string and trust the device as verified when its key matches
 	/// the scanned fingerprint (the QR code is the out-of-band check).
 	ConnectAndTrust {

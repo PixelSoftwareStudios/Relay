@@ -492,6 +492,13 @@ impl Controller {
 			.map_err(trust_error)
 	}
 
+	/// Block a device: its calls and links are refused silently from now on. A contact is
+	/// forgotten at the same time. Unblocking goes through [`Self::forget_peer`].
+	pub async fn block_peer(&self, peer_id: &str) -> Result<(), ControlError> {
+		let id = decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
+		self.run(Command::BlockPeer { peer_id: id }).await.map(drop)
+	}
+
 	/// Remove the stored avatar (idempotent in the engine).
 	pub async fn clear_avatar(&self) -> Result<(), ControlError> {
 		self.run(Command::ClearAvatar).await.map(drop)

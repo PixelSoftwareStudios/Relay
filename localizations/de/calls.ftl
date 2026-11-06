@@ -138,3 +138,5 @@ startup-file-store = Dateispeicherung verwenden…
 startup-file-warning = Die Dateispeicherung legt deinen Identitätsschlüssel in einer einfachen Datei ab, die nur durch Dateirechte geschützt ist. Das ist weniger sicher als der sichere Speicher des Systems. Liegt dort noch kein Schlüssel, erstellt Relay eine neue Identität, und deine Kontakte müssen dieses Gerät erneut bestätigen.
 startup-file-confirm = Dateispeicherung verwenden
 startup-cancel = Abbrechen
+call-block = Blockieren
+incoming-unknown = Noch kein Kontakt (Schlüssel { $fingerprint }). Wenn du annimmst, nimmt Relay es unverifiziert in die Kontakte auf, weil du den Fingerabdruck nicht verglichen hast.

@@ -139,3 +139,5 @@ startup-file-store = 使用文件存储…
 startup-file-warning = 文件存储会把你的身份密钥放在普通文件中，仅靠文件权限保护，安全性低于系统的安全存储。如果该文件中还没有密钥，Relay 会创建新的身份，你的联系人需要重新验证此设备。
 startup-file-confirm = 使用文件存储
 startup-cancel = 取消
+call-block = 屏蔽
+incoming-unknown = 尚不是你的联系人（密钥 { $fingerprint }）。若你接听，由于你没有比对指纹，Relay 会将其以“未验证”身份加入联系人。

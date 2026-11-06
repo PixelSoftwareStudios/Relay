@@ -69,3 +69,6 @@ scan-added-unnamed = デバイスを連絡先に追加しました。
 scan-unreachable = そのデバイスに接続できませんでした。同じネットワークで Relay が開いているか確認して、もう一度スキャンしてください。
 scan-mismatch = そのデバイスはコードと一致しないため、信頼しませんでした。
 scan-trust-failed = デバイスを追加できませんでした: { $reason }
+privacy-blocked = ブロックしたデバイス
+privacy-blocked-none = ブロックしたデバイスはありません。
+privacy-blocked-help = ブロックしたデバイスは発信できず、近くのデバイスにも表示されません。解除すると再び見つかりますが、連絡先にはなりません。

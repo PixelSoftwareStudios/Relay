@@ -436,6 +436,15 @@ impl Operations for MockOps {
 				});
 			}
 			Command::SetFavorites { peer_ids } => return self.set_favorites(&peer_ids),
+			Command::BlockPeer { peer_id } => {
+				let wanted = hex::encode(peer_id);
+				self.hub.update(|s| {
+					if let Some(p) = s.peers.iter_mut().find(|p| p.peer_id == wanted) {
+						p.trust = Trust::Blocked;
+						p.reachable = false;
+					}
+				});
+			}
 			Command::TrustPeer { peer_id } => {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| {

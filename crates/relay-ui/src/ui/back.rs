@@ -58,6 +58,7 @@ impl RelayApp {
 			|| l.revoke_confirm.is_some()
 			|| l.leave_confirm.is_some()
 			|| l.forget_confirm.is_some()
+			|| l.block_confirm.is_some()
 			|| l.trust_confirm.is_some()
 	}
 
@@ -71,6 +72,7 @@ impl RelayApp {
 			|| l.revoke_confirm.take().is_some()
 			|| l.leave_confirm.take().is_some()
 			|| l.forget_confirm.take().is_some()
+			|| l.block_confirm.take().is_some()
 			|| l.trust_confirm.take().is_some()
 	}
 }

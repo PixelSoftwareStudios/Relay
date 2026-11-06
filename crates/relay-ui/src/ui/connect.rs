@@ -39,7 +39,7 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	visibility::card(ui, cx);
 	kit::gap(ui);
 	scan(ui, cx);
-	let found: Vec<&PeerRow> = rows.iter().filter(|r| !r.known).collect();
+	let found: Vec<&PeerRow> = rows.iter().filter(|r| !r.known && !r.blocked).collect();
 	nearby::section(ui, &found, cx);
 	kit::gap(ui);
 	card(ui, cx, !rows.iter().any(|r| r.known));

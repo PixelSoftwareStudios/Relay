@@ -73,3 +73,6 @@ scan-added-unnamed = O dispositivo foi adicionado aos contatos.
 scan-unreachable = Não foi possível alcançar esse dispositivo. Verifique se ele está na mesma rede com o Relay aberto e leia o código de novo.
 scan-mismatch = Esse dispositivo não corresponde ao código, então não foi considerado confiável.
 scan-trust-failed = Não foi possível adicionar esse dispositivo: { $reason }
+privacy-blocked = Dispositivos bloqueados
+privacy-blocked-none = Você não bloqueou nenhum dispositivo.
+privacy-blocked-help = Dispositivos bloqueados não podem ligar para você e não aparecem como próximos. Desbloquear permite encontrá-lo de novo; ele não vira um contato.

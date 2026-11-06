@@ -71,3 +71,6 @@ scan-added-unnamed = 기기를 연락처에 추가했습니다.
 scan-unreachable = 해당 기기에 연결할 수 없습니다. 같은 네트워크에서 Relay가 열려 있는지 확인한 후 다시 스캔하세요.
 scan-mismatch = 해당 기기가 코드와 일치하지 않아 신뢰하지 않았습니다.
 scan-trust-failed = 기기를 추가할 수 없습니다: { $reason }
+privacy-blocked = 차단한 기기
+privacy-blocked-none = 차단한 기기가 없습니다.
+privacy-blocked-help = 차단한 기기는 전화할 수 없고 근처 기기로도 표시되지 않습니다. 차단을 해제하면 다시 발견될 수 있지만 연락처가 되지는 않습니다.

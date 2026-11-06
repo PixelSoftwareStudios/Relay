@@ -71,3 +71,6 @@ scan-added-unnamed = 已将该设备添加到联系人。
 scan-unreachable = 无法连接到该设备。请确认它在同一网络中且已打开 Relay，然后重新扫描。
 scan-mismatch = 该设备与二维码不符，因此没有信任它。
 scan-trust-failed = 无法添加该设备：{ $reason }
+privacy-blocked = 已屏蔽的设备
+privacy-blocked-none = 你没有屏蔽任何设备。
+privacy-blocked-help = 已屏蔽的设备无法呼叫你，也不会显示在附近。解除屏蔽后可再次被发现，但不会成为联系人。

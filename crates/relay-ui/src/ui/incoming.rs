@@ -43,6 +43,13 @@ fn prompt(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 			if let Some(p) = &card.call.problem {
 				banner(ui, &format!("{} {}", p.message, p.recovery_action), true);
 			}
+			if card.unknown {
+				// Honest about what accepting does: a stranger becomes a contact, unverified.
+				kit::help(
+					ui,
+					&tr!("incoming-unknown", fingerprint = card.fingerprint.as_str()),
+				);
+			}
 			let id = card.call_id.clone();
 			let actions = cx.actions;
 			button_row(ui, |ui| {
@@ -54,6 +61,13 @@ fn prompt(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 				if icon_label_danger(ui, Icon::HangUp, tr!("call-decline")).clicked() {
 					let id = id.clone();
 					actions.run(|c| async move { c.decline_call(&id).await });
+				}
+				if ui.button(tr!("call-block")).clicked() {
+					let (id, peer) = (id.clone(), card.peer_id.clone());
+					actions.run(|c| async move {
+						c.decline_call(&id).await?;
+						c.block_peer(&peer).await
+					});
 				}
 			});
 			kit::help(ui, join_note(cx));

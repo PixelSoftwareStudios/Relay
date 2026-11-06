@@ -19,6 +19,8 @@ pub struct CallCard {
 	/// The caller's short key digest, empty when unknown. A hint, never a verification.
 	pub fingerprint: String,
 	pub incoming: bool,
+	/// The other device is not a contact: answering makes it one (unverified).
+	pub unknown: bool,
 	/// Controls such as mute and transmit mode are shown for these.
 	pub controllable: bool,
 	pub speaking: bool,
@@ -48,6 +50,8 @@ pub struct PeerRow {
 	pub reachable: bool,
 	/// A trust decision is stored for it (so it can be forgotten).
 	pub known: bool,
+	/// The user blocked it (listed only under Settings > Privacy).
+	pub blocked: bool,
 	/// Names of channels with proven shared membership.
 	pub badges: Vec<String>,
 	/// Channels (id, name) in which this device may revoke this peer.
@@ -109,6 +113,7 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 					.to_owned(),
 				fingerprint: peer.map_or_else(String::new, |p| p.fingerprint_short.clone()),
 				incoming: call.phase == Phase::IncomingRinging,
+				unknown: peer.is_none_or(|p| p.trust == Trust::Unknown),
 				controllable: call.phase != Phase::IncomingRinging,
 				speaking,
 				receive_dbfs: if connected {
@@ -174,7 +179,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			port: p.port,
 			last_seen_ms: p.last_seen_unix_ms,
 			reachable: p.reachable,
-			known: p.trust != Trust::Unknown,
+			known: !matches!(p.trust, Trust::Unknown | Trust::Blocked),
+			blocked: p.trust == Trust::Blocked,
 			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),
 			revocable: shared_channels(state, p)
 				.filter(|c| c.can_admin())

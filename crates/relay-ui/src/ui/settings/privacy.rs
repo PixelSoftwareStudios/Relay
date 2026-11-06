@@ -45,6 +45,33 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	kit::gap(ui);
 	history_switch(ui, cx);
 	trusted(ui, cx);
+	blocked(ui, cx);
+}
+
+/// Blocked devices: name and short fingerprint, each with Unblock (which only lets the
+/// device be met again; it does not make it a contact).
+fn blocked(ui: &mut Ui, cx: &mut Cx) {
+	kit::section_title(ui, tr!("privacy-blocked"));
+	let rows: Vec<_> = peer_rows(cx.state)
+		.into_iter()
+		.filter(|r| r.blocked)
+		.collect();
+	if rows.is_empty() {
+		kit::help(ui, tr!("privacy-blocked-none"));
+		return;
+	}
+	kit::help(ui, tr!("privacy-blocked-help"));
+	for row in &rows {
+		kit::card(ui, |ui| {
+			ui.label(RichText::new(&row.name).strong());
+			ui.label(RichText::new(&row.fingerprint).weak().monospace());
+			if ui.button(tr!("unblock")).clicked() {
+				let id = row.peer_id.clone();
+				cx.actions.run(|c| async move { c.forget_peer(&id).await });
+			}
+		});
+		kit::gap(ui);
+	}
 }
 
 /// "Keep call history": the preference `history.enabled`, sent with `SetSettings`. The

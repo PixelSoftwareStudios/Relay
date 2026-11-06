@@ -139,3 +139,5 @@ startup-file-store = 파일 저장 사용…
 startup-file-warning = 파일 저장은 신원 키를 일반 파일에 보관하며, 파일 권한으로만 보호됩니다. 시스템 보안 저장소보다 안전하지 않습니다. 그 파일에 아직 키가 없으면 Relay가 새 신원을 만들고, 연락처들은 이 기기를 다시 확인해야 합니다.
 startup-file-confirm = 파일 저장 사용
 startup-cancel = 취소
+call-block = 차단
+incoming-unknown = 아직 연락처가 아닙니다(키 { $fingerprint }). 받으면 지문을 비교하지 않았으므로 Relay가 확인되지 않은 연락처로 추가합니다.

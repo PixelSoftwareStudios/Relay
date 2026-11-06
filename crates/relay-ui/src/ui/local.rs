@@ -83,6 +83,8 @@ pub struct Local {
 	pub focus_contact: Option<String>,
 	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
 	pub forget_confirm: Option<String>,
+	/// The device (hex peer id) whose "Block" is waiting for confirmation.
+	pub block_confirm: Option<String>,
 	/// The key-changed contact (hex peer id) whose "Compare and trust new key" step is open,
 	/// and the fingerprint typed or pasted so far.
 	pub verify_key: Option<String>,

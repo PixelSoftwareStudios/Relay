@@ -137,3 +137,5 @@ startup-file-store = Usar armazenamento em arquivo…
 startup-file-warning = O armazenamento em arquivo guarda sua chave de identidade em um arquivo simples, protegido apenas pelas permissões do arquivo. Isso é menos seguro que o armazenamento seguro do sistema. Se ainda não houver uma chave nesse arquivo, o Relay cria uma nova identidade e seus contatos precisarão verificar este dispositivo de novo.
 startup-file-confirm = Usar armazenamento em arquivo
 startup-cancel = Cancelar
+call-block = Bloquear
+incoming-unknown = Ainda não é um contato (chave { $fingerprint }). Se você atender, o Relay o adiciona aos Contatos como não verificado, pois você não comparou a impressão digital.

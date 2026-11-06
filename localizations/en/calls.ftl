@@ -140,3 +140,5 @@ startup-file-store = Use file storage…
 startup-file-warning = File storage keeps your identity key in a plain file that only file permissions protect. That is less secure than the system's secure storage. If no key is in that file yet, Relay creates a new identity and your contacts will have to verify this device again.
 startup-file-confirm = Use file storage
 startup-cancel = Cancel
+call-block = Block
+incoming-unknown = Not in your contacts yet (key { $fingerprint }). If you answer, Relay adds it to Contacts as unverified, because you have not compared its fingerprint.
