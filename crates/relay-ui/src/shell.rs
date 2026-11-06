@@ -56,6 +56,26 @@ pub fn no_paths() -> &'static str {
 	tr!("err-no-paths")
 }
 
+/// Screen areas covered by system UI, in points: status bar and cutout (top),
+/// gesture or navigation bar (bottom), rounded corners and notches (sides).
+/// All zero on a desktop window.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct Insets {
+	pub top: f32,
+	pub bottom: f32,
+	pub left: f32,
+	pub right: f32,
+}
+
+/// The kind of device the shell runs on; it selects platform-appropriate copy
+/// and controls (no tray or global hotkey on a phone, an on-screen talk button).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum PlatformKind {
+	#[default]
+	Desktop,
+	Mobile,
+}
+
 /// Services the shell implements for the shared UI. Methods may be called from
 /// the UI thread or from a runtime thread, so they must not block.
 pub trait Shell: FilePicker {
@@ -101,4 +121,22 @@ pub trait Shell: FilePicker {
 	fn host_options(&self) -> Option<&dyn crate::host_options::HostOptions> {
 		None
 	}
+	/// Areas the system UI covers, in points. The app keeps its content out of
+	/// them. Called every frame, so it must be cheap.
+	fn safe_area_insets(&self) -> Insets {
+		Insets::default()
+	}
+	/// Height in points of the soft keyboard when shown, else 0. The app keeps
+	/// the focused text field visible above it.
+	fn keyboard_height(&self) -> f32 {
+		0.0
+	}
+	/// The kind of device; the default is a desktop.
+	fn platform_kind(&self) -> PlatformKind {
+		PlatformKind::Desktop
+	}
+	/// The on-screen hold-to-talk button went down (`true`) or up (`false`) for
+	/// the call `call_id` (hex). The shell forwards it to the engine's
+	/// push-to-talk input; the default ignores it.
+	fn push_to_talk(&self, _call_id: &str, _pressed: bool) {}
 }

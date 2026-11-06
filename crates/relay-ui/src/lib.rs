@@ -33,3 +33,5 @@ pub mod tasks;
 pub mod theme;
 pub mod ui;
 pub mod viewmodel;
+
+pub use shell::{Insets, PlatformKind};
