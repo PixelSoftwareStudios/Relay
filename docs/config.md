@@ -168,6 +168,26 @@ Writing while the daemon runs must go through the daemon (it holds the writer lo
 Identity uses the OS credential store by default. If it fails, the error surfaces. The plaintext
 file store is built only when the setting is `insecure_file`, and `describe()` says so.
 
+The identity key and the channel secrets share **one** credential-store item (`relay-voice` /
+`vault`, a versioned bundle). Only the daemon opens it. `Keychain::os(lock_file)` returns one
+cached handle per process: the item is read once per start, held in memory, writes go through
+and update the copy, concurrent first reads queue behind the one in flight (a prompt that lasts
+minutes is not asked twice), and a failed read is not cached. `Keychain::new` (tests, other
+backends) reads every time.
+
+`IdentityStore::load` answers found, `Ok(None)` (definitively no item) or an error (denied,
+locked, interrupted, timeout, corrupt or newer bundle: `ConfigError::BundleUnreadable`,
+`IdentityMalformed`, `CredentialStore`). `load_or_create` generates only on `Ok(None)` and stores
+through `IdentityStore::create`, which is create-if-absent and never overwrites (keychain: one
+read-modify-write under the cross-process file lock, which is also what makes concurrent first
+starts create one identity; file: stage then hard-link; an error reading the item writes
+nothing and leaves it byte-identical). A different process holding the lock is waited for (30 s),
+never overridden. `delete` (only the confirmed reset) removes a bundle that cannot be read at all.
+When the identity changes: `relay identity reset --yes`, the user deleting the keychain item,
+choosing the file store when it holds none, or (Android) wiped app data. Contacts then see a
+changed key and have to verify this device again. Tests: `tests/keychain_cache.rs`,
+`tests/identity_lifecycle.rs`.
+
 ## Avatar pipeline
 
 Upload: encoded <= 1 MiB (`ENCODED_MAX_BYTES`, also the cap for what is stored, served or

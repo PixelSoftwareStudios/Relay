@@ -95,11 +95,54 @@ Build and API revision: `relay_api::BUILD_REVISION` is the git commit the binary
 
 Presence and ownership: `service/presence.rs` is a pure state machine over the clients that hold an open `WatchState` (`PresenceLink`, one `Watcher` guard per stream). It debounces attach and detach by `presence_debounce` (2 s, injectable) and feeds `SystemEvent::TrackPresence` and `Watching` to core, which gates adverts (`AdvertSpec::present`, `PeerControl::presence_changed`) and declines invites as busy with nobody attached, and ends a call `owner_grace` (3 s) after its owner is gone (`EndReason::OwnerGone`). Owner detach closes the gate at once, so the push-to-talk release delay never outlives it. `relayd --idle-exit <secs>` (default off; `RunOptions`) stops the daemon after that long with no client attached and no call. First-run defaults: `privacy.advert_mode` visible, inbound `anyone`, `clients.autostart_daemon` true (`SetGlobalControls.autostart_daemon`).
 
-Start-up order: one single-writer lock (shared by preferences and trust), preferences, identity
-(OS credential store unless the preferences say otherwise; no silent fallback), trust store,
-avatar cache; then the client endpoint is claimed (a second engine fails here, before touching
-the network or audio); then `assemble`: peer manager (listener, optional mDNS), media system
-(device thread, capture and render workers), glue tasks; then the control service; then serving.
+Start-up order: one single-writer lock (shared by preferences and trust), preferences; then the
+client endpoint is claimed and **served at once** (a second engine fails here, before touching
+the network, audio or the secure storage); then, in the background, the identity (OS credential
+store unless the preferences say otherwise; no silent fallback), trust store, avatar cache;
+then `assemble`: peer manager (listener, optional mDNS), media system (device thread, capture
+and render workers), glue tasks; then the control service replaces the start-up answers on the
+socket. `DaemonHandle::begin(options)` returns a `Booting` that is already serving;
+`Booting::ready()` opens the identity and finishes (and stays up as `Failed` instead of
+returning an error); `DaemonHandle::start` is `begin` plus a first-failure-is-an-error
+`ready`, as embedders (Android) and most tests use it. `run` uses `begin`/`ready`.
+
+### Start-up state, the keychain prompt and the identity lifecycle
+
+Opening the OS keychain can wait minutes for the user's password (macOS) or fail (denied,
+locked, interrupted). Before this was handled the daemon opened the keychain before it served
+its socket, so a slow answer made the launcher give up ("did not become ready") and the stuck
+daemon was lost. Now:
+
+- `relay_api::EngineSwitch` is on the socket from the first moment. Until the engine is
+  installed it answers `GetInfo` with `EngineInfo.startup` (`STARTING` + `WAITING_FOR_KEYCHAIN`,
+  or `FAILED` + `KEYCHAIN_UNAVAILABLE` / `IDENTITY_UNREADABLE` with the system's text in
+  `detail`), refuses everything else with `UNAVAILABLE` (`RegisterClient` included: `RelayClient`
+  reports it as `ApiError::Starting`), and always routes `RetryKeychain`, `UseFileStore` and
+  `ResetIdentity` to `daemon/boot.rs`. A ready engine reports no `startup`.
+- The identity is read on a blocking thread (`spawn_blocking`), one read at a time per process.
+  Nothing that touches the network (peers, discovery, advertising, listeners) is built before the
+  identity is loaded, so a daemon never advertises while it waits.
+- `Failed` keeps the daemon up, holds the writer lock and waits for a choice: `RetryKeychain`
+  reads again; `UseFileStore` saves `identity.key_storage = insecure_file` and retries (the only
+  way the file store is ever used: never a silent fallback; a new identity is created if that
+  file holds none, so contacts re-verify); `ResetIdentity` deletes the stored identity
+  (see below). While `STARTING` these calls are refused with `FAILED_PRECONDITION`.
+- `relay_config::Keychain::os` is one cached instance per process: identity and channel secrets
+  share the single credential-store item and it is read once per start (a failed read is not
+  cached, so a retry asks again); readers queue behind the read in flight. Only the daemon opens
+  the OS store: `relay` and the desktop app never do.
+
+Identity lifecycle. `IdentityStore::load` has three outcomes: found, `Ok(None)` (the store
+definitively says no item exists) and an error (denied, timeout, interrupted, locked, ACL
+refusal, corrupt or newer-version bundle). A new identity is generated **only** on `Ok(None)`
+and is written with `IdentityStore::create`, create-if-absent (one locked read-modify-write of
+the keychain bundle; an exclusive link for the file store), so two first starts end up with one
+identity and an existing item is never overwritten. An error never generates or writes anything:
+the daemon goes to `Failed` and leaves the item byte-identical. Every creation is logged at info
+with the fingerprint. The identity changes only when: the user runs `relay identity reset --yes`
+(`ResetIdentity`; a bundle too damaged to read is removed whole), the user deletes the keychain
+item, the user chooses the file store with none stored, or on Android the app data is wiped.
+A changed identity makes every contact see a new key and verify this device again.
 
 Wiring (`daemon/assemble.rs`, `glue.rs`):
 
