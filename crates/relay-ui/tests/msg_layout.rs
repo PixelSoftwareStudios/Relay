@@ -92,16 +92,68 @@ impl Rig {
 			started_at_ms: 1,
 			duration_ms: 60_000,
 		}];
-		self.open_with(width, state, ALAN_CALL);
+		self.show(width, state);
+		self.open_history(width);
+		self.app.open_chat(&hex::encode([ALAN_CALL; 16]));
 	}
 
-	fn open_with(&mut self, width: f32, state: relay_ui::model::AppState, call: u8) {
+	/// The History section starts collapsed: press its header, as a user would.
+	fn open_history(&mut self, width: f32) {
+		self.settle(width);
+		let heading = relay_ui::i18n::t("history-heading");
+		let pos = self.find_text(width, heading).unwrap_or_else(|| {
+			let text = self.settle(width);
+			panic!("no {heading:?} header on the Calls page: {text}")
+		});
+		let button = |pressed| egui::Event::PointerButton {
+			pos,
+			button: egui::PointerButton::Primary,
+			pressed,
+			modifiers: Default::default(),
+		};
+		self.frame_with(width, vec![egui::Event::PointerMoved(pos)]);
+		self.frame_with(width, vec![button(true)]);
+		self.frame_with(width, vec![button(false)]);
+		self.settle(width);
+	}
+
+	/// Where `needle` was painted in a fresh frame (the centre of its text).
+	fn find_text(&mut self, width: f32, needle: &str) -> Option<egui::Pos2> {
+		let input = egui::RawInput {
+			screen_rect: Some(egui::Rect::from_min_size(
+				egui::Pos2::ZERO,
+				egui::vec2(width, if width < 600.0 { 800.0 } else { 3000.0 }),
+			)),
+			..Default::default()
+		};
+		let app = &mut self.app;
+		let out = self.ctx.run_ui(input, |ui| {
+			app.begin_frame(ui.ctx());
+			app.ui(ui);
+		});
+		fn walk(shape: &egui::Shape, needle: &str) -> Option<egui::Pos2> {
+			match shape {
+				egui::Shape::Text(t) if t.galley.text().trim().ends_with(needle) => {
+					Some(t.pos + t.galley.rect.center().to_vec2())
+				}
+				egui::Shape::Vec(v) => v.iter().find_map(|s| walk(s, needle)),
+				_ => None,
+			}
+		}
+		out.shapes.iter().find_map(|c| walk(&c.shape, needle))
+	}
+
+	fn show(&mut self, width: f32, state: relay_ui::model::AppState) {
 		ShellSink {
 			shared: self.actions.shared.clone(),
 			shell: self.shell.clone(),
 		}
 		.state(&state);
 		self.frame_with(width, vec![]);
+	}
+
+	fn open_with(&mut self, width: f32, state: relay_ui::model::AppState, call: u8) {
+		self.show(width, state);
 		self.app.open_chat(&hex::encode([call; 16]));
 	}
 }
