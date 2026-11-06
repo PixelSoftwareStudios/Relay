@@ -28,6 +28,9 @@ android-apk abis="arm64-v8a":
 	fi
 	export ANDROID_HOME="{{android_sdk}}" ANDROID_NDK_HOME="$ndk"
 	export CARGO_TARGET_DIR="$PWD/target/android" RELAY_HOST_TARGET_DIR="$PWD/target/android-host"
+	# Gradle patches an existing APK in place and leaves the replaced entries behind as dead
+	# space (a 49 MB APK had grown to 66 MB); packaging from scratch keeps it exact.
+	rm -f apps/relay-android/app/build/outputs/apk/debug/app-debug.apk
 	(cd apps/relay-android && ./gradlew assembleDebug -Prelay.version="{{version}}" -Prelay.abis="{{abis}}")
 	mkdir -p dist/android
 	cp apps/relay-android/app/build/outputs/apk/debug/app-debug.apk "dist/android/relay-v{{version}}.apk"
@@ -44,15 +47,49 @@ test:
 	cargo nextest run --workspace --no-fail-fast
 	cargo test --workspace --doc
 
-# Never removes anything but the dev incremental cache and target/android* dirs older than two weeks.
-# Free disk without a full rebuild.
+# Touches only target/: the dev incremental cache, superseded test binaries and old object files, android* dirs older than two weeks.
+# Free disk without a full rebuild; anything removed is rebuilt on demand.
 clean-cache:
 	#!/usr/bin/env bash
 	set -euo pipefail
 	root="$PWD/target"
 	[ -d "$root" ] || { echo "no target directory"; exit 0; }
+	if pgrep -x cargo >/dev/null; then echo "a cargo build is running; try again when it has finished" >&2; exit 1; fi
 	before=$(du -sk "$root" | cut -f1)
 	rm -rf "${root:?}/debug/incremental"
+	deps="${root:?}/debug/deps"
+	if [ -d "$deps" ]; then
+		# Every dependency change relinks each test binary under a new hash and leaves the old
+		# executable, its dep-info and (on macOS) its object files behind. They are most of a
+		# long-lived target. Per test source file, keep the newest binary and drop the rest.
+		python3 -I - "$deps" <<'PY'
+	import glob, os, sys
+	deps = sys.argv[1]
+	newest = {}
+	stale = []
+	for path in glob.glob(os.path.join(deps, "*-????????????????")):
+		if not os.access(path, os.X_OK) or not os.path.isfile(path):
+			continue
+		try:
+			with open(path + ".d") as info:
+				source = info.readline().split(": ", 1)[1].split()[0]
+		except (OSError, IndexError):
+			continue
+		mtime = os.path.getmtime(path)
+		if source in newest and newest[source][0] > mtime:
+			stale.append(path)
+		else:
+			if source in newest:
+				stale.append(newest[source][1])
+			newest[source] = (mtime, path)
+	for path in stale:
+		for leftover in [path, path + ".d"] + glob.glob(glob.escape(path) + ".*.rcgu.o"):
+			try:
+				os.remove(leftover)
+			except OSError:
+				pass
+	PY
+	fi
 	find "${root:?}" -mindepth 1 -maxdepth 1 -type d -name 'android*' -mtime +14 -exec rm -rf {} +
 	after=$(du -sk "$root" | cut -f1)
 	echo "freed $(( (before - after) / 1024 )) MB"
