@@ -128,7 +128,7 @@ impl Rig {
 		self.host
 			.actions
 			.controller
-			.set_transmit(&self.call_hex, Mode::PushToTalk, true)
+			.set_transmit(&self.call_hex, Mode::PushToTalk)
 			.await
 			.unwrap();
 		let generation = poll(|| {
