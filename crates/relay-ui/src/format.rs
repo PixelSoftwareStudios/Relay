@@ -106,7 +106,7 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 	if !t.consent_granted {
 		return status(
 			tr!("transmit-no-consent"),
-			blocked("transmit-no-consent-detail", reason),
+			blocked(tr!("transmit-no-consent-detail"), reason),
 			Tone::Warn,
 		);
 	}
@@ -132,21 +132,20 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 	if t.mode == Mode::OpenMic {
 		return status(
 			tr!("transmit-open-armed"),
-			blocked("transmit-open-armed-detail", reason),
+			blocked(tr!("transmit-open-armed-detail"), reason),
 			Tone::Warn,
 		);
 	}
 	status(
 		tr!("transmit-ptt-armed"),
-		blocked("transmit-ptt-armed-detail", reason),
+		blocked(tr!("transmit-ptt-armed-detail"), reason),
 		Tone::Idle,
 	)
 }
 
 /// A detail line with the engine's reason appended when it gave one. The
 /// reason stays as the engine worded it.
-fn blocked(id: &'static str, reason: &str) -> String {
-	let detail = crate::i18n::t(id);
+fn blocked(detail: &str, reason: &str) -> String {
 	if reason.is_empty() {
 		detail.to_owned()
 	} else {

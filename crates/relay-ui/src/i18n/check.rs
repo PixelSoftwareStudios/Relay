@@ -6,7 +6,8 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use super::Language;
-use super::catalog::{SECTIONS, embedded_sections, parse};
+use super::catalog::parse;
+use super::embed::sections;
 
 /// Message id to the set of `$variables` its text uses.
 pub type Messages = BTreeMap<String, BTreeSet<String>>;
@@ -115,23 +116,41 @@ pub fn translation_problems(
 	out
 }
 
-fn embedded(language: Language) -> Vec<(&'static str, &'static str)> {
-	SECTIONS
-		.into_iter()
-		.zip(embedded_sections(language))
+fn borrowed(sections: &[(String, String)]) -> Vec<(&str, &str)> {
+	sections
+		.iter()
+		.map(|(n, s)| (n.as_str(), s.as_str()))
 		.collect()
 }
 
-/// Every content problem of every embedded catalog (English included).
+/// Every content problem of every embedded catalog (English included),
+/// over the section files discovered at build time.
 pub fn problems() -> Vec<String> {
-	let reference = embedded(Language::En);
+	let english = sections(Language::En);
+	let reference = borrowed(&english);
 	let mut out = Vec::new();
+	if english.is_empty() {
+		out.push("no English section files were embedded".to_owned());
+	}
 	index("en", &reference, &mut out);
 	for language in Language::ALL.into_iter().skip(1) {
+		let found = sections(language);
+		let names = |v: &[(String, String)]| -> BTreeSet<String> {
+			v.iter().map(|(n, _)| n.clone()).collect()
+		};
+		for missing in names(&english).difference(&names(&found)) {
+			out.push(format!("{}/{missing}.ftl is missing", language.code()));
+		}
+		for extra in names(&found).difference(&names(&english)) {
+			out.push(format!(
+				"{}/{extra}.ftl does not exist in en",
+				language.code()
+			));
+		}
 		out.extend(translation_problems(
 			&reference,
 			language.code(),
-			&embedded(language),
+			&borrowed(&found),
 		));
 	}
 	out
@@ -149,8 +168,11 @@ pub fn layout_problems(root: &Path) -> Vec<String> {
 			})
 			.unwrap_or_default()
 	};
-	let expected: BTreeSet<String> = SECTIONS.iter().map(|s| format!("{s}.ftl")).collect();
+	let expected = files(&root.join(Language::FALLBACK.code()));
 	let mut out = Vec::new();
+	if expected.is_empty() {
+		out.push("localizations/en has no section files".to_owned());
+	}
 	let folders = files(root);
 	let wanted: BTreeSet<String> = Language::ALL.iter().map(|l| l.code().to_owned()).collect();
 	for extra in folders.difference(&wanted) {
@@ -166,7 +188,7 @@ pub fn layout_problems(root: &Path) -> Vec<String> {
 		}
 		for extra in found.difference(&expected) {
 			out.push(format!(
-				"localizations/{}/{extra} is not a known section",
+				"localizations/{}/{extra} is not a section English has",
 				language.code()
 			));
 		}

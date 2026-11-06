@@ -7,6 +7,7 @@
 
 mod catalog;
 pub mod check;
+mod embed;
 mod lang;
 pub mod locale;
 pub mod picker;
@@ -14,7 +15,8 @@ pub mod picker;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 
-pub use catalog::{Catalogs, SECTIONS, Value, embedded_sections, embedded_source};
+pub use catalog::{Catalogs, Value};
+pub use embed::{sections as embedded_sections, source as embedded_source};
 pub use lang::Language;
 
 static ACTIVE: AtomicUsize = AtomicUsize::new(0);

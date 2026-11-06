@@ -23,9 +23,13 @@ fn every_language_folder_has_the_section_files_of_english() {
 
 #[test]
 fn english_defines_something_in_every_section() {
-	for section in relay_ui::i18n::SECTIONS {
-		let text =
-			std::fs::read_to_string(root().join("en").join(format!("{section}.ftl"))).unwrap();
+	let sections = relay_ui::i18n::embedded_sections(relay_ui::i18n::Language::En);
+	assert!(
+		sections.len() >= 10,
+		"found only {} sections",
+		sections.len()
+	);
+	for (section, text) in sections {
 		assert!(
 			text.lines().any(|l| l.contains(" =")),
 			"en/{section}.ftl is empty"

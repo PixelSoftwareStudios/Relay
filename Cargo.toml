@@ -173,6 +173,8 @@ rfd = { version = "0.16.1", default-features = false, features = ["xdg-portal", 
 # Translations: Fluent messages (plurals, gender, per-key fallback) and language tags
 fluent-bundle = "0.16.0"
 unic-langid = "0.9.6"
+# Embeds every localizations/<lang>/*.ftl found at build time (reads from disk in debug builds)
+rust-embed = { version = "8.13.0", features = ["interpolate-folder-path", "include-exclude"] }
 # System UI language lookup (apps/relay-desktop)
 sys-locale = "0.3.2"
 

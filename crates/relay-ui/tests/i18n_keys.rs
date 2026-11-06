@@ -5,7 +5,7 @@ use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
 use relay_ui::i18n::check::messages;
-use relay_ui::i18n::{Language, SECTIONS, embedded_sections};
+use relay_ui::i18n::{Language, embedded_sections};
 
 fn rust_files(dir: &Path, out: &mut Vec<PathBuf>) {
 	for entry in std::fs::read_dir(dir).unwrap().flatten() {
@@ -26,7 +26,8 @@ fn sources() -> Vec<(PathBuf, String)> {
 	assert!(files.len() > 30, "found only {} source files", files.len());
 	files
 		.into_iter()
-		.filter(|p| !p.components().any(|c| c.as_os_str() == "i18n"))
+		// The macro's own docs use a made-up id.
+		.filter(|p| !p.ends_with("i18n/mod.rs"))
 		.map(|p| {
 			let text = std::fs::read_to_string(&p).unwrap();
 			(p, text)
@@ -34,11 +35,10 @@ fn sources() -> Vec<(PathBuf, String)> {
 		.collect()
 }
 
-/// Ids in `tr!("id"...)` calls (whitespace after the parenthesis allowed), and
-/// in the helpers that take an id literal.
+/// Ids in `tr!("id"...)` calls (whitespace after the parenthesis allowed).
 fn referenced(text: &str) -> BTreeSet<String> {
 	let mut ids = BTreeSet::new();
-	for opener in ["tr!(", "blocked("] {
+	for opener in ["tr!("] {
 		let mut rest = text;
 		while let Some(at) = rest.find(opener) {
 			rest = rest[at + opener.len()..].trim_start();
@@ -55,7 +55,7 @@ fn referenced(text: &str) -> BTreeSet<String> {
 fn english() -> BTreeSet<String> {
 	embedded_sections(Language::En)
 		.iter()
-		.flat_map(|s| messages(s).into_keys())
+		.flat_map(|(_, s)| messages(s).into_keys())
 		.collect()
 }
 
@@ -88,6 +88,14 @@ fn english_has_no_unused_key() {
 }
 
 #[test]
-fn the_sections_are_the_known_ones() {
-	assert_eq!(SECTIONS.len(), embedded_sections(Language::En).len());
+fn strings_are_only_looked_up_through_tr() {
+	let direct: Vec<_> = sources()
+		.into_iter()
+		.filter(|(_, text)| text.contains("i18n::t(") || text.contains("i18n::t_with("))
+		.map(|(p, _)| p.display().to_string())
+		.collect();
+	assert!(
+		direct.is_empty(),
+		"use tr! instead of i18n::t in: {direct:?}"
+	);
 }

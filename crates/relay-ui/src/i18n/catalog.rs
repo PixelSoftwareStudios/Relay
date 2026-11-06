@@ -7,66 +7,9 @@ use std::sync::RwLock;
 use fluent_bundle::concurrent::FluentBundle;
 use fluent_bundle::{FluentArgs, FluentResource, FluentValue};
 
-use super::Language;
+use super::{Language, embed};
 
 type Bundle = FluentBundle<FluentResource>;
-
-/// The section files every language folder has, in `localizations/<lang>/`.
-/// A section is one area of the app; an id is defined in exactly one of them.
-pub const SECTIONS: [&str; 10] = [
-	"common",
-	"calls",
-	"peers",
-	"audio",
-	"channels",
-	"settings",
-	"messages",
-	"tray",
-	"notifications",
-	"errors",
-];
-
-macro_rules! language_sections {
-	($dir:literal) => {
-		[
-			include_str!(concat!("../../../../localizations/", $dir, "/common.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/calls.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/peers.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/audio.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/channels.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/settings.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/messages.ftl")),
-			include_str!(concat!("../../../../localizations/", $dir, "/tray.ftl")),
-			include_str!(concat!(
-				"../../../../localizations/",
-				$dir,
-				"/notifications.ftl"
-			)),
-			include_str!(concat!("../../../../localizations/", $dir, "/errors.ftl")),
-		]
-	};
-}
-
-/// The embedded section files of `language`, in [`SECTIONS`] order: the
-/// root `localizations/<lang>/` folders, compiled into the binary.
-pub fn embedded_sections(language: Language) -> [&'static str; SECTIONS.len()] {
-	match language {
-		Language::En => language_sections!("en"),
-		Language::De => language_sections!("de"),
-		Language::Hi => language_sections!("hi"),
-		Language::Ja => language_sections!("ja"),
-		Language::Ko => language_sections!("ko"),
-		Language::PtBr => language_sections!("pt-BR"),
-		Language::Ru => language_sections!("ru"),
-		Language::Es => language_sections!("es"),
-		Language::ZhCn => language_sections!("zh-CN"),
-	}
-}
-
-/// All sections of `language` merged into one source (one bundle per language).
-pub fn embedded_source(language: Language) -> String {
-	embedded_sections(language).join("\n")
-}
 
 /// Parse one catalog. Entries that fail to parse are skipped (the rest still
 /// load); the errors are returned for the catalog checks.
@@ -92,7 +35,7 @@ pub struct Catalogs {
 impl Catalogs {
 	/// The catalogs compiled into the binary.
 	pub fn embedded() -> Self {
-		let sources = Language::ALL.map(|l| (l, embedded_source(l)));
+		let sources = Language::ALL.map(|l| (l, embed::source(l)));
 		Self::from_sources(sources.iter().map(|(l, s)| (*l, s.as_str())))
 	}
 
