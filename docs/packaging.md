@@ -25,6 +25,27 @@ executable first, so a portable folder works with no `PATH` entry; then `RELAY_D
 On macOS a bundle can keep `relay-desktop` in `Contents/MacOS` and `relayd` beside it. A package must
 not make `relay-desktop` depend on `relay`.
 
+## Release packages
+
+Built by `scripts/packaging/` (see `docs/releasing.md`). Every desktop package carries all three
+programs; the headless archive carries only `relay` and `relayd`, built without any GUI dependency.
+
+| Package | Where the programs end up |
+|---|---|
+| `relay-<version>-<os>-<arch>.tar.gz` / `-portable.zip` | `bin/` of the archive, licences in `share/doc/relay/` |
+| `relay-cli-<version>-<os>-<arch>.tar.gz` / `.zip` | `bin/relay`, `bin/relayd` only |
+| `.deb`, `.rpm` | `/usr/bin/relay-desktop`, `/usr/bin/relay`, `/usr/bin/relayd`; licences and the service-unit example in `/usr/share/doc/relay/` |
+| `.AppImage` | the same three in `usr/bin` inside the image |
+| `.msi` | `%ProgramFiles%\Relay\` (all three, install folder added to the machine `PATH`), licences in `doc\` |
+| `.dmg`, `-update.zip` | `Relay.app/Contents/MacOS/{relay-desktop,relay,relayd}` |
+
+The `.app` is ad-hoc signed with fixed identifiers (`dev.relay.relayd`, `dev.relay.relay`,
+`dev.relay.relay-desktop`), so the keychain designated requirement is by identifier only; Developer ID
+signing and notarization remain open. `relay` inside the bundle is not on `PATH`; link it with
+`ln -s /Applications/Relay.app/Contents/MacOS/relay /usr/local/bin/relay` if wanted. The service
+units from `contrib/` ship as examples only (Linux packages and archives: `relayd.service`; macOS
+headless archive: the launchd plist); their paths must be adjusted.
+
 ## macOS development signing (dev ergonomics only)
 
 The keychain remembers "Always Allow" by the program's designated requirement. An unsigned or

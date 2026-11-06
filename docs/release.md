@@ -50,42 +50,35 @@ as a snapshot but is only authoritative when regenerated at the release revision
 
 ## Release workflow
 
-`.github/workflows/release.yml` runs on a `vX.Y.Z` tag (the tag must equal the workspace version) or by hand
-without publishing. Each target builds on its own runner with the pinned toolchain and `Swatinem/rust-cache`
-(restored on tags, saved only from `main`):
+`.github/workflows/release.yml` and the scripts in `scripts/packaging/` are described step by step in
+`docs/releasing.md` (artifact names, jobs, local packaging). In short: a `vX.Y.Z` tag equal to the
+workspace version builds every package on its native runner with the toolchain pinned in
+`rust-toolchain.toml` and `Swatinem/rust-cache`, then publishes a draft-then-final GitHub release whose
+asset list is diffed against the expected set. The same workflow runs build-only on pull requests that
+touch packaging files and by hand. Release notes come from `git-cliff` (`cliff.toml`) over the
+conventional commits.
 
-| Target | Runner |
-|---|---|
-| `x86_64-unknown-linux-gnu`, `aarch64-unknown-linux-gnu` | `ubuntu-24.04`, `ubuntu-24.04-arm` |
-| `aarch64-apple-darwin`, `x86_64-apple-darwin` | `macos-latest` (the Intel build is cross-compiled) |
-| `x86_64-pc-windows-msvc`, `aarch64-pc-windows-msvc` | `windows-latest`, `windows-11-arm` |
-
-Each yields `relay-v<version>-<target>.tar.gz` (`.zip` on Windows) from `scripts/packaging/archive.sh`: `bin/relayd`,
-`bin/relay`, `bin/relay-desktop`, and `share/doc/relay/` with the licences and `THIRD_PARTY_LICENSES`. On Linux, `scripts/packaging/linux.sh` also builds `relay-v<version>-<amd64|arm64>.deb`, `relay-v<version>-<x86_64|aarch64>.rpm`
-(both with nfpm, from `packaging/linux/nfpm.yaml`) and a `.AppImage` (appimagetool). The AppImage and the packages rely on the host's
-GTK, ALSA and display libraries; none is bundled. The
-Android job runs `just android-apk` and attaches `relay-v<version>.apk`. The publish job writes
-`SHA256SUMS`, a GitHub build-provenance attestation, and creates the release with generated notes.
-
-Not yet done: the APK is debug-signed (installable, not a Play Store build), macOS binaries are not
-Developer-ID signed or notarized, Windows binaries are unsigned, and the workflow has never run.
+Not done: the APK is debug-signed (installable, not a Play Store build), macOS apps are ad-hoc signed
+and not notarized, Windows binaries are unsigned, and the workflow has never run. Everything that
+needs a Linux or Windows host (cargo-packager, cargo-generate-rpm, WiX, the MSI check) is unverified
+until the first CI run; `docs/releasing.md` lists what was run locally.
 
 ## Hashing and signing plan
 
 Planned, not in place:
 
-- A `SHA256SUMS` file lists every artifact, SBOM and notices file. It is itself signed.
+- A `SHA256SUMS.txt` file (written by the release workflow) lists every artifact, SBOM and notices file. It is itself signed.
 - Release signing with a project-held key (minisign or `gpg`); the public key is published in the
   repository and the release notes. Signing happens on a maintainer machine, never in CI with a
   stored private key.
-- Build provenance: GitHub artifact attestation from the release workflow when that workflow exists.
+- Build provenance: the release workflow requests a GitHub artifact attestation for every asset (unverified until it runs).
   Until then, the recorded commit, toolchain and `Cargo.lock` hash are the provenance claim, and
   reproducibility is not claimed.
 - macOS: Developer ID signing and notarization of the app bundle and the `relay` binary. Needed for the
   microphone permission flow to be tested at all. No identity exists yet.
 - Windows: Authenticode signing. No certificate exists yet. Until then Windows artifacts, if built, are
   labelled unsigned developer builds.
-- Linux: signed tarball plus checksums; no distro packaging is planned for the first release.
+- Linux: `.deb`, `.rpm`, `.AppImage` and a tarball, all unsigned, with checksums. No repository is published.
 
 ## Supported-target matrix
 
@@ -117,7 +110,7 @@ there; the current microbenchmarks are not call latency.
 
 - Before publishing: delete the tag and draft release; nothing has reached users.
 - After publishing: mark the release as withdrawn in its notes, remove the download links, publish
-  a `SHA256SUMS` revocation note, and ship a fixed patch version. Tags are never moved or reused.
+  a checksum revocation note, and ship a fixed patch version. Tags are never moved or reused.
 - There is no auto-update channel, so a withdrawn build stays installed until the user replaces it;
   the release notes state the replacement and any manual step.
 - Data: the per-user SQLite database carries a schema version and refuses a newer schema without

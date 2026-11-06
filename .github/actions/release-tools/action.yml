@@ -1,0 +1,28 @@
+name: Cached Linux packaging tools
+description: Restore pinned packaging tools for each native Linux architecture.
+inputs:
+  toolchain:
+    description: Rust channel the tools are compiled with (part of the cache key)
+    required: true
+runs:
+  using: composite
+  steps:
+    - uses: actions/cache@v6
+      id: tools
+      with:
+        path: ${{ runner.temp }}/relay-release-tools
+        key: relay-release-tools-v1-${{ runner.os }}-${{ runner.arch }}-rust${{ inputs.toolchain }}-packager0.11.8-rpm0.21.0
+    - name: Install pinned packaging tools
+      if: steps.tools.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        TOOL_ROOT: ${{ runner.temp }}/relay-release-tools
+      run: |
+        set -euo pipefail
+        cargo install cargo-packager --version 0.11.8 --locked --root "$TOOL_ROOT"
+        cargo install cargo-generate-rpm --version 0.21.0 --locked --root "$TOOL_ROOT"
+    - name: Add packaging tools to PATH
+      shell: bash
+      env:
+        TOOL_ROOT: ${{ runner.temp }}/relay-release-tools
+      run: echo "$TOOL_ROOT/bin" >> "$GITHUB_PATH"
