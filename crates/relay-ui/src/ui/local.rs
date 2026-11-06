@@ -27,6 +27,17 @@ pub struct PickedImage {
 	pub texture: TextureHandle,
 }
 
+/// The call whose chat is open.
+#[derive(Clone)]
+pub struct ChatTarget {
+	/// Hex call id.
+	pub call_id: String,
+	/// Who the call was with, for the heading.
+	pub name: String,
+	/// The call is over and comes from the history: the chat is read only.
+	pub over: bool,
+}
+
 #[derive(Default)]
 pub struct Local {
 	pub name_input: String,
@@ -53,12 +64,12 @@ pub struct Local {
 
 	pub picked: Option<PickedImage>,
 
-	/// A call card asked to show that call's messages (hex call id).
 	/// The call whose on-screen talk button is held, and whether the button was
 	/// drawn this frame (a held button that vanishes counts as released).
 	pub talking: Option<String>,
 	pub talk_drawn: bool,
-	pub open_messages: Option<String>,
+	/// The chat shown beside the call it belongs to; at most one.
+	pub chat: Option<ChatTarget>,
 	/// A page asked to go to another page (an empty state's button).
 	pub goto: Option<crate::layout::Page>,
 	/// When this app first saw each call connected (hex call id).

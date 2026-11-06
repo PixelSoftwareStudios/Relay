@@ -5,8 +5,8 @@
 use relay_io::localtime::LocalZone;
 use relay_messages::limits::{FREE_MARGIN_PERCENT, MAX_TEXT_BYTES, MIN_FREE_MARGIN_BYTES};
 
-use super::model::{OfferStatus, OfferView, SessionView};
-use super::state::Feed;
+use super::model::{EntryView, OfferStatus, OfferView, SessionView};
+use super::state::{Feed, MessagesState};
 use crate::tr;
 
 /// An inline image the daemon accepts: its control record is 16 KiB.
@@ -310,29 +310,51 @@ pub fn problem_text(code: &str) -> String {
 	text.to_owned()
 }
 
-/// Which session the panel shows: the one of the requested call, else the
-/// current choice while it exists, else the first live one, else the newest
-/// retained.
-pub fn choose_session(
-	sessions: &[SessionView],
-	current: Option<&str>,
-	focus_call: Option<&str>,
-) -> Option<String> {
-	if let Some(call) = focus_call
-		&& let Some(s) = sessions.iter().find(|s| s.is_live() && s.call_id == call)
-	{
-		return Some(s.key.clone());
+/// The session of a call: its live one, else the most recently ended one.
+/// `None` when the daemon holds no session for that call id (hex).
+pub fn session_of_call<'a>(sessions: &'a [SessionView], call_id: &str) -> Option<&'a SessionView> {
+	if call_id.is_empty() {
+		return None;
 	}
-	if let Some(cur) = current
-		&& sessions.iter().any(|s| s.key == cur)
-	{
-		return Some(cur.to_owned());
+	let mut of_call = sessions.iter().filter(|s| s.call_id == call_id);
+	let first = of_call.next()?;
+	Some(of_call.fold(first, |best, s| {
+		let better = (s.is_live(), s.ended_ms) > (best.is_live(), best.ended_ms);
+		if better { s } else { best }
+	}))
+}
+
+/// Whether the daemon still holds the transcript of a past call.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Kept {
+	/// It does, with this many messages.
+	Yes(u64),
+	/// It does not (messages are memory-only: a restart or an eviction drops them).
+	No,
+	/// The messaging feed is not live, so nothing can be said yet.
+	Unknown,
+}
+
+pub fn transcript_kept(state: &MessagesState, call_id: &str) -> Kept {
+	if state.feed != Feed::Live {
+		return Kept::Unknown;
 	}
-	sessions
+	match session_of_call(&state.sessions, call_id) {
+		Some(s) => Kept::Yes(s.message_count),
+		None => Kept::No,
+	}
+}
+
+/// Received messages after the last one the user saw (`seen` is the highest
+/// ordinal shown; `None` when the transcript never was). Walks from the newest
+/// entry and stops at the first seen one, so it stays cheap.
+pub fn unread_count(entries: &[EntryView], seen: Option<u64>) -> usize {
+	entries
 		.iter()
-		.find(|s| s.is_live())
-		.or_else(|| sessions.iter().max_by_key(|s| s.ended_ms))
-		.map(|s| s.key.clone())
+		.rev()
+		.take_while(|e| seen.is_none_or(|s| e.ordinal > s))
+		.filter(|e| !e.outgoing)
+		.count()
 }
 
 /// Used history as text, `1.2 MiB of 64.0 MiB`.

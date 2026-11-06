@@ -14,7 +14,7 @@ use super::hub::MsgHub;
 use crate::engine::EngineError;
 use crate::shell::Shell;
 
-pub use super::mock_seed::{ADA_CALL, seed};
+pub use super::mock_seed::{ADA_CALL, ALAN_CALL, seed};
 use super::mock_seed::{NOW_MS, entry, offer};
 
 struct MockOps {

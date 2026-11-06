@@ -1,5 +1,4 @@
-//! Header, honest empty and error states, session picker, permissions and
-//! the Privacy toggle of the Messages panel.
+//! Honest empty and error states, permissions and the Privacy toggle of the chat.
 
 use egui::{RichText, Ui};
 
@@ -50,34 +49,6 @@ pub fn gate(ui: &mut Ui, state: &MessagesState, intents: &mut Vec<Intent>) -> bo
 		}
 		Feed::Live => true,
 	}
-}
-
-/// Session combo; returns the newly chosen key.
-pub fn picker(ui: &mut Ui, state: &MessagesState, selected: &str) -> Option<String> {
-	let label = |s: &SessionView| {
-		format!(
-			"{} · {}",
-			s.peer_name,
-			if s.is_live() {
-				tr!("msg-session-live")
-			} else {
-				tr!("msg-session-ended")
-			}
-		)
-	};
-	let current = state.session(selected).map(label).unwrap_or_default();
-	let mut chosen = None;
-	egui::ComboBox::from_id_salt("relay-msg-session")
-		.selected_text(current)
-		.width(ui.available_width().min(260.0))
-		.show_ui(ui, |ui| {
-			for s in &state.sessions {
-				if ui.selectable_label(s.key == selected, label(s)).clicked() {
-					chosen = Some(s.key.clone());
-				}
-			}
-		});
-	chosen
 }
 
 /// Permission toggles with the both-sides explanation, and history usage.

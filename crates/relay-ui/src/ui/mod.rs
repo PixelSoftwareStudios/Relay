@@ -2,13 +2,15 @@
 //! `format`; the platform shell calls [`RelayApp::begin_frame`] then
 //! [`RelayApp::ui`] each frame and supplies services through `Shell`.
 //!
-//! Pages: Calls, People, Channels and Messages, plus Settings (a separate
-//! page with its own category list). The regular layout navigates with a
-//! sidebar, the compact layout with bottom tabs.
+//! Pages: Calls, People and Channels, plus Settings (a separate page with its
+//! own category list). The regular layout navigates with a sidebar, the
+//! compact layout with bottom tabs. Messages are not a page: the chat of a
+//! call opens from its call card or its history row (see `chat`).
 
 mod banners;
 mod call_card;
 mod channels;
+mod chat;
 mod connect;
 mod history;
 mod home;
@@ -88,15 +90,42 @@ impl RelayApp {
 		self.class
 	}
 
-	/// Show the Messages page, for the session of `call_id` (hex) when given.
-	pub fn show_messages(&mut self, call_id: Option<String>) {
-		if let Some(call) = call_id {
-			self.messages.focus_call(call);
-		}
-		self.set_page(Page::Messages);
+	/// Open the chat of a call (hex id) as the call card's Messages button
+	/// does, on the Calls page. A call that already ended is read only.
+	pub fn open_chat(&mut self, call_id: &str) {
+		let state = self.actions.shared.state();
+		let cards = call_cards(&state, &self.actions.shared.meters());
+		let (name, over) = match cards.iter().find(|c| c.call_id == call_id) {
+			Some(card) => (card.name.clone(), false),
+			None => (
+				state
+					.history
+					.iter()
+					.find(|e| e.call_id == call_id)
+					.map(|e| e.peer_name.clone())
+					.unwrap_or_default(),
+				true,
+			),
+		};
+		self.local.chat = Some(local::ChatTarget {
+			call_id: call_id.to_owned(),
+			name,
+			over,
+		});
+		self.set_page(Page::Calls);
 	}
 
-	/// Start the "send clipboard to a call" flow of the Messages panel: it
+	/// The call whose chat is open (hex id).
+	pub fn chat_call(&self) -> Option<&str> {
+		self.local.chat.as_ref().map(|c| c.call_id.as_str())
+	}
+
+	/// Close the open chat.
+	pub fn close_chat(&mut self) {
+		self.local.chat = None;
+	}
+
+	/// Start the "send clipboard to a call" flow of the chat: it
 	/// reads the clipboard, then asks which call and for confirmation.
 	pub fn begin_clipboard_send(&mut self) {
 		self.messages.begin_clipboard();
@@ -111,6 +140,9 @@ impl RelayApp {
 	pub fn set_page(&mut self, page: Page) {
 		if page == Page::Settings && self.page != Page::Settings {
 			self.back_to = self.page;
+		}
+		if page != Page::Calls {
+			self.local.chat = None;
 		}
 		self.page = page;
 	}
@@ -203,14 +235,14 @@ impl RelayApp {
 		}
 	}
 
-	/// Keyboard: Esc leaves Settings (or a category in the compact layout),
-	/// Ctrl/Cmd+1 to 4 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
+	/// Keyboard: Esc closes the open chat, or leaves Settings (or a category in
+	/// the compact layout), Ctrl/Cmd+1 to 3 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
 	/// to an open drop-down.
 	fn handle_keys(&mut self, ctx: &egui::Context, class: LayoutClass) {
 		use egui::{Key, Modifiers};
 		let (escape, jump) = ctx.input_mut(|i| {
 			let escape = i.consume_key(Modifiers::NONE, Key::Escape);
-			let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4];
+			let keys = [Key::Num1, Key::Num2, Key::Num3];
 			let jump = keys
 				.iter()
 				.position(|k| i.consume_key(Modifiers::COMMAND, *k))
@@ -218,7 +250,9 @@ impl RelayApp {
 			let settings = i.consume_key(Modifiers::COMMAND, Key::Comma);
 			(escape, jump.or(settings.then_some(Page::Settings)))
 		});
-		if escape && self.page == Page::Settings && !ctx.any_popup_open() {
+		if escape && self.local.chat.is_some() && !ctx.any_popup_open() {
+			self.local.chat = None;
+		} else if escape && self.page == Page::Settings && !ctx.any_popup_open() {
 			if class.is_compact() {
 				settings::step_back(&mut self.category);
 			} else {
@@ -253,9 +287,11 @@ impl RelayApp {
 			actions: &self.actions,
 			local: &mut self.local,
 			textures: &mut self.textures,
+			messages: &mut self.messages,
 		};
+		let chat_screen = class.is_compact() && cx.local.chat.is_some();
 		if class.is_compact() {
-			if keyboard <= 0.0 {
+			if keyboard <= 0.0 && !chat_screen {
 				egui::Panel::bottom("relay-nav").show(ui, |ui| nav::bottom_bar(ui, &mut self.page));
 			}
 		} else {
@@ -286,9 +322,7 @@ impl RelayApp {
 		let mut back = false;
 		egui::CentralPanel::default().frame(frame).show(ui, |ui| {
 			match (self.page, class.is_compact()) {
-				(Page::Messages, _) => {
-					self.messages.show(ui, cx.actions, false);
-				}
+				(Page::Calls, true) if chat::fullscreen(ui, &mut cx) => {}
 				(Page::Settings, false) => {
 					back = settings::show_regular(ui, &mut self.category, &mut cx);
 				}
@@ -310,9 +344,6 @@ impl RelayApp {
 	/// After the pages are drawn: follow what they asked for, let go of a
 	/// held talk button that vanished, and drop state of panels not shown.
 	fn finish_frame(&mut self, class: LayoutClass) {
-		if let Some(call) = self.local.open_messages.take() {
-			self.show_messages(Some(call));
-		}
 		if let Some(page) = self.local.goto.take() {
 			self.set_page(page);
 		}

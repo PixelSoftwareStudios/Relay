@@ -26,13 +26,13 @@ fn has(drawn: &phone::Drawn, text: &str) -> bool {
 #[tokio::test]
 async fn back_returns_to_the_page_settings_was_opened_from() {
 	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
-	phone.page(Page::Messages);
+	phone.page(Page::Channels);
 	phone.app.open_settings(Some(SettingsCategory::Audio));
 	phone.settle();
 	assert_eq!(phone.app.page(), Page::Settings);
 	assert_eq!(phone.app.settings_category(), Some(SettingsCategory::Audio));
 	phone.app.close_settings();
-	assert_eq!(phone.app.page(), Page::Messages);
+	assert_eq!(phone.app.page(), Page::Channels);
 	// The category is remembered for the next visit.
 	phone.app.open_settings(None);
 	assert_eq!(phone.app.settings_category(), Some(SettingsCategory::Audio));
@@ -67,12 +67,18 @@ async fn shortcuts_switch_pages() {
 	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
 	phone.frame_with(vec![key(Key::Num2, Modifiers::COMMAND)]);
 	assert_eq!(phone.app.page(), Page::People);
+	phone.frame_with(vec![key(Key::Num3, Modifiers::COMMAND)]);
+	assert_eq!(phone.app.page(), Page::Channels);
+	phone.frame_with(vec![key(Key::Num1, Modifiers::COMMAND)]);
+	assert_eq!(phone.app.page(), Page::Calls);
+	// There is no fourth page: Ctrl/Cmd+4 changes nothing.
 	phone.frame_with(vec![key(Key::Num4, Modifiers::COMMAND)]);
-	assert_eq!(phone.app.page(), Page::Messages);
+	assert_eq!(phone.app.page(), Page::Calls);
+	phone.frame_with(vec![key(Key::Num3, Modifiers::COMMAND)]);
 	phone.frame_with(vec![key(Key::Comma, Modifiers::COMMAND)]);
 	assert_eq!(phone.app.page(), Page::Settings);
 	phone.frame_with(vec![key(Key::Escape, Modifiers::NONE)]);
-	assert_eq!(phone.app.page(), Page::Messages);
+	assert_eq!(phone.app.page(), Page::Channels);
 }
 
 #[tokio::test]

@@ -8,6 +8,7 @@ use crate::model::{AppState, Meters};
 use crate::theme;
 
 use super::local::Local;
+use super::messages::MessagesUi;
 use super::textures::Textures;
 
 /// What a page needs to draw and to act.
@@ -17,6 +18,7 @@ pub struct Cx<'a> {
 	pub actions: &'a Actions,
 	pub local: &'a mut Local,
 	pub textures: &'a mut Textures,
+	pub messages: &'a mut MessagesUi,
 }
 
 /// Fill of a danger button (hang up, forget, quit).

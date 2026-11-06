@@ -4,8 +4,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use msgkit::*;
-use relay_ui::actions::Actions;
-use relay_ui::messaging::mock::{ADA_CALL, seed};
+use relay_ui::actions::{Actions, ShellSink};
+use relay_ui::emitter::Sink;
+use relay_ui::messaging::mock::{ADA_CALL, ALAN_CALL, seed};
 use relay_ui::messaging::state::Feed;
 use relay_ui::ui::RelayApp;
 
@@ -34,7 +35,8 @@ impl Rig {
 		let input = egui::RawInput {
 			screen_rect: Some(egui::Rect::from_min_size(
 				egui::Pos2::ZERO,
-				egui::vec2(width, 800.0),
+				// A tall window shows the whole panel below a card.
+				egui::vec2(width, if width < 600.0 { 800.0 } else { 3000.0 }),
 			)),
 			events,
 			..Default::default()
@@ -65,9 +67,42 @@ impl Rig {
 		last
 	}
 
+	/// Run the call of the seeded Ada session and open its chat.
 	fn open(&mut self, width: f32) {
+		let mut state = relay_ui::mock::seed();
+		let mut call = state.calls[0].clone();
+		call.call_id = hex::encode([ADA_CALL; 16]);
+		call.phase = relay_ui::model::Phase::Connected;
+		state.calls = vec![call];
+		self.open_with(width, state, ADA_CALL);
+	}
+
+	/// Open the chat of the seeded call that has ended, from the history.
+	fn open_ended(&mut self, width: f32) {
+		let mut state = relay_ui::mock::seed();
+		state.calls.clear();
+		state.history = vec![relay_ui::model::HistoryEntry {
+			id: 1,
+			call_id: hex::encode([ALAN_CALL; 16]),
+			peer_id: state.peers[0].peer_id.clone(),
+			peer_name: "Alan Turing".into(),
+			fingerprint_short: String::new(),
+			direction: relay_ui::model::HistoryDirection::Incoming,
+			outcome: relay_ui::model::HistoryOutcome::Completed,
+			started_at_ms: 1,
+			duration_ms: 60_000,
+		}];
+		self.open_with(width, state, ALAN_CALL);
+	}
+
+	fn open_with(&mut self, width: f32, state: relay_ui::model::AppState, call: u8) {
+		ShellSink {
+			shared: self.actions.shared.clone(),
+			shell: self.shell.clone(),
+		}
+		.state(&state);
 		self.frame_with(width, vec![]);
-		self.app.show_messages(Some(hex::encode([ADA_CALL; 16])));
+		self.app.open_chat(&hex::encode([call; 16]));
 	}
 }
 
@@ -136,7 +171,10 @@ async fn daemon_disabled_and_no_session_states() {
 		assert!(text.contains("messages.enabled = false"), "{text}");
 		hub.update(|s| s.load_list(&[], Some(&list(vec![], true).settings.unwrap())));
 		let text = r.settle(width);
-		assert!(text.contains("No call sessions yet"), "{text}");
+		assert!(
+			text.contains("That call has no messaging session"),
+			"{text}"
+		);
 	}
 }
 
@@ -156,8 +194,10 @@ async fn live_transcript_shows_markdown_offers_and_compose() {
 		assert!(text.contains("0 / 4096 bytes"));
 		// Newest rows are at the bottom: the sending message and the offers are drawn.
 		assert!(
-			text.contains("Retrying in a moment") || text.contains("install.sh"),
-			"{text}"
+			text.contains("Retrying in a moment")
+				|| text.contains("install.sh")
+				|| text.contains("Download…"),
+			"{width}: {text}"
 		);
 	}
 }
@@ -166,7 +206,7 @@ async fn live_transcript_shows_markdown_offers_and_compose() {
 async fn ended_read_only_session_offers_export_and_clear() {
 	for width in WIDTHS {
 		let mut r = rig();
-		r.open(width);
+		r.open_ended(width);
 		let hub = r.actions.shared.messages.clone();
 		seed(&hub);
 		hub.set_enabled(true);
@@ -209,7 +249,7 @@ async fn permissions_off_disables_compose_with_an_explanation() {
 async fn a_long_history_lays_out_only_the_visible_rows() {
 	for width in WIDTHS {
 		let mut r = rig();
-		r.open(width);
+		r.open_ended(width);
 		let hub = r.actions.shared.messages.clone();
 		seed(&hub);
 		hub.set_enabled(true);

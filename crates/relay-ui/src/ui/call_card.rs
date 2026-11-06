@@ -9,6 +9,7 @@ use crate::model::{Mode, Phase};
 use crate::theme;
 use crate::viewmodel::{CallCard, mode_enabled, modes};
 
+use super::chat;
 use super::kit::{self, Cx};
 use super::local::Local;
 use super::widgets::{avatar, banner, button_row, gain_slider, hold_button, meter, tone_color};
@@ -20,7 +21,7 @@ pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 		if let Some(p) = &card.call.problem {
 			banner(ui, &format!("{} {}", p.message, p.recovery_action), true);
 		}
-		buttons(ui, card, cx.actions, cx.local);
+		buttons(ui, card, cx);
 		ui.separator();
 		volume(ui, card, cx.actions, cx.local);
 		ui.separator();
@@ -56,7 +57,8 @@ fn header(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 	});
 }
 
-fn buttons(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
+fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
+	let actions = cx.actions;
 	let call = &card.call;
 	let cid = card.call_id.clone();
 	button_row(ui, |ui| {
@@ -79,13 +81,7 @@ fn buttons(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
 			let id = cid.clone();
 			actions.run(|c| async move { c.set_call_controls(&id, None, Some(!deaf), None).await });
 		}
-		if ui
-			.button(tr!("nav-messages"))
-			.on_hover_text(tr!("call-messages-hover"))
-			.clicked()
-		{
-			local.open_messages = Some(cid.clone());
-		}
+		messages_button(ui, card, cx);
 		let end = if card.phase == Phase::OutgoingRinging {
 			tr!("action-cancel")
 		} else {
@@ -96,6 +92,28 @@ fn buttons(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
 			actions.run(|c| async move { c.end_call(&id).await });
 		}
 	});
+}
+
+/// Shows or hides the chat of this call; while it is hidden the label carries
+/// how many received messages are still unread.
+fn messages_button(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
+	let open = chat::is_open(cx.local, &card.call_id);
+	let unread = if open {
+		0
+	} else {
+		cx.messages.unread(cx.actions, &card.call_id)
+	};
+	let label = if unread > 0 {
+		tr!("call-messages-unread", count = unread)
+	} else {
+		tr!("call-messages").to_owned()
+	};
+	let button = ui
+		.selectable_label(open, label)
+		.on_hover_text(tr!("call-messages-hover"));
+	if button.clicked() {
+		chat::toggle(cx.local, &card.call_id, &card.name, false);
+	}
 }
 
 fn volume(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {

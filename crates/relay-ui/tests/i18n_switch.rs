@@ -136,7 +136,7 @@ async fn changing_the_language_redraws_in_it_with_per_key_fallback() {
 
 	let english = frame(&mut app);
 	assert!(english.contains("Calls"), "{english}");
-	assert!(english.contains("Messages"));
+	assert!(english.contains("People"));
 	assert_eq!(i18n::active(), Language::En);
 
 	// What the picker does: the shell stores the choice; the next frame applies it.
@@ -146,7 +146,7 @@ async fn changing_the_language_redraws_in_it_with_per_key_fallback() {
 	assert!(german.contains("Anrufe"), "{german}");
 	assert!(!german.contains("Calls"), "{german}");
 	// A message German lacks is English, key by key.
-	assert!(german.contains("Messages"), "{german}");
+	assert!(german.contains("People"), "{german}");
 
 	shell.set_language_choice(Some(Language::En));
 	let back = frame(&mut app);

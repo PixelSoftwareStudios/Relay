@@ -146,7 +146,7 @@ fn code_block(ui: &mut Ui, code: &CodeBlock, intents: &mut Vec<Intent>) {
 				}
 				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 					if ui
-						.small_button(tr!("action-copy"))
+						.button(tr!("action-copy"))
 						.on_hover_text(tr!("md-code-copy-hover"))
 						.clicked()
 					{

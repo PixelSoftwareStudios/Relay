@@ -191,7 +191,7 @@ fn header(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 fn footer(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 	ui.horizontal_wrapped(|ui| {
 		if let Some(text) = entry.text()
-			&& ui.small_button(tr!("action-copy")).clicked()
+			&& ui.button(tr!("action-copy")).clicked()
 		{
 			rcx.intents.push(Intent::Copy(text.to_owned()));
 		}
@@ -201,7 +201,7 @@ fn footer(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 			tr!("msg-pin")
 		};
 		if ui
-			.small_button(label)
+			.button(label)
 			.on_hover_text(tr!("msg-pin-hover"))
 			.clicked()
 		{
@@ -215,7 +215,7 @@ fn footer(ui: &mut Ui, rcx: &mut RowCx<'_>, entry: &EntryView) {
 		if entry.outgoing
 			&& entry.delivery == Delivery::Failed
 			&& rcx.session.is_live()
-			&& ui.small_button(tr!("msg-retry")).clicked()
+			&& ui.button(tr!("msg-retry")).clicked()
 		{
 			rcx.intents.push(Intent::Retry {
 				session: rcx.session.key.clone(),

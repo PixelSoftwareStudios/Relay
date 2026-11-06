@@ -6,8 +6,10 @@ use std::time::Duration;
 use egui::{self, RichText, Ui};
 
 use crate::history_view::{self, Blocked, HistoryRow, PAGE};
+use crate::messaging::rules::{Kept, transcript_kept};
 use crate::theme;
 
+use super::chat;
 use super::kit::{self, Cx};
 use super::widgets::button_row;
 use crate::tr;
@@ -37,7 +39,7 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		ui.ctx().request_repaint_after(REFRESH);
 	}
 	for row in &rows {
-		entry(ui, row, cx);
+		chat::with_chat(ui, cx, &row.call_id, |ui, cx| entry(ui, row, cx));
 		kit::gap(ui);
 	}
 	if history_view::has_more(cx.state, shown) && ui.button(tr!("history-show-more")).clicked() {
@@ -78,13 +80,24 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 				});
 			});
 		});
-		let call = ui.add_enabled(
-			row.blocked.is_none(),
-			egui::Button::new(tr!("history-call-back")),
-		);
-		if call.clicked() {
-			let id = row.peer_id.clone();
-			cx.actions.run(|c| async move { c.start_call(&id).await });
+		let kept = cx
+			.actions
+			.shared
+			.messages
+			.read(|state| transcript_kept(state, &row.call_id));
+		button_row(ui, |ui| {
+			let call = ui.add_enabled(
+				row.blocked.is_none(),
+				egui::Button::new(tr!("history-call-back")),
+			);
+			if call.clicked() {
+				let id = row.peer_id.clone();
+				cx.actions.run(|c| async move { c.start_call(&id).await });
+			}
+			messages_button(ui, row, kept, cx);
+		});
+		if kept == Kept::No {
+			kit::help(ui, tr!("history-messages-gone"));
 		}
 		match row.blocked {
 			Some(Blocked::Cannot) => kit::help(ui, tr!("peer-call-blocked")),
@@ -92,6 +105,23 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 			None => {}
 		}
 	});
+}
+
+/// Opens or closes the read-only transcript of the call. It is off only when
+/// the daemon reports it no longer keeps that transcript; while that is not
+/// known yet (messaging is not connected) pressing it connects and finds out.
+fn messages_button(ui: &mut Ui, row: &HistoryRow, kept: Kept, cx: &mut Cx) {
+	let open = chat::is_open(cx.local, &row.call_id);
+	let label = match kept {
+		Kept::Yes(count) if count > 0 => tr!("history-messages-count", count = count),
+		_ => tr!("call-messages").to_owned(),
+	};
+	let response = ui.add_enabled(kept != Kept::No, egui::Button::selectable(open, label));
+	if kept == Kept::No {
+		response.on_disabled_hover_text(tr!("history-messages-gone"));
+	} else if response.clicked() {
+		chat::toggle(cx.local, &row.call_id, &row.name, true);
+	}
 }
 
 /// A round badge with the first letter of the name, for a device that is no longer known.

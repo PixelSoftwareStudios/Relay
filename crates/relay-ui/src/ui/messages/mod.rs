@@ -1,5 +1,6 @@
-//! The Messages panel: a side panel in the regular layout and a bottom-nav
-//! page in the compact one, drawn by the same code.
+//! The chat of one call: the transcript, composer and tools that `ui::chat`
+//! places beside or below the call card (regular layout), or full screen
+//! (compact layout), and read-only for a call in the history.
 //!
 //! Drawing holds the messaging state lock and so only records [`Intent`]s;
 //! they are dispatched after the lock is released. Idle costs nothing: no
@@ -23,8 +24,8 @@ use crate::imaging::Decoded;
 use crate::messaging::actions::Intent;
 use crate::messaging::gates::LinkGate;
 use crate::messaging::model::SessionKey;
-use crate::messaging::rules::{choose_session, compose_blocked};
-use crate::messaging::state::{Feed, MessagesState};
+use crate::messaging::rules::{compose_blocked, session_of_call, unread_count};
+use crate::messaging::state::MessagesState;
 use crate::theme;
 use crate::tr;
 use relay_io::localtime::LocalZone;
@@ -36,9 +37,8 @@ pub use panels::privacy_toggle;
 const IMAGE_TEXTURES: usize = 48;
 
 pub struct MessagesUi {
-	selected: Option<SessionKey>,
-	/// A call whose session should be shown next frame.
-	focus_call: Option<String>,
+	/// The highest message ordinal shown so far per session, for the unread count.
+	seen: HashMap<SessionKey, u64>,
 	drafts: HashMap<SessionKey, String>,
 	search: String,
 	pinned_only: bool,
@@ -47,8 +47,6 @@ pub struct MessagesUi {
 	clip: ClipFlow,
 	confirm_clear: Option<SessionKey>,
 	textures: TextureCache<TextureHandle>,
-	/// A call was asked for but has no session.
-	missing_call: Option<String>,
 	/// Time zone for the clock in each row.
 	zone: LocalZone,
 }
@@ -58,8 +56,7 @@ impl MessagesUi {
 	pub fn new(zone: LocalZone) -> Self {
 		Self {
 			zone,
-			selected: None,
-			focus_call: None,
+			seen: HashMap::new(),
 			drafts: HashMap::new(),
 			search: String::new(),
 			pinned_only: false,
@@ -68,13 +65,7 @@ impl MessagesUi {
 			clip: ClipFlow::default(),
 			confirm_clear: None,
 			textures: TextureCache::new(IMAGE_TEXTURES),
-			missing_call: None,
 		}
-	}
-
-	/// Show the session of this call (hex id) the next time the panel draws.
-	pub fn focus_call(&mut self, call_id: String) {
-		self.focus_call = Some(call_id);
 	}
 
 	/// Wait for the clipboard text (the paste event), then confirm.
@@ -82,12 +73,23 @@ impl MessagesUi {
 		self.clip = ClipFlow::Awaiting;
 	}
 
-	pub fn selected(&self) -> Option<&str> {
-		self.selected.as_deref()
+	/// Messages received from the call (hex id) that its chat has not shown yet.
+	pub fn unread(&self, actions: &Actions, call_id: &str) -> usize {
+		actions.shared.messages.read(|state| {
+			let Some(session) = session_of_call(&state.sessions, call_id) else {
+				return 0;
+			};
+			let entries = state
+				.transcript(&session.key)
+				.map_or(&[][..], |t| &t.entries);
+			unread_count(entries, self.seen.get(&session.key).copied())
+		})
 	}
 
-	/// Draw into `ui`. Returns true when the user closed the panel.
-	pub fn show(&mut self, ui: &mut Ui, actions: &Actions, closable: bool) -> bool {
+	/// Draw the chat of `call_id` (hex) into `ui`. `over` says the call has
+	/// ended and is shown from the history, so a missing session means the
+	/// daemon no longer keeps it.
+	pub fn show(&mut self, ui: &mut Ui, actions: &Actions, call_id: &str, over: bool) {
 		actions.shared.messages.open_default();
 		self.drain(ui.ctx(), actions);
 		if matches!(self.clip, ClipFlow::Awaiting)
@@ -97,11 +99,10 @@ impl MessagesUi {
 		}
 		let hub = actions.shared.messages.clone();
 		let mut intents = Vec::new();
-		let closed = hub.read(|state| self.draw(ui, state, closable, &mut intents));
+		hub.read(|state| self.draw(ui, state, call_id, over, &mut intents));
 		for intent in intents {
 			actions.dispatch(intent);
 		}
-		closed
 	}
 
 	/// Move finished decodes into textures and unsent drafts back to the box.
@@ -125,67 +126,58 @@ impl MessagesUi {
 		&mut self,
 		ui: &mut Ui,
 		state: &MessagesState,
-		closable: bool,
+		call_id: &str,
+		over: bool,
 		intents: &mut Vec<Intent>,
-	) -> bool {
-		let mut closed = false;
-		ui.horizontal(|ui| {
-			ui.heading(tr!("nav-messages"));
-			if closable && ui.button(tr!("action-close")).clicked() {
-				closed = true;
-			}
-		});
+	) {
+		self.seen.retain(|k, _| state.session(k).is_some());
 		if let Some(notice) = &state.notice {
 			ui.horizontal_wrapped(|ui| {
 				ui.label(RichText::new(notice).color(theme::ERROR));
-				if ui.small_button(tr!("action-dismiss")).clicked() {
+				if ui.button(tr!("action-dismiss")).clicked() {
 					intents.push(Intent::DismissNotice);
 				}
 			});
 		}
 		if panels::gate(ui, state, intents) {
-			self.sessions(ui, state, intents);
+			self.chat(ui, state, call_id, over, intents);
 		}
 		dialogs::link(ui, &mut self.gate, intents);
 		dialogs::clipboard(ui, &mut self.clip, state, intents);
 		dialogs::clear(ui, &mut self.confirm_clear, state, intents);
-		closed
 	}
 
-	fn sessions(&mut self, ui: &mut Ui, state: &MessagesState, intents: &mut Vec<Intent>) {
-		let focus = self.focus_call.take();
-		let chosen = choose_session(&state.sessions, self.selected.as_deref(), focus.as_deref());
-		if let Some(call) = focus {
-			self.missing_call = state.session_for_call(&call).is_none().then_some(call);
-		}
-		self.selected = chosen;
-		let Some(key) = self.selected.clone() else {
-			ui.label(RichText::new(tr!("msg-no-sessions")).weak());
+	fn chat(
+		&mut self,
+		ui: &mut Ui,
+		state: &MessagesState,
+		call_id: &str,
+		over: bool,
+		intents: &mut Vec<Intent>,
+	) {
+		let Some(session) = session_of_call(&state.sessions, call_id) else {
+			let (text, color) = if over {
+				(tr!("history-messages-gone"), None)
+			} else {
+				(tr!("msg-no-session"), Some(theme::WARN))
+			};
+			let text = RichText::new(text);
+			ui.label(color.map_or(text.clone().weak(), |c| text.color(c)));
 			return;
 		};
-		if let Some(picked) = panels::picker(ui, state, &key) {
-			self.selected = Some(picked);
-			self.missing_call = None;
-			return;
-		}
-		if self.missing_call.is_some() {
-			ui.label(RichText::new(tr!("msg-no-session")).color(theme::WARN));
-		}
-		let Some(session) = state.session(&key) else {
-			return;
-		};
+		let key = session.key.clone();
 		panels::permissions(ui, session, intents);
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			ui.add(
 				egui::TextEdit::singleline(&mut self.search)
 					.hint_text(tr!("msg-search-hint"))
-					.desired_width(ui.available_width().min(220.0)),
+					.desired_width(ui.available_width().min(180.0)),
 			);
 			ui.checkbox(&mut self.pinned_only, tr!("msg-pinned-filter"));
-			if ui.small_button(tr!("msg-export")).clicked() {
+			if ui.button(tr!("msg-export")).clicked() {
 				intents.push(compose::export_intent(session));
 			}
-			if ui.small_button(tr!("msg-clear")).clicked() {
+			if ui.button(tr!("msg-clear")).clicked() {
 				self.confirm_clear = Some(key.clone());
 			}
 		});
@@ -206,6 +198,9 @@ impl MessagesUi {
 			ui.label(RichText::new(tr!("msg-loading")).weak());
 			return;
 		};
+		if let Some(last) = t.entries.last() {
+			self.seen.insert(key.clone(), last.ordinal);
+		}
 		let needle = self.search.trim().to_lowercase();
 		let cache = self.lists.entry(key).or_default();
 		let mut rcx = transcript::RowCx {
@@ -222,9 +217,4 @@ impl MessagesUi {
 				transcript::show(ui, cache, t, &needle, self.pinned_only, &mut rcx)
 			});
 	}
-}
-
-/// Whether the feed shows any transcript at all (used by the layout tests).
-pub fn is_live(state: &MessagesState) -> bool {
-	state.feed == Feed::Live
 }

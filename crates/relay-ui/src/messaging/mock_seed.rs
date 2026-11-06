@@ -9,7 +9,8 @@ use super::state::Feed;
 /// Call ids shared with `crate::mock::seed` (`call(100, ..)`).
 pub const ADA_CALL: u8 = 100;
 pub(super) const GRACE_CALL: u8 = 101;
-pub(super) const ALAN_CALL: u8 = 90;
+/// The seeded call that has ended, with a long retained history.
+pub const ALAN_CALL: u8 = 90;
 pub(super) const NOW_MS: u64 = 1_760_000_000_000;
 pub(super) const BIG_HISTORY: u64 = 3_000;
 

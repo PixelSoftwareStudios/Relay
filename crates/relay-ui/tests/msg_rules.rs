@@ -177,31 +177,6 @@ fn lookalike_hosts_show_the_ascii_form_and_a_warning() {
 }
 
 #[test]
-fn session_choice_prefers_the_asked_call_then_current_then_live() {
-	let a = convert::session(&summary(1, "A", false));
-	let b = convert::session(&summary(2, "B", true));
-	let c = convert::session(&summary(3, "C", true));
-	let all = [a.clone(), b.clone(), c.clone()];
-	assert_eq!(
-		choose_session(&all, None, Some(&c.call_id)),
-		Some(c.key.clone())
-	);
-	assert_eq!(
-		choose_session(&all, Some(&a.key), None),
-		Some(a.key.clone())
-	);
-	assert_eq!(
-		choose_session(&all, Some("gone"), None),
-		Some(b.key.clone())
-	);
-	assert_eq!(
-		choose_session(std::slice::from_ref(&a), None, None),
-		Some(a.key)
-	);
-	assert_eq!(choose_session(&[], None, None), None);
-}
-
-#[test]
 fn problem_codes_have_text_without_content() {
 	for code in [
 		"MESSAGES_DISABLED",

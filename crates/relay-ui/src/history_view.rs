@@ -25,6 +25,8 @@ pub enum Blocked {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HistoryRow {
 	pub id: u64,
+	/// Hex call id; the key of the call's messaging session.
+	pub call_id: String,
 	pub peer_id: String,
 	pub name: String,
 	/// The picture of the device, when it is known; otherwise the row shows an initial.
@@ -63,6 +65,7 @@ pub fn rows(state: &AppState, shown: usize, now_ms: u64, zone: &LocalZone) -> Ve
 			let peer = peers.iter().find(|p| p.peer_id == e.peer_id);
 			HistoryRow {
 				id: e.id,
+				call_id: e.call_id.clone(),
 				peer_id: e.peer_id.clone(),
 				name: e.peer_name.clone(),
 				avatar: peer.map(|p| p.avatar.clone()),

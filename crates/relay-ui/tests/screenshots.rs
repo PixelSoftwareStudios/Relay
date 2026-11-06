@@ -4,6 +4,7 @@
 //!
 //! `RELAY_SHOTS_DIR=/tmp/shots cargo test -p relay-ui --test screenshots`
 
+mod chatkit;
 mod phone;
 
 use std::collections::HashMap;
@@ -273,4 +274,57 @@ fn people_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Pat
 		shoot(phone, textures, &dir.join(format!("{tag}-{name}.png")));
 	}
 	phone.show_state(&base);
+}
+
+/// The chat of a call: below the call card (desktop) and full screen (phone),
+/// and a history row with its Messages button, closed and open.
+#[tokio::test]
+async fn chat_screenshots() {
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	for (name, desktop, w, h) in [
+		("desktop", true, 720.0, 1500.0),
+		("phone", false, 360.0, 800.0),
+	] {
+		let mut phone = if desktop {
+			Phone::desktop(w, h, Language::En)
+		} else {
+			Phone::new(w, h, Language::En)
+		};
+		if desktop {
+			phone.ctx.set_pixels_per_point(1.5);
+		}
+		let mut textures = Textures::default();
+		phone.show_state(&chatkit::state(false));
+		chatkit::live_messages(&phone);
+		chatkit::incoming(&phone, 500);
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-call-badge.png")),
+		);
+		phone.app.open_chat(&chatkit::ada_call());
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-call-chat.png")),
+		);
+		phone.app.close_chat();
+		phone.show_state(&chatkit::history_state());
+		phone.size.y = 1700.0;
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-history-row.png")),
+		);
+		phone.app.open_chat(&chatkit::alan_call());
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-history-chat.png")),
+		);
+	}
 }

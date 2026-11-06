@@ -8,14 +8,16 @@ use crate::model::Link;
 use crate::viewmodel::{CallCard, PeerRow};
 
 use super::kit::{self, Cx};
-use super::{call_card, history, people};
+use super::{call_card, chat, history, people};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cards: &[CallCard], rows: &[PeerRow], cx: &mut Cx) {
 	kit::page_title(ui, tr!("calls-heading"));
 	let active: Vec<&CallCard> = cards.iter().filter(|c| !c.incoming).collect();
 	for card in &active {
-		call_card::show(ui, card, cx);
+		chat::with_chat(ui, cx, &card.call_id, |ui, cx| {
+			call_card::show(ui, card, cx)
+		});
 		kit::gap(ui);
 	}
 	let nearby: Vec<&PeerRow> = rows.iter().filter(|r| r.reachable).collect();

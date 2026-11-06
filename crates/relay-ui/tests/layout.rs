@@ -46,3 +46,13 @@ fn navigation_lists_each_page_once() {
 	assert_eq!(labels.len(), Page::ALL.len());
 	assert_eq!(Page::default(), Page::Calls);
 }
+
+#[test]
+fn messages_are_not_a_page() {
+	assert_eq!(
+		Page::ALL,
+		[Page::Calls, Page::People, Page::Channels, Page::Settings]
+	);
+	assert_eq!(Page::SIDEBAR, [Page::Calls, Page::People, Page::Channels]);
+	assert!(!Page::ALL.iter().any(|p| p.label() == "Messages"));
+}
