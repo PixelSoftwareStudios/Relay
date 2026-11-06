@@ -150,18 +150,26 @@ impl Actor {
 				let gone = self.ports.peers.forget_peer(&selector)?;
 				let mut events = self.directory.forget_peer(gone.id);
 				events.extend(self.directory.set_peers(self.ports.peers.peers()));
-				events.extend(self.directory.set_favorites(self.ports.settings.favorites()));
+				events.extend(
+					self.directory
+						.set_favorites(self.ports.settings.favorites()),
+				);
 				self.publish(events);
 			}
 			ServiceOp::SetFavorites(ordered) => {
 				self.ports.settings.set_favorites(&ordered)?;
-				let events = self.directory.set_favorites(self.ports.settings.favorites());
+				let events = self
+					.directory
+					.set_favorites(self.ports.settings.favorites());
 				self.publish(events);
 			}
 			ServiceOp::Trust(request) => {
 				self.ports.peers.decide_trust(request)?;
 				let mut events = self.directory.set_peers(self.ports.peers.peers());
-				events.extend(self.directory.set_favorites(self.ports.settings.favorites()));
+				events.extend(
+					self.directory
+						.set_favorites(self.ports.settings.favorites()),
+				);
 				self.publish(events);
 			}
 			ServiceOp::Privacy { inbound, advert } => {
