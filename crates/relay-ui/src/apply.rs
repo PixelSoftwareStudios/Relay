@@ -110,6 +110,7 @@ impl AppState {
 	pub fn set_link_down(&mut self, link: Link, reason: Option<String>) {
 		self.link = link;
 		self.link_error = reason;
+		self.startup = None;
 		self.engine = None;
 		self.calls.clear();
 		self.peers.clear();

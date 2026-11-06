@@ -36,6 +36,7 @@ struct Inner {
 	env_off: bool,
 	user_quit: bool,
 	gave_up: bool,
+	launch_restarted: bool,
 	starts: VecDeque<Instant>,
 	last_failure: Option<String>,
 }
@@ -71,10 +72,22 @@ impl AutoStart {
 				env_off,
 				user_quit: false,
 				gave_up: false,
+				launch_restarted: false,
 				starts: VecDeque::new(),
 				last_failure: None,
 			}),
 		}
+	}
+
+	/// Whether this app session already replaced the service once at launch. It does that at
+	/// most once, so a service that keeps coming up "old" cannot make it loop.
+	pub fn launch_restarted(&self) -> bool {
+		self.inner.lock_unpoisoned().launch_restarted
+	}
+
+	/// Records the launch-time replacement.
+	pub fn set_launch_restarted(&self) {
+		self.inner.lock_unpoisoned().launch_restarted = true;
 	}
 
 	/// The stored "Start daemon automatically" choice, read from the daemon.

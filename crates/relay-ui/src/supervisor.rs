@@ -17,6 +17,8 @@ use crate::tr;
 
 const BACKOFF_BASE: Duration = Duration::from_millis(250);
 const BACKOFF_MAX: Duration = Duration::from_secs(5);
+/// How often a service that waits for the keychain prompt is asked again.
+const STARTUP_POLL: Duration = Duration::from_secs(1);
 
 /// Exponential delay between connection attempts, capped.
 pub fn backoff(attempt: u32) -> Duration {
@@ -44,6 +46,15 @@ pub async fn supervise(
 				slot.clear();
 				hub.clear_meters();
 				hub.update(|s| s.set_link_down(Link::Reconnecting, Some(reason)));
+			}
+			Err(EngineError::Starting(startup)) => {
+				// The service is alive: never start or restart it, only show what it waits for.
+				hub.update(|s| {
+					s.set_link_down(Link::Starting, None);
+					s.startup = Some(startup);
+				});
+				tokio::time::sleep(STARTUP_POLL).await;
+				continue;
 			}
 			Err(error) => {
 				let started = if matches!(error, EngineError::Unavailable(_)) {
@@ -143,6 +154,7 @@ async fn mirror(
 		s.load_snapshot(&conn.snapshot);
 		s.link = Link::Connected;
 		s.link_error = None;
+		s.startup = None;
 	});
 	slot.set(conn.ops.clone());
 	let mut history_seen = None;

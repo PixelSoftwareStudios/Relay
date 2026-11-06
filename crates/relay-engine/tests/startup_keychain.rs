@@ -12,77 +12,9 @@ use std::time::Duration;
 
 use relay_api::pb::{StartupReason, StartupState};
 use relay_api::{ApiError, RelayClient};
-use relay_config::identity::{IdentityStore, MemoryStore, StoredIdentity};
-use relay_config::{ConfigError, Result};
 use relay_engine::daemon::{Booting, DaemonError, DaemonHandle};
 use support_daemon::engine_options;
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum Mode {
-	/// `load` waits (the prompt is open).
-	Blocked,
-	/// `load` fails the way a denied prompt does.
-	Denied,
-	/// `load` fails the way a damaged item does.
-	Corrupt,
-	Open,
-}
-
-/// An identity store behind a switch the test flips.
-struct Prompt {
-	inner: MemoryStore,
-	mode: Mutex<Mode>,
-	changed: Condvar,
-	loads: AtomicUsize,
-	saves: AtomicUsize,
-}
-
-impl Prompt {
-	fn new(mode: Mode) -> Arc<Self> {
-		Arc::new(Self {
-			inner: MemoryStore::default(),
-			mode: Mutex::new(mode),
-			changed: Condvar::new(),
-			loads: AtomicUsize::new(0),
-			saves: AtomicUsize::new(0),
-		})
-	}
-
-	fn set(&self, mode: Mode) {
-		*self.mode.lock().unwrap() = mode;
-		self.changed.notify_all();
-	}
-}
-
-struct Handle(Arc<Prompt>);
-
-impl IdentityStore for Handle {
-	fn describe(&self) -> &'static str {
-		"fake prompt"
-	}
-
-	fn load(&self) -> Result<Option<StoredIdentity>> {
-		self.0.loads.fetch_add(1, Ordering::SeqCst);
-		let mut mode = self.0.mode.lock().unwrap();
-		while *mode == Mode::Blocked {
-			mode = self.0.changed.wait(mode).unwrap();
-		}
-		match *mode {
-			Mode::Denied => Err(ConfigError::CredentialStore("user denied".into())),
-			Mode::Corrupt => Err(ConfigError::BundleUnreadable("malformed".into())),
-			_ => self.0.inner.load(),
-		}
-	}
-
-	fn save(&self, identity: &StoredIdentity) -> Result<()> {
-		self.0.saves.fetch_add(1, Ordering::SeqCst);
-		self.0.inner.save(identity)
-	}
-
-	fn delete(&self) -> Result<()> {
-		self.0.inner.delete()
-	}
-}
+use support_prompt::{Handle, Mode, OpenOnDrop, Prompt};
 
 async fn begin(dir: &std::path::Path, prompt: &Arc<Prompt>) -> (Booting, Arc<AtomicBool>) {
 	let (mut options, _sim) = engine_options(dir, 440.0);

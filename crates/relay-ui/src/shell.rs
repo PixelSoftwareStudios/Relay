@@ -108,6 +108,16 @@ pub trait Shell: FilePicker {
 	fn start_daemon(&self) -> BoxFuture<'_, Result<String, String>> {
 		Box::pin(async { Err(tr!("err-cannot-start-daemon").to_owned()) })
 	}
+	/// Ask the background service to read the system's secure storage again, after it could
+	/// not (the user may have allowed access meanwhile).
+	fn retry_secure_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async { Err(tr!("err-cannot-start-daemon").to_owned()) })
+	}
+	/// Tell the background service to keep identity and secrets in the file-backed store
+	/// instead of the system's secure storage. Only called after the user confirmed.
+	fn use_file_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async { Err(tr!("err-cannot-start-daemon").to_owned()) })
+	}
 	/// Ask the daemon to stop. Distinct from [`Shell::quit`], which only
 	/// closes this app.
 	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {

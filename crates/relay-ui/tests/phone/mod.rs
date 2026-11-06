@@ -128,6 +128,14 @@ impl Shell for PhoneShell {
 		self.daemon_log.lock().unwrap().push("stop");
 		Box::pin(async { Ok(()) })
 	}
+	fn retry_secure_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		self.daemon_log.lock().unwrap().push("retry");
+		Box::pin(async { Ok(()) })
+	}
+	fn use_file_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		self.daemon_log.lock().unwrap().push("file-store");
+		Box::pin(async { Ok(()) })
+	}
 }
 
 /// The mock state plus a connected push-to-talk call, so both an incoming and

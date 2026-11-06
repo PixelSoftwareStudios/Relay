@@ -52,6 +52,24 @@ pub async fn stop(endpoint: &Endpoint) -> Result<(), String> {
 	}
 }
 
+/// Asks the running background service to read the secure storage again.
+pub async fn retry_secure_storage(endpoint: &Endpoint) -> Result<(), String> {
+	let mut client = relay_api::RelayClient::connect(endpoint)
+		.await
+		.map_err(|e| e.to_string())?;
+	client.retry_keychain().await.map_err(|e| e.to_string())?;
+	Ok(())
+}
+
+/// Tells the running background service to use the file-backed store, then retry.
+pub async fn use_file_storage(endpoint: &Endpoint) -> Result<(), String> {
+	let mut client = relay_api::RelayClient::connect(endpoint)
+		.await
+		.map_err(|e| e.to_string())?;
+	client.use_file_store().await.map_err(|e| e.to_string())?;
+	Ok(())
+}
+
 /// What the launch-time refresh of the daemon led to.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LaunchRefresh {
@@ -104,7 +122,7 @@ pub async fn restart_idle_at_launch(
 	if let Some(stored) = stored_autostart(endpoint).await {
 		autostart.set_setting(stored);
 	}
-	if !autostart.enabled() || autostart.paused() {
+	if !autostart.enabled() || autostart.paused() || autostart.launch_restarted() {
 		return LaunchRefresh::Skipped;
 	}
 	hub.update(|s| s.set_link_down(Link::Starting, None));
@@ -117,6 +135,9 @@ pub async fn restart_idle_at_launch(
 	)
 	.await;
 	let outcome = launch_result(result);
+	if outcome == LaunchRefresh::Restarted {
+		autostart.set_launch_restarted();
+	}
 	if let LaunchRefresh::Failed(message) = &outcome {
 		shared.set_error(message.clone());
 	}

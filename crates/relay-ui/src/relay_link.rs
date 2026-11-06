@@ -64,6 +64,7 @@ fn map_error(error: ApiError) -> EngineError {
 			},
 		},
 		ApiError::OperationTimeout => EngineError::Timeout,
+		ApiError::Starting(startup) => EngineError::Starting(convert::startup(&startup)),
 		other => EngineError::Broken(other.to_string()),
 	}
 }

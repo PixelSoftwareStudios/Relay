@@ -126,3 +126,15 @@ stat-ms = { $value } ms
 stat-percent = { $value } %
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = Esperando permiso para usar el almacenamiento seguro
+startup-waiting-body = Relay guarda tu identidad en el almacenamiento seguro del sistema. Responde al aviso del sistema (puede pedir tu contraseña de inicio de sesión) para continuar.
+startup-failed-title = Relay no puede abrir el almacenamiento seguro: { $reason }
+startup-reason-keychain = no se permitió el acceso o está bloqueado
+startup-reason-unreadable = la identidad guardada no se puede leer y Relay no la ha tocado
+startup-failed-help = Relay necesita acceso al almacenamiento seguro del sistema para proteger tu identidad. Permite el acceso e inténtalo de nuevo, o usa el almacenamiento en archivo.
+startup-retry = Reintentar
+startup-file-store = Usar almacenamiento en archivo…
+startup-file-warning = El almacenamiento en archivo guarda tu clave de identidad en un archivo sin cifrar que solo protegen los permisos de archivo. Es menos seguro que el almacenamiento seguro del sistema. Si aún no hay una clave en ese archivo, Relay crea una identidad nueva y tus contactos tendrán que verificar este dispositivo otra vez.
+startup-file-confirm = Usar almacenamiento en archivo
+startup-cancel = Cancelar

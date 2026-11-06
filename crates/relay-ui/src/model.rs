@@ -297,6 +297,19 @@ pub struct EngineInfo {
 	pub api_revision: u32,
 }
 
+/// A background service that is running but has not opened the system's secure storage:
+/// it waits for the user's permission, or that failed and it waits for a choice.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Startup {
+	/// The attempt failed (denied, locked, unreadable); false while it is still waiting.
+	pub failed: bool,
+	/// What is stored cannot be read at all (not a matter of permission).
+	pub unreadable: bool,
+	/// The system's own text, for details.
+	pub detail: String,
+}
+
 /// Structural state; small enough to resend whole on every change.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -315,6 +328,8 @@ pub struct AppState {
 	pub history: Vec<HistoryEntry>,
 	pub warnings: Vec<Problem>,
 	pub link_error: Option<String>,
+	/// Set while the background service answers but is not ready (see [`Startup`]).
+	pub startup: Option<Startup>,
 	pub notice: Option<String>,
 	/// This client's id on the engine; used to tell who holds a call.
 	#[serde(skip)]
@@ -348,6 +363,7 @@ impl Default for AppState {
 			history: Vec::new(),
 			warnings: Vec::new(),
 			link_error: None,
+			startup: None,
 			notice: None,
 			client_id: Vec::new(),
 		}

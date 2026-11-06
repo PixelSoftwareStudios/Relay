@@ -128,3 +128,15 @@ stat-ms = { $value } ms
 stat-percent = { $value }%
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = 보안 저장소 사용 권한을 기다리는 중
+startup-waiting-body = Relay는 내 신원을 시스템의 보안 저장소에 보관합니다. 계속하려면 시스템 안내(로그인 비밀번호를 물을 수 있습니다)에 응답하세요.
+startup-failed-title = Relay가 보안 저장소를 열 수 없습니다: { $reason }
+startup-reason-keychain = 접근이 허용되지 않았거나 잠겨 있습니다
+startup-reason-unreadable = 저장된 신원을 읽을 수 없으며 Relay는 그대로 두었습니다
+startup-failed-help = Relay가 신원을 안전하게 지키려면 시스템 보안 저장소에 접근해야 합니다. 접근을 허용한 뒤 다시 시도하거나, 대신 파일 저장을 사용하세요.
+startup-retry = 다시 시도
+startup-file-store = 파일 저장 사용…
+startup-file-warning = 파일 저장은 신원 키를 일반 파일에 보관하며, 파일 권한으로만 보호됩니다. 시스템 보안 저장소보다 안전하지 않습니다. 그 파일에 아직 키가 없으면 Relay가 새 신원을 만들고, 연락처들은 이 기기를 다시 확인해야 합니다.
+startup-file-confirm = 파일 저장 사용
+startup-cancel = 취소

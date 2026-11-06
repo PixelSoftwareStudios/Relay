@@ -6065,6 +6065,7 @@ dependencies = [
  "relay-api",
  "relay-client",
  "relay-config",
+ "relay-engine",
  "relay-io",
  "relay-messages",
  "rust-embed",

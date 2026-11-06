@@ -254,6 +254,20 @@ impl Shell for DesktopShell {
 		})
 	}
 
+	fn retry_secure_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async {
+			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;
+			daemon_control::retry_secure_storage(&endpoint).await
+		})
+	}
+
+	fn use_file_storage(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async {
+			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;
+			daemon_control::use_file_storage(&endpoint).await
+		})
+	}
+
 	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {
 		Box::pin(async {
 			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;

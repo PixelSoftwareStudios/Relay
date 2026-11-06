@@ -237,6 +237,14 @@ pub fn history_entry(e: &pb::CallHistoryEntry) -> HistoryEntry {
 	}
 }
 
+pub fn startup(s: &pb::Startup) -> crate::model::Startup {
+	crate::model::Startup {
+		failed: s.state() == pb::StartupState::Failed,
+		unreadable: s.reason() == pb::StartupReason::IdentityUnreadable,
+		detail: s.detail.clone(),
+	}
+}
+
 pub fn engine_info(i: &pb::EngineInfo) -> EngineInfo {
 	EngineInfo {
 		version: i.application_version.clone(),

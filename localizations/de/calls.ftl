@@ -127,3 +127,15 @@ stat-ms = { $value } ms
 stat-percent = { $value } %
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = Warte auf die Erlaubnis, den sicheren Speicher zu nutzen
+startup-waiting-body = Relay bewahrt deine Identität im sicheren Speicher deines Systems auf. Beantworte die Systemabfrage (sie kann nach deinem Anmeldepasswort fragen), um fortzufahren.
+startup-failed-title = Relay kann den sicheren Speicher nicht öffnen: { $reason }
+startup-reason-keychain = der Zugriff wurde nicht erlaubt oder der Speicher ist gesperrt
+startup-reason-unreadable = die gespeicherte Identität lässt sich nicht lesen, Relay hat sie unverändert gelassen
+startup-failed-help = Relay braucht Zugriff auf den sicheren Speicher des Systems, um deine Identität zu schützen. Erlaube den Zugriff und versuche es erneut, oder nutze stattdessen die Dateispeicherung.
+startup-retry = Erneut versuchen
+startup-file-store = Dateispeicherung verwenden…
+startup-file-warning = Die Dateispeicherung legt deinen Identitätsschlüssel in einer einfachen Datei ab, die nur durch Dateirechte geschützt ist. Das ist weniger sicher als der sichere Speicher des Systems. Liegt dort noch kein Schlüssel, erstellt Relay eine neue Identität, und deine Kontakte müssen dieses Gerät erneut bestätigen.
+startup-file-confirm = Dateispeicherung verwenden
+startup-cancel = Abbrechen

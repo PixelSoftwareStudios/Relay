@@ -26,6 +26,9 @@ pub enum EngineError {
 	Timeout,
 	/// The connection broke or violated the protocol; reconnect and resync.
 	Broken(String),
+	/// The background service runs but is not ready: it waits for the system's secure storage
+	/// (a permission prompt) or failed to open it. Not an error to show as one.
+	Starting(crate::model::Startup),
 }
 
 impl std::fmt::Display for EngineError {
@@ -37,6 +40,7 @@ impl std::fmt::Display for EngineError {
 			Self::Rejected { message, .. } => f.write_str(plain_refusal(message)),
 			Self::Timeout => f.write_str(tr!("err-engine-timeout")),
 			Self::Broken(why) => f.write_str(&tr!("err-connection", reason = why.as_str())),
+			Self::Starting(_) => f.write_str(tr!("startup-waiting-title")),
 		}
 	}
 }

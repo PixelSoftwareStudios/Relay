@@ -128,3 +128,15 @@ stat-ms = { $value } ms
 stat-percent = { $value }%
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = 正在等待使用安全存储的权限
+startup-waiting-body = Relay 把你的身份保存在系统的安全存储中。请回应系统提示（可能会要求输入登录密码）以继续。
+startup-failed-title = Relay 无法打开安全存储：{ $reason }
+startup-reason-keychain = 未获允许访问，或安全存储已锁定
+startup-reason-unreadable = 无法读取已保存的身份，Relay 没有改动它
+startup-failed-help = Relay 需要访问系统的安全存储来保护你的身份。请允许访问后重试，或改用文件存储。
+startup-retry = 重试
+startup-file-store = 使用文件存储…
+startup-file-warning = 文件存储会把你的身份密钥放在普通文件中，仅靠文件权限保护，安全性低于系统的安全存储。如果该文件中还没有密钥，Relay 会创建新的身份，你的联系人需要重新验证此设备。
+startup-file-confirm = 使用文件存储
+startup-cancel = 取消

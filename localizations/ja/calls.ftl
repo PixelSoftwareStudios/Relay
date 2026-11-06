@@ -126,3 +126,15 @@ stat-ms = { $value } ms
 stat-percent = { $value }%
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = 安全な保管領域の使用許可を待っています
+startup-waiting-body = Relay はあなたのアイデンティティをシステムの安全な保管領域に保存します。システムの確認画面（ログインパスワードを求められることがあります）に答えて、続けてください。
+startup-failed-title = Relay は安全な保管領域を開けません: { $reason }
+startup-reason-keychain = アクセスが許可されていないか、ロックされています
+startup-reason-unreadable = 保存されたアイデンティティを読み取れませんが、Relay は変更していません
+startup-failed-help = Relay があなたのアイデンティティを守るには、システムの安全な保管領域へのアクセスが必要です。アクセスを許可して再試行するか、代わりにファイル保存を使ってください。
+startup-retry = もう一度試す
+startup-file-store = ファイル保存を使う…
+startup-file-warning = ファイル保存では、アイデンティティの鍵が通常のファイルに置かれ、ファイルの権限だけで守られます。システムの安全な保管領域より安全性は低くなります。そのファイルにまだ鍵がない場合、Relay は新しいアイデンティティを作成し、連絡先はこのデバイスをもう一度確認する必要があります。
+startup-file-confirm = ファイル保存を使う
+startup-cancel = キャンセル

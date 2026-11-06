@@ -42,6 +42,38 @@ impl Actions {
 		self.daemon_job(Job::Restart);
 	}
 
+	/// Read the system's secure storage again (the "Try again" button of the start-up card).
+	pub fn retry_secure_storage(&self) {
+		self.storage_job(false);
+	}
+
+	/// Keep secrets in the file-backed store (after the user confirmed it is less secure).
+	pub fn use_file_storage(&self) {
+		self.storage_job(true);
+	}
+
+	fn storage_job(&self, file_store: bool) {
+		let (shared, shell, hub) = (self.shared.clone(), self.shell.clone(), self.hub.clone());
+		self.runtime.spawn(async move {
+			shared.clear_error();
+			let result = if file_store {
+				shell.use_file_storage().await
+			} else {
+				shell.retry_secure_storage().await
+			};
+			match result {
+				// Calm again at once; the next poll shows what the service really says.
+				Ok(()) => hub.update(|s| {
+					if let Some(startup) = &mut s.startup {
+						startup.failed = false;
+					}
+				}),
+				Err(message) => shared.set_error(message),
+			}
+			shell.request_repaint();
+		});
+	}
+
 	fn daemon_job(&self, job: Job) {
 		use std::sync::atomic::Ordering;
 		if self.shared.daemon_busy.swap(true, Ordering::AcqRel) {

@@ -31,7 +31,7 @@ pub fn show(
 ) -> Outcome {
 	if state.mock {
 		banner(ui, tr!("banner-mock"), false);
-	} else if state.link != Link::Connected {
+	} else if state.link != Link::Connected && state.startup.is_none() {
 		let mut text = format!("{}.", link_label(state.link));
 		if let Some(e) = &state.link_error {
 			text.push_str(&format!(" {e}"));

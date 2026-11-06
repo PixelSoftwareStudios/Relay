@@ -129,3 +129,15 @@ stat-ms = { $value } ms
 stat-percent = { $value }%
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
+
+startup-waiting-title = Waiting for permission to use secure storage
+startup-waiting-body = Relay keeps your identity in your system's secure storage. Answer the system prompt (it may ask for your login password) to continue.
+startup-failed-title = Relay can't open secure storage: { $reason }
+startup-reason-keychain = access was not allowed, or it is locked
+startup-reason-unreadable = the stored identity cannot be read, and Relay left it untouched
+startup-failed-help = Relay needs access to the system's secure storage to keep your identity safe. Allow it and try again, or use file storage instead.
+startup-retry = Try again
+startup-file-store = Use file storage…
+startup-file-warning = File storage keeps your identity key in a plain file that only file permissions protect. That is less secure than the system's secure storage. If no key is in that file yet, Relay creates a new identity and your contacts will have to verify this device again.
+startup-file-confirm = Use file storage
+startup-cancel = Cancel
