@@ -146,6 +146,8 @@ pub enum Command {
 		inbound: Option<Inbound>,
 		advert: Option<Advert>,
 	},
+	/// Delete every call history entry on this device.
+	ClearCallHistory,
 }
 
 /// What a finished command yields.
@@ -188,6 +190,11 @@ pub trait Operations: Send + Sync {
 
 	/// The canonical PNG for an avatar hash.
 	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
+		Err(unsupported())
+	}
+
+	/// The newest call history entries (`ListCallHistory`), newest first.
+	async fn call_history(&self) -> Result<Vec<crate::model::HistoryEntry>, EngineError> {
 		Err(unsupported())
 	}
 

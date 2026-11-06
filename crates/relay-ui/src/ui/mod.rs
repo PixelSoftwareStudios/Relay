@@ -10,6 +10,7 @@ mod banners;
 mod call_card;
 mod channels;
 mod connect;
+mod history;
 mod home;
 mod incoming;
 mod kit;
@@ -192,6 +193,10 @@ impl RelayApp {
 		}
 		if let Some(result) = inbox.take_hotkey_saved() {
 			self.local.hotkey.saved(result);
+		}
+		if let Some(result) = inbox.take_history_saved() {
+			self.local.history_saving = false;
+			self.local.history_report = Some(result);
 		}
 		if let Some(invite) = inbox.take_invite() {
 			self.local.invite = Some(invite);

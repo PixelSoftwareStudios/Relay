@@ -8,7 +8,7 @@ use crate::model::Link;
 use crate::viewmodel::{CallCard, PeerRow};
 
 use super::kit::{self, Cx};
-use super::{call_card, people};
+use super::{call_card, history, people};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cards: &[CallCard], rows: &[PeerRow], cx: &mut Cx) {
@@ -23,15 +23,14 @@ pub fn show(ui: &mut Ui, cards: &[CallCard], rows: &[PeerRow], cx: &mut Cx) {
 		if cx.state.link == Link::Connected {
 			empty(ui, cx);
 		}
-		return;
-	}
-	if !nearby.is_empty() {
+	} else if !nearby.is_empty() {
 		kit::section_title(ui, tr!("home-nearby"));
 		for row in nearby {
 			people::row(ui, row, cx, false);
 			kit::gap(ui);
 		}
 	}
+	history::show(ui, cx);
 }
 
 fn empty(ui: &mut Ui, cx: &mut Cx) {

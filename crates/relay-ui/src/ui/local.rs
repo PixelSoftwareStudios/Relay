@@ -70,6 +70,15 @@ pub struct Local {
 
 	pub hotkey: HotkeyPanel,
 
+	/// How many call history rows the Calls page shows.
+	pub history_shown: usize,
+	/// "Clear history" is waiting for confirmation.
+	pub history_confirm_clear: bool,
+	/// The engine's answer to the last "Keep call history" change, or why it failed.
+	pub history_report: Option<Result<Vec<crate::engine::SettingResult>, String>>,
+	/// A "Keep call history" change is in flight.
+	pub history_saving: bool,
+
 	pub new_channel: NewChannel,
 	pub join_target: String,
 	pub join_password: String,

@@ -33,6 +33,7 @@ pub struct Inbox {
 	invite: Mutex<Option<Invite>>,
 	hotkey_loaded: Mutex<Option<Result<HotkeyValues, String>>>,
 	hotkey_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
+	history_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 }
 
 /// Decoded avatars queued before the UI catches up; older results drop.
@@ -85,6 +86,14 @@ impl Inbox {
 
 	pub fn take_hotkey_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
 		self.hotkey_saved.lock_unpoisoned().take()
+	}
+
+	pub fn set_history_saved(&self, result: Result<Vec<SettingResult>, String>) {
+		*self.history_saved.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_history_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
+		self.history_saved.lock_unpoisoned().take()
 	}
 
 	pub fn take_invite(&self) -> Option<Invite> {

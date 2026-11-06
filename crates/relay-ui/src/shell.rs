@@ -81,6 +81,13 @@ pub trait Shell: FilePicker {
 	fn time_zone(&self) -> relay_io::localtime::LocalZone {
 		relay_io::localtime::LocalZone::system()
 	}
+	/// Now, in unix milliseconds, for relative times such as "5 min ago". The default is the
+	/// system clock; a shell (or a test) may return a fixed one.
+	fn now_unix_ms(&self) -> u64 {
+		std::time::SystemTime::now()
+			.duration_since(std::time::UNIX_EPOCH)
+			.map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(u64::MAX))
+	}
 	/// Ask for one more frame. Called by writers after new data, never per frame.
 	fn request_repaint(&self);
 	/// Whether the window is on screen (not minimized or hidden). Meters are

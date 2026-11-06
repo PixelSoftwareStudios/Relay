@@ -4,8 +4,9 @@
 use relay_api::pb;
 
 use crate::model::{
-	Advert, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo, Inbound,
-	MAX_ITEMS, Meters, Mode, Peer, Phase, Problem, Settings, Transmit, Trust,
+	Advert, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
+	HistoryDirection, HistoryEntry, HistoryOutcome, Inbound, MAX_ITEMS, Meters, Mode, Peer, Phase,
+	Problem, Settings, Transmit, Trust,
 };
 
 pub fn trust(value: i32) -> Trust {
@@ -183,6 +184,8 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		ringtone_volume: s.ringtone_volume,
 		ringback_enabled: s.ringback_enabled,
 		call_sounds_enabled: s.call_sounds_enabled,
+		history_enabled: s.history_enabled,
+		history_revision: s.history_revision,
 		display_name: s.display_name.clone(),
 		avatar_hash: hex::encode(&s.avatar_sha256),
 		// An unspecified value is the conservative reading.
@@ -196,6 +199,31 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		} else {
 			Advert::Hidden
 		},
+	}
+}
+
+/// A call history entry. An unknown direction or outcome reads as the plainest case.
+pub fn history_entry(e: &pb::CallHistoryEntry) -> HistoryEntry {
+	HistoryEntry {
+		id: e.id,
+		call_id: hex::encode(&e.call_id),
+		peer_id: hex::encode(&e.peer_id),
+		peer_name: e.peer_name.clone(),
+		fingerprint_short: short_fingerprint(&e.peer_fingerprint_short),
+		direction: if e.direction == pb::CallDirection::Incoming as i32 {
+			HistoryDirection::Incoming
+		} else {
+			HistoryDirection::Outgoing
+		},
+		outcome: match pb::CallOutcome::try_from(e.outcome) {
+			Ok(pb::CallOutcome::Missed) => HistoryOutcome::Missed,
+			Ok(pb::CallOutcome::Declined) => HistoryOutcome::Declined,
+			Ok(pb::CallOutcome::Failed) => HistoryOutcome::Failed,
+			Ok(pb::CallOutcome::Cancelled) => HistoryOutcome::Cancelled,
+			_ => HistoryOutcome::Completed,
+		},
+		started_at_ms: e.started_at_unix_ms,
+		duration_ms: e.duration_ms,
 	}
 }
 

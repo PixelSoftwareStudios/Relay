@@ -169,11 +169,52 @@ pub struct Settings {
 	pub ringback_enabled: bool,
 	/// Connect and hang-up blips.
 	pub call_sounds_enabled: bool,
+	/// Finished calls are recorded in the call history.
+	pub history_enabled: bool,
+	/// Changes whenever the engine adds to or clears the call history.
+	pub history_revision: u64,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,
 	pub inbound: Inbound,
 	pub advert: Advert,
+}
+
+/// Which way a past call went.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HistoryDirection {
+	Incoming,
+	Outgoing,
+}
+
+/// How a past call ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum HistoryOutcome {
+	Completed,
+	Missed,
+	Declined,
+	/// An outgoing call that never reached the peer.
+	Failed,
+	Cancelled,
+}
+
+/// One past call, as the engine's call history lists it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct HistoryEntry {
+	pub id: u64,
+	pub call_id: String,
+	pub peer_id: String,
+	/// The name the peer had when the call happened.
+	pub peer_name: String,
+	pub fingerprint_short: String,
+	pub direction: HistoryDirection,
+	pub outcome: HistoryOutcome,
+	pub started_at_ms: u64,
+	/// Connected time; zero when the call never connected.
+	pub duration_ms: u64,
 }
 
 /// Who may ring this device.
@@ -245,6 +286,8 @@ pub struct AppState {
 	pub devices: Vec<Device>,
 	pub channels: Vec<Channel>,
 	pub settings: Option<Settings>,
+	/// Past calls, newest first. Kept across a lost connection.
+	pub history: Vec<HistoryEntry>,
 	pub warnings: Vec<Problem>,
 	pub link_error: Option<String>,
 	pub notice: Option<String>,
@@ -266,6 +309,7 @@ impl Default for AppState {
 			devices: Vec::new(),
 			channels: Vec::new(),
 			settings: None,
+			history: Vec::new(),
 			warnings: Vec::new(),
 			link_error: None,
 			notice: None,

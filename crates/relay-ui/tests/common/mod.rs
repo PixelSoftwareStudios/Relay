@@ -25,6 +25,11 @@ pub struct FakeOps {
 	pub fail_with: Mutex<Option<String>>,
 	pub lease_generation: u64,
 	pub png: Vec<u8>,
+	/// What `call_history` answers.
+	pub history: Mutex<Vec<relay_ui::model::HistoryEntry>>,
+	pub history_reads: std::sync::atomic::AtomicUsize,
+	/// Every `set_settings` call.
+	pub settings_sent: Mutex<Vec<Vec<(String, String)>>>,
 }
 
 impl FakeOps {
@@ -42,6 +47,27 @@ impl Operations for FakeOps {
 			fingerprint: "ab".repeat(32),
 			connection_string: format!("relay://10.0.0.2:7000#{}", "ab".repeat(32)),
 		})
+	}
+
+	async fn call_history(&self) -> Result<Vec<relay_ui::model::HistoryEntry>, EngineError> {
+		self.history_reads
+			.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+		Ok(self.history.lock().unwrap().clone())
+	}
+
+	async fn set_settings(
+		&self,
+		values: Vec<(String, String)>,
+	) -> Result<Vec<relay_ui::engine::SettingResult>, EngineError> {
+		self.settings_sent.lock().unwrap().push(values.clone());
+		Ok(values
+			.into_iter()
+			.map(|(key, _)| relay_ui::engine::SettingResult {
+				key,
+				outcome: relay_ui::engine::SettingOutcome::AppliedLive,
+				reason: String::new(),
+			})
+			.collect())
 	}
 
 	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {

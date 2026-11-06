@@ -79,6 +79,7 @@ pub fn key_label(key: &str) -> &str {
 	match key {
 		KEY_ACCELERATOR => tr!("hotkey-label-accelerator"),
 		KEY_RELEASE_DELAY => tr!("hotkey-label-delay"),
+		crate::history_settings::KEY_ENABLED => tr!("history-setting-label"),
 		other => other,
 	}
 }

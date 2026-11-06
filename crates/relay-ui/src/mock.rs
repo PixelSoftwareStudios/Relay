@@ -12,6 +12,7 @@ use relay_io::LockExt;
 
 use crate::controller::SessionSlot;
 use crate::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
+use crate::history_settings::KEY_ENABLED as KEY_HISTORY;
 use crate::hotkey_settings::{KEY_ACCELERATOR, KEY_RELEASE_DELAY};
 use crate::hub::Hub;
 use crate::model::{
@@ -112,6 +113,8 @@ pub fn seed() -> AppState {
 			ringtone_volume: 0.7,
 			ringback_enabled: true,
 			call_sounds_enabled: true,
+			history_enabled: true,
+			history_revision: 0,
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,
@@ -319,6 +322,7 @@ impl Operations for MockOps {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| s.peers.retain(|p| p.peer_id != wanted));
 			}
+			Command::ClearCallHistory => self.hub.update(|s| s.history.clear()),
 			Command::ClearAvatar => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {
 					g.avatar_hash.clear();
@@ -339,6 +343,10 @@ impl Operations for MockOps {
 
 	async fn avatar(&self, _sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
 		Ok(crate::avatar::DEFAULT_PNG.to_vec())
+	}
+
+	async fn call_history(&self) -> Result<Vec<crate::model::HistoryEntry>, EngineError> {
+		Ok(self.hub.read(|s| s.history.clone()))
 	}
 
 	async fn get_settings(&self) -> Result<BTreeMap<String, String>, EngineError> {
@@ -378,6 +386,17 @@ impl Operations for MockOps {
 						(SettingOutcome::AppliedLive, "")
 					}
 					_ => (SettingOutcome::Rejected, "must be 0 to 2000"),
+				},
+				KEY_HISTORY => match value.parse::<bool>() {
+					Ok(on) => {
+						self.hub.update(|s| {
+							if let Some(g) = s.settings.as_mut() {
+								g.history_enabled = on;
+							}
+						});
+						(SettingOutcome::AppliedLive, "")
+					}
+					Err(_) => (SettingOutcome::Rejected, "must be true or false"),
 				},
 				_ => (SettingOutcome::Rejected, "unknown key"),
 			};

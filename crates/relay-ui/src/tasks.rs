@@ -128,6 +128,23 @@ impl Actions {
 		});
 	}
 
+	/// Turn call history recording on or off (`SetSettings`); the answer goes to the inbox.
+	pub fn save_history_enabled(&self, enabled: bool) {
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = controller
+				.set_history_enabled(enabled)
+				.await
+				.map_err(|e| e.to_string());
+			shared.inbox.set_history_saved(result);
+			shell.request_repaint();
+		});
+	}
+
 	/// The shell's picker, then a size check and bounded preview decode.
 	pub fn pick_avatar(&self) {
 		let (shared, shell) = (self.shared.clone(), self.shell.clone());

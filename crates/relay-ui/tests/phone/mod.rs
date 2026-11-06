@@ -3,7 +3,7 @@
 
 #![allow(dead_code)]
 
-use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use relay_ui::actions::{Actions, Shared, ShellSink};
@@ -36,6 +36,8 @@ pub struct PhoneShell {
 	visible: AtomicBool,
 	/// Behave like a desktop shell: closing hides to a tray, no talk button.
 	pub desktop: AtomicBool,
+	/// The time the shell reports, in unix milliseconds; 0 is the system clock.
+	pub now_ms: AtomicU64,
 }
 
 impl FilePicker for PhoneShell {
@@ -47,6 +49,17 @@ impl FilePicker for PhoneShell {
 impl Shell for PhoneShell {
 	fn copy_text(&self, text: &str) {
 		self.copied.lock().unwrap().push(text.to_owned());
+	}
+	fn now_unix_ms(&self) -> u64 {
+		match self.now_ms.load(Ordering::SeqCst) {
+			0 => std::time::SystemTime::now()
+				.duration_since(std::time::UNIX_EPOCH)
+				.map_or(0, |d| d.as_millis() as u64),
+			fixed => fixed,
+		}
+	}
+	fn time_zone(&self) -> relay_io::localtime::LocalZone {
+		relay_io::localtime::LocalZone::utc()
 	}
 	fn request_repaint(&self) {}
 	fn window_visible(&self) -> bool {
@@ -113,21 +126,20 @@ pub struct Phone {
 	pub app: RelayApp,
 	pub shell: Arc<PhoneShell>,
 	pub actions: Actions,
+	pub slot: Arc<SessionSlot>,
 	pub size: egui::Vec2,
 }
 
 impl Phone {
 	pub fn new(width: f32, height: f32, language: Language) -> Self {
 		i18n::set_active(language);
+		let slot = Arc::new(SessionSlot::default());
 		let hub = Arc::new(Hub::default());
 		hub.update(|s| *s = seed());
 		let shell = Arc::new(PhoneShell::default());
 		shell.visible.store(true, Ordering::SeqCst);
 		let actions = Actions {
-			controller: Arc::new(Controller::new(
-				hub.clone(),
-				Arc::new(SessionSlot::default()),
-			)),
+			controller: Arc::new(Controller::new(hub.clone(), slot.clone())),
 			hub,
 			shared: Arc::new(Shared::default()),
 			runtime: tokio::runtime::Handle::current(),
@@ -146,6 +158,7 @@ impl Phone {
 			app,
 			shell,
 			actions,
+			slot,
 			size: egui::vec2(width, height),
 		}
 	}

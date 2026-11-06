@@ -145,15 +145,20 @@ async fn mirror(
 		s.link_error = None;
 	});
 	slot.set(conn.ops.clone());
+	let mut history_seen = None;
+	refresh_history(&conn.ops, hub, &mut history_seen).await;
 
 	loop {
 		tokio::select! {
-			item = conn.watch.next() => match item {
-				Ok(Some(WatchItem::Snapshot(snapshot))) => hub.update(|s| s.load_snapshot(&snapshot)),
-				Ok(Some(WatchItem::Event { revision, event })) => hub.update(|s| s.apply_event(revision, &event)),
-				Ok(Some(WatchItem::Resync(r))) => return tr!("watch-resync", reason = r.reason),
-				Ok(None) => return tr!("watch-closed").into(),
-				Err(e) => return e.to_string(),
+			item = conn.watch.next() => {
+				match item {
+					Ok(Some(WatchItem::Snapshot(snapshot))) => hub.update(|s| s.load_snapshot(&snapshot)),
+					Ok(Some(WatchItem::Event { revision, event })) => hub.update(|s| s.apply_event(revision, &event)),
+					Ok(Some(WatchItem::Resync(r))) => return tr!("watch-resync", reason = r.reason),
+					Ok(None) => return tr!("watch-closed").into(),
+					Err(e) => return e.to_string(),
+				}
+				refresh_history(&conn.ops, hub, &mut history_seen).await;
 			},
 			sample = next_telemetry(&mut conn.telemetry) => match sample {
 				Ok(Some(t)) => hub.set_meters(convert::meters(&t)),
@@ -164,6 +169,27 @@ async fn mirror(
 				}
 			},
 		}
+	}
+}
+
+/// Reads the call history again when the engine says it changed (its revision moved), and
+/// once per connection. A failed read keeps the list shown and is tried again at the next
+/// change.
+async fn refresh_history(
+	ops: &Arc<dyn crate::engine::Operations>,
+	hub: &Hub,
+	seen: &mut Option<u64>,
+) {
+	let revision = hub.read(|s| s.settings.as_ref().map(|g| g.history_revision));
+	if revision.is_none() || *seen == revision {
+		return;
+	}
+	match ops.call_history().await {
+		Ok(entries) => {
+			*seen = revision;
+			hub.update(|s| s.history = entries);
+		}
+		Err(error) => tracing::debug!(%error, "call history not read"),
 	}
 }
 

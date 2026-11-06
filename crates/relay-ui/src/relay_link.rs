@@ -18,7 +18,7 @@ use crate::engine::{
 	Command, Connection, Engine, EngineError, EventSource, Operations, Outcome, SettingOutcome,
 	SettingResult, TelemetrySource,
 };
-use crate::model::ConnectionView;
+use crate::model::{ConnectionView, HistoryEntry};
 use crate::tr;
 
 const CLIENT_NAME: &str = "relay-desktop";
@@ -27,6 +27,8 @@ const CAPABILITIES: &[&str] = &["observe", "call-control"];
 const WATCH_QUEUE: usize = 256;
 const METERS_HZ: u32 = 10;
 const STATS_HZ: u32 = 1;
+/// Entries asked of `ListCallHistory`; the engine caps the page at its own limit.
+const HISTORY_FETCH: u32 = 200;
 const OP_POLL: Duration = Duration::from_millis(50);
 const OP_TIMEOUT: Duration = Duration::from_secs(5);
 
@@ -289,6 +291,7 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			inbound: inbound.map(inbound_to_wire),
 			advert: advert.map(advert_to_wire),
 		},
+		Command::ClearCallHistory => WireCommand::ClearCallHistory,
 		Command::CreateInvite { .. } => return None,
 	})
 }
@@ -321,6 +324,17 @@ impl Operations for Ops {
 	async fn avatar(&self, sha256: Vec<u8>) -> Result<Vec<u8>, EngineError> {
 		let image = self.client.lock().await.get_avatar(&sha256).await;
 		image.map(|i| i.image).map_err(map_error)
+	}
+
+	async fn call_history(&self) -> Result<Vec<HistoryEntry>, EngineError> {
+		let page = self
+			.client
+			.lock()
+			.await
+			.list_call_history(HISTORY_FETCH, None)
+			.await
+			.map_err(map_error)?;
+		Ok(page.entries.iter().map(convert::history_entry).collect())
 	}
 
 	async fn get_settings(&self) -> Result<BTreeMap<String, String>, EngineError> {
