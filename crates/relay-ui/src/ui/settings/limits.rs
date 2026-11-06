@@ -18,7 +18,7 @@ use crate::tr;
 type Remembered = (LimitsPanel, u64);
 
 /// The limits grouped by what they bound: indexes into [`DEFS`].
-const GROUPS: [&[usize]; 3] = [&[0], &[1, 2, 5], &[3, 4]];
+const GROUPS: [&[usize]; 3] = [&[0], &[1, 6, 2, 5], &[3, 4]];
 
 fn group_title(group: usize) -> &'static str {
 	match group {

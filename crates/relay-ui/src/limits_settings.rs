@@ -17,6 +17,7 @@ pub enum Unit {
 	Entries,
 	Days,
 	Transfers,
+	Calls,
 }
 
 impl Unit {
@@ -27,6 +28,7 @@ impl Unit {
 			Self::Entries => tr!("limits-unit-entries"),
 			Self::Days => tr!("limits-unit-days"),
 			Self::Transfers => tr!("limits-unit-transfers"),
+			Self::Calls => tr!("limits-unit-calls"),
 		}
 	}
 }
@@ -42,7 +44,7 @@ pub struct Def {
 }
 
 /// Number of limits.
-pub const COUNT: usize = 6;
+pub const COUNT: usize = 7;
 
 /// Every limit, in display order.
 pub const DEFS: [Def; COUNT] = [
@@ -88,6 +90,13 @@ pub const DEFS: [Def; COUNT] = [
 		max: 8,
 		default: 2,
 	},
+	Def {
+		key: "limits.messages_retained_calls",
+		unit: Unit::Calls,
+		min: 0,
+		max: 20,
+		default: 3,
+	},
 ];
 
 impl Def {
@@ -99,6 +108,7 @@ impl Def {
 			"limits.messages_retained_mib" => tr!("limits-retained-label"),
 			"limits.history_max_entries" => tr!("limits-entries-label"),
 			"limits.history_max_age_days" => tr!("limits-age-label"),
+			"limits.messages_retained_calls" => tr!("limits-calls-label"),
 			_ => tr!("limits-transfers-label"),
 		}
 	}
@@ -111,6 +121,7 @@ impl Def {
 			"limits.messages_retained_mib" => tr!("limits-retained-help"),
 			"limits.history_max_entries" => tr!("limits-entries-help"),
 			"limits.history_max_age_days" => tr!("limits-age-help"),
+			"limits.messages_retained_calls" => tr!("limits-calls-help"),
 			_ => tr!("limits-transfers-help"),
 		}
 	}
