@@ -151,6 +151,7 @@ pub(super) fn peer_output(
 				item,
 				PeerOutput::Profile { .. }
 					| PeerOutput::AvatarReady { .. }
+					| PeerOutput::Trusted(_)
 					| PeerOutput::Core(
 						relay_core::PeerEvent::LinkUp(_) | relay_core::PeerEvent::LinkDown(_)
 					)
@@ -216,7 +217,9 @@ pub(super) fn peer_output(
 					messaging.peer_event(event).await;
 					Ok(())
 				}
-				PeerOutput::Profile { .. } | PeerOutput::AvatarReady { .. } => Ok(()),
+				PeerOutput::Profile { .. }
+				| PeerOutput::AvatarReady { .. }
+				| PeerOutput::Trusted(_) => Ok(()),
 			};
 			if delivered.is_err() {
 				break;

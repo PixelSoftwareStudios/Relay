@@ -167,3 +167,35 @@ impl Raw {
 		.flatten()
 	}
 }
+
+struct Silent;
+
+impl relay_engine::peers::AdvertSink for Silent {
+	fn publish(&self, _advert: Option<&relay_net::discovery::Advertisement>) {}
+}
+
+/// A peer that advertises (a client attached) unless `hidden`: strangers may call it.
+/// The returned sender changes its visibility.
+pub async fn visible_peer(
+	name: &str,
+	hidden: bool,
+) -> (
+	TestPeer,
+	tokio::sync::watch::Sender<relay_engine::peers::AdvertSpec>,
+) {
+	use relay_engine::peers::{AdvertSpec, DiscoverySetup, SinkHandle};
+	let (spec, rx) = tokio::sync::watch::channel(AdvertSpec {
+		present: true,
+		hidden,
+		..AdvertSpec::default()
+	});
+	let mut config = fast_config(name);
+	config.advert = Some(rx);
+	config.discovery = Some(DiscoverySetup {
+		advertise: true,
+		sink: Some(SinkHandle(Arc::new(Silent))),
+		..DiscoverySetup::default()
+	});
+	let identity = Arc::new(Identity::generate().unwrap());
+	(peer_with(config, identity).await, spec)
+}

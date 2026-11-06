@@ -244,6 +244,8 @@ pub enum PeerOutput {
 		/// The classification (always `New` today).
 		trust: PeerTrust,
 	},
+	/// A link that already carried a call was pinned: the lists of people must be redrawn.
+	Trusted(PeerId),
 	/// A trusted peer's display profile (untrusted text; display only).
 	Profile {
 		/// The peer.
@@ -298,6 +300,9 @@ pub struct PeerSnapshot {
 	pub addresses: Vec<SocketAddr>,
 	/// Whether a trusted control link is up.
 	pub linked: bool,
+	/// Whether the domain may place a call on the link: a trusted link, or a stranger's
+	/// link while this device is visible.
+	pub callable: bool,
 	/// Trust state if pinned.
 	pub trust: Option<TrustState>,
 	/// Live round-trip timer of the link (see `rtt.rs`); read it with [`RttCell::get`].

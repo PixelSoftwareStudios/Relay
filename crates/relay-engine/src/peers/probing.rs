@@ -64,7 +64,7 @@ impl Actor {
 
 	/// True while discovery advertises this device: advertising is on, a client is
 	/// attached (presence) and the advert mode is not hidden.
-	fn may_probe(&self) -> bool {
+	pub(super) fn may_probe(&self) -> bool {
 		let advertising = self.config.discovery.as_ref().is_some_and(|d| d.advertise);
 		advertising
 			&& self

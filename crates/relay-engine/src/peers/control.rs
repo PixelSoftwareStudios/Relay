@@ -113,7 +113,7 @@ fn info(snapshot: &PeerSnapshot) -> Option<PeerInfo> {
 			Some(TrustState::UnverifiedFirstUse) => PeerTrust::TofuUnverified,
 			None => PeerTrust::Unknown,
 		},
-		reachable: snapshot.linked,
+		reachable: snapshot.callable,
 		avatar: snapshot.avatar,
 		key_change: None,
 	})

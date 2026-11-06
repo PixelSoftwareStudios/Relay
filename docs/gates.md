@@ -69,6 +69,8 @@ A hardware or review gate is never marked met by a test that uses fakes.
 
 ### WP-04 Discovery, trust, secure transport
 
+First contact is trust on first use: a call to or from a device that is not a contact pins its key as `UnverifiedFirstUse` when the call is answered. A LAN attacker who is present at that first contact can impersonate the device; nothing after it detects that. Comparing the fingerprint or scanning the QR code upgrades the contact to `Verified`. Tests: relay-engine `peers_call_trust`, `service_call_trust`, `peers_block`.
+
 | Gate | Status | Evidence / what is needed |
 |---|---|---|
 | No microphone starts on discovery, handshake or call acceptance alone | met-by-test | relay-core `routing::receive_only_by_default_and_no_capture_before_consent`; relay-engine `media_end_to_end::a_call_carries_audio_both_ways_only_after_consent_and_stops_on_withdrawal`; relay-cli `engine_e2e::call_sends_the_peer_id_and_never_a_microphone_grant`. |

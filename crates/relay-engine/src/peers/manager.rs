@@ -42,6 +42,8 @@ enum Outbox {
 pub(super) struct Entry {
 	pub(super) link: Established,
 	pub(super) trusted: bool,
+	/// The domain has been told this link is up (trusted, or open for a call).
+	pub(super) domain_up: bool,
 }
 
 pub(super) struct Actor {
@@ -57,6 +59,7 @@ pub(super) struct Actor {
 	pub(super) addresses: HashMap<Fingerprint, Vec<SocketAddr>>,
 	pub(super) table: DiscoveryTable,
 	pub(super) probed: super::probing::Probed,
+	pub(super) call_links: super::calling::CallLinks,
 	/// Authenticated links nobody trusts yet, bounded in total and per source.
 	pub(super) untrusted: UntrustedLinks<LinkId>,
 	pub(super) pending: HashMap<Fingerprint, VecDeque<Envelope>>,
@@ -235,6 +238,15 @@ impl Actor {
 		if self.trusted_link(&peer).is_some() {
 			self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
 				.await;
+		} else if self.canonical.contains_key(&peer) {
+			// A stranger's link: usable for a call while this device is visible.
+			self.announce_call_link(peer).await;
+			if let Some(id) = self.canonical.get(&peer)
+				&& self.links.get(id).is_some_and(|e| e.domain_up)
+			{
+				self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
+					.await;
+			}
 		} else {
 			self.try_dial(peer);
 		}
@@ -257,6 +269,9 @@ impl Actor {
 				}
 			}
 			None => {
+				if self.send_untrusted(peer, &envelope).await {
+					return;
+				}
 				let queue = self.pending.entry(peer).or_default();
 				if queue.len() >= PENDING_PER_PEER {
 					queue.pop_front();
@@ -275,7 +290,11 @@ impl Actor {
 		}
 	}
 
-	async fn pin(&mut self, peer: Fingerprint, state: TrustState) -> Result<(), PeerError> {
+	pub(super) async fn pin(
+		&mut self,
+		peer: Fingerprint,
+		state: TrustState,
+	) -> Result<(), PeerError> {
 		let (name, key) = self
 			.canonical
 			.get(&peer)
@@ -302,13 +321,24 @@ impl Actor {
 			.canonical
 			.get(&peer)
 			.and_then(|id| self.links.get_mut(id))
-			.is_some_and(|entry| !std::mem::replace(&mut entry.trusted, true));
-		if promoted {
+			.map(|entry| {
+				(
+					!std::mem::replace(&mut entry.trusted, true),
+					std::mem::replace(&mut entry.domain_up, true),
+				)
+			});
+		if let Some((true, announced)) = promoted {
 			if let Some(id) = self.canonical.get(&peer) {
 				self.untrusted.release(id);
 			}
-			self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
-				.await;
+			if announced {
+				// The domain already has this link (a call is on it): only the lists change.
+				self.publish_snapshot();
+				self.emit(PeerOutput::Trusted(peer_id(&peer))).await;
+			} else {
+				self.emit(PeerOutput::Core(PeerEvent::LinkUp(peer_id(&peer))))
+					.await;
+			}
 			self.flush_pending(peer).await;
 			self.announce_profile(peer).await;
 			self.announce_channel_link(peer).await;
@@ -385,14 +415,22 @@ impl Actor {
 			if elect(&self.local, &peer, facts(&old.link), facts(&link)) == Verdict::KeepFirst {
 				return;
 			}
-			previously_up = old.trusted;
+			previously_up = old.domain_up;
 			self.links.remove(&old_id);
 			self.untrusted.release(&old_id);
 		}
 		self.canonical.insert(peer, link.id);
 		let name = self.shown_name(&peer, &link.name);
 		let (id, source) = (link.id, link.remote_ip);
-		self.links.insert(link.id, Entry { link, trusted });
+		let domain_up = trusted || previously_up;
+		self.links.insert(
+			link.id,
+			Entry {
+				link,
+				trusted,
+				domain_up,
+			},
+		);
 		if !trusted {
 			for victim in self.untrusted.admit(id, source) {
 				self.drop_link(victim).await;
@@ -418,6 +456,7 @@ impl Actor {
 				trust,
 			})
 			.await;
+			self.announce_call_link(peer).await;
 		}
 	}
 
@@ -450,8 +489,13 @@ impl Actor {
 		let Some(entry) = self.links.get(&link) else {
 			return;
 		};
-		// Only the current canonical, trusted link may speak to the domain.
-		if !entry.trusted || self.canonical.get(&entry.link.fingerprint) != Some(&link) {
+		// Only the current canonical link may speak to the domain; an untrusted one only
+		// about a call, and only while strangers may call (see `calling.rs`).
+		if self.canonical.get(&entry.link.fingerprint) != Some(&link) {
+			return;
+		}
+		let trusted = entry.trusted;
+		if !trusted && !self.call_signalling_allowed(&body) {
 			return;
 		}
 		let fingerprint = entry.link.fingerprint;
@@ -491,7 +535,12 @@ impl Actor {
 			decode(peer, body, &mut table, &policy, &net)
 		};
 		match inbound {
-			Inbound::Event(event) => self.emit(PeerOutput::Core(event)).await,
+			Inbound::Event(event) => {
+				if !trusted && !self.screen_untrusted(link, fingerprint, &event).await {
+					return;
+				}
+				self.emit(PeerOutput::Core(event)).await;
+			}
 			Inbound::Media(signal) => self.emit(PeerOutput::Media { peer, signal }).await,
 			Inbound::Ignored => {}
 		}
@@ -509,9 +558,11 @@ impl Actor {
 		}
 		self.canonical.remove(&peer);
 		self.profiles.forget(&peer);
-		if entry.trusted {
+		if entry.domain_up {
 			self.emit(PeerOutput::Core(PeerEvent::LinkDown(peer_id(&peer))))
 				.await;
+		}
+		if entry.trusted {
 			let down = ChannelEvent::LinkDown {
 				peer: peer_id(&peer),
 			};
@@ -540,6 +591,7 @@ impl Actor {
 				name,
 				addresses: self.addresses.get(peer).cloned().unwrap_or_default(),
 				linked: entry.trusted,
+				callable: entry.domain_up,
 				trust: self.trust.lock().get(peer).map(|r| r.state),
 				probe: Some(Arc::clone(&entry.link.rtt)),
 			});
@@ -557,6 +609,7 @@ impl Actor {
 					name: found.display_name.clone(),
 					addresses: found.addresses.clone(),
 					linked: false,
+					callable: false,
 					trust: None,
 					probe: None,
 				});

@@ -570,6 +570,34 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   the trust store. A different key under a pinned name yields `KeyChanged` and the link is
   closed; nothing is replaced. `ConfigTrust` adapts the persistent `relay-config` store to
   relay-net's `TrustStore`; it can only pin keys authenticated in the current process.
+- Calls with strangers (`peers/calling.rs`): an untrusted link may carry exactly four things,
+  `Invite`, `Accept`, `Reject` and `End`; channels, messages, profiles and media negotiation
+  stay closed until the key is pinned. While a client is attached and the user is not private
+  (`PeerConfig::advert`: `present && !hidden`) the manager tells the domain such a link is up
+  (`LinkUp`; `Entry::domain_up`), so Call works on a Nearby device and an invitation from one
+  rings. In private mode (or with nobody attached) invitations from untrusted links are dropped
+  like any other message. **Trust on answer:** the callee pins when it sends `Accept`, the
+  caller when `Accept` arrives; both pin `UnverifiedFirstUse` (never `Verified`) with the key of
+  the very link that carried the invitation (`CallLinks` remembers the link id per call; an
+  `Accept` on another link, or after that link is gone, pins nothing and is not sent). A
+  decline, hang-up, timeout or failed call pins nothing. Promoting a link that already carries
+  a call emits `PeerOutput::Trusted` (lists refresh) instead of a second `LinkUp`. The first
+  contact is TOFU: a LAN attacker present at first contact can impersonate the device; the
+  later key-changed flow protects only after that, and comparing the fingerprint or scanning the
+  QR code upgrades the contact to `Verified`. Tests: `tests/peers_call_trust.rs`,
+  `tests/service_call_trust.rs`.
+- Block list (`peers/blocking.rs`, table `blocked`, `docs/config.md`): `Blocks` is a bounded
+  (256) set of key digests with the name they had, loaded from and written through to
+  `relay_config::blocklist::Blocklist`. A link whose handshake shows a blocked key is closed
+  right after the handshake: no `TrustRequired`, no event, no listing, no ring, no
+  notification; the dial of a blocked device we started fails with "blocked". Block is
+  `DecidePeerTrust(BLOCKED)` (`PeerHandle::block`): it stores the key, **removes the contact's
+  trust record** (its favorite goes with it) and cuts its link; the simplest safe rule, so a
+  blocked contact cannot slip back in by an old pin. Unblock is `ForgetPeer`/
+  `DecidePeerTrust(UNKNOWN)` on the same id (`PeerHandle::forget` checks the block list
+  first): the device can be met again but is not a contact. `PeerControl::peers` lists blocked
+  devices with `trust = BLOCKED` and `reachable = false`. Tests: `tests/peers_block.rs`,
+  `tests/service_call_trust.rs`.
 - Inbound hardening: the accept loop uses `HandshakeGate::try_enter(source_ip)` (2 pending
   handshakes per source, oldest of the busiest source evicted, `respond_gated` abandons an
   evicted one), sleeps `AcceptBackoff` (20 ms to 2 s) on accept errors, and `UntrustedLinks`
