@@ -31,6 +31,9 @@ pub enum PortError {
 	/// More than one object matches; the request must be narrower.
 	#[error("ambiguous: {0}")]
 	Ambiguous(String),
+	/// The device at the address does not have the key the decision is about.
+	#[error("the device does not have the expected key")]
+	KeyMismatch,
 	/// The adapter is temporarily unable to act.
 	#[error("unavailable: {0}")]
 	Unavailable(String),
@@ -347,6 +350,12 @@ pub trait PeerControl: Send + Sync {
 	}
 	/// Currently known peers.
 	fn peers(&self) -> Vec<PeerInfo>;
+	/// Stores a trust decision, reaching the device again when no link is held, and
+	/// reports why it could not. May block: the service calls it from a blocking
+	/// thread, never the actor. [`Self::decide_trust`] runs afterwards in the actor.
+	fn confirm_trust(&self, _request: &TrustRequest) -> Result<(), PortError> {
+		Ok(())
+	}
 	/// Applies a trust decision; the adapter owns the trust store.
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError>;
 	/// Removes the stored trust decision of the one peer `selector` names, cuts its link and

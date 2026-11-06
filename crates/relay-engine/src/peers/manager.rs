@@ -133,7 +133,12 @@ impl Actor {
 			Command::Session(peer, message) => self.send_session(peer, *message),
 			Command::Pin { peer, state, reply } => {
 				let result = self.pin(peer, state).await;
+				// The caller refreshes its view of the peers next: it must see this pin.
+				self.publish_snapshot();
 				let _ = reply.send(result);
+			}
+			Command::Candidates { peer, reply } => {
+				let _ = reply.send(Ok(self.candidate_addresses(&peer)));
 			}
 			Command::Link { peer, reply } => {
 				let info = self.trusted_link(&peer).map(|entry| LinkInfo {

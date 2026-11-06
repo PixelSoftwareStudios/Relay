@@ -55,6 +55,7 @@ pub fn service_problem(error: &PortError) -> Problem {
 		PortError::Invalid(_) => ("INVALID_REQUEST", false),
 		PortError::NotFound(_) => ("NOT_FOUND", false),
 		PortError::Ambiguous(_) => ("PEER_AMBIGUOUS", false),
+		PortError::KeyMismatch => ("TRUST_KEY_MISMATCH", false),
 		PortError::Unavailable(_) => ("UNAVAILABLE", true),
 	};
 	problem(code, error.to_string(), retryable, "")

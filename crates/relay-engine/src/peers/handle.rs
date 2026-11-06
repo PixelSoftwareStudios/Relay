@@ -31,6 +31,8 @@ pub enum PeerError {
 	UnknownKey,
 	#[error("trust store refused the decision: {0}")]
 	Trust(String),
+	#[error("the device answering does not have the key the decision is about")]
+	KeyMismatch,
 	#[error("address refused: {0}")]
 	Address(#[from] AddressError),
 	#[error("link failed: {0}")]
@@ -338,6 +340,11 @@ pub(super) enum Command {
 		state: TrustState,
 		reply: Reply<()>,
 	},
+	/// Where a peer may be dialled: remembered and discovered addresses.
+	Candidates {
+		peer: Fingerprint,
+		reply: Reply<Vec<SocketAddr>>,
+	},
 	Link {
 		peer: Fingerprint,
 		reply: oneshot::Sender<Option<LinkInfo>>,
@@ -484,6 +491,35 @@ impl PeerHandle {
 			reply,
 		})
 		.await
+	}
+
+	/// Like [`Self::pin`], but when no link to the peer is held (the probe link was
+	/// dropped while the user decided) dials its known addresses with the peer's key
+	/// pinned and pins once the handshake has shown that same key. A device answering
+	/// with another key is never pinned: the handshake refuses it.
+	pub async fn pin_reaching(&self, peer: PeerId, state: TrustState) -> Result<(), PeerError> {
+		match self.pin(peer, state).await {
+			Err(PeerError::UnknownKey) => {}
+			done => return done,
+		}
+		let addresses = self
+			.ask(|reply| Command::Candidates {
+				peer: fingerprint(peer),
+				reply,
+			})
+			.await?;
+		let mut last = PeerError::UnknownKey;
+		for addr in addresses {
+			match self.dial(addr, Some(peer)).await {
+				Ok(found) if found == peer => return self.pin(peer, state).await,
+				Ok(_) => return Err(PeerError::KeyMismatch),
+				Err(error) if error.to_string().contains("expected fingerprint") => {
+					return Err(PeerError::KeyMismatch);
+				}
+				Err(error) => last = error,
+			}
+		}
+		Err(last)
 	}
 
 	/// The current trusted link, for media binding.

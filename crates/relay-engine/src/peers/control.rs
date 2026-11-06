@@ -81,6 +81,24 @@ impl PeerAdapter {
 	}
 }
 
+/// How long a trust decision may take, including dialling the device again.
+const TRUST_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
+
+/// The stored state a valid request asks for.
+fn trust_state(request: &TrustRequest) -> Result<TrustState, PortError> {
+	if request.expected_key != request.peer {
+		return Err(PortError::Invalid("key does not match the peer".to_owned()));
+	}
+	match request.requested {
+		PeerTrust::TofuUnverified => Ok(TrustState::UnverifiedFirstUse),
+		PeerTrust::Verified if request.out_of_band_verified => Ok(TrustState::Verified),
+		PeerTrust::Verified => Err(PortError::Invalid(
+			"verified trust needs an out-of-band comparison".to_owned(),
+		)),
+		_ => Err(PortError::Unsupported("that trust label")),
+	}
+}
+
 fn unavailable(error: super::PeerError) -> PortError {
 	PortError::Unavailable(error.to_string())
 }
@@ -213,27 +231,29 @@ impl PeerControl for PeerAdapter {
 		self.handle.key_change(peer).map(|_| peer)
 	}
 
-	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError> {
-		if request.expected_key != request.peer {
-			return Err(PortError::Invalid("key does not match the peer".to_owned()));
-		}
-		let state = match request.requested {
-			PeerTrust::TofuUnverified => TrustState::UnverifiedFirstUse,
-			PeerTrust::Verified if request.out_of_band_verified => TrustState::Verified,
-			PeerTrust::Verified => {
-				return Err(PortError::Invalid(
-					"verified trust needs an out-of-band comparison".to_owned(),
-				));
-			}
-			_ => return Err(PortError::Unsupported("that trust label")),
-		};
+	fn confirm_trust(&self, request: &TrustRequest) -> Result<(), PortError> {
+		let state = trust_state(request)?;
 		let (handle, peer) = (self.handle.clone(), request.peer);
-		self.runtime.spawn(async move {
-			if let Err(error) = handle.pin(peer, state).await {
+		let pin = async move {
+			tokio::time::timeout(TRUST_TIMEOUT, handle.pin_reaching(peer, state)).await
+		};
+		match self.runtime.block_on(pin) {
+			Ok(Ok(())) => Ok(()),
+			Ok(Err(super::PeerError::KeyMismatch)) => Err(PortError::KeyMismatch),
+			Ok(Err(error)) => {
 				tracing::warn!(%error, "trust decision failed");
+				Err(PortError::Unavailable(error.to_string()))
 			}
-		});
-		Ok(())
+			Err(_) => {
+				tracing::warn!("trust decision timed out");
+				Err(PortError::Unavailable("timed out".to_owned()))
+			}
+		}
+	}
+
+	/// The pin itself happened in [`Self::confirm_trust`]; this only re-checks the request.
+	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError> {
+		trust_state(&request).map(drop)
 	}
 
 	fn forget_peer(&self, selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {

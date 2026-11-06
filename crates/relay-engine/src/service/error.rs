@@ -69,6 +69,7 @@ impl From<PortError> for ServiceError {
 		match error {
 			PortError::Unsupported(what) => Self::Unimplemented(what),
 			PortError::Invalid(why) => Self::InvalidArgument(why),
+			PortError::KeyMismatch => Self::Precondition(error.to_string()),
 			PortError::NotFound(what) => Self::Precondition(format!("not found: {what}")),
 			PortError::Ambiguous(why) | PortError::Unavailable(why) => Self::Precondition(why),
 		}

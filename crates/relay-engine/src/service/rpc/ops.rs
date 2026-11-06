@@ -16,7 +16,7 @@ use super::commands::gain;
 use crate::service::convert::{Mutation, peer_id};
 use crate::service::error::ServiceError;
 use crate::service::handle::ServiceOp;
-use crate::service::ports::{PeerTrust, TrustRequest};
+use crate::service::ports::{PeerTrust, PortError, TrustRequest};
 use crate::service::tones::RingUpdate;
 
 const MAX_NAME_CHARS: usize = 64;
@@ -235,5 +235,17 @@ pub(super) async fn trust(
 		requested,
 		out_of_band_verified: body.out_of_band_verified,
 	};
-	service_op(service, mutation, body, ServiceOp::Trust(request)).await
+	// Pinning may have to dial the device again; do it off the actor and report the real
+	// outcome instead of an applied operation that stored nothing.
+	let (peers, asked) = (service.shared.peers.clone(), request.clone());
+	let confirmed = tokio::task::spawn_blocking(move || peers.confirm_trust(&asked))
+		.await
+		.map_err(|_| ServiceError::Stopped)?;
+	match confirmed {
+		Ok(()) => service_op(service, mutation, body, ServiceOp::Trust(request)).await,
+		Err(PortError::Unsupported(what)) => Err(ServiceError::Unimplemented(what).into()),
+		Err(error) => Ok(Response::new(super::connect_trust::failed_port(
+			mutation, &error,
+		))),
+	}
 }

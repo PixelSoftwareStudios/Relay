@@ -155,7 +155,16 @@ Wiring (`daemon/assemble.rs`, `glue.rs`):
   warnings `TRUST_REQUIRED` / `PEER_KEY_CHANGED` through `ControlHandle::attention`, which
   appear as `StateEvent.warning` and in `Snapshot.warnings`. `AvatarRejected` is a warning
   (`AVATAR_REJECTED`). `Profile`, `AvatarReady` and link changes refresh the peer list.
-  Pinning goes through `DecidePeerTrust` (`PeerAdapter::decide_trust`).
+  Pinning goes through `DecidePeerTrust`. The RPC first runs `PeerControl::confirm_trust` on a
+  blocking thread (`PeerAdapter::confirm_trust`, 15 s limit): `PeerHandle::pin_reaching` pins at
+  once when a link is held; when the untrusted probe link is gone (the user reads the fingerprint
+  first, so it often is) it asks the actor for the peer's known and discovered addresses
+  (`Command::Candidates`) and dials them with the peer's key as the expected one, then pins once
+  the handshake showed that same key. Another key is refused in the handshake
+  (`PeerError::KeyMismatch`, `PortError::KeyMismatch`) and nothing is stored. A failure is a FAILED
+  operation, never an applied one: `TRUST_KEY_MISMATCH` or `UNAVAILABLE` (retryable; also timeouts).
+  `decide_trust` then only re-validates the request in the actor. Tests: `tests/peers_trust_redial.rs`,
+  `tests/service_trust_failure.rs`.
 - The device list is polled every second and published when it changes. The saved device
   selection is re-applied once hardware is listed; a missing device raises
   `SAVED_DEVICE_UNAVAILABLE`, never a substitute.

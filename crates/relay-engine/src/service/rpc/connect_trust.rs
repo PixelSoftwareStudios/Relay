@@ -7,9 +7,10 @@ use super::EngineService;
 use super::ops::service_op;
 use crate::service::ConnectFailure;
 use crate::service::convert::Mutation;
+use crate::service::convert::service_problem;
 use crate::service::error::ServiceError;
 use crate::service::handle::ServiceOp;
-use crate::service::ports::{PeerTrust, TrustRequest};
+use crate::service::ports::{PeerTrust, PortError, TrustRequest};
 
 /// Dials the string with its key pinned; on a match records the peer as verified through the
 /// same path as `DecidePeerTrust(VERIFIED, out_of_band_verified)`. Any failure is a FAILED
@@ -81,5 +82,16 @@ fn failed(mutation: &Mutation, failure: &ConnectFailure) -> Operation {
 			retryable: failure.retryable(),
 			recovery_action: String::new(),
 		}),
+	}
+}
+
+/// A FAILED operation for an adapter refusal, with its stable code.
+pub(super) fn failed_port(mutation: &Mutation, error: &PortError) -> Operation {
+	Operation {
+		operation_id: mutation.operation.to_bytes().to_vec(),
+		state: OperationState::Failed as i32,
+		revision: 0,
+		call_id: Vec::new(),
+		problem: Some(service_problem(error)),
 	}
 }
