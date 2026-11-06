@@ -4,6 +4,7 @@ use relay_io::LockExt;
 use std::sync::{Mutex, MutexGuard};
 
 use relay_config::avatar::{AvatarCache, process_avatar};
+use relay_config::history::{CallHistory, CallRecord, NewCallRecord};
 use relay_config::prefs::{
 	self, DeviceSelection, NoiseBackend, PreferenceStore, Preferences, Profile,
 };
@@ -19,6 +20,7 @@ use crate::service::ports::{
 pub struct FileSettings {
 	store: PreferenceStore,
 	avatars: AvatarCache,
+	history: CallHistory,
 	current: Mutex<Preferences>,
 	avatar: Mutex<Option<[u8; 32]>>,
 }
@@ -59,11 +61,17 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 impl FileSettings {
 	/// Wraps an open store with the preferences it loaded. The local avatar hash
 	/// persisted by an earlier run is restored if its bytes are still cached.
-	pub fn new(store: PreferenceStore, avatars: AvatarCache, loaded: Preferences) -> Self {
+	pub fn new(
+		store: PreferenceStore,
+		avatars: AvatarCache,
+		history: CallHistory,
+		loaded: Preferences,
+	) -> Self {
 		let avatar = avatars.local().ok().flatten();
 		Self {
 			store,
 			avatars,
+			history,
 			current: Mutex::new(loaded),
 			avatar: Mutex::new(avatar),
 		}
@@ -102,6 +110,7 @@ impl SettingsStore for FileSettings {
 				ringback_enabled: audio.ringback_enabled,
 				call_sounds_enabled: audio.call_sounds_enabled,
 			},
+			history_enabled: prefs.history.enabled,
 		}
 	}
 
@@ -188,6 +197,30 @@ impl SettingsStore for FileSettings {
 
 	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
 		prefs::flat::all(&lock(&self.current)).map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+
+	fn record_call(&self, entry: &NewCallRecord, now_ms: u64) -> Result<(), PortError> {
+		self.history
+			.record(entry, now_ms)
+			.map(drop)
+			.map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+
+	fn call_history(
+		&self,
+		limit: usize,
+		before: Option<u64>,
+	) -> Result<Vec<CallRecord>, PortError> {
+		self.history
+			.list(limit, before)
+			.map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+
+	fn clear_call_history(&self) -> Result<(), PortError> {
+		self.history
+			.clear()
+			.map(drop)
+			.map_err(|e| PortError::Unavailable(e.to_string()))
 	}
 
 	fn clear_avatar(&self) -> Result<(), PortError> {

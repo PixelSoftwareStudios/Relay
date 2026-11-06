@@ -49,6 +49,8 @@ pub struct ServiceConfig {
 	/// Stop the engine after this long with no client attached. `None` keeps
 	/// it running (service units, manual starts).
 	pub idle_exit: Option<Duration>,
+	/// Wall clock in unix milliseconds, used to date call history entries.
+	pub wall_clock: super::recorder::WallClock,
 }
 
 impl ServiceConfig {
@@ -64,6 +66,7 @@ impl ServiceConfig {
 			warnings: Vec::new(),
 			presence_debounce: Duration::from_secs(2),
 			idle_exit: None,
+			wall_clock: super::recorder::system_clock(),
 		}
 	}
 }
@@ -202,6 +205,7 @@ impl ServiceBuilder {
 				shutdown: Arc::clone(&shutdown),
 			},
 			messaging.clone(),
+			config.wall_clock,
 		);
 		let api = EngineService::new(Shared {
 			handle: handle.clone(),

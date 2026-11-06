@@ -127,6 +127,7 @@ pub(crate) enum Msg {
 		entries: Vec<(String, String)>,
 		reply: Reply<Result<Vec<super::settings_keys::KeyResult>, ServiceError>>,
 	},
+	ClearHistory(Reply<Result<(), ServiceError>>),
 	Snapshot(Reply<Snapshot>),
 	Operation {
 		client: ClientId,
@@ -288,6 +289,11 @@ impl ControlHandle {
 	) -> Result<Vec<super::settings_keys::KeyResult>, ServiceError> {
 		self.ask(|reply| Msg::Settings { entries, reply }, false)
 			.await?
+	}
+
+	/// Deletes the call history and announces the change.
+	pub async fn clear_call_history(&self) -> Result<(), ServiceError> {
+		self.ask(Msg::ClearHistory, false).await?
 	}
 
 	/// A consistent snapshot.

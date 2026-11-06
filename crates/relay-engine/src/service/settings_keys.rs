@@ -10,7 +10,7 @@ const SENSITIVE_KEYS: [&str; 3] = [
 ];
 
 /// Keys the running daemon applies at once (the rest are saved and read at the next start).
-const LIVE_KEYS: [&str; 14] = [
+const LIVE_KEYS: [&str; 15] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
@@ -25,6 +25,7 @@ const LIVE_KEYS: [&str; 14] = [
 	"messages.enabled",
 	"messages.max_offer_size_mib",
 	"messages.transfer_rate_limit_mbps",
+	"history.enabled",
 ];
 
 /// True for a key a client may not change over the API.

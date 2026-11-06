@@ -48,6 +48,9 @@ impl Actor {
 							self.directory.aux.advert_mode = stored.advert_mode;
 							profile = true;
 						}
+						"history.enabled" => {
+							self.directory.aux.history_enabled = stored.history_enabled;
+						}
 						"clients.autostart_daemon" => {
 							self.directory.aux.autostart_daemon = stored.autostart_daemon;
 						}

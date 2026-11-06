@@ -2,6 +2,7 @@
 //! implementation that talks to it.
 
 mod actor;
+mod actor_history;
 mod actor_ops;
 mod actor_settings;
 mod clients;
@@ -16,6 +17,7 @@ mod ids;
 mod ledger;
 pub mod ports;
 pub mod presence;
+mod recorder;
 mod rpc;
 mod runtime;
 mod settings_keys;
@@ -34,6 +36,7 @@ pub use ports::{
 	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, SettingsChange, SettingsStore,
 	StoredSettings, TrustRequest,
 };
+pub use recorder::WallClock;
 pub use rpc::EngineService;
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};
 pub use settings_keys::{KeyOutcome, KeyResult, is_live, is_messaging, is_sensitive};

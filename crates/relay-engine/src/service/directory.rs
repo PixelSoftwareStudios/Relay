@@ -38,6 +38,10 @@ pub struct Aux {
 	pub autostart_daemon: bool,
 	/// Ring, ringback and call-sound preferences.
 	pub ring: RingPrefs,
+	/// Finished calls are recorded.
+	pub history_enabled: bool,
+	/// Counts changes of the call history, so clients know when to refetch.
+	pub history_revision: u64,
 }
 
 impl Aux {
@@ -64,6 +68,8 @@ impl From<StoredSettings> for Aux {
 			inbound_policy: stored.inbound_policy,
 			advert_mode: stored.advert_mode,
 			ring: stored.ring,
+			history_enabled: stored.history_enabled,
+			history_revision: 0,
 		}
 	}
 }
@@ -100,6 +106,14 @@ impl Directory {
 			shared: BTreeMap::new(),
 			aux,
 		}
+	}
+
+	/// The display name last reported for a peer, if any.
+	pub fn peer_name(&self, id: PeerId) -> Option<String> {
+		self.peers
+			.get(&id)
+			.map(|p| p.display_name.clone())
+			.filter(|n| !n.trim().is_empty())
 	}
 
 	/// Start-up notices.

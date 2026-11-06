@@ -5,6 +5,7 @@ mod channels;
 mod commands;
 mod connection;
 mod forget;
+mod history;
 mod input;
 mod messages;
 mod messages_watch;
@@ -19,14 +20,14 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 
 use relay_api::pb::{
-	AcquireControllerRequest, ApprovePreviewRequest, AvatarImage, CallMutation,
+	AcquireControllerRequest, ApprovePreviewRequest, AvatarImage, CallHistoryPage, CallMutation,
 	ClearSessionRequest, ClientContext, ClientSession, ConnectionInfo, ControllerLease,
 	CreateChannelRequest, CreateInviteRequest, CreateInviteResponse, DecidePeerTrustRequest, Empty,
 	EngineInfo, ExportSessionRequest, ExportSessionResponse, ForgetPeerRequest, GetAvatarRequest,
 	GetOperationRequest, GetTranscriptRequest, InputControlAck, InputControlMessage,
-	JoinChannelRequest, LeaveChannelRequest, ListChannelsRequest, ListChannelsResponse,
-	ListSessionsResponse, MutationContext, OfferFileRequest, OfferRequest, Operation,
-	OperationState, PinMessageRequest, RegisterClientRequest, ReleaseControllerRequest,
+	JoinChannelRequest, LeaveChannelRequest, ListCallHistoryRequest, ListChannelsRequest,
+	ListChannelsResponse, ListSessionsResponse, MutationContext, OfferFileRequest, OfferRequest,
+	Operation, OperationState, PinMessageRequest, RegisterClientRequest, ReleaseControllerRequest,
 	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
@@ -505,6 +506,22 @@ impl Engine for EngineService {
 		let mutation = check_mutation(caller, Some(&body), &self.incarnation())?;
 		self.shared.book.require(caller, Capability::Admin)?;
 		Ok(Response::new(session::shutdown(self, &mutation)))
+	}
+
+	async fn list_call_history(
+		&self,
+		request: Request<ListCallHistoryRequest>,
+	) -> Result<Response<CallHistoryPage>, Status> {
+		self.observer(&request, |body| body.client.as_ref())?;
+		history::list(self, request.into_inner()).await
+	}
+
+	async fn clear_call_history(
+		&self,
+		request: Request<MutationContext>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, _) = self.begin(request, |body| Some(body))?;
+		history::clear(self, &mutation).await
 	}
 
 	async fn list_sessions(

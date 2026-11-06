@@ -8,6 +8,7 @@
 
 use std::sync::Arc;
 
+use relay_config::history::{CallRecord, NewCallRecord};
 use relay_core::{
 	AudioGeneration, CallId, DeviceKeyId, PeerId, PeerMessage, ReceiveMix, SessionId,
 };
@@ -262,6 +263,8 @@ pub struct StoredSettings {
 	pub advert_mode: AdvertMode,
 	/// Ring, ringback and call-sound preferences.
 	pub ring: RingPrefs,
+	/// Finished calls are recorded in the call history.
+	pub history_enabled: bool,
 }
 
 /// Capture, playback and per-call media resources.
@@ -352,6 +355,22 @@ pub trait SettingsStore: Send + Sync {
 	/// Every preference as flat `section.key` text, sorted.
 	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
 		Err(PortError::Unsupported("settings by key"))
+	}
+	/// Appends a finished call to the history; `now_ms` is the wall clock used for pruning.
+	fn record_call(&self, _entry: &NewCallRecord, _now_ms: u64) -> Result<(), PortError> {
+		Err(PortError::Unsupported("call history"))
+	}
+	/// Newest first; `before` continues after that entry id.
+	fn call_history(
+		&self,
+		_limit: usize,
+		_before: Option<u64>,
+	) -> Result<Vec<CallRecord>, PortError> {
+		Err(PortError::Unsupported("call history"))
+	}
+	/// Deletes every history entry.
+	fn clear_call_history(&self) -> Result<(), PortError> {
+		Err(PortError::Unsupported("call history"))
 	}
 	/// Removes the local avatar (it is no longer pinned in the cache).
 	fn clear_avatar(&self) -> Result<(), PortError>;
@@ -446,6 +465,7 @@ impl SettingsStore for Unwired {
 			autostart_daemon: true,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
+			history_enabled: true,
 			..StoredSettings::default()
 		}
 	}

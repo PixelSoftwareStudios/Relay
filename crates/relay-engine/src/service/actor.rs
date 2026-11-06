@@ -25,6 +25,7 @@ use super::handle::{Applied, Msg};
 use super::ledger::Ledger;
 use super::ports::Ports;
 use super::presence::{Presence, PresenceLink};
+use super::recorder::{Recorder, WallClock};
 use super::tones::{RingPrefs, ToneDriver, ToneInput};
 use crate::messaging::{CallFact, MessagingHandle, Phase};
 
@@ -68,6 +69,7 @@ pub(crate) struct Actor {
 	/// Receives the calls we know so sessions follow them.
 	messaging: Option<MessagingHandle>,
 	messaging_key: Option<relay_core::Revision>,
+	pub(super) recorder: Recorder,
 }
 
 impl Actor {
@@ -83,6 +85,7 @@ impl Actor {
 		inbox: mpsc::Receiver<Msg>,
 		attendance: Attendance,
 		messaging: Option<MessagingHandle>,
+		clock: WallClock,
 	) -> Self {
 		let cursor = Cursor {
 			incarnation: Incarnation::from_u128(u128::from_be_bytes(incarnation)),
@@ -107,6 +110,7 @@ impl Actor {
 			feedback: VecDeque::new(),
 			messaging,
 			messaging_key: None,
+			recorder: Recorder::new(clock),
 		}
 	}
 
@@ -282,6 +286,9 @@ impl Actor {
 			Msg::Settings { entries, reply } => {
 				let _ = reply.send(self.settings(&entries));
 			}
+			Msg::ClearHistory(reply) => {
+				let _ = reply.send(self.clear_history());
+			}
 			Msg::Snapshot(reply) => {
 				let _ = reply.send(self.snapshot());
 			}
@@ -403,6 +410,9 @@ impl Actor {
 				for item in items {
 					if let Event::CallForgotten(id) = &item.event {
 						self.gates.forget(*id);
+					}
+					if let Event::CallUpdated(view) = &item.event {
+						self.record_call(view);
 					}
 					let next = self.feed.revision() + 1;
 					let events = events_of(&item.event, next, &mut self.directory);

@@ -239,6 +239,7 @@ pub struct MemorySettings {
 	stored: Mutex<StoredSettings>,
 	avatars: Mutex<Vec<([u8; 32], Vec<u8>)>>,
 	prefs: Mutex<relay_config::prefs::Preferences>,
+	history: Mutex<Vec<relay_config::history::CallRecord>>,
 }
 
 /// Copies one saved preference into the typed view the engine reads live.
@@ -255,6 +256,7 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 		"audio.ringtone_volume" => ring.ringtone_volume = audio.ringtone_volume,
 		"audio.ringback_enabled" => ring.ringback_enabled = audio.ringback_enabled,
 		"audio.call_sounds_enabled" => ring.call_sounds_enabled = audio.call_sounds_enabled,
+		"history.enabled" => stored.history_enabled = prefs.history.enabled,
 		"privacy.inbound_policy" => {
 			stored.inbound_policy = match prefs.privacy.inbound_policy {
 				p::InboundPolicy::Anyone => InboundPolicy::Anyone,
@@ -279,9 +281,11 @@ impl Default for MemorySettings {
 				autostart_daemon: true,
 				microphone_gain: 1.0,
 				playback_gain: 1.0,
+				history_enabled: true,
 				..StoredSettings::default()
 			}),
 			avatars: Mutex::default(),
+			history: Mutex::default(),
 			prefs: Mutex::new(relay_config::prefs::Preferences {
 				profile: relay_config::prefs::Profile {
 					display_name: "Test device".to_owned(),
@@ -342,6 +346,46 @@ impl SettingsStore for MemorySettings {
 	fn all(&self) -> Result<std::collections::BTreeMap<String, String>, PortError> {
 		relay_config::prefs::flat::all(&lock(&self.prefs))
 			.map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+	fn record_call(
+		&self,
+		entry: &relay_config::history::NewCallRecord,
+		_now_ms: u64,
+	) -> Result<(), PortError> {
+		use relay_config::history::CallRecord;
+		let mut rows = lock(&self.history);
+		let id = rows.first().map_or(1, |r| r.id + 1);
+		rows.insert(
+			0,
+			CallRecord {
+				id,
+				peer_name: entry.peer_name.clone(),
+				peer_fingerprint: entry.peer_fingerprint.clone(),
+				peer_fingerprint_short: entry.peer_fingerprint_short.clone(),
+				direction: entry.direction,
+				outcome: entry.outcome,
+				started_at_ms: entry.started_at_ms,
+				duration_ms: entry.duration_ms,
+				call_id: entry.call_id,
+			},
+		);
+		Ok(())
+	}
+	fn call_history(
+		&self,
+		limit: usize,
+		before: Option<u64>,
+	) -> Result<Vec<relay_config::history::CallRecord>, PortError> {
+		Ok(lock(&self.history)
+			.iter()
+			.filter(|r| before.is_none_or(|b| r.id < b))
+			.take(limit)
+			.cloned()
+			.collect())
+	}
+	fn clear_call_history(&self) -> Result<(), PortError> {
+		lock(&self.history).clear();
+		Ok(())
 	}
 	fn clear_avatar(&self) -> Result<(), PortError> {
 		lock(&self.stored).avatar = None;

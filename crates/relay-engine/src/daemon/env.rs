@@ -5,6 +5,7 @@ use std::sync::Arc;
 use relay_config::WriterLock;
 use relay_config::avatar::AvatarCache;
 use relay_config::channels::ChannelStorage;
+use relay_config::history::CallHistory;
 use relay_config::identity::{IdentityStore, Secret32, StoredIdentity, TrustStore, open_store};
 use relay_config::prefs::{PreferenceStore, Preferences};
 use relay_config::vault::{SecretVault, open_vault};
@@ -126,6 +127,7 @@ pub(super) fn load(
 	let settings = Arc::new(FileSettings::new(
 		prefs_store,
 		AvatarCache::new(&storage.database),
+		CallHistory::open(&storage.database),
 		preferences.clone(),
 	));
 	Ok(Loaded {

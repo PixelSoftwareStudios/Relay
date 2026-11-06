@@ -186,6 +186,8 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		ringtone_volume: aux.ring.ringtone_volume,
 		ringback_enabled: aux.ring.ringback_enabled,
 		call_sounds_enabled: aux.ring.call_sounds_enabled,
+		history_enabled: aux.history_enabled,
+		history_revision: aux.history_revision,
 		ptt_release_delay_ms: u32::try_from(global.ptt_release_delay.as_millis())
 			.unwrap_or(u32::MAX),
 	}
