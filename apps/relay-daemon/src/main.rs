@@ -29,6 +29,8 @@ fn main() -> ExitCode {
 	let result = args
 		.options()
 		.map(|options| runtime.block_on(relay_engine::daemon::run(options)));
+	// A keychain prompt that is still open holds a blocking thread; do not wait for the user.
+	runtime.shutdown_timeout(std::time::Duration::from_secs(1));
 	match result {
 		Ok(Ok(())) => ExitCode::SUCCESS,
 		Ok(Err(error)) => {
