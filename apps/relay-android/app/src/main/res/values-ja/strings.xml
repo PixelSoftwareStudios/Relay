@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">もう一方のデバイスのQRコードにカメラを向けてください</string>
+	<string name="scan_torch">ライト</string>
+	<string name="scan_cancel">キャンセル</string>
+</resources>

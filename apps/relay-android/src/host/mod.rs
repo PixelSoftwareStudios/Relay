@@ -112,6 +112,7 @@ impl Host {
 			sealer,
 		)));
 		options.audio = audio_setup();
+		options.default_display_name.clone_from(&config.default_display_name);
 		options.network.discovery = Some(DiscoverySetup {
 			advertise: true,
 			hints: Some(source),

@@ -137,9 +137,12 @@ peer manager, then the server (2 s drain), then removes the socket files.
 
 ## Profile
 
-The advertised display name is the stored preference, or the computer's hostname (via
-`gethostname`) when the preference is empty or still the factory default; either way it passes
-`relay_net::discovery::sanitize_display_name`. `SetProfile` sanitizes and persists through
+The advertised display name is the stored preference; when the preference is empty or still the factory
+default it is `RunOptions::default_display_name` (additive, `None` on desktop; a phone passes its device
+name because an Android hostname is `localhost`), and when that is `None` or blank after sanitising, the
+computer's hostname (via `gethostname`). A name the user set always wins. Whatever is chosen passes
+`relay_net::discovery::sanitize_display_name`. The default is never written to the preferences, so a later
+change of the device name is picked up until the user chooses one. Tests: `daemon::settings::tests`. `SetProfile` sanitizes and persists through
 `relay-config`. `UploadAvatar` goes through `relay_config::avatar::process_avatar`
 (size/dimension-capped decode, centre crop, 256x256 lossless WebP encode, blake3 hash; accepts PNG, JPEG, WebP, GIF, BMP and TIFF) and the avatar
 cache. `Settings.display_name` and `Settings.avatar_sha256` carry both in snapshots and

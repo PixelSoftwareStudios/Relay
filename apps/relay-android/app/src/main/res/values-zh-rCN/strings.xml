@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">将相机对准另一台设备的二维码</string>
+	<string name="scan_torch">手电筒</string>
+	<string name="scan_cancel">取消</string>
+</resources>

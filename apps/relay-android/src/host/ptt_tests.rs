@@ -36,6 +36,7 @@ impl Rig {
 		let ports = fakes.ports();
 		let config = EngineConfig {
 			files_dir: dir.path().to_string_lossy().into_owned(),
+			default_display_name: None,
 		};
 		let tweak: Tweak = Box::new(move |options: &mut RunOptions| {
 			options.adapters = Some(Box::new(move |_| ports));

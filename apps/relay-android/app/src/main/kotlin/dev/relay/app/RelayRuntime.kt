@@ -3,6 +3,9 @@ package dev.relay.app
 import android.app.Application
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -10,6 +13,7 @@ import androidx.core.content.ContextCompat
 import uniffi.relay_android.EngineConfig
 import uniffi.relay_android.MicrophoneState
 import uniffi.relay_android.RelayEngine
+import uniffi.relay_android.ScanOutcome
 import java.util.concurrent.Executors
 
 /**
@@ -45,6 +49,9 @@ object RelayRuntime {
         whenReady { it.setMicrophone(gate.access().toState()) }
         main.post { reevaluate() }
     }
+	/** The camera permission, asked on the first tap of Scan and never at startup. */
+	val camera = PermissionGate { Log.i(TAG, "camera permission: $it") }
+	val scan = ScanFlow(camera) { id, result -> whenReady { it.completeScan(id, result.toOutcome()) } }
     val notifications = PermissionGate { Log.i(TAG, "notification permission: $it") }
 
     /** Called once from [RelayApplication.onCreate]. */
@@ -61,10 +68,24 @@ object RelayRuntime {
         Access.BLOCKED -> MicrophoneState.BLOCKED
     }
 
+	private fun deviceName(): String? = DeviceName.choose(
+		runCatching { Settings.Global.getString(app.contentResolver, "device_name") }.getOrNull(),
+		Build.MODEL,
+	)
+
+	private fun ScanResult.toOutcome() = when (this) {
+		is ScanResult.Text -> ScanOutcome.Text(text)
+		ScanResult.Cancelled -> ScanOutcome.Cancelled
+		ScanResult.CameraDenied -> ScanOutcome.CameraDenied
+		ScanResult.CameraBlocked -> ScanOutcome.CameraBlocked
+		ScanResult.Unavailable -> ScanOutcome.Unavailable
+		is ScanResult.Failed -> ScanOutcome.Failed(reason)
+	}
+
     private fun startEngine() {
         try {
             val started = RelayEngine(
-                EngineConfig(app.filesDir.absolutePath),
+				EngineConfig(app.filesDir.absolutePath, deviceName()),
                 AndroidBridge(app),
             )
             val queued = synchronized(pending) {
@@ -73,6 +94,7 @@ object RelayRuntime {
             }
             // A restarted engine starts with nothing known about the permission.
             started.setMicrophone(microphone.state.access().toState())
+			started.setScanner(app.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
             queued.forEach { it(started) }
             Log.i(TAG, "engine ready")
         } catch (e: Exception) {

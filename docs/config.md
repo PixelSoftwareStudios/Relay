@@ -214,3 +214,7 @@ Open `Storage` once per process, then share the handles:
 `PreferenceStore::open(&storage.database)`, `TrustStore::open(&storage.database)`,
 `AvatarCache::new(&storage.database)`. Key types are generic 32-byte values (`Secret32`,
 `StoredIdentity`); convert at the engine boundary.
+
+## Profile display name default
+
+`profile.display_name` is stored only when the user chooses one; the factory value and an empty string both mean "not chosen". Reading it for the advertisement (`FileSettings`, relay-engine) applies, in order: the stored name, `RunOptions::default_display_name` (the host's device name; nothing is stored for it), the hostname, each sanitised. See `docs/engine.md` ("Profile").

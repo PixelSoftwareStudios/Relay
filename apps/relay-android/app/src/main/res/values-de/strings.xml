@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">Richte die Kamera auf den QR-Code des anderen Geräts</string>
+	<string name="scan_torch">Taschenlampe</string>
+	<string name="scan_cancel">Abbrechen</string>
+</resources>

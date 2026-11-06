@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">다른 기기의 QR 코드에 카메라를 맞추세요</string>
+	<string name="scan_torch">손전등</string>
+	<string name="scan_cancel">취소</string>
+</resources>

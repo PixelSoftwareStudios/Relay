@@ -32,6 +32,9 @@ pub enum EngineError {
 pub struct EngineConfig {
 	/// `Context.getFilesDir()`: the app-private directory. Never a shared path.
 	pub files_dir: String,
+	/// The name shown until the user chooses one: the device name ("Galaxy S25
+	/// Ultra"), because an Android hostname is just `localhost`. Chosen in Kotlin.
+	pub default_display_name: Option<String>,
 }
 
 /// What the foreground service shows about the call, if any.
@@ -89,6 +92,17 @@ pub enum PickOutcome {
 	Failed { reason: String },
 }
 
+/// How a QR scan request ended. The text is untrusted; Rust checks it.
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum ScanOutcome {
+	Text { text: String },
+	Cancelled,
+	CameraDenied,
+	CameraBlocked,
+	Unavailable,
+	Failed { reason: String },
+}
+
 /// System bar and keyboard sizes in physical pixels.
 #[derive(Debug, Clone, Copy, Default, PartialEq, uniffi::Record)]
 pub struct InsetsPx {
@@ -122,6 +136,9 @@ pub trait HostBridge: Send + Sync {
 	/// Starts the document picker; the answer comes back through
 	/// `RelayEngine::complete_pick` with the same id.
 	fn pick(&self, request_id: u64, kind: PickKind);
+	/// Opens the QR scanner (asking for the camera on first use); the answer
+	/// comes back through `RelayEngine::complete_scan` with the same id.
+	fn scan_qr(&self, request_id: u64);
 	/// The call changed. Kotlin starts or stops the foreground service and
 	/// asks for the microphone permission when a call begins without it.
 	fn call_changed(&self, summary: CallSummary);

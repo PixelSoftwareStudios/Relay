@@ -59,6 +59,15 @@ class AndroidBridge(private val context: Context) : HostBridge {
         }
     }
 
+	override fun scanQr(requestId: ULong) {
+		val activity = MainActivity.current
+		if (activity == null) {
+			RelayRuntime.whenReady { it.completeScan(requestId, uniffi.relay_android.ScanOutcome.Failed("Relay is not open.")) }
+		} else {
+			activity.runOnUiThread { activity.scanQr(requestId) }
+		}
+	}
+
     override fun callChanged(summary: CallSummary) {
         RelayRuntime.onCallChanged(CallInfo(summary.active, summary.incoming, summary.muted, summary.peer))
     }

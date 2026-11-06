@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use crate::bridge::{
 	EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome,
+	ScanOutcome,
 };
 use crate::host::{Host, host};
 
@@ -53,6 +54,16 @@ impl RelayEngine {
 
 	pub fn complete_pick(&self, request_id: u64, outcome: PickOutcome) {
 		self.host.shell.complete_pick(request_id, outcome);
+	}
+
+	/// Kotlin's answer to `HostBridge::scan_qr`.
+	pub fn complete_scan(&self, request_id: u64, outcome: ScanOutcome) {
+		self.host.shell.complete_scan(request_id, outcome);
+	}
+
+	/// Whether this device has a camera to scan with (shows the Scan button).
+	pub fn set_scanner(&self, available: bool) {
+		self.host.shell.set_scanner(available);
 	}
 
 	/// Mute or unmute the microphone (notification action).

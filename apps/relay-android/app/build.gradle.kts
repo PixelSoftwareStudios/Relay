@@ -51,6 +51,12 @@ dependencies {
     implementation("androidx.appcompat:appcompat:1.7.1")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("net.java.dev.jna:jna:5.19.1@aar")
+	// QR scanning: CameraX preview plus ML Kit's bundled model (no Play services needed).
+	implementation("androidx.camera:camera-core:1.4.2")
+	implementation("androidx.camera:camera-camera2:1.4.2")
+	implementation("androidx.camera:camera-lifecycle:1.4.2")
+	implementation("androidx.camera:camera-view:1.4.2")
+	implementation("com.google.mlkit:barcode-scanning:17.3.0")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

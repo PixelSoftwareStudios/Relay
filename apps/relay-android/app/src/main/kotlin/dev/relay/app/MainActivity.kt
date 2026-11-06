@@ -25,6 +25,7 @@ import uniffi.relay_android.PickKind
  */
 class MainActivity : GameActivity() {
     private lateinit var picker: DocumentPicker
+	private lateinit var scanner: QrScanner
     private lateinit var permissions: androidx.activity.result.ActivityResultLauncher<Array<String>>
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -32,6 +33,7 @@ class MainActivity : GameActivity() {
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         current = this
         picker = DocumentPicker(this).also { it.register() }
+		scanner = QrScanner(this, RelayRuntime.scan).also { it.register() }
         permissions = registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
             result[Manifest.permission.RECORD_AUDIO]?.let { onMicrophoneResult(it) }
             result[Manifest.permission.POST_NOTIFICATIONS]?.let {
@@ -106,6 +108,8 @@ class MainActivity : GameActivity() {
     }
 
     fun pickDocument(id: ULong, kind: PickKind) = picker.launch(id, kind)
+
+	fun scanQr(id: ULong) = scanner.start(id)
 
     fun askForMicrophone() {
         if (microphone().shouldRequest()) requestMissingPermissions()

@@ -10,10 +10,11 @@ use std::sync::{Arc, Mutex};
 
 use relay_io::LockExt;
 use relay_ui::imaging::avatar_check;
+use relay_ui::qr_scan::ScanError;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use tokio::sync::oneshot;
 
-use crate::bridge::{HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome};
+use crate::bridge::{HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome, ScanOutcome};
 use relay_ui::microphone::MicrophoneAccess;
 
 type Pending = HashMap<u64, oneshot::Sender<PickOutcome>>;
@@ -44,6 +45,8 @@ pub struct AndroidShell {
 	microphone: AtomicU8,
 	next_pick: AtomicU64,
 	pending: Mutex<Pending>,
+	scanner: AtomicBool,
+	scans: Mutex<HashMap<u64, oneshot::Sender<ScanOutcome>>>,
 }
 
 impl AndroidShell {
@@ -60,6 +63,8 @@ impl AndroidShell {
 			microphone: AtomicU8::new(MicrophoneState::Ready as u8),
 			next_pick: AtomicU64::new(1),
 			pending: Mutex::new(Pending::new()),
+			scanner: AtomicBool::new(false),
+			scans: Mutex::new(HashMap::new()),
 		}
 	}
 
@@ -90,6 +95,18 @@ impl AndroidShell {
 	/// Kotlin's answer to [`HostBridge::pick`]. Unknown ids are ignored.
 	pub fn complete_pick(&self, request_id: u64, outcome: PickOutcome) {
 		if let Some(waiting) = self.pending.lock_unpoisoned().remove(&request_id) {
+			let _ = waiting.send(outcome);
+		}
+	}
+
+	pub fn set_scanner(&self, available: bool) {
+		self.scanner.store(available, Ordering::Release);
+		self.request_repaint();
+	}
+
+	/// Kotlin's answer to [`HostBridge::scan_qr`]. Unknown ids are ignored.
+	pub fn complete_scan(&self, request_id: u64, outcome: ScanOutcome) {
+		if let Some(waiting) = self.scans.lock_unpoisoned().remove(&request_id) {
 			let _ = waiting.send(outcome);
 		}
 	}
@@ -216,6 +233,34 @@ impl Shell for AndroidShell {
 	}
 
 	fn open_microphone_settings(&self) {
+		self.bridge.open_app_settings();
+	}
+
+	fn can_scan_qr(&self) -> bool {
+		self.scanner.load(Ordering::Acquire)
+	}
+
+	fn scan_qr(&self) -> BoxFuture<'_, Result<Option<String>, ScanError>> {
+		Box::pin(async {
+			let id = self.next_pick.fetch_add(1, Ordering::Relaxed);
+			let (tx, rx) = oneshot::channel();
+			self.scans.lock_unpoisoned().insert(id, tx);
+			self.bridge.scan_qr(id);
+			match rx.await {
+				Ok(ScanOutcome::Text { text }) => Ok(Some(text)),
+				Ok(ScanOutcome::Cancelled) | Err(_) => Ok(None),
+				Ok(ScanOutcome::CameraDenied) => Err(ScanError::CameraDenied),
+				Ok(ScanOutcome::CameraBlocked) => Err(ScanError::CameraBlocked),
+				Ok(ScanOutcome::Unavailable) => Err(ScanError::Unavailable),
+				Ok(ScanOutcome::Failed { reason }) => {
+					tracing::warn!(%reason, "QR scan failed");
+					Err(ScanError::Failed)
+				}
+			}
+		})
+	}
+
+	fn open_camera_settings(&self) {
 		self.bridge.open_app_settings();
 	}
 

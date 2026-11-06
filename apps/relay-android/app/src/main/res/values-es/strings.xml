@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">Apunta la cámara al código QR del otro dispositivo</string>
+	<string name="scan_torch">Linterna</string>
+	<string name="scan_cancel">Cancelar</string>
+</resources>

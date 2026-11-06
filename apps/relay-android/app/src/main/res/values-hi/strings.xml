@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<string name="scan_hint">दूसरे डिवाइस के QR कोड पर कैमरा रखें</string>
+	<string name="scan_torch">टॉर्च</string>
+	<string name="scan_cancel">रद्द करें</string>
+</resources>
