@@ -44,6 +44,8 @@ pub enum ConfigError {
 	IdentityMalformed(String),
 	#[error("insecure file key storage was not explicitly enabled")]
 	InsecureStorageNotEnabled,
+	#[error("{0}")]
+	Favorites(String),
 	#[error("avatar rejected: {0}")]
 	Avatar(#[from] AvatarError),
 }

@@ -81,6 +81,13 @@ CREATE TABLE call_history (
 	duration_ms INTEGER NOT NULL,
 	call_id BLOB NOT NULL CHECK (length(call_id) = 16)
 );
+
+-- Quick-call favorites: an ordered subset of the trusted peers. Forgetting a peer
+-- removes its favorite; the count limit lives in crate::favorites.
+CREATE TABLE favorites (
+	public_key TEXT PRIMARY KEY NOT NULL REFERENCES trust (public_key) ON DELETE CASCADE,
+	position INTEGER NOT NULL UNIQUE CHECK (position >= 0)
+) WITHOUT ROWID;
 ";
 
 const MIGRATIONS: &[&str] = &[V1];
