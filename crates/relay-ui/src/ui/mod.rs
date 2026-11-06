@@ -19,6 +19,7 @@ pub mod collapsing;
 mod connect;
 mod contacts;
 mod favorites;
+mod follow;
 mod history;
 mod home;
 pub mod icon_style;
@@ -64,6 +65,8 @@ pub struct RelayApp {
 	/// The layout the installed style was built for; `None` before the first frame.
 	class: Option<LayoutClass>,
 	page: Page,
+	/// The page the last frame drew (a change closes popups and the keyboard on phones).
+	drawn_page: Page,
 	/// The page Settings goes back to (regular layout).
 	back_to: Page,
 	/// The Settings category chosen; `None` is the list in the compact layout.
@@ -89,6 +92,7 @@ impl RelayApp {
 			local: Local::default(),
 			class: None,
 			page: Page::default(),
+			drawn_page: Page::default(),
 			back_to: Page::default(),
 			category: None,
 			messages: MessagesUi::new(zone),
@@ -197,6 +201,7 @@ impl RelayApp {
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
+		self.follow_calls(ctx);
 		if !self.actions.shell.window_visible() {
 			// Nobody sees the details: stop the engine's statistics stream.
 			self.local.details_call = None;
@@ -308,6 +313,7 @@ impl RelayApp {
 		let insets = self.actions.shell.safe_area_insets();
 		let keyboard = self.actions.shell.keyboard_height().max(0.0);
 		self.handle_keys(ui.ctx());
+		self.settle_navigation(ui.ctx(), class);
 		inset_panels(ui, insets, keyboard);
 		let state = self.actions.shared.state();
 		let meters = self.actions.shared.meters();

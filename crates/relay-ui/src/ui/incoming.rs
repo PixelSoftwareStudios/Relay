@@ -48,6 +48,7 @@ fn prompt(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 			button_row(ui, |ui| {
 				if icon_label_primary(ui, Icon::Call, tr!("call-accept")).clicked() {
 					let id = id.clone();
+					cx.local.goto = Some(crate::layout::Page::Calls);
 					actions.run(|c| async move { c.accept_call(&id).await });
 				}
 				if icon_label_danger(ui, Icon::HangUp, tr!("call-decline")).clicked() {

@@ -112,6 +112,7 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 			);
 			if call.clicked() {
 				let id = row.peer_id.clone();
+				cx.local.goto = Some(crate::layout::Page::Calls);
 				cx.actions.run(|c| async move { c.start_call(&id).await });
 			}
 			messages_button(ui, row, kept, cx);

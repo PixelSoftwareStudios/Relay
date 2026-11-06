@@ -69,6 +69,7 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 				let call = icon_label_enabled(ui, row.can_call, Icon::Call, tr!("peer-call"));
 				if call.clicked() {
 					let id = row.peer_id.clone();
+					cx.local.goto = Some(Page::Calls);
 					cx.actions.run(|c| async move { c.start_call(&id).await });
 				}
 				if full && row.known {

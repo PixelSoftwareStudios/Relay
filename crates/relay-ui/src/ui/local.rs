@@ -74,6 +74,9 @@ pub struct Local {
 	pub talk_drawn: bool,
 	/// The chat shown beside the call it belongs to; at most one.
 	pub chat: Option<ChatTarget>,
+	/// Calls placed here that have not been answered yet; the one that connects pulls the
+	/// user to Calls, once.
+	pub awaiting_answer: std::collections::HashSet<String>,
 	/// A page asked to go to another page (an empty state's button).
 	pub goto: Option<crate::layout::Page>,
 	/// The contact (hex peer id) the Contacts page should scroll to and show.

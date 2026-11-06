@@ -48,6 +48,19 @@ impl RelayApp {
 		true
 	}
 
+	/// An inline confirmation is showing.
+	pub(super) fn confirmation_open(&self) -> bool {
+		let l = &self.local;
+		l.confirm_quit_app
+			|| l.confirm_quit_daemon
+			|| l.confirm_remove_avatar
+			|| l.history_confirm_clear
+			|| l.revoke_confirm.is_some()
+			|| l.leave_confirm.is_some()
+			|| l.forget_confirm.is_some()
+			|| l.trust_confirm.is_some()
+	}
+
 	/// Cancel the first inline confirmation that is showing.
 	fn dismiss_confirmation(&mut self) -> bool {
 		let l = &mut self.local;
