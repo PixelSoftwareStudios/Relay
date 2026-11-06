@@ -46,6 +46,7 @@ fn call(n: u8, peer: u8, phase: Phase) -> Call {
 		problem: None,
 		controlled_by_me: true,
 		controller_generation: 1,
+		connected_at_unix_ms: 0,
 	}
 }
 
@@ -58,6 +59,8 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		reachable,
 		avatar_hash: String::new(),
 		fingerprint_short: format!("A1B2-C3D4-E5F6-07{n:02X}-293A"),
+		port: 47_800,
+		last_seen_unix_ms: 0,
 		shared_channels: Vec::new(),
 	}
 }
@@ -81,6 +84,8 @@ pub fn seed() -> AppState {
 			version: "mock".into(),
 			api_major: 1,
 			api_minor: 0,
+			build_revision: relay_api::BUILD_REVISION.into(),
+			api_revision: relay_api::API_REVISION,
 		}),
 		revision: 1,
 		peers: vec![
@@ -116,6 +121,11 @@ pub fn seed() -> AppState {
 			call_sounds_enabled: true,
 			history_enabled: true,
 			history_revision: 0,
+			default_transmit_mode: Mode::PushToTalk,
+			effective_default_transmit_mode: Mode::PushToTalk,
+			ptt_enabled: true,
+			daemon_build_revision: relay_api::BUILD_REVISION.into(),
+			daemon_api_revision: relay_api::API_REVISION,
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,
@@ -194,17 +204,13 @@ impl Operations for MockOps {
 			Command::EndCall { call_id, .. } => {
 				self.with_call(&call_id, |c| c.phase = Phase::Ended)
 			}
-			Command::SetTransmit {
-				call_id,
-				mode,
-				consent,
-				..
-			} => self.with_call(&call_id, |c| {
-				// Mirrors the engine: nothing transmits for push-to-talk without a key.
+			Command::SetTransmit { call_id, mode, .. } => self.with_call(&call_id, |c| {
+				// Mirrors the engine: the mode is the consent, and nothing transmits for
+				// push-to-talk without a key.
 				c.transmit = Transmit {
 					mode,
-					consent_granted: consent,
-					effective_transmitting: consent && mode == Mode::OpenMic,
+					consent_granted: mode != Mode::ReceiveOnly,
+					effective_transmitting: mode == Mode::OpenMic,
 					blocked_reason: String::new(),
 					releasing: false,
 				};
@@ -357,6 +363,10 @@ impl Operations for MockOps {
 						p.reachable = true;
 					}
 				});
+			}
+			Command::ConnectAndTrust { .. } => {
+				self.hub
+					.update(|s| s.notice = Some("Mock: nobody to connect to.".into()));
 			}
 			Command::ClearCallHistory => self.hub.update(|s| s.history.clear()),
 			Command::ClearAvatar => self.hub.update(|s| {

@@ -39,16 +39,16 @@ pub fn phase(value: i32) -> Phase {
 pub fn mode(value: i32) -> Mode {
 	match pb::TransmitMode::try_from(value) {
 		Ok(pb::TransmitMode::PushToTalk) => Mode::PushToTalk,
-		Ok(pb::TransmitMode::OpenMic) => Mode::OpenMic,
+		Ok(pb::TransmitMode::Unmuted) => Mode::OpenMic,
 		_ => Mode::ReceiveOnly,
 	}
 }
 
 pub fn mode_to_wire(mode: Mode) -> pb::TransmitMode {
 	match mode {
-		Mode::ReceiveOnly => pb::TransmitMode::ReceiveOnly,
+		Mode::ReceiveOnly => pb::TransmitMode::Muted,
 		Mode::PushToTalk => pb::TransmitMode::PushToTalk,
-		Mode::OpenMic => pb::TransmitMode::OpenMic,
+		Mode::OpenMic => pb::TransmitMode::Unmuted,
 	}
 }
 
@@ -80,6 +80,8 @@ pub fn peer(p: &pb::Peer) -> Peer {
 		reachable: p.reachable,
 		avatar_hash: hex::encode(&p.avatar_sha256),
 		fingerprint_short: short_fingerprint(&p.fingerprint_short),
+		port: p.port,
+		last_seen_unix_ms: p.last_seen_unix_ms,
 		shared_channels: p
 			.shared_channel_ids
 			.iter()
@@ -147,6 +149,7 @@ pub fn call(c: &pb::Call, me: &[u8]) -> Call {
 		problem: c.problem.as_ref().map(problem),
 		controlled_by_me: lease.is_some_and(|l| !me.is_empty() && l.controller_client_id == me),
 		controller_generation: lease.map_or(0, |l| l.generation),
+		connected_at_unix_ms: c.connected_at_unix_ms,
 	}
 }
 
@@ -186,6 +189,11 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		call_sounds_enabled: s.call_sounds_enabled,
 		history_enabled: s.history_enabled,
 		history_revision: s.history_revision,
+		default_transmit_mode: mode(s.default_transmit_mode),
+		effective_default_transmit_mode: mode(s.effective_default_transmit_mode),
+		ptt_enabled: s.ptt_enabled,
+		daemon_build_revision: s.daemon_build_revision.clone(),
+		daemon_api_revision: s.daemon_api_revision,
 		display_name: s.display_name.clone(),
 		avatar_hash: hex::encode(&s.avatar_sha256),
 		// An unspecified value is the conservative reading.
@@ -232,6 +240,8 @@ pub fn engine_info(i: &pb::EngineInfo) -> EngineInfo {
 		version: i.application_version.clone(),
 		api_major: i.api_major,
 		api_minor: i.api_minor,
+		build_revision: i.build_revision.clone(),
+		api_revision: i.api_revision,
 	}
 }
 

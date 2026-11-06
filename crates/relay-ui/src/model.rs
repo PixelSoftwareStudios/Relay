@@ -84,6 +84,10 @@ pub struct Peer {
 	/// Short key digest (`A1B2-C3D4-E5F6-0718-293A`): a hint to tell devices apart, never a
 	/// verification string. Empty when the engine sent none.
 	pub fingerprint_short: String,
+	/// Peer listener port of its first address; zero when unknown.
+	pub port: u32,
+	/// Last time the engine saw it by discovery or link (unix ms); zero when never.
+	pub last_seen_unix_ms: u64,
 	/// Hex ids of channels with proven shared membership.
 	pub shared_channels: Vec<String>,
 }
@@ -112,6 +116,9 @@ pub struct Call {
 	pub profile: String,
 	pub problem: Option<Problem>,
 	pub controlled_by_me: bool,
+	/// Engine wall clock (unix ms) when the call became connected; zero while it is not. Show
+	/// the duration as now minus this, so both ends and every client agree.
+	pub connected_at_unix_ms: u64,
 	/// Lease generation needed for call mutations; not shown in the UI.
 	#[serde(skip)]
 	pub controller_generation: u64,
@@ -173,6 +180,16 @@ pub struct Settings {
 	pub history_enabled: bool,
 	/// Changes whenever the engine adds to or clears the call history.
 	pub history_revision: u64,
+	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
+	pub default_transmit_mode: Mode,
+	/// What a new call really gets: differs from the default when push-to-talk is off.
+	pub effective_default_transmit_mode: Mode,
+	/// Push-to-talk may be chosen (`ptt.enabled`).
+	pub ptt_enabled: bool,
+	/// Git commit of the running daemon (with `-dirty` or `-dev` markers).
+	pub daemon_build_revision: String,
+	/// API revision of the running daemon.
+	pub daemon_api_revision: u32,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,
@@ -270,6 +287,10 @@ pub struct EngineInfo {
 	pub version: String,
 	pub api_major: u32,
 	pub api_minor: u32,
+	/// Build of the daemon (git commit, `-dirty`, or `<version>-dev`).
+	pub build_revision: String,
+	/// API revision of the daemon.
+	pub api_revision: u32,
 }
 
 /// Structural state; small enough to resend whole on every change.
@@ -294,6 +315,17 @@ pub struct AppState {
 	/// This client's id on the engine; used to tell who holds a call.
 	#[serde(skip)]
 	pub client_id: Vec<u8>,
+}
+
+impl AppState {
+	/// The running daemon is not this app's build or speaks another API revision: it is a
+	/// stale background service and should be restarted. False until settings arrive.
+	pub fn daemon_out_of_date(&self) -> bool {
+		self.settings.as_ref().is_some_and(|s| {
+			s.daemon_api_revision != relay_api::API_REVISION
+				|| s.daemon_build_revision != relay_api::BUILD_REVISION
+		})
+	}
 }
 
 impl Default for AppState {

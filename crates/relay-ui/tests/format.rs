@@ -14,6 +14,7 @@ fn call(transmit: Transmit) -> Call {
 		problem: None,
 		controlled_by_me: true,
 		controller_generation: 1,
+		connected_at_unix_ms: 0,
 	}
 }
 

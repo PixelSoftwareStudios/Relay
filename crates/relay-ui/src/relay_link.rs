@@ -197,12 +197,13 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			call_id,
 			generation,
 			mode,
-			consent,
 		} => WireCommand::SetTransmit {
 			call_id,
 			generation,
 			mode: mode_to_wire(mode),
-			consent,
+		},
+		Command::ConnectAndTrust { text } => WireCommand::ConnectAndTrust {
+			connection_string: text,
 		},
 		Command::SetCallControls {
 			call_id,

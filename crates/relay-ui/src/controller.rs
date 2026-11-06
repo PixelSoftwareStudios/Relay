@@ -199,24 +199,27 @@ impl Controller {
 		.map(drop)
 	}
 
-	/// Microphone transmission needs explicit consent in the same request.
-	pub async fn set_transmit(
-		&self,
-		call_id: &str,
-		mode: Mode,
-		consent: bool,
-	) -> Result<(), ControlError> {
-		if mode != Mode::ReceiveOnly && !consent {
-			return Err(ControlError::Invalid(tr!("err-consent-required")));
-		}
+	/// Sets the call's microphone mode. `OpenMic` (unmuted) and `PushToTalk` are the user's
+	/// consent to send the microphone to this call, `ReceiveOnly` (muted) withdraws it; the
+	/// engine applies mode and consent as one change.
+	pub async fn set_transmit(&self, call_id: &str, mode: Mode) -> Result<(), ControlError> {
 		let (id, call) = self.call(call_id)?;
 		let generation = self.generation(&id, &call).await?;
-		let consent = consent && mode != Mode::ReceiveOnly;
 		self.run(Command::SetTransmit {
 			call_id: id,
 			generation,
 			mode,
-			consent,
+		})
+		.await
+		.map(drop)
+	}
+
+	/// Dials a scanned `relay://host:port#fingerprint` string and trusts the device as
+	/// verified when its key matches the fingerprint. The engine validates the text and
+	/// refuses a mismatch or an unreachable address without storing anything.
+	pub async fn connect_and_trust(&self, text: &str) -> Result<(), ControlError> {
+		self.run(Command::ConnectAndTrust {
+			text: text.trim().to_owned(),
 		})
 		.await
 		.map(drop)

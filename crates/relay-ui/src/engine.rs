@@ -69,7 +69,6 @@ pub enum Command {
 		call_id: Vec<u8>,
 		generation: u64,
 		mode: Mode,
-		consent: bool,
 	},
 	SetCallControls {
 		call_id: Vec<u8>,
@@ -119,6 +118,11 @@ pub enum Command {
 	/// fingerprint. The digest is also the key the engine must see.
 	TrustPeer {
 		peer_id: Vec<u8>,
+	},
+	/// Dial a scanned `relay://` string and trust the device as verified when its key matches
+	/// the scanned fingerprint (the QR code is the out-of-band check).
+	ConnectAndTrust {
+		text: String,
 	},
 	/// Call a pasted `relay://` string; the engine validates it.
 	StartCallConnection {

@@ -155,7 +155,7 @@ fn microphone(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local
 				.clicked() && !selected
 			{
 				let id = cid.clone();
-				actions.run(|c| async move { c.set_transmit(&id, mode, consent).await });
+				actions.run(|c| async move { c.set_transmit(&id, mode).await });
 			}
 		}
 	});

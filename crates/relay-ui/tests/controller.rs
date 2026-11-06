@@ -62,19 +62,16 @@ async fn acquires_control_before_mutating_a_call_held_elsewhere() {
 }
 
 #[tokio::test]
-async fn transmit_requires_explicit_consent() {
+async fn the_transmit_mode_is_the_consent_and_travels_alone() {
 	let (ctl, _hub, ops) = controller_with(mine(), 0);
-	let err = ctl
-		.set_transmit(&call_hex(), Mode::OpenMic, false)
-		.await
-		.unwrap_err();
+	let err = ctl.set_transmit("zz", Mode::OpenMic).await.unwrap_err();
 	assert!(matches!(err, ControlError::Invalid(_)));
 	assert!(ops.recorded().is_empty());
 
-	ctl.set_transmit(&call_hex(), Mode::PushToTalk, true)
+	ctl.set_transmit(&call_hex(), Mode::PushToTalk)
 		.await
 		.unwrap();
-	ctl.set_transmit(&call_hex(), Mode::ReceiveOnly, true)
+	ctl.set_transmit(&call_hex(), Mode::ReceiveOnly)
 		.await
 		.unwrap();
 	let sent = ops.recorded();
@@ -84,17 +81,14 @@ async fn transmit_requires_explicit_consent() {
 			call_id: CALL.to_vec(),
 			generation: 3,
 			mode: Mode::PushToTalk,
-			consent: true
 		}
 	);
-	// Listen-only never carries consent, whatever the caller passed.
 	assert_eq!(
 		sent[1],
 		Command::SetTransmit {
 			call_id: CALL.to_vec(),
 			generation: 3,
 			mode: Mode::ReceiveOnly,
-			consent: false
 		}
 	);
 }
