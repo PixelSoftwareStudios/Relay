@@ -39,7 +39,8 @@ impl FavoriteBook {
 	/// Replaces the favorites. Refused with the reason when the list is too long, repeats a
 	/// peer or names a peer that is not trusted; nothing changes then.
 	pub fn set(&self, ordered: &[PeerId]) -> Result<(), PortError> {
-		let trusted = TrustStore::open(&self.db).map_err(|e| PortError::Unavailable(e.to_string()))?;
+		let trusted =
+			TrustStore::open(&self.db).map_err(|e| PortError::Unavailable(e.to_string()))?;
 		let mut keys = Vec::with_capacity(ordered.len());
 		for peer in ordered {
 			let found = trusted.entries().iter().find_map(|entry| {

@@ -37,7 +37,10 @@ fn zero_keeps_nothing_once_a_call_ends() {
 	h.set_max_ended(0);
 	assert_eq!(h.end_session(id(1)), vec![id(1)]);
 	assert!(h.get(id(1)).is_none());
-	assert!(h.get(id(2)).is_some_and(|s| !s.is_ended()), "running chats stay");
+	assert!(
+		h.get(id(2)).is_some_and(|s| !s.is_ended()),
+		"running chats stay"
+	);
 	assert!(h.ended_ids().is_empty());
 }
 
@@ -48,7 +51,11 @@ fn the_byte_budget_still_applies_when_it_is_stricter() {
 	h.set_max_ended(10);
 	assert!(h.end_session(id(1)).is_empty());
 	assert!(h.end_session(id(2)).is_empty());
-	assert_eq!(h.end_session(id(3)), vec![id(1)], "bytes evict before the count");
+	assert_eq!(
+		h.end_session(id(3)),
+		vec![id(1)],
+		"bytes evict before the count"
+	);
 }
 
 #[test]

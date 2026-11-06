@@ -17,7 +17,9 @@ fn trusted(dir: &std::path::Path, count: u8) -> (relay_config::Storage, TrustSto
 	let s = storage(dir);
 	let mut trust = TrustStore::open(&s.database).unwrap();
 	for n in 1..=count {
-		trust.pin_tofu(&key(n), &format!("Peer {n}"), u64::from(n)).unwrap();
+		trust
+			.pin_tofu(&key(n), &format!("Peer {n}"), u64::from(n))
+			.unwrap();
 	}
 	(s, trust)
 }
@@ -69,8 +71,14 @@ fn only_trusted_peers_and_no_duplicates() {
 	let (s, _) = trusted(dir.path(), 2);
 	let favorites = Favorites::open(&s.database);
 	favorites.set(&[key(1)]).unwrap();
-	assert_eq!(reason(favorites.set(&[key(1), key(9)]).unwrap_err()), NOT_TRUSTED);
-	assert_eq!(reason(favorites.set(&[key(2), key(2)]).unwrap_err()), DUPLICATE);
+	assert_eq!(
+		reason(favorites.set(&[key(1), key(9)]).unwrap_err()),
+		NOT_TRUSTED
+	);
+	assert_eq!(
+		reason(favorites.set(&[key(2), key(2)]).unwrap_err()),
+		DUPLICATE
+	);
 	assert_eq!(favorites.list().unwrap(), vec![key(1)]);
 }
 
