@@ -80,10 +80,6 @@ history-clear-ask = 이 기기의 통화 기록을 모두 삭제할까요?
 history-clear-yes = 기록 삭제
 history-clear-keep = 유지
 history-time-now = 방금
-history-time-minutes = { $count }분 전
-history-time-hours = { $count }시간 전
-history-time-yesterday = 어제 { $time }
-history-time-days = { $count }일 전
 
 mic-ask-title = Relay에 마이크가 필요합니다
 mic-ask-body = 통화에서 상대방이 내 목소리를 들을 수 있도록 마이크 접근을 허용하세요.

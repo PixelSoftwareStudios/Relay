@@ -79,14 +79,6 @@ history-clear-ask = इस डिवाइस का पूरा कॉल इ�
 history-clear-yes = इतिहास हटाएँ
 history-clear-keep = रहने दें
 history-time-now = अभी
-history-time-minutes = { $count } मिनट पहले
-history-time-hours = { $count } घंटे पहले
-history-time-yesterday = कल, { $time }
-history-time-days =
-    { $count ->
-        [one] 1 दिन पहले
-       *[other] { $count } दिन पहले
-    }
 
 mic-ask-title = Relay को आपके माइक्रोफ़ोन की ज़रूरत है
 mic-ask-body = माइक्रोफ़ोन का उपयोग करने दें, ताकि कॉल में दूसरा व्यक्ति आपको सुन सके।

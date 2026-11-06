@@ -80,10 +80,6 @@ history-clear-ask = 要删除此设备上的全部通话记录吗?
 history-clear-yes = 清除记录
 history-clear-keep = 保留
 history-time-now = 刚刚
-history-time-minutes = { $count } 分钟前
-history-time-hours = { $count } 小时前
-history-time-yesterday = 昨天 { $time }
-history-time-days = { $count } 天前
 
 mic-ask-title = Relay 需要使用麦克风
 mic-ask-body = 请允许访问麦克风，这样通话时对方才能听到你的声音。

@@ -39,6 +39,7 @@ pub mod shell;
 pub mod supervisor;
 pub mod tasks;
 pub mod theme;
+pub mod timefmt;
 pub mod ui;
 pub mod viewmodel;
 

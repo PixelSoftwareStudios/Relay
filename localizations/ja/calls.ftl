@@ -78,10 +78,6 @@ history-clear-ask = このデバイスの通話履歴をすべて削除します
 history-clear-yes = 履歴を削除
 history-clear-keep = 残す
 history-time-now = たった今
-history-time-minutes = { $count }分前
-history-time-hours = { $count }時間前
-history-time-yesterday = 昨日 { $time }
-history-time-days = { $count }日前
 
 mic-ask-title = Relay にはマイクが必要です
 mic-ask-body = 通話で相手に声が届くように、マイクへのアクセスを許可してください。

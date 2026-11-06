@@ -78,14 +78,6 @@ history-clear-ask = Apagar todo o histórico de chamadas deste dispositivo?
 history-clear-yes = Apagar histórico
 history-clear-keep = Manter
 history-time-now = Agora mesmo
-history-time-minutes = há { $count } min
-history-time-hours = há { $count } h
-history-time-yesterday = Ontem, { $time }
-history-time-days =
-    { $count ->
-        [one] há 1 dia
-       *[other] há { $count } dias
-    }
 
 mic-ask-title = O Relay precisa do seu microfone
 mic-ask-body = Permita o acesso ao microfone para que a outra pessoa possa ouvir você nas chamadas.

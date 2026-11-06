@@ -78,15 +78,6 @@ history-clear-ask = Удалить всю историю звонков на э�
 history-clear-yes = Очистить историю
 history-clear-keep = Оставить
 history-time-now = Только что
-history-time-minutes = { $count } мин назад
-history-time-hours = { $count } ч назад
-history-time-yesterday = Вчера, { $time }
-history-time-days =
-    { $count ->
-        [one] { $count } день назад
-        [few] { $count } дня назад
-       *[many] { $count } дней назад
-    }
 
 mic-ask-title = Relay нужен ваш микрофон
 mic-ask-body = Разрешите доступ к микрофону, чтобы собеседник слышал вас во время звонков.

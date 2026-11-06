@@ -79,14 +79,6 @@ history-clear-ask = Den gesamten Anrufverlauf auf diesem Gerät löschen?
 history-clear-yes = Verlauf löschen
 history-clear-keep = Behalten
 history-time-now = Gerade eben
-history-time-minutes = vor { $count } Min.
-history-time-hours = vor { $count } Std.
-history-time-yesterday = Gestern, { $time }
-history-time-days =
-    { $count ->
-        [one] vor 1 Tag
-       *[other] vor { $count } Tagen
-    }
 
 mic-ask-title = Relay braucht dein Mikrofon
 mic-ask-body = Erlaube den Zugriff auf das Mikrofon, damit dich die andere Person in Anrufen hören kann.

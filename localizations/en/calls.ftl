@@ -81,14 +81,6 @@ history-clear-ask = Delete the whole call history on this device?
 history-clear-yes = Clear history
 history-clear-keep = Keep
 history-time-now = Just now
-history-time-minutes = { $count } min ago
-history-time-hours = { $count } h ago
-history-time-yesterday = Yesterday, { $time }
-history-time-days =
-    { $count ->
-        [one] 1 day ago
-       *[other] { $count } days ago
-    }
 
 mic-ask-title = Relay needs your microphone
 mic-ask-body = Allow microphone access so the other person can hear you in calls.
