@@ -10,6 +10,7 @@ use crate::model::{AppState, Link};
 
 use super::local::Local;
 use super::sections::start_daemon_button;
+use super::widgets::{button_row, hint};
 use crate::tr;
 
 pub fn app_panel(
@@ -23,8 +24,12 @@ pub fn app_panel(
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
 		let live = own_live_calls(&state.calls).len();
-		ui.label(close_note(has_tray, live));
-		ui.horizontal_wrapped(|ui| {
+		ui.label(close_note(
+			has_tray,
+			actions.shell.runs_in_background(),
+			live,
+		));
+		button_row(ui, |ui| {
 			if has_tray && ui.button(tr!("app-hide")).clicked() {
 				actions.hide_window();
 			}
@@ -41,7 +46,7 @@ pub fn app_panel(
 		});
 		if local.confirm_quit_app {
 			ui.label(RichText::new(quit_prompt(live)).strong());
-			ui.horizontal_wrapped(|ui| {
+			button_row(ui, |ui| {
 				if ui.button(tr!("app-hang-up-quit")).clicked() {
 					actions.quit_app();
 				}
@@ -52,7 +57,7 @@ pub fn app_panel(
 		}
 		autostart_checkbox(ui, state, actions);
 		super::host_switches::draw(ui, actions);
-		ui.label(RichText::new(hotkey_note()).weak());
+		ui.label(RichText::new(hotkey_note(actions.shell.has_talk_button())).weak());
 	});
 	if actions.shell.can_manage_daemon() {
 		daemon_panel(ui, state, actions, local);
@@ -65,11 +70,10 @@ fn autostart_checkbox(ui: &mut Ui, state: &AppState, actions: &Actions) {
 		return;
 	};
 	let mut on = settings.autostart_daemon;
-	if ui
-		.checkbox(&mut on, tr!("autostart-label"))
-		.on_hover_text(tr!("autostart-hover"))
-		.changed()
-	{
+	let response = ui.checkbox(&mut on, tr!("autostart-label"));
+	let changed = response.changed();
+	hint(ui, response, tr!("autostart-hover"));
+	if changed {
 		actions.shared.autostart.set_setting(on);
 		actions.run(|c| async move { c.set_autostart(on).await });
 	}
@@ -100,7 +104,7 @@ fn daemon_panel(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Lo
 			return;
 		}
 		ui.label(RichText::new(tr!("daemon-quit-confirm")).strong());
-		ui.horizontal_wrapped(|ui| {
+		button_row(ui, |ui| {
 			if ui
 				.add_enabled(!busy, egui::Button::new(tr!("daemon-quit")))
 				.clicked()

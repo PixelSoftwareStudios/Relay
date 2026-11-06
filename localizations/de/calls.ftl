@@ -54,3 +54,4 @@ call-your-mic = Dein Mikrofon in diesem Anruf
 call-consent = Ich erlaube, mein Mikrofon an { $name } zu senden
 call-mute = Stummschalten (Anruf)
 call-deafen = Ton ausschalten (Anruf)
+call-talk-hold = Zum Sprechen halten

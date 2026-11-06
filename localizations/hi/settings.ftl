@@ -101,3 +101,5 @@ hotkey-rejected = { $label }: अस्वीकृत
 hotkey-rejected-reason = { $label }: अस्वीकृत ({ $reason })
 hotkey-saved = { $label }: सहेजा गया, रीस्टार्ट के बाद लागू होगा
 hotkey-saved-reason = { $label }: सहेजा गया, रीस्टार्ट के बाद लागू होगा ({ $reason })
+hotkey-note-button = इस डिवाइस में ग्लोबल हॉटकी नहीं है। पुश-टू-टॉक मोड की कॉल में बोलने के लिए बोलें बटन को दबाए रखें।
+close-background = इस ऐप को छोड़ने पर भी आपकी कॉल बैकग्राउंड में चलती रहती हैं।

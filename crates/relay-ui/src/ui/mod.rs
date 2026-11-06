@@ -235,6 +235,17 @@ impl RelayApp {
 		}
 	}
 
+	/// A held talk button that was not drawn this frame (page switched, call
+	/// ended) counts as released, so the microphone is never left open.
+	fn release_unseen_talk(&mut self) {
+		if !self.local.talk_drawn
+			&& let Some(call) = self.local.talking.take()
+		{
+			self.actions.shell.push_to_talk(&call, false);
+		}
+		self.local.talk_drawn = false;
+	}
+
 	fn header(&mut self, ui: &mut egui::Ui, class: LayoutClass) {
 		let state = self.actions.shared.state();
 		ui.horizontal(|ui| {
@@ -275,7 +286,9 @@ impl RelayApp {
 		}
 		if show(Page::Settings) {
 			connection::connection(ui, actions, local);
-			hotkey::hotkey(ui, actions, local);
+			if actions.shell.has_global_hotkey() {
+				hotkey::hotkey(ui, actions, local);
+			}
 		}
 		if show(Page::People) {
 			sections::peers(ui, &rows, actions, local, textures);
@@ -293,6 +306,7 @@ impl RelayApp {
 			profile::profile(ui, &state, actions, local, textures);
 			app_panel::app_panel(ui, &state, actions, local, has_tray);
 		}
+		self.release_unseen_talk();
 	}
 }
 

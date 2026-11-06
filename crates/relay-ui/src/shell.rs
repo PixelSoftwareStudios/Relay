@@ -127,6 +127,11 @@ pub trait Shell: FilePicker {
 	fn has_global_hotkey(&self) -> bool {
 		true
 	}
+	/// Whether leaving the app (closing its window or sending it away) keeps it
+	/// and its calls running without a window.
+	fn runs_in_background(&self) -> bool {
+		false
+	}
 	/// Whether the UI shows an on-screen hold-to-talk button on calls in
 	/// push-to-talk mode (for devices without a physical key).
 	fn has_talk_button(&self) -> bool {

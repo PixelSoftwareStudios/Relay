@@ -101,3 +101,5 @@ hotkey-rejected = { $label }: abgelehnt
 hotkey-rejected-reason = { $label }: abgelehnt ({ $reason })
 hotkey-saved = { $label }: gespeichert, wirksam nach einem Neustart
 hotkey-saved-reason = { $label }: gespeichert, wirksam nach einem Neustart ({ $reason })
+hotkey-note-button = Dieses Gerät hat keinen globalen Hotkey. Halte bei einem Anruf im Push-to-Talk-Modus die Sprechtaste gedrückt, um zu sprechen.
+close-background = Wenn du diese App verlässt, laufen deine Anrufe im Hintergrund weiter.

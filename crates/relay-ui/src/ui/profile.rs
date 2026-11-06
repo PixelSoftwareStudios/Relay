@@ -12,7 +12,7 @@ use crate::viewmodel::local_avatar;
 
 use super::local::Local;
 use super::textures::Textures;
-use super::widgets::{avatar, field_width};
+use super::widgets::{avatar, button_row, field_width};
 use crate::tr;
 
 pub fn profile(
@@ -69,7 +69,7 @@ pub fn profile(
 }
 
 fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local, stored: bool) {
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		if ui.button(tr!("profile-choose-image")).clicked() {
 			actions.pick_avatar();
 		}

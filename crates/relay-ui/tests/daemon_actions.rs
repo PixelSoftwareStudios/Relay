@@ -219,10 +219,10 @@ fn only_this_apps_live_calls_count_and_the_texts_mention_them() {
 	assert!(quit_prompt(2).contains("2 active calls"));
 	assert!(quit_prompt(1).contains("hung up"));
 	assert_eq!(quit_prompt(0), "Quit this app?");
-	assert!(close_note(true, 0).contains("hides it to the tray"));
-	assert!(close_note(false, 1).contains("quits this app"));
-	assert!(close_note(true, 3).contains("3 calls are active"));
-	assert!(close_note(true, 0).contains("hangs up the calls"));
+	assert!(close_note(true, false, 0).contains("hides it to the tray"));
+	assert!(close_note(false, false, 1).contains("quits this app"));
+	assert!(close_note(true, false, 3).contains("3 calls are active"));
+	assert!(close_note(true, false, 0).contains("hangs up the calls"));
 }
 
 #[tokio::test]

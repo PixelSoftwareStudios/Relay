@@ -56,3 +56,4 @@ call-your-mic = Your microphone in this call
 call-consent = I allow my microphone to be sent to { $name }
 call-mute = Mute (call)
 call-deafen = Deafen (call)
+call-talk-hold = Hold to talk

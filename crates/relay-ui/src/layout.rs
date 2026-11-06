@@ -41,6 +41,12 @@ impl LayoutClass {
 	}
 }
 
+/// Whether widgets are sized for touch (the compact style is installed), so
+/// information must not depend on hovering.
+pub fn is_touch(ui: &egui::Ui) -> bool {
+	ui.spacing().interact_size.y >= MIN_TOUCH_TARGET
+}
+
 /// Pages of the compact layout, shown in the bottom navigation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Page {

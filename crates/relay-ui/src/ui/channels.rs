@@ -9,7 +9,7 @@ use crate::actions::Actions;
 use crate::model::{Advert, AppState, Channel, Inbound};
 
 use super::local::{INVITE_USES, Local, invite_ttls};
-use super::widgets::{combo, field_width};
+use super::widgets::{button_row, combo, field_width};
 use crate::tr;
 
 pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
@@ -55,7 +55,7 @@ fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 		))
 		.weak(),
 	);
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		if channel.can_admin() && ui.button(tr!("channel-invite")).clicked() {
 			local.invite_channel = Some(channel.channel_id.clone());
 			local.invite = None;
@@ -83,7 +83,7 @@ fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut L
 }
 
 fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		egui::ComboBox::from_id_salt("invite-ttl")
 			.selected_text(invite_ttls()[local.invite_ttl].0)
 			.show_ui(ui, |ui| {
@@ -125,7 +125,7 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				.selectable(true)
 				.wrap(),
 		);
-		ui.horizontal_wrapped(|ui| {
+		button_row(ui, |ui| {
 			if ui.button(tr!("action-copy")).clicked() {
 				actions.copy_text(&token);
 			}
@@ -218,12 +218,11 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 			Inbound::SharedChannelOnly => tr!("privacy-inbound-shared"),
 		};
 		let mut inbound = settings.inbound;
-		combo(ui, tr!("privacy-who-rings"), inbound_label(inbound))
-			.show_ui(ui, |ui| {
-				for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
-					ui.selectable_value(&mut inbound, v, inbound_label(v));
-				}
-			});
+		combo(ui, tr!("privacy-who-rings"), inbound_label(inbound)).show_ui(ui, |ui| {
+			for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
+				ui.selectable_value(&mut inbound, v, inbound_label(v));
+			}
+		});
 		if inbound != settings.inbound {
 			actions.run(|c| async move { c.set_privacy(Some(inbound), None).await });
 		}
@@ -232,12 +231,11 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 			Advert::Hidden => tr!("privacy-advert-hidden"),
 		};
 		let mut advert = settings.advert;
-		combo(ui, tr!("privacy-visibility"), advert_label(advert))
-			.show_ui(ui, |ui| {
-				for v in [Advert::Visible, Advert::Hidden] {
-					ui.selectable_value(&mut advert, v, advert_label(v));
-				}
-			});
+		combo(ui, tr!("privacy-visibility"), advert_label(advert)).show_ui(ui, |ui| {
+			for v in [Advert::Visible, Advert::Hidden] {
+				ui.selectable_value(&mut advert, v, advert_label(v));
+			}
+		});
 		if advert != settings.advert {
 			actions.run(|c| async move { c.set_privacy(None, Some(advert)).await });
 		}

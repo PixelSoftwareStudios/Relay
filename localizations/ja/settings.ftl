@@ -98,3 +98,5 @@ hotkey-rejected = { $label }: 拒否されました
 hotkey-rejected-reason = { $label }: 拒否されました({ $reason })
 hotkey-saved = { $label }: 保存しました。再起動後に反映されます
 hotkey-saved-reason = { $label }: 保存しました。再起動後に反映されます({ $reason })
+hotkey-note-button = この端末にはグローバルホットキーがありません。プッシュ・トゥ・トークの通話では、話すボタンを押し続けて話します。
+close-background = このアプリを離れても、通話はバックグラウンドで続きます。

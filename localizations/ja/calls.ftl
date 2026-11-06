@@ -53,3 +53,4 @@ call-your-mic = この通話でのマイク
 call-consent = 自分のマイクの音声を { $name } に送信することを許可する
 call-mute = ミュート(通話)
 call-deafen = スピーカーミュート(通話)
+call-talk-hold = 押して話す

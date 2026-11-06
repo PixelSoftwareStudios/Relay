@@ -51,6 +51,10 @@ pub struct Local {
 	pub picked: Option<PickedImage>,
 
 	/// A call card asked to show that call's messages (hex call id).
+	/// The call whose on-screen talk button is held, and whether the button was
+	/// drawn this frame (a held button that vanishes counts as released).
+	pub talking: Option<String>,
+	pub talk_drawn: bool,
 	pub open_messages: Option<String>,
 
 	pub hotkey: HotkeyPanel,

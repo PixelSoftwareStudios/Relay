@@ -42,7 +42,9 @@ fn fitted(ui: &Ui, text: &str, width: f32, color: egui::Color32) -> std::sync::A
 	let mut size = TAB_FONT_MAX;
 	loop {
 		let font = FontId::proportional(size);
-		let whole = ui.painter().layout_no_wrap(text.to_owned(), font.clone(), color);
+		let whole = ui
+			.painter()
+			.layout_no_wrap(text.to_owned(), font.clone(), color);
 		if whole.size().x <= width || size <= TAB_FONT_MIN {
 			if whole.size().x <= width {
 				return whole;

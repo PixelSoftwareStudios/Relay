@@ -28,8 +28,14 @@ pub fn meter(ui: &mut Ui, dbfs: Option<f32>, label: &str) -> Response {
 	let bar = egui::ProgressBar::new(relay_client::meter::fill(dbfs))
 		.desired_width(120.0)
 		.animate(false);
-	ui.add(bar)
-		.on_hover_text(tr!("meter-hover", label = label, level = format_dbfs(dbfs)))
+	let text = tr!("meter-hover", label = label, level = format_dbfs(dbfs));
+	let response = ui.add(bar);
+	if crate::layout::is_touch(ui) {
+		ui.label(RichText::new(format_dbfs(dbfs)).weak().small());
+		response
+	} else {
+		response.on_hover_text(text)
+	}
 }
 
 /// Integer slider for the push-to-talk release delay, 0 to 2000 ms. The drag
@@ -73,11 +79,69 @@ pub fn combo<'a>(ui: &mut Ui, label: &str, selected: &str) -> egui::ComboBox<'a>
 pub fn slider_row(ui: &mut Ui, label: &str, slider: impl FnOnce(&mut Ui) -> Response) -> Response {
 	ui.label(label);
 	ui.scope(|ui| {
-		let room = ui.spacing().interact_size.x + ui.spacing().item_spacing.x;
+		// The value box is about two touch widths wide, with its spacing.
+		let spacing = ui.spacing();
+		let room = 2.0 * (spacing.interact_size.x + spacing.item_spacing.x);
 		ui.spacing_mut().slider_width = (ui.available_width() - room).max(60.0);
 		slider(ui)
 	})
 	.inner
+}
+
+/// A row of buttons. A pointer gets them side by side, wrapping; touch gets
+/// them stacked at the full row width, so a long translated label can never
+/// push a button past the right edge.
+pub fn button_row(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui)) {
+	if crate::layout::is_touch(ui) {
+		ui.with_layout(
+			egui::Layout::top_down_justified(egui::Align::Center),
+			add_contents,
+		);
+	} else {
+		ui.horizontal_wrapped(add_contents);
+	}
+}
+
+/// Explain a control. A pointer gets hover text; touch has no hover, so the
+/// text is shown under the control as a weak line.
+pub fn hint(ui: &mut Ui, response: Response, text: &str) -> Response {
+	if crate::layout::is_touch(ui) {
+		ui.label(RichText::new(text).weak().small());
+		response
+	} else {
+		response.on_hover_text(text)
+	}
+}
+
+/// A large press-and-hold button that works with a finger as well as a mouse:
+/// it follows the pointer being down on it, never hover. Returns whether it is
+/// held now.
+pub fn hold_button(ui: &mut Ui, label: &str, held: bool) -> bool {
+	let height = (crate::layout::MIN_TOUCH_TARGET * 1.75).max(72.0);
+	let size = egui::vec2(ui.available_width(), height);
+	let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click_and_drag());
+	let down = response.is_pointer_button_down_on();
+	let visuals = ui.visuals();
+	let fill = if down || held {
+		theme::LIVE
+	} else {
+		visuals.widgets.inactive.weak_bg_fill
+	};
+	let text_color = if down || held {
+		Color32::BLACK
+	} else {
+		visuals.text_color()
+	};
+	let painter = ui.painter();
+	painter.rect_filled(rect, 12.0, fill);
+	let galley = painter.layout(
+		label.to_owned(),
+		egui::FontId::proportional(20.0),
+		text_color,
+		rect.width() - 16.0,
+	);
+	painter.galley(rect.center() - galley.size() / 2.0, galley, text_color);
+	down
 }
 
 pub fn banner(ui: &mut Ui, text: &str, error: bool) {

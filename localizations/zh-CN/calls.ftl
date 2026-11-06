@@ -55,3 +55,4 @@ call-your-mic = 此通话中你的麦克风
 call-consent = 我允许向 { $name } 发送我的麦克风声音
 call-mute = 静音（通话）
 call-deafen = 拒听（通话）
+call-talk-hold = 按住说话

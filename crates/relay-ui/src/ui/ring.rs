@@ -3,6 +3,7 @@
 use egui::Ui;
 
 use super::local::Local;
+use super::widgets::{button_row, hint};
 use crate::actions::Actions;
 use crate::model::Settings;
 use crate::tr;
@@ -44,7 +45,7 @@ pub fn ring_controls(ui: &mut Ui, settings: &Settings, actions: &Actions, local:
 		actions
 			.run(|c| async move { c.set_ring_preferences(None, None, None, Some(sounds)).await });
 	}
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		if let Some(volume) =
 			volume_slider(ui, &mut local.ring_volume_edit, settings.ringtone_volume)
 		{
@@ -52,11 +53,10 @@ pub fn ring_controls(ui: &mut Ui, settings: &Settings, actions: &Actions, local:
 				|c| async move { c.set_ring_preferences(None, Some(volume), None, None).await },
 			);
 		}
-		if ui
-			.button(tr!("ring-test"))
-			.on_hover_text(tr!("ring-test-hover"))
-			.clicked()
-		{
+		let test = ui.button(tr!("ring-test"));
+		let clicked = test.clicked();
+		hint(ui, test, tr!("ring-test-hover"));
+		if clicked {
 			actions.run(|c| async move { c.preview_tone().await });
 		}
 	});

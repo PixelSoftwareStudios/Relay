@@ -100,3 +100,5 @@ hotkey-rejected = { $label }: 거부됨
 hotkey-rejected-reason = { $label }: 거부됨 ({ $reason })
 hotkey-saved = { $label }: 저장됨, 다시 시작하면 적용됩니다
 hotkey-saved-reason = { $label }: 저장됨, 다시 시작하면 적용됩니다 ({ $reason })
+hotkey-note-button = 이 기기에는 전역 단축키가 없습니다. 눌러서 말하기 모드의 통화에서는 말하기 버튼을 누른 채로 말하세요.
+close-background = 이 앱을 나가도 통화는 백그라운드에서 계속됩니다.

@@ -12,7 +12,7 @@ use crate::hotkey_settings::{ACCELERATOR_MAX_CHARS, outcome_text};
 use crate::theme;
 
 use super::local::Local;
-use super::widgets::{banner, field_width};
+use super::widgets::{banner, button_row, field_width, hint};
 use crate::tr;
 
 pub fn hotkey(ui: &mut Ui, actions: &Actions, local: &mut Local) {
@@ -58,19 +58,19 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	});
 	ui.horizontal_wrapped(|ui| {
 		ui.label(tr!("hotkey-delay"));
-		ui.add(
+		let drag = ui.add(
 			egui::DragValue::new(&mut panel.draft.release_delay_ms)
 				.range(0..=RELEASE_DELAY_MAX_MS)
 				.speed(10)
 				.suffix(format!(" {}", tr!("unit-ms"))),
-		)
-		.on_hover_text(tr!("hotkey-delay-hover"));
+		);
+		hint(ui, drag, tr!("hotkey-delay-hover"));
 	});
 	let problem = panel.draft.check().err();
 	if let Some(text) = problem {
 		ui.label(RichText::new(text).color(theme::WARN));
 	}
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		let ready = panel.dirty() && problem.is_none() && !panel.saving;
 		if ui
 			.add_enabled(ready, egui::Button::new(tr!("action-save")))

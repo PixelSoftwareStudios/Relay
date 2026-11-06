@@ -81,8 +81,12 @@ pub struct TransmitStatus {
 }
 
 /// What this client can and cannot do about push-to-talk.
-pub fn hotkey_note() -> &'static str {
-	tr!("hotkey-note")
+pub fn hotkey_note(has_talk_button: bool) -> &'static str {
+	if has_talk_button {
+		tr!("hotkey-note-button")
+	} else {
+		tr!("hotkey-note")
+	}
 }
 
 /// Honest transmit text. Only the engine's `effective_transmitting` ever
@@ -170,9 +174,11 @@ pub fn own_live_calls(calls: &[Call]) -> Vec<String> {
 }
 
 /// What closing the window does, and what quitting the app does to calls.
-pub fn close_note(has_tray: bool, own_calls: usize) -> String {
+pub fn close_note(has_tray: bool, runs_in_background: bool, own_calls: usize) -> String {
 	let close = if has_tray {
 		tr!("close-tray")
+	} else if runs_in_background {
+		tr!("close-background")
 	} else {
 		tr!("close-no-tray")
 	};

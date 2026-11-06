@@ -11,7 +11,7 @@ use crate::viewmodel::{CallCard, PeerRow, mode_enabled, modes};
 
 use super::local::Local;
 use super::textures::Textures;
-use super::widgets::{avatar, banner, gain_slider, meter, tone_color};
+use super::widgets::{avatar, banner, button_row, gain_slider, hold_button, meter, tone_color};
 use crate::tr;
 
 pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Actions) {
@@ -112,7 +112,7 @@ fn call_card(
 	}
 	if card.incoming {
 		ui.label(RichText::new(trust_line(&card.trust, &card.fingerprint)).small());
-		ui.horizontal_wrapped(|ui| {
+		button_row(ui, |ui| {
 			if ui.button(tr!("call-accept")).clicked() {
 				actions.run(|c| async move { c.accept_call(&id).await });
 			}
@@ -140,7 +140,7 @@ fn trust_line(trust: &str, fingerprint: &str) -> String {
 fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
 	let call = &card.call;
 	let cid = card.call_id.clone();
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		let end = if card.phase == crate::model::Phase::OutgoingRinging {
 			tr!("action-cancel")
 		} else {
@@ -208,7 +208,7 @@ fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) 
 		egui::Checkbox::new(consent, tr!("call-consent", name = card.name.as_str())),
 	);
 	let consent = *consent;
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		for (label, mode) in modes() {
 			let selected = call.transmit.mode == mode;
 			let enabled = mode_enabled(mode, consent);
@@ -221,8 +221,28 @@ fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) 
 			}
 		}
 	});
+	if actions.shell.has_talk_button() && call.transmit.mode == Mode::PushToTalk {
+		talk_button(ui, card, actions, local);
+	}
 	let t = &card.transmit;
 	ui.label(RichText::new(format!("{}. {}", t.label, t.detail)).color(tone_color(t.tone, ui)));
+}
+
+/// The on-screen hold-to-talk button: pressing it tells the shell the key went
+/// down, letting go (or the button vanishing) that it went up.
+fn talk_button(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
+	let was = local.talking.as_deref() == Some(card.call_id.as_str());
+	let down = hold_button(ui, tr!("call-talk-hold"), was);
+	local.talk_drawn = true;
+	if down && !was {
+		if let Some(prev) = local.talking.replace(card.call_id.clone()) {
+			actions.shell.push_to_talk(&prev, false);
+		}
+		actions.shell.push_to_talk(&card.call_id, true);
+	} else if !down && was {
+		local.talking = None;
+		actions.shell.push_to_talk(&card.call_id, false);
+	}
 }
 
 pub fn peers(
@@ -287,7 +307,7 @@ fn revoke_row(
 	channel_name: &str,
 ) {
 	let key = (channel_id.to_owned(), row.peer_id.clone());
-	ui.horizontal_wrapped(|ui| {
+	button_row(ui, |ui| {
 		if local.revoke_confirm.as_ref() == Some(&key) {
 			ui.label(tr!(
 				"revoke-ask",

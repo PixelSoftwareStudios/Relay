@@ -103,3 +103,5 @@ hotkey-rejected = { $label }: rejected
 hotkey-rejected-reason = { $label }: rejected ({ $reason })
 hotkey-saved = { $label }: saved, takes effect after a restart
 hotkey-saved-reason = { $label }: saved, takes effect after a restart ({ $reason })
+hotkey-note-button = This device has no global hotkey. On a call in push-to-talk mode, hold the Talk button to speak.
+close-background = Leaving this app keeps your calls going in the background.

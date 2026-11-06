@@ -55,3 +55,4 @@ call-your-mic = 이 통화의 내 마이크
 call-consent = { $name }에게 내 마이크 전송을 허용합니다
 call-mute = 음소거 (통화)
 call-deafen = 듣기 끄기 (통화)
+call-talk-hold = 눌러서 말하기

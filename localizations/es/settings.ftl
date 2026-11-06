@@ -102,3 +102,5 @@ hotkey-rejected = { $label }: rechazado
 hotkey-rejected-reason = { $label }: rechazado ({ $reason })
 hotkey-saved = { $label }: guardado, se aplicará tras reiniciar
 hotkey-saved-reason = { $label }: guardado, se aplicará tras reiniciar ({ $reason })
+hotkey-note-button = Este dispositivo no tiene atajo global. En una llamada en modo pulsar para hablar, mantén pulsado el botón Hablar para hablar.
+close-background = Al salir de esta app, tus llamadas siguen en segundo plano.

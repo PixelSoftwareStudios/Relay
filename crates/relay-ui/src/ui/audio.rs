@@ -6,7 +6,7 @@ use crate::actions::Actions;
 use crate::model::{AppState, Direction, Meters};
 
 use super::local::Local;
-use super::widgets::{combo, gain_slider, meter, release_delay_slider};
+use super::widgets::{button_row, combo, gain_slider, meter, release_delay_slider};
 use crate::tr;
 
 pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, local: &mut Local) {
@@ -24,25 +24,24 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 				.iter()
 				.find(|d| d.device_id == current)
 				.map_or(current, |d| d.name.as_str());
-			combo(ui, label, shown)
-				.show_ui(ui, |ui| {
-					for d in state.devices.iter().filter(|d| d.direction == dir) {
-						let text = if d.system_default {
-							format!("{} {}", d.name, tr!("device-default"))
-						} else {
-							d.name.clone()
-						};
-						if ui
-							.add_enabled(
-								d.available,
-								egui::Button::selectable(d.device_id == current, text),
-							)
-							.clicked()
-						{
-							chosen = Some(d.device_id.clone());
-						}
+			combo(ui, label, shown).show_ui(ui, |ui| {
+				for d in state.devices.iter().filter(|d| d.direction == dir) {
+					let text = if d.system_default {
+						format!("{} {}", d.name, tr!("device-default"))
+					} else {
+						d.name.clone()
+					};
+					if ui
+						.add_enabled(
+							d.available,
+							egui::Button::selectable(d.device_id == current, text),
+						)
+						.clicked()
+					{
+						chosen = Some(d.device_id.clone());
 					}
-				});
+				}
+			});
 			chosen
 		};
 		if let Some(id) = pick(
@@ -83,7 +82,7 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 			actions.run(|c| async move { c.set_ptt_release_delay(ms).await });
 		}
 		super::ring::ring_controls(ui, settings, actions, local);
-		ui.horizontal_wrapped(|ui| {
+		button_row(ui, |ui| {
 			let (m, d) = (settings.global_muted, settings.global_deafened);
 			if ui
 				.selectable_label(

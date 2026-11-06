@@ -100,3 +100,5 @@ hotkey-rejected = { $label }：被拒绝
 hotkey-rejected-reason = { $label }：被拒绝（{ $reason }）
 hotkey-saved = { $label }：已保存，重启后生效
 hotkey-saved-reason = { $label }：已保存，重启后生效（{ $reason }）
+hotkey-note-button = 此设备没有全局热键。在按键通话模式的通话中，按住说话按钮即可发言。
+close-background = 离开此应用后，通话会在后台继续。
