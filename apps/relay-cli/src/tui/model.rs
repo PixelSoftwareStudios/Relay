@@ -4,7 +4,7 @@ use relay_api::WatchItem;
 use relay_api::pb::state_event::Event;
 use relay_api::pb::{Call, Device, OperationState, Peer, Problem, Snapshot, TelemetrySnapshot};
 
-use relay_platform::ptt::PttState;
+use relay_client::ptt::PttState;
 
 use super::messages::MessagesState;
 use crate::client::{ConnectionState, Update};

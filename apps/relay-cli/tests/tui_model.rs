@@ -10,7 +10,7 @@ use relay_cli::client::{CallAction, ConnectionState, PttAction, Update};
 use relay_cli::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
 use relay_cli::tui::keys::{TuiCommand, handle_key, on_tick};
 use relay_cli::tui::{Model, Tab};
-use relay_platform::ptt::PttState;
+use relay_client::ptt::PttState;
 
 fn key(c: char) -> KeyEvent {
 	KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE)

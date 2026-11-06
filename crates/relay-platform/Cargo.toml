@@ -10,9 +10,7 @@ license.workspace = true
 wayland = ["dep:ashpd"]
 
 [dependencies]
-relay-api.workspace = true
 relay-io.workspace = true
-tonic.workspace = true
 global-hotkey.workspace = true
 tokio.workspace = true
 tokio-stream.workspace = true

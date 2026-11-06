@@ -106,6 +106,11 @@ impl RealClient {
 	}
 
 	/// The underlying API client, for RPCs without a shared command.
+	/// Where this client is connected.
+	pub fn endpoint(&self) -> &Endpoint {
+		&self.endpoint
+	}
+
 	pub fn client_mut(&mut self) -> &mut RelayClient {
 		&mut self.client
 	}

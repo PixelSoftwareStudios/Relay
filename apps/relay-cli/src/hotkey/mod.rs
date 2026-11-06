@@ -1,5 +1,5 @@
 //! Global push-to-talk for the CLI: start the platform backend, report its
-//! state honestly and supervise a `PttDriver` against the running engine.
+//! state honestly and supervise the shared `PttWorker` against the running engine.
 //!
 //! The backend must be started on the process main thread (macOS), so
 //! [`start`] is synchronous and called from `main` before tokio takes over;

@@ -25,6 +25,8 @@ const POLL: Duration = Duration::from_millis(10);
 #[derive(Default)]
 pub struct GlobalHotkeyBackend {
 	running: Option<Running>,
+	/// The host runs a native application event loop (a GUI app).
+	app_loop: bool,
 }
 
 struct Running {
@@ -36,9 +38,20 @@ struct Running {
 }
 
 impl GlobalHotkeyBackend {
-	/// An idle backend.
+	/// An idle backend for a terminal program that pumps the run loop itself
+	/// ([`run_main_loop`]).
 	pub fn new() -> Self {
 		Self::default()
+	}
+
+	/// An idle backend for a GUI app whose event loop owns the main thread.
+	/// On macOS the key is a Carbon hotkey delivered through that loop, which
+	/// needs no Input Monitoring or Accessibility permission.
+	pub fn in_app_loop() -> Self {
+		Self {
+			running: None,
+			app_loop: true,
+		}
 	}
 }
 
@@ -55,7 +68,7 @@ impl HotkeyBackend for GlobalHotkeyBackend {
 	}
 
 	fn probe(&self) -> BackendStatus {
-		probe_platform()
+		probe_platform(self.app_loop)
 	}
 
 	fn start(&mut self, binding: &HotkeyBinding) -> Result<HotkeyStream, HotkeyError> {
@@ -94,20 +107,20 @@ impl Drop for GlobalHotkeyBackend {
 }
 
 #[cfg(target_os = "macos")]
-fn probe_platform() -> BackendStatus {
-	if !super::macos::input_monitoring_granted() {
+fn probe_platform(app_loop: bool) -> BackendStatus {
+	if !app_loop && !super::macos::input_monitoring_granted() {
 		return BackendStatus::NeedsPermission(super::PermissionKind::InputMonitoring);
 	}
 	BackendStatus::Available
 }
 
 #[cfg(target_os = "windows")]
-fn probe_platform() -> BackendStatus {
+fn probe_platform(_app_loop: bool) -> BackendStatus {
 	BackendStatus::Available
 }
 
 #[cfg(target_os = "linux")]
-fn probe_platform() -> BackendStatus {
+fn probe_platform(_app_loop: bool) -> BackendStatus {
 	if is_wayland_session() {
 		return BackendStatus::Unsupported(
 			"Wayland session: X11 grabs do not see global keys; use the portal backend".into(),
@@ -120,7 +133,7 @@ fn probe_platform() -> BackendStatus {
 }
 
 #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
-fn probe_platform() -> BackendStatus {
+fn probe_platform(_app_loop: bool) -> BackendStatus {
 	BackendStatus::Unsupported("no global hotkey support on this OS".into())
 }
 

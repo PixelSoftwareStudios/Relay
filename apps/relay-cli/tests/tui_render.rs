@@ -64,7 +64,7 @@ fn peers_screen_shows_status_header_and_peer_rows() {
 #[test]
 fn header_states_the_hotkey_truthfully_for_every_backend_outcome() {
 	use relay_cli::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
-	use relay_platform::ptt::PttState;
+	use relay_client::ptt::PttState;
 	let mut m = model();
 	let show = |m: &Model| screen(m, 120, 13);
 	let set = |m: &mut Model, r| m.apply(Update::Hotkey(HotkeyUpdate::Report(r)));

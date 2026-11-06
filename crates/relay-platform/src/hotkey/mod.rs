@@ -106,6 +106,16 @@ pub trait HotkeyBackend: Send {
 	fn stop(&mut self);
 }
 
+/// Like [`detect_backend`] for a GUI app whose event loop owns the main thread
+/// (eframe, winit): no terminal-style permission gate on macOS.
+pub fn detect_app_backend() -> Box<dyn HotkeyBackend> {
+	#[cfg(all(target_os = "linux", feature = "wayland"))]
+	if global::is_wayland_session() {
+		return Box::new(PortalBackend::new());
+	}
+	Box::new(GlobalHotkeyBackend::in_app_loop())
+}
+
 /// Pick the backend for this session. Always returns something; inspect
 /// [`HotkeyBackend::probe`] for the honest status.
 pub fn detect_backend() -> Box<dyn HotkeyBackend> {

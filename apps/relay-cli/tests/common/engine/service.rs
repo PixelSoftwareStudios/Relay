@@ -556,8 +556,27 @@ impl Engine for FakeEngine {
 	type InputControlStream = ReceiverStream<Result<InputControlAck, Status>>;
 	async fn input_control(
 		&self,
-		_: Request<tonic::Streaming<InputControlMessage>>,
+		request: Request<tonic::Streaming<InputControlMessage>>,
 	) -> Resp<Self::InputControlStream> {
-		unsupported()
+		let mut incoming = request.into_inner();
+		let (tx, rx) = mpsc::channel(8);
+		let inputs = self.inputs.clone();
+		tokio::spawn(async move {
+			while let Ok(Some(message)) = incoming.message().await {
+				inputs.lock().unwrap().push(message.clone());
+				let ack = InputControlAck {
+					source_id: message.source_id,
+					input_sequence: message.input_sequence,
+					accepted: true,
+					effective_lease_ms: message.requested_lease_ms,
+					effective_transmitting: true,
+					..InputControlAck::default()
+				};
+				if tx.send(Ok(ack)).await.is_err() {
+					break;
+				}
+			}
+		});
+		Ok(Response::new(ReceiverStream::new(rx)))
 	}
 }

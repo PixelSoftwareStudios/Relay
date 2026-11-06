@@ -34,6 +34,8 @@ pub struct FakeEngine {
 	messaging_clients: Arc<Mutex<Vec<Vec<u8>>>>,
 	/// What `GetSettings` answers and `SetSettings` changes (flat key to text).
 	pub settings: Arc<Mutex<BTreeMap<String, String>>>,
+	/// Every `InputControl` message, accepted and transmitting.
+	pub inputs: Arc<Mutex<Vec<InputControlMessage>>>,
 }
 
 /// Keys the real daemon refuses to change over the API.
@@ -130,6 +132,7 @@ impl EngineHarness {
 			chat: Arc::default(),
 			messaging_clients: Arc::default(),
 			settings: Arc::new(Mutex::new(default_settings())),
+			inputs: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");
 		let (tx, rx) = oneshot::channel();

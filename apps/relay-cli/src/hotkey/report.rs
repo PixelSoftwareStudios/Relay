@@ -2,8 +2,8 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use relay_client::ptt::PttState;
 use relay_platform::hotkey::{BackendStatus, PermissionKind};
-use relay_platform::ptt::{BlockReason, PttState};
 use serde::Serialize;
 
 /// Honest state of the hotkey backend.
@@ -127,11 +127,8 @@ pub fn ptt_label(state: &PttState) -> String {
 		PttState::Idle => "idle".into(),
 		PttState::Transmitting => "transmitting".into(),
 		PttState::Gated => "held, engine not transmitting (muted or no consent)".into(),
-		PttState::Blocked(BlockReason::NoTarget) => "blocked: no controlled call".into(),
-		PttState::Blocked(BlockReason::SessionLocked) => "blocked: session locked".into(),
-		PttState::Blocked(BlockReason::NeedsRepress) => "blocked: release and press again".into(),
+		PttState::NoTarget => "blocked: no controlled call".into(),
 		PttState::Rejected { code } => format!("rejected by engine ({code})"),
-		PttState::Expired => "lease expired".into(),
 		PttState::Failed(why) => format!("failed: {why}"),
 	}
 }
