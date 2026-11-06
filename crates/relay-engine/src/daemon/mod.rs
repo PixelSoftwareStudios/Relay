@@ -71,8 +71,9 @@ impl DaemonHandle {
 			channel_vault,
 			channel_clock,
 			messaging,
+			default_display_name,
 		} = options;
-		let loaded = env::load(paths, identity_store, channel_vault)?;
+		let loaded = env::load(paths, identity_store, channel_vault, default_display_name)?;
 		let mut config = ServiceConfig::new(loaded.local);
 		config.limits = limits;
 		config.api = api;

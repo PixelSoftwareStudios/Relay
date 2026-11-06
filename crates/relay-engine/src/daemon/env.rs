@@ -82,6 +82,7 @@ pub(super) fn load(
 	paths: Paths,
 	identity_store: Option<Box<dyn IdentityStore>>,
 	channel_vault: Option<Arc<dyn SecretVault>>,
+	default_display_name: Option<String>,
 ) -> Result<Loaded, DaemonError> {
 	let storage = Storage::open(&paths)?;
 	let lock = Arc::clone(&storage.lock);
@@ -139,6 +140,7 @@ pub(super) fn load(
 		avatar_cache,
 		history,
 		preferences.clone(),
+		default_display_name,
 	));
 	Ok(Loaded {
 		identity_storage: store.describe(),

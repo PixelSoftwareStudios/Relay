@@ -23,6 +23,8 @@ pub struct FileSettings {
 	history: CallHistory,
 	current: Mutex<Preferences>,
 	avatar: Mutex<Option<[u8; 32]>>,
+	/// Shown while the user has not chosen a name; see [`effective_name`].
+	default_name: Option<String>,
 }
 
 fn backend_name(backend: NoiseBackend) -> &'static str {
@@ -44,11 +46,20 @@ fn parse_backend(name: &str) -> Result<NoiseBackend, PortError> {
 	}
 }
 
-/// The name shown when the user never chose one: the computer's hostname.
-fn effective_name(stored: &str) -> String {
+/// The name shown: the one the user chose, else the platform's default name
+/// (the device name on a phone), else the computer's hostname. A default that
+/// is blank after sanitising is ignored.
+fn effective_name(stored: &str, platform_default: Option<&str>) -> String {
 	let unset = stored.trim().is_empty() || stored == Profile::default().display_name;
 	if !unset {
 		return sanitize_display_name(stored);
+	}
+	// A name with nothing left after sanitising comes back as the placeholder.
+	let placeholder = sanitize_display_name("");
+	if let Some(name) = platform_default.map(sanitize_display_name)
+		&& name != placeholder
+	{
+		return name;
 	}
 	let host = gethostname::gethostname().to_string_lossy().into_owned();
 	sanitize_display_name(&host)
@@ -59,13 +70,15 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 }
 
 impl FileSettings {
-	/// Wraps an open store with the preferences it loaded. The local avatar hash
+	/// Wraps an open store with the preferences it loaded. `default_name` is shown
+	/// until the user chooses a name. The local avatar hash
 	/// persisted by an earlier run is restored if its bytes are still cached.
 	pub fn new(
 		store: PreferenceStore,
 		avatars: AvatarCache,
 		history: CallHistory,
 		loaded: Preferences,
+		default_name: Option<String>,
 	) -> Self {
 		let avatar = avatars.local().ok().flatten();
 		Self {
@@ -74,6 +87,7 @@ impl FileSettings {
 			history,
 			current: Mutex::new(loaded),
 			avatar: Mutex::new(avatar),
+			default_name,
 		}
 	}
 }
@@ -114,7 +128,7 @@ impl SettingsStore for FileSettings {
 			DeviceSelection::SystemDefault => String::new(),
 		};
 		StoredSettings {
-			display_name: effective_name(&prefs.profile.display_name),
+			display_name: effective_name(&prefs.profile.display_name, self.default_name.as_deref()),
 			input_device: explicit(audio.input_selection, &audio.preferred_input_id),
 			output_device: explicit(audio.output_selection, &audio.preferred_output_id),
 			noise_backend: backend_name(audio.noise_backend).to_owned(),
@@ -270,5 +284,46 @@ impl crate::messaging::ConfigStore for FileSettings {
 		self.store.save(&next).map_err(|e| e.to_string())?;
 		*lock(&self.current) = next;
 		Ok(())
+	}
+}
+
+#[cfg(test)]
+mod tests {
+	use super::*;
+
+	fn host() -> String {
+		sanitize_display_name(&gethostname::gethostname().to_string_lossy())
+	}
+
+	#[test]
+	fn a_name_the_user_chose_beats_the_platform_default() {
+		assert_eq!(effective_name("Ana", Some("Galaxy S25")), "Ana");
+	}
+
+	#[test]
+	fn the_platform_default_beats_the_hostname_when_no_name_was_chosen() {
+		let factory = Profile::default().display_name;
+		for stored in ["", "   ", factory.as_str()] {
+			assert_eq!(
+				effective_name(stored, Some("Galaxy S25 Ultra")),
+				"Galaxy S25 Ultra"
+			);
+		}
+	}
+
+	#[test]
+	fn a_blank_default_falls_back_to_the_hostname() {
+		for blank in ["", "   ", "\u{200b}\t", "<>"] {
+			assert_eq!(effective_name("", Some(blank)), host(), "{blank:?}");
+		}
+		assert_eq!(effective_name("", None), host());
+	}
+
+	#[test]
+	fn the_default_is_sanitised_like_any_name() {
+		assert_eq!(
+			effective_name("", Some("  Pixel \u{0007}  <b>9</b> \n Pro ")),
+			"Pixel b9/b Pro"
+		);
 	}
 }

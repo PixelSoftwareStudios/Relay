@@ -131,6 +131,10 @@ pub struct RunOptions {
 	/// Messaging beyond the stored preferences: where received files are written (tests
 	/// plug in fake sinks) and the transcript budgets.
 	pub messaging: crate::messaging::MessagingOptions,
+	/// The name shown until the user chooses one, before the hostname (a phone
+	/// passes its device name; its hostname is just `localhost`). Blank is ignored;
+	/// a name the user set always wins.
+	pub default_display_name: Option<String>,
 }
 
 impl RunOptions {
@@ -153,6 +157,7 @@ impl RunOptions {
 			channel_vault: None,
 			channel_clock: None,
 			messaging: crate::messaging::MessagingOptions::default(),
+			default_display_name: None,
 		}
 	}
 }
