@@ -4,7 +4,6 @@
 # See docs/i18n.md.
 
 action-cancel = 취소
-nav-messages = 메시지
 action-close = 닫기
 action-copy = 복사
 action-hide = 숨기기

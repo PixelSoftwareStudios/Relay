@@ -2,7 +2,6 @@
 # See docs/i18n.md.
 
 action-cancel = Отмена
-nav-messages = Сообщения
 action-close = Закрыть
 action-copy = Копировать
 action-hide = Скрыть

@@ -5,7 +5,6 @@
 # See docs/i18n.md.
 
 action-cancel = Cancel
-nav-messages = Messages
 action-close = Close
 action-copy = Copy
 action-hide = Hide

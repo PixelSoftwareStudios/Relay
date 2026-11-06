@@ -3,7 +3,6 @@
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 action-cancel = Abbrechen
-nav-messages = Nachrichten
 action-close = Schließen
 action-copy = Kopieren
 action-hide = Ausblenden

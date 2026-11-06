@@ -2,7 +2,6 @@
 # Project Fluent. Same ids and $variables as localizations/en/common.ftl. See docs/i18n.md.
 
 action-cancel = キャンセル
-nav-messages = メッセージ
 action-close = 閉じる
 action-copy = コピー
 action-hide = 隠す

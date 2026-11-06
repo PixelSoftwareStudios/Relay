@@ -4,7 +4,6 @@
 # See docs/i18n.md.
 
 action-cancel = 取消
-nav-messages = 消息
 action-close = 关闭
 action-copy = 复制
 action-hide = 隐藏

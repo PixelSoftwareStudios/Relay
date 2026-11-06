@@ -2,7 +2,6 @@
 # Translation of localizations/en/common.ftl; same ids and $variables. See docs/i18n.md.
 
 action-cancel = Cancelar
-nav-messages = Mensajes
 action-close = Cerrar
 action-copy = Copiar
 action-hide = Ocultar

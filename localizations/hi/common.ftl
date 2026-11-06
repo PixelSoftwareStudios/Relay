@@ -3,7 +3,6 @@
 # Same ids and $variables as localizations/en/common.ftl. See docs/i18n.md.
 
 action-cancel = रद्द करें
-nav-messages = संदेश
 action-close = बंद करें
 action-copy = कॉपी करें
 action-hide = छिपाएँ

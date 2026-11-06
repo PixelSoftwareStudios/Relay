@@ -2,7 +2,6 @@
 # Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
 
 action-cancel = Cancelar
-nav-messages = Mensagens
 action-close = Fechar
 action-copy = Copiar
 action-hide = Ocultar
