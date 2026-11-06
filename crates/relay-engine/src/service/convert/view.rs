@@ -30,9 +30,9 @@ fn state_to_pb(state: CallState) -> PbState {
 
 fn mode_to_pb(mode: RouteMode) -> TransmitMode {
 	match mode {
-		RouteMode::ReceiveOnly => TransmitMode::ReceiveOnly,
+		RouteMode::Muted => TransmitMode::Muted,
 		RouteMode::PushToTalk => TransmitMode::PushToTalk,
-		RouteMode::OpenMic => TransmitMode::OpenMic,
+		RouteMode::Unmuted => TransmitMode::Unmuted,
 	}
 }
 
@@ -65,7 +65,7 @@ fn gain_to_f32(gain: Gain) -> f32 {
 }
 
 /// A call view, with `revision` the API revision it is current at.
-pub fn call_to_pb(view: &relay_core::CallView, revision: u64) -> Call {
+pub fn call_to_pb(view: &relay_core::CallView, revision: u64, directory: &Directory) -> Call {
 	let controller = view.controller.map(|(client, lease)| ControllerLease {
 		call_id: view.id.to_bytes().to_vec(),
 		controller_client_id: client.to_bytes().to_vec(),
@@ -100,6 +100,11 @@ pub fn call_to_pb(view: &relay_core::CallView, revision: u64) -> Call {
 		receive_gain: gain_to_f32(view.controls.gain),
 		negotiated_profile: String::new(),
 		problem,
+		connected_at_unix_ms: if view.state == CallState::Active {
+			directory.connected_at(view.id).unwrap_or(0)
+		} else {
+			0
+		},
 	}
 }
 
@@ -138,11 +143,6 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		reachable: info.reachable || linked,
 		avatar_sha256: info.avatar.map(|h| h.to_vec()).unwrap_or_default(),
 		shared_channel_ids: Vec::new(),
-		fingerprint_short: relay_net::identity::Fingerprint::from_bytes(*info.id.as_bytes())
-			.short(),
-	}
-}
-
 		port: info
 			.addresses
 			.iter()
@@ -151,6 +151,11 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		last_seen_unix_ms: 0,
 		favorite: false,
 		favorite_position: 0,
+		fingerprint_short: relay_net::identity::Fingerprint::from_bytes(*info.id.as_bytes())
+			.short(),
+	}
+}
+
 /// A device.
 pub fn device_to_pb(device: &DeviceInfo) -> Device {
 	Device {
@@ -196,6 +201,11 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		call_sounds_enabled: aux.ring.call_sounds_enabled,
 		history_enabled: aux.history_enabled,
 		history_revision: aux.history_revision,
+		default_transmit_mode: mode_to_pb(aux.default_transmit_mode) as i32,
+		effective_default_transmit_mode: mode_to_pb(aux.effective_default()) as i32,
+		ptt_enabled: aux.ptt_enabled,
+		daemon_build_revision: relay_api::BUILD_REVISION.to_owned(),
+		daemon_api_revision: relay_api::API_REVISION,
 		ptt_release_delay_ms: u32::try_from(global.ptt_release_delay.as_millis())
 			.unwrap_or(u32::MAX),
 	}
@@ -215,7 +225,7 @@ pub fn snapshot_to_pb(
 		calls: core
 			.calls
 			.values()
-			.map(|v| call_to_pb(v, revision))
+			.map(|v| call_to_pb(v, revision, directory))
 			.collect(),
 		devices: directory.devices(),
 		settings: Some(settings_to_pb(&core.global, directory)),
@@ -234,7 +244,7 @@ pub fn events_of(event: &Event, revision: u64, directory: &mut Directory) -> Vec
 		Event::GlobalUpdated(view) => single(state_event::Event::Settings(settings_to_pb(
 			view, directory,
 		))),
-		Event::CallUpdated(view) => single(state_event::Event::Call(call_to_pb(view, revision))),
+		Event::CallUpdated(view) => single(state_event::Event::Call(call_to_pb(view, revision, directory))),
 		Event::CallForgotten(id) => single(state_event::Event::Removed(pb::Removed {
 			id: id.to_bytes().to_vec(),
 			kind: "call".to_owned(),

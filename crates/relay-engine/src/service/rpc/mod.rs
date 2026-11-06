@@ -34,7 +34,7 @@ use relay_api::pb::{
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest, SetFavoritesRequest,
 	SetGlobalControlsRequest, SetMessagingSettingsRequest, SetNoiseSuppressionRequest,
 	SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest, SetSettingsRequest,
-	SetSettingsResponse, SetTransmitRouteRequest, SettingsDump, Snapshot, StartCallRequest,
+	SetSettingsResponse, SetTransmitModeRequest, SettingsDump, Snapshot, StartCallRequest,
 	StartMicTestRequest, StateEnvelope, TelemetryRequest, TelemetrySnapshot, Transcript,
 	UploadAvatarRequest, WatchSessionRequest, WatchStateRequest, engine_server::Engine,
 };
@@ -201,6 +201,22 @@ impl Engine for EngineService {
 		watch::open(self, caller, request.into_inner()).await
 	}
 
+	async fn connect_and_trust(
+		&self,
+		_: Request<relay_api::pb::ConnectAndTrustRequest>,
+	) -> Result<Response<Operation>, Status> {
+		Err(Status::unimplemented("connect_and_trust"))
+	}
+
+	type WatchCallStatsStream = Stream<relay_api::pb::CallStats>;
+
+	async fn watch_call_stats(
+		&self,
+		_: Request<relay_api::pb::WatchCallStatsRequest>,
+	) -> Result<Response<Self::WatchCallStatsStream>, Status> {
+		Err(Status::unimplemented("watch_call_stats"))
+	}
+
 	type WatchTelemetryStream = Stream<TelemetrySnapshot>;
 
 	async fn watch_telemetry(
@@ -306,12 +322,12 @@ impl Engine for EngineService {
 		self.run(&mutation, command, Some(call)).await
 	}
 
-	async fn set_transmit_route(
+	async fn set_transmit_mode(
 		&self,
-		request: Request<SetTransmitRouteRequest>,
+		request: Request<SetTransmitModeRequest>,
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
-		let (command, call) = commands::set_route(&body)?;
+		let (command, call) = commands::set_mode(&body)?;
 		self.run(&mutation, command, Some(call)).await
 	}
 
@@ -412,6 +428,14 @@ impl Engine for EngineService {
 		forget::forget(self, &mutation, &body).await
 	}
 
+	async fn set_favorites(
+		&self,
+		request: Request<SetFavoritesRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		favorites::set(self, &mutation, &body).await
+	}
+
 	async fn get_settings(
 		&self,
 		request: Request<ClientContext>,
@@ -428,14 +452,6 @@ impl Engine for EngineService {
 
 	async fn create_channel(
 		&self,
-	async fn set_favorites(
-		&self,
-		request: Request<SetFavoritesRequest>,
-	) -> Result<Response<Operation>, Status> {
-		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
-		favorites::set(self, &mutation, &body).await
-	}
-
 		request: Request<CreateChannelRequest>,
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;

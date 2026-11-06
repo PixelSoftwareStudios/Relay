@@ -164,6 +164,12 @@ impl SettingsStore for FileSettings {
 				call_sounds_enabled: audio.call_sounds_enabled,
 			},
 			history_enabled: prefs.history.enabled,
+			default_transmit_mode: match prefs.calls.default_transmit_mode {
+				prefs::TransmitModePref::Muted => relay_core::RouteMode::Muted,
+				prefs::TransmitModePref::Unmuted => relay_core::RouteMode::Unmuted,
+				prefs::TransmitModePref::PushToTalk => relay_core::RouteMode::PushToTalk,
+			},
+			ptt_enabled: prefs.ptt.enabled,
 		}
 	}
 

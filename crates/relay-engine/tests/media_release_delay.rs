@@ -33,7 +33,7 @@ async fn talking() -> Pair {
 	let mut pair = active_call().await;
 	let (call, lease) = (pair.call, pair.lease_a);
 	pair.a
-		.command(Command::SetTransmitRoute {
+		.command(Command::SetTransmitMode {
 			call,
 			lease,
 			route: TransmitRoute::push_to_talk(),
@@ -135,10 +135,10 @@ async fn safety_events_stop_sending_at_once_even_during_a_hold() {
 	let (call, lease) = (pair.call, pair.lease_a);
 	pair.a.command(key(call, lease, 2, false)).unwrap();
 	pair.a
-		.command(Command::SetTransmitRoute {
+		.command(Command::SetTransmitMode {
 			call,
 			lease,
-			route: TransmitRoute::RECEIVE_ONLY,
+			route: TransmitRoute::MUTED,
 		})
 		.unwrap();
 	assert!(!pair.a.gate_open(call));

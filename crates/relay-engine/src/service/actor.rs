@@ -118,6 +118,7 @@ impl Actor {
 		// Nobody is attached yet: track presence from the start so an
 		// orphaned engine neither rings nor advertises.
 		let _ = self.run_input(Input::System(SystemEvent::TrackPresence));
+		self.send_call_defaults();
 		self.ports.peers.presence_changed(false);
 		loop {
 			let deadline = self.next_wakeup();
@@ -256,6 +257,7 @@ impl Actor {
 	}
 
 	fn handle(&mut self, msg: Msg) {
+		self.directory.set_clock(self.recorder.now_ms());
 		match msg {
 			Msg::Submit { request, reply } => {
 				let answer = self
@@ -344,7 +346,7 @@ impl Actor {
 
 	/// Applies an input, performs its effects, publishes its events and then
 	/// settles whatever the effects fed back.
-	fn run_input(&mut self, input: Input) -> Result<Outcome, QueueFull> {
+	pub(super) fn run_input(&mut self, input: Input) -> Result<Outcome, QueueFull> {
 		let outcome = self.apply(input)?;
 		let mut budget = FEEDBACK_BUDGET;
 		while budget > 0
@@ -414,6 +416,7 @@ impl Actor {
 				for item in items {
 					if let Event::CallForgotten(id) = &item.event {
 						self.gates.forget(*id);
+						self.directory.forget_call(*id);
 					}
 					if let Event::CallUpdated(view) = &item.event {
 						self.record_call(view);

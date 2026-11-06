@@ -265,6 +265,10 @@ pub struct StoredSettings {
 	pub ring: RingPrefs,
 	/// Finished calls are recorded in the call history.
 	pub history_enabled: bool,
+	/// The mode a call starts in when it connects.
+	pub default_transmit_mode: relay_core::RouteMode,
+	/// Push-to-talk may be chosen and used.
+	pub ptt_enabled: bool,
 }
 
 /// Capture, playback and per-call media resources.
@@ -380,10 +384,6 @@ pub trait SettingsStore: Send + Sync {
 	fn clear_avatar(&self) -> Result<(), PortError>;
 	/// The canonical PNG stored under `hash` (local or received), if cached.
 	fn avatar(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>, PortError>;
-}
-
-/// The full set of adapters the control actor drives.
-#[derive(Clone)]
 	/// The favorites in order (trusted peers only, at most 6).
 	fn favorites(&self) -> Vec<PeerId> {
 		Vec::new()
@@ -393,6 +393,10 @@ pub trait SettingsStore: Send + Sync {
 	fn set_favorites(&self, _ordered: &[PeerId]) -> Result<(), PortError> {
 		Err(PortError::Unsupported("favorites"))
 	}
+}
+
+/// The full set of adapters the control actor drives.
+#[derive(Clone)]
 pub struct Ports {
 	/// Media adapter.
 	pub media: Arc<dyn MediaControl>,

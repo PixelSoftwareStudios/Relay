@@ -8,7 +8,7 @@ mod service_support;
 use relay_api::RelayClient;
 use relay_api::pb::{
 	AcquireControllerRequest, InputAction, InputControlAck, InputControlMessage,
-	SetGlobalControlsRequest, SetTransmitRouteRequest, TransmitMode,
+	SetGlobalControlsRequest, SetTransmitModeRequest, TransmitMode,
 };
 use relay_core::{CallId, SystemEvent};
 use relay_engine::service::fakes::MediaCall;
@@ -37,25 +37,24 @@ async fn connected(rig: &Rig) -> Talk {
 	}
 }
 
-fn route(talk: &Talk, op: u8, mode: TransmitMode, consent: bool) -> SetTransmitRouteRequest {
-	SetTransmitRouteRequest {
+fn route(talk: &Talk, op: u8, mode: TransmitMode) -> SetTransmitModeRequest {
+	SetTransmitModeRequest {
 		context: Some(ctx(&talk.cli, op)),
 		call_id: talk.call.clone(),
 		controller_generation: talk.generation,
 		mode: mode as i32,
-		explicit_microphone_consent: consent,
 		authorize_background_open_mic: false,
 	}
 }
 
 /// Grants push-to-talk consent and completes the capture open.
 async fn grant_ptt(rig: &Rig, talk: &mut Talk) {
-	let request = route(talk, 2, TransmitMode::PushToTalk, true);
+	let request = route(talk, 2, TransmitMode::PushToTalk);
 	assert_applied(
 		&talk
 			.cli
 			.raw()
-			.set_transmit_route(request)
+			.set_transmit_mode(request)
 			.await
 			.expect("route")
 			.into_inner(),
@@ -102,22 +101,14 @@ async fn open_input(
 }
 
 #[tokio::test]
-async fn consent_must_be_explicit() {
+async fn a_mode_is_required_and_choosing_it_is_the_consent() {
 	let rig = Rig::start().await;
 	let mut talk = connected(&rig).await;
-	let request = route(&talk, 2, TransmitMode::PushToTalk, false);
+	let request = route(&talk, 3, TransmitMode::Unspecified);
 	let error = talk
 		.cli
 		.raw()
-		.set_transmit_route(request)
-		.await
-		.expect_err("no consent");
-	assert_eq!(error.code(), Code::InvalidArgument);
-	let request = route(&talk, 3, TransmitMode::Unspecified, true);
-	let error = talk
-		.cli
-		.raw()
-		.set_transmit_route(request)
+		.set_transmit_mode(request)
 		.await
 		.expect_err("no mode");
 	assert_eq!(error.code(), Code::InvalidArgument);
@@ -127,7 +118,26 @@ async fn consent_must_be_explicit() {
 			.media
 			.calls()
 			.iter()
-			.all(|c| !matches!(c, MediaCall::OpenCapture(_)))
+			.all(|c| !matches!(c, MediaCall::OpenCapture(_))),
+		"nothing asks for the microphone before a mode is chosen"
+	);
+	// One request is the whole consent: unmuted asks for the microphone at once.
+	let request = route(&talk, 4, TransmitMode::Unmuted);
+	assert_applied(
+		&talk
+			.cli
+			.raw()
+			.set_transmit_mode(request)
+			.await
+			.expect("route")
+			.into_inner(),
+	);
+	assert!(
+		rig.fakes
+			.media
+			.calls()
+			.iter()
+			.any(|c| matches!(c, MediaCall::OpenCapture(_)))
 	);
 }
 

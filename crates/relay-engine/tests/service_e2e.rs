@@ -13,7 +13,7 @@ use std::time::Duration;
 use relay_api::RelayClient;
 use relay_api::pb::{
 	AcquireControllerRequest, CallState, DecidePeerTrustRequest, DeviceDirection, Peer,
-	SelectDevicesRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
+	SelectDevicesRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
 	TelemetryRequest, TransmitMode, TrustState, start_call_request::Target,
 };
 use relay_engine::daemon::DaemonHandle;
@@ -114,17 +114,16 @@ async fn select_microphone(cli: &mut RelayClient, op: u8) {
 
 async fn route(cli: &mut RelayClient, op: u8, call: &[u8], mode: TransmitMode) {
 	let generation = controller_of(&call_in(cli, call).await.expect("call")).generation;
-	let request = SetTransmitRouteRequest {
+	let request = SetTransmitModeRequest {
 		context: Some(ctx(cli, op)),
 		call_id: call.to_vec(),
 		controller_generation: generation,
 		mode: mode as i32,
-		explicit_microphone_consent: mode != TransmitMode::ReceiveOnly,
 		authorize_background_open_mic: false,
 	};
 	assert_applied(
 		&cli.raw()
-			.set_transmit_route(request)
+			.set_transmit_mode(request)
 			.await
 			.expect("route")
 			.into_inner(),
@@ -239,7 +238,7 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	// A consents: B hears A's tone only.
 	select_microphone(&mut a.cli, 7).await;
 	select_microphone(&mut b.cli, 8).await;
-	route(&mut a.cli, 9, &call, TransmitMode::OpenMic).await;
+	route(&mut a.cli, 9, &call, TransmitMode::Unmuted).await;
 	eventually!({
 		let heard = tail(&b, 400);
 		(rms(&heard) > 0.05).then_some(())
@@ -252,7 +251,7 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	assert!(rms(&tail(&a, 300)) < 1e-4, "B has not consented");
 
 	// B consents too: A hears B's tone.
-	route(&mut b.cli, 10, &call, TransmitMode::OpenMic).await;
+	route(&mut b.cli, 10, &call, TransmitMode::Unmuted).await;
 	let at_a = eventually!({
 		let heard = tail(&a, 400);
 		(rms(&heard) > 0.05).then_some(heard)
@@ -260,7 +259,7 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	assert!(power_at(&at_a, TONE_B) > 20.0 * power_at(&at_a, TONE_A));
 
 	// Withdrawing consent closes A's gate before the answer, and B goes quiet.
-	route(&mut a.cli, 11, &call, TransmitMode::ReceiveOnly).await;
+	route(&mut a.cli, 11, &call, TransmitMode::Muted).await;
 	assert!(!a.daemon.gates().load().is_open(call_id_of(&call)));
 	tokio::time::sleep(Duration::from_millis(600)).await;
 	assert!(
@@ -346,7 +345,7 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 	);
 
 	// With consent the same microphone does reach B, and B's meters show speech.
-	route(&mut a.cli, 23, &call, TransmitMode::OpenMic).await;
+	route(&mut a.cli, 23, &call, TransmitMode::Unmuted).await;
 	let loud = loop {
 		let sample = stream.message().await.expect("sample").expect("open");
 		if sample.calls[0].speaking {

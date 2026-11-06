@@ -231,7 +231,7 @@ fn call_of(command: &Command) -> Option<relay_core::CallId> {
 		| Command::EndCall { call, .. }
 		| Command::AcquireController { call, .. }
 		| Command::ReleaseController { call, .. }
-		| Command::SetTransmitRoute { call, .. }
+		| Command::SetTransmitMode { call, .. }
 		| Command::SetCallControls { call, .. } => Some(*call),
 		_ => None,
 	}

@@ -73,10 +73,10 @@ async fn channel_members_get_independent_calls_and_no_cross_audio() {
 	}
 
 	// Everyone consents on their own call(s).
-	route(&mut a.cli, 50, &to_b, TransmitMode::OpenMic).await;
-	route(&mut a.cli, 51, &to_c, TransmitMode::OpenMic).await;
-	route(&mut b.cli, 52, &to_b, TransmitMode::OpenMic).await;
-	route(&mut c.cli, 53, &to_c, TransmitMode::OpenMic).await;
+	route(&mut a.cli, 50, &to_b, TransmitMode::Unmuted).await;
+	route(&mut a.cli, 51, &to_c, TransmitMode::Unmuted).await;
+	route(&mut b.cli, 52, &to_b, TransmitMode::Unmuted).await;
+	route(&mut c.cli, 53, &to_c, TransmitMode::Unmuted).await;
 
 	// Canary tones: each callee hears A and nobody else; A hears both callees.
 	eventually!({

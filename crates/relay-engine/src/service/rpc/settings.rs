@@ -44,6 +44,8 @@ pub(super) async fn get(
 ) -> Result<Response<SettingsDump>, Status> {
 	service.observer(&request, |body| Some(body))?;
 	Ok(Response::new(SettingsDump {
+		build_revision: relay_api::BUILD_REVISION.to_owned(),
+		api_revision: relay_api::API_REVISION,
 		values: all(service).await?.into_iter().collect(),
 		usage: usage(service).await,
 	}))

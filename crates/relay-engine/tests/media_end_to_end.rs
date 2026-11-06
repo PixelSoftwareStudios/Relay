@@ -20,7 +20,7 @@ fn tail(node: &Node, ms: usize) -> Vec<f32> {
 }
 
 fn route(node: &mut Node, call: CallId, lease: ControllerLeaseId, route: TransmitRoute) {
-	node.command(Command::SetTransmitRoute { call, lease, route })
+	node.command(Command::SetTransmitMode { call, lease, route })
 		.unwrap();
 }
 
@@ -41,7 +41,7 @@ async fn a_call_carries_audio_both_ways_only_after_consent_and_stops_on_withdraw
 	assert!(rms(&tail(&b, 300)) < 1e-4, "silence before consent");
 
 	// A consents: B hears A's tone, A hears nothing.
-	route(&mut a, call, lease_a, TransmitRoute::open_mic());
+	route(&mut a, call, lease_a, TransmitRoute::unmuted());
 	until(&mut a, &mut b, "A's gate opens", |a, _| a.gate_open(call)).await;
 	run_for(&mut a, &mut b, Duration::from_millis(1_200)).await;
 	let at_b = tail(&b, 500);
@@ -51,7 +51,7 @@ async fn a_call_carries_audio_both_ways_only_after_consent_and_stops_on_withdraw
 	assert_eq!(b.media.report(call).unwrap().sent, 0);
 
 	// B consents too: audio flows both ways, and each call carries its own tone.
-	route(&mut b, call, lease_b, TransmitRoute::open_mic());
+	route(&mut b, call, lease_b, TransmitRoute::unmuted());
 	until(&mut a, &mut b, "B's gate opens", |_, b| b.gate_open(call)).await;
 	run_for(&mut a, &mut b, Duration::from_millis(1_200)).await;
 	let at_a = tail(&a, 500);
@@ -86,7 +86,7 @@ async fn a_call_carries_audio_both_ways_only_after_consent_and_stops_on_withdraw
 	.unwrap();
 
 	// Consent withdrawal on B closes the gate and the microphone.
-	route(&mut b, call, lease_b, TransmitRoute::RECEIVE_ONLY);
+	route(&mut b, call, lease_b, TransmitRoute::MUTED);
 	assert!(!b.gate_open(call));
 	run_for(&mut a, &mut b, Duration::from_millis(100)).await;
 	let sent = b.media.report(call).unwrap().sent;
@@ -119,7 +119,7 @@ async fn losing_the_microphone_pauses_sending_and_waits_for_the_user() {
 		lease_a,
 		..
 	} = active_call().await;
-	route(&mut a, call, lease_a, TransmitRoute::open_mic());
+	route(&mut a, call, lease_a, TransmitRoute::unmuted());
 	until(&mut a, &mut b, "A transmitting", |a, _| {
 		a.gate_open(call) && a.media.report(call).is_some_and(|r| r.sent > 20)
 	})

@@ -1,5 +1,7 @@
 //! Actor side of `SetSettings`: save by key, then apply what a running daemon can.
 
+use relay_core::{Input, SystemEvent};
+
 use super::actor::Actor;
 use super::error::ServiceError;
 use super::ports::PortError;
@@ -12,6 +14,17 @@ fn applied_elsewhere(key: &str) -> bool {
 }
 
 impl Actor {
+	/// Tells the domain the call defaults. They apply to calls that connect from now on, and
+	/// switching push-to-talk off mutes the calls that use it.
+	pub(super) fn send_call_defaults(&mut self) {
+		let aux = &self.directory.aux;
+		let input = Input::System(SystemEvent::CallDefaults {
+			mode: aux.default_transmit_mode,
+			ptt_enabled: aux.ptt_enabled,
+		});
+		let _ = self.run_input(input);
+	}
+
 	/// Saves `entries` together and applies the live ones that live in the actor's own state.
 	pub(super) fn settings(
 		&mut self,
@@ -23,7 +36,7 @@ impl Actor {
 		})?;
 		let stored = self.ports.settings.load();
 		let mut results = Vec::with_capacity(entries.len());
-		let (mut profile, mut changed) = (false, false);
+		let (mut profile, mut changed, mut defaults) = (false, false, false);
 		for ((key, _), answer) in entries.iter().zip(answers) {
 			let outcome = match answer {
 				Some(reason) => KeyOutcome::Rejected(reason),
@@ -50,6 +63,11 @@ impl Actor {
 						}
 						"history.enabled" => {
 							self.directory.aux.history_enabled = stored.history_enabled;
+						}
+						"ptt.enabled" | "calls.default_transmit_mode" => {
+							self.directory.aux.ptt_enabled = stored.ptt_enabled;
+							self.directory.aux.default_transmit_mode = stored.default_transmit_mode;
+							defaults = true;
 						}
 						"clients.autostart_daemon" => {
 							self.directory.aux.autostart_daemon = stored.autostart_daemon;
@@ -80,6 +98,9 @@ impl Actor {
 				key: key.clone(),
 				outcome,
 			});
+		}
+		if defaults {
+			self.send_call_defaults();
 		}
 		if profile {
 			self.ports

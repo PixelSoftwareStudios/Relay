@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use relay_config::history::{CallOutcome, Direction as Way, NewCallRecord};
-use relay_core::{CallId, CallState, CallView, Direction, EndReason, MonoTime, PeerId};
+use relay_core::{CallId, CallState, CallView, Direction, EndReason, PeerId};
 
 use super::directory::Directory;
 
@@ -36,7 +36,6 @@ struct Note {
 	seen: bool,
 	/// The local user accepted an incoming call.
 	accepted: bool,
-	connected: Option<MonoTime>,
 }
 
 /// Follows calls from their first event to their last.
@@ -63,7 +62,6 @@ impl Recorder {
 		&mut self,
 		view: &CallView,
 		directory: &Directory,
-		now: MonoTime,
 	) -> Option<NewCallRecord> {
 		if !view.state.is_terminal() {
 			let started = (self.clock)();
@@ -74,7 +72,6 @@ impl Recorder {
 				name: String::new(),
 				seen: view.direction == Direction::Outgoing,
 				accepted: false,
-				connected: None,
 			});
 			if let Some(name) = directory.peer_name(view.peer) {
 				note.name = name;
@@ -82,10 +79,7 @@ impl Recorder {
 			match view.state {
 				CallState::IncomingRinging => note.seen = true,
 				CallState::Connecting => note.accepted = true,
-				CallState::Active => {
-					note.accepted = true;
-					note.connected.get_or_insert(now);
-				}
+				CallState::Active => note.accepted = true,
 				_ => {}
 			}
 			return None;
@@ -97,11 +91,10 @@ impl Recorder {
 		if let Some(name) = directory.peer_name(note.peer) {
 			note.name = name;
 		}
-		let (outcome, duration_ms) = match note.connected {
-			Some(at) => (
-				CallOutcome::Completed,
-				u64::try_from(now.saturating_since(at).as_millis()).unwrap_or(u64::MAX),
-			),
+		// The duration runs from the same instant the call views report as
+		// `connected_at_unix_ms`, so history and the live display agree.
+		let (outcome, duration_ms) = match directory.connected_at(view.id) {
+			Some(at) => (CallOutcome::Completed, (self.clock)().saturating_sub(at)),
 			None => (classify(&note, view.state, view.reason), 0),
 		};
 		let fingerprint = relay_net::identity::Fingerprint::from_bytes(*note.peer.as_bytes());

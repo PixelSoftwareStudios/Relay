@@ -1,7 +1,7 @@
 //! Wire requests turned into validated domain commands.
 
 use relay_api::pb::{
-	CallMutation, ReleaseControllerRequest, SetCallControlsRequest, SetTransmitRouteRequest,
+	CallMutation, ReleaseControllerRequest, SetCallControlsRequest, SetTransmitModeRequest,
 	StartCallRequest, TransmitMode, start_call_request::Target,
 };
 use relay_core::{CallId, Command, ControllerLeaseId, Gain, Reject, TransmitRoute};
@@ -68,26 +68,20 @@ pub(super) fn release(body: &ReleaseControllerRequest) -> Result<Command, Servic
 	Ok(Command::ReleaseController { call, lease })
 }
 
-pub(super) fn set_route(body: &SetTransmitRouteRequest) -> Result<(Command, CallId), ServiceError> {
+pub(super) fn set_mode(body: &SetTransmitModeRequest) -> Result<(Command, CallId), ServiceError> {
 	let call = call_id(&body.call_id)?;
 	let lease = ControllerLeaseId::new(body.controller_generation);
 	let mode = TransmitMode::try_from(body.mode).unwrap_or(TransmitMode::Unspecified);
-	let route = match mode {
-		TransmitMode::Unspecified => return Err(invalid("transmit mode is required")),
-		TransmitMode::ReceiveOnly => TransmitRoute::RECEIVE_ONLY,
-		TransmitMode::PushToTalk | TransmitMode::OpenMic => {
-			if !body.explicit_microphone_consent {
-				return Err(invalid("microphone consent must be explicit"));
-			}
-			match (mode, body.authorize_background_open_mic) {
-				(TransmitMode::PushToTalk, false) => TransmitRoute::push_to_talk(),
-				(TransmitMode::OpenMic, false) => TransmitRoute::open_mic(),
-				(TransmitMode::OpenMic, true) => TransmitRoute::open_mic_background(),
-				_ => return Err(invalid("background authority applies to open mic only")),
-			}
-		}
+	// The mode is the consent: choosing Unmuted or PushToTalk grants it in this same command.
+	let route = match (mode, body.authorize_background_open_mic) {
+		(TransmitMode::Unspecified, _) => return Err(invalid("transmit mode is required")),
+		(TransmitMode::Muted, false) => TransmitRoute::MUTED,
+		(TransmitMode::PushToTalk, false) => TransmitRoute::push_to_talk(),
+		(TransmitMode::Unmuted, false) => TransmitRoute::unmuted(),
+		(TransmitMode::Unmuted, true) => TransmitRoute::unmuted_background(),
+		_ => return Err(invalid("background authority applies to unmuted only")),
 	};
-	Ok((Command::SetTransmitRoute { call, lease, route }, call))
+	Ok((Command::SetTransmitMode { call, lease, route }, call))
 }
 
 /// A finite gain within `0.0..=max`, as thousandths.

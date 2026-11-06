@@ -8,8 +8,11 @@ use super::error::ServiceError;
 impl Actor {
 	/// Records a call that just ended. Nothing is written while `history.enabled` is off.
 	pub(super) fn record_call(&mut self, view: &CallView) {
-		let now = self.now();
-		let Some(entry) = self.recorder.observe(view, &self.directory, now) else {
+		if view.state == relay_core::CallState::Active {
+			let at = self.recorder.now_ms();
+			self.directory.note_connected(view.id, at);
+		}
+		let Some(entry) = self.recorder.observe(view, &self.directory) else {
 			return;
 		};
 		if !self.directory.aux.history_enabled {

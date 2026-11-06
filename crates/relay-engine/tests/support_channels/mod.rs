@@ -9,7 +9,7 @@ use std::time::Duration;
 use relay_api::RelayClient;
 use relay_api::pb::{
 	AcquireControllerRequest, CallState, ChannelInfo, ChannelPolicy, DecidePeerTrustRequest,
-	DeviceDirection, Operation, Peer, SelectDevicesRequest, SetTransmitRouteRequest,
+	DeviceDirection, Operation, Peer, SelectDevicesRequest, SetTransmitModeRequest,
 	StartCallRequest, TransmitMode, TrustState, start_call_request::Target,
 };
 use relay_config::identity::{IdentityStore, MemoryStore, StoredIdentity};
@@ -353,17 +353,16 @@ pub async fn select_microphone(cli: &mut RelayClient, op: u8) {
 
 pub async fn route(cli: &mut RelayClient, op: u8, call: &[u8], mode: TransmitMode) {
 	let generation = controller_of(&call_in(cli, call).await.expect("call")).generation;
-	let request = SetTransmitRouteRequest {
+	let request = SetTransmitModeRequest {
 		context: Some(ctx(cli, op)),
 		call_id: call.to_vec(),
 		controller_generation: generation,
 		mode: mode as i32,
-		explicit_microphone_consent: mode != TransmitMode::ReceiveOnly,
 		authorize_background_open_mic: false,
 	};
 	assert_applied(
 		&cli.raw()
-			.set_transmit_route(request)
+			.set_transmit_mode(request)
 			.await
 			.expect("route")
 			.into_inner(),

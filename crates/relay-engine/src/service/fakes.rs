@@ -258,6 +258,14 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 		"audio.ringback_enabled" => ring.ringback_enabled = audio.ringback_enabled,
 		"audio.call_sounds_enabled" => ring.call_sounds_enabled = audio.call_sounds_enabled,
 		"history.enabled" => stored.history_enabled = prefs.history.enabled,
+		"ptt.enabled" => stored.ptt_enabled = prefs.ptt.enabled,
+		"calls.default_transmit_mode" => {
+			stored.default_transmit_mode = match prefs.calls.default_transmit_mode {
+				p::TransmitModePref::Muted => relay_core::RouteMode::Muted,
+				p::TransmitModePref::Unmuted => relay_core::RouteMode::Unmuted,
+				p::TransmitModePref::PushToTalk => relay_core::RouteMode::PushToTalk,
+			}
+		}
 		"privacy.inbound_policy" => {
 			stored.inbound_policy = match prefs.privacy.inbound_policy {
 				p::InboundPolicy::Anyone => InboundPolicy::Anyone,
@@ -283,10 +291,13 @@ impl Default for MemorySettings {
 				microphone_gain: 1.0,
 				playback_gain: 1.0,
 				history_enabled: true,
+				default_transmit_mode: relay_core::RouteMode::Muted,
+				ptt_enabled: true,
 				..StoredSettings::default()
 			}),
 			avatars: Mutex::default(),
 			history: Mutex::default(),
+			favorites: Mutex::default(),
 			prefs: Mutex::new(relay_config::prefs::Preferences {
 				profile: relay_config::prefs::Profile {
 					display_name: "Test device".to_owned(),
@@ -297,18 +308,7 @@ impl Default for MemorySettings {
 	}
 }
 
-			favorites: Mutex::default(),
 impl SettingsStore for MemorySettings {
-	fn load(&self) -> StoredSettings {
-		lock(&self.stored).clone()
-	}
-	fn save(&self, change: &SettingsChange) -> Result<(), PortError> {
-		let mut stored = lock(&self.stored);
-		match change {
-			SettingsChange::DisplayName(name) => stored.display_name.clone_from(name),
-			SettingsChange::Devices { input, output } => {
-				stored.input_device.clone_from(input);
-				stored.output_device.clone_from(output);
 	fn favorites(&self) -> Vec<PeerId> {
 		lock(&self.favorites).clone()
 	}
@@ -324,6 +324,16 @@ impl SettingsStore for MemorySettings {
 		*lock(&self.favorites) = ordered.to_vec();
 		Ok(())
 	}
+	fn load(&self) -> StoredSettings {
+		lock(&self.stored).clone()
+	}
+	fn save(&self, change: &SettingsChange) -> Result<(), PortError> {
+		let mut stored = lock(&self.stored);
+		match change {
+			SettingsChange::DisplayName(name) => stored.display_name.clone_from(name),
+			SettingsChange::Devices { input, output } => {
+				stored.input_device.clone_from(input);
+				stored.output_device.clone_from(output);
 			}
 			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
 			SettingsChange::PttReleaseDelay(ms) => stored.ptt_release_delay_ms = *ms,

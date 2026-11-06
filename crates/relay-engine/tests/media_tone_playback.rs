@@ -79,10 +79,10 @@ async fn a_local_ring_sends_nothing_and_the_peer_hears_only_the_microphone() {
 		lease_b,
 		..
 	} = active_call().await;
-	b.command(Command::SetTransmitRoute {
+	b.command(Command::SetTransmitMode {
 		call,
 		lease: lease_b,
-		route: TransmitRoute::open_mic(),
+		route: TransmitRoute::unmuted(),
 	})
 	.unwrap();
 	run_for(&mut a, &mut b, Duration::from_millis(800)).await;

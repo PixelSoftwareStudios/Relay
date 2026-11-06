@@ -22,6 +22,8 @@ pub(super) fn info(service: &EngineService) -> EngineInfo {
 		application_version: env!("CARGO_PKG_VERSION").to_owned(),
 		api_major: API_MAJOR,
 		api_minor: 0,
+		build_revision: relay_api::BUILD_REVISION.to_owned(),
+		api_revision: relay_api::API_REVISION,
 		capabilities: Capability::ALL
 			.iter()
 			.map(|c| c.name().to_owned())
@@ -90,6 +92,8 @@ pub(super) async fn register(
 		}),
 		granted_capabilities: granted.iter().map(|c| c.name().to_owned()).collect(),
 		revision,
+		daemon_build_revision: relay_api::BUILD_REVISION.to_owned(),
+		daemon_api_revision: relay_api::API_REVISION,
 	}))
 }
 

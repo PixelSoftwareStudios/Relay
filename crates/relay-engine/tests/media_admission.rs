@@ -62,10 +62,10 @@ async fn refusing_a_second_call_leaves_the_running_call_untouched() {
 		lease_a,
 		..
 	} = active_call_with(|config| config.limits.max_calls = 1).await;
-	a.command(Command::SetTransmitRoute {
+	a.command(Command::SetTransmitMode {
 		call,
 		lease: lease_a,
-		route: TransmitRoute::open_mic(),
+		route: TransmitRoute::unmuted(),
 	})
 	.unwrap();
 	run_for(&mut a, &mut b, Duration::from_millis(800)).await;

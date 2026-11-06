@@ -24,10 +24,10 @@ async fn audio_continues_after_the_link_session_is_replaced() {
 		lease_a,
 		..
 	} = active_call().await;
-	a.command(Command::SetTransmitRoute {
+	a.command(Command::SetTransmitMode {
 		call,
 		lease: lease_a,
-		route: TransmitRoute::open_mic(),
+		route: TransmitRoute::unmuted(),
 	})
 	.unwrap();
 	until(&mut a, &mut b, "A transmitting", |a, _| {
