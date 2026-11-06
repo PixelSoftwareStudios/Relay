@@ -19,11 +19,8 @@ APP = "Relay.app"
 MINIMUM_SYSTEM = "13.0"
 IDENTIFIER_PREFIX = "dev.relay"
 BACKGROUND = ROOT / "assets/packaging/macos/dmg-background.png"
-# Finder lays out the hidden volume files too. With "show hidden files" on they would sit below the
-# window and make it scroll, so they are parked inside it, out from behind the two visible icons.
-HIDDEN_LOCATIONS = {".background.tiff": (60, 40), ".VolumeIcon.icns": (580, 40)}
-DMG_LAYOUT = {"window_rect": ((200, 200), (640, 330)), "icon_size": 128,
-              "icon_locations": {APP: (160, 135), "Applications": (480, 135), **HIDDEN_LOCATIONS}}
+DMG_LAYOUT = {"window_rect": ((200, 200), (640, 356)), "icon_size": 128,
+              "icon_locations": {APP: (160, 150), "Applications": (480, 150)}}
 
 
 def metadata(version):

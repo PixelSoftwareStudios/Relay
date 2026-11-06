@@ -101,7 +101,7 @@ class MacosTests(unittest.TestCase):
         settings = macos.disk_image_settings(Path("Relay.app"), Path("background.tiff"))
         self.assertEqual(settings["background"], "background.tiff")
         self.assertEqual(settings["symlinks"], {"Applications": "/Applications"})
-        self.assertEqual(set(settings["icon_locations"]), {"Relay.app", "Applications", *macos.HIDDEN_LOCATIONS})
+        self.assertEqual(set(settings["icon_locations"]), {"Relay.app", "Applications"})
 
 
 if __name__ == "__main__":
