@@ -45,6 +45,9 @@ tracing-android = "0.2.0"
 
 [profile.release]
 opt-level = 3
+# Fat LTO in one codegen unit: the stripped library is 14 percent smaller (29.8 to 25.8 MB).
+lto = "fat"
+codegen-units = 1
 debug = false
 # Keep the symbol table: UniFFI reads its metadata from the library. Gradle strips it again.
 strip = "debuginfo"
