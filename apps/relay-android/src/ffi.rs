@@ -17,7 +17,7 @@ impl RelayEngine {
 	/// Starts the engine (blocking for a moment: SQLite, sockets, audio
 	/// devices), or returns the running one. Call from a worker thread.
 	#[uniffi::constructor]
-	pub fn start(
+	pub fn new(
 		config: EngineConfig,
 		bridge: Arc<dyn HostBridge>,
 	) -> Result<Arc<Self>, EngineError> {
@@ -62,9 +62,10 @@ impl RelayEngine {
 		self.host.hang_up();
 	}
 
-	/// A volume key went down or up: hold to talk on the active call.
-	pub fn talk_key(&self, pressed: bool) {
-		self.host.talk(None, pressed);
+	/// A volume key went down or up. Returns true when the key was used for
+	/// hold-to-talk (a push-to-talk call is up), false to let Android change the volume.
+	pub fn talk_key(&self, pressed: bool) -> bool {
+		self.host.talk_key(pressed)
 	}
 
 	/// A service the platform browser resolved.

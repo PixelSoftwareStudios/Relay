@@ -14,15 +14,6 @@ license = "Apache-2.0"
 name = "relay_android"
 crate-type = ["cdylib", "lib"]
 
-[[bin]]
-name = "uniffi-bindgen"
-path = "uniffi-bindgen.rs"
-required-features = ["bindgen"]
-
-[features]
-# Builds the Kotlin binding generator for the host (Gradle turns this on).
-bindgen = ["uniffi/cli"]
-
 [dependencies]
 relay-ui = { path = "../../crates/relay-ui" }
 relay-engine = { path = "../../crates/relay-engine" }
@@ -52,5 +43,6 @@ tracing-android = "0.2.0"
 [profile.release]
 opt-level = 3
 debug = false
-strip = "symbols"
+# Keep the symbol table: UniFFI reads its metadata from the library. Gradle strips it again.
+strip = "debuginfo"
 panic = "unwind"

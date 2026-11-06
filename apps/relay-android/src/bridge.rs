@@ -6,16 +6,16 @@ use std::collections::HashMap;
 /// A failure reported by the Kotlin side.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum HostError {
-	#[error("{message}")]
-	Failed { message: String },
-	#[error("host callback failed unexpectedly: {message}")]
-	Unexpected { message: String },
+	#[error("{reason}")]
+	Failed { reason: String },
+	#[error("host callback failed unexpectedly: {reason}")]
+	Unexpected { reason: String },
 }
 
 impl From<uniffi::UnexpectedUniFFICallbackError> for HostError {
 	fn from(error: uniffi::UnexpectedUniFFICallbackError) -> Self {
 		Self::Unexpected {
-			message: error.reason,
+			reason: error.reason,
 		}
 	}
 }
@@ -23,8 +23,8 @@ impl From<uniffi::UnexpectedUniFFICallbackError> for HostError {
 /// Why the engine could not start or stop.
 #[derive(Debug, thiserror::Error, uniffi::Error)]
 pub enum EngineError {
-	#[error("engine: {message}")]
-	Failed { message: String },
+	#[error("engine: {reason}")]
+	Failed { reason: String },
 }
 
 /// Where the app keeps its files.
@@ -73,7 +73,7 @@ pub enum PickOutcome {
 	Cancelled,
 	Image { name: String, bytes: Vec<u8> },
 	File { path: String },
-	Failed { message: String },
+	Failed { reason: String },
 }
 
 /// System bar and keyboard sizes in physical pixels.

@@ -29,7 +29,7 @@ use relay_ui::controller::{Controller, SessionSlot};
 use relay_ui::emitter::{self, Cadence, Sink, TraySummary};
 use relay_ui::hub::Hub;
 use relay_ui::messaging::link::MsgLink;
-use relay_ui::model::{AppState, Link, Meters};
+use relay_ui::model::{AppState, Link, Meters, Mode};
 use relay_ui::relay_link::RelayLink;
 use relay_ui::shell::Shell;
 use relay_ui::{messaging, supervisor};
@@ -64,6 +64,7 @@ pub struct Host {
 	daemon: tokio::sync::Mutex<Option<DaemonHandle>>,
 	attached: Mutex<Vec<JoinHandle<()>>>,
 	talk_tx: tokio::sync::mpsc::UnboundedSender<(String, bool)>,
+	talk_held: AtomicBool,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
 	/// 0 unknown, 1 granted, 2 denied.
@@ -87,7 +88,7 @@ impl Host {
 			return Ok(running.clone());
 		}
 		let failed = |what: &str, e: &dyn std::fmt::Display| EngineError::Failed {
-			message: format!("{what}: {e}"),
+			reason: format!("{what}: {e}"),
 		};
 		let root = PathBuf::from(&config.files_dir);
 		let runtime = tokio::runtime::Builder::new_multi_thread()
@@ -164,6 +165,7 @@ impl Host {
 				daemon: tokio::sync::Mutex::new(Some(daemon)),
 				attached: Mutex::new(Vec::new()),
 				talk_tx,
+				talk_held: AtomicBool::new(false),
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
 				microphone: AtomicU8::new(0),
@@ -282,12 +284,40 @@ impl Host {
 			.run(|c| async move { c.accept_call(&id).await });
 	}
 
-	/// Hold-to-talk from the on-screen button (`call_id` given) or a volume
-	/// key (the active call). See [`talk_worker`] for how it reaches the engine.
+	/// Hold-to-talk from the on-screen button. See [`talk_worker`] for how it
+	/// reaches the engine.
 	pub fn talk(&self, call_id: Option<String>, pressed: bool) {
-		if let Some(id) = call_id.or_else(|| self.active_call_id()) {
+		if let Some(id) = call_id {
 			let _ = self.talk_tx.send((id, pressed));
 		}
+	}
+
+	/// A volume key. It is a talk key only while a push-to-talk call is up (or
+	/// held down); otherwise Android keeps it for the volume. Returns whether
+	/// the key was taken.
+	pub fn talk_key(&self, pressed: bool) -> bool {
+		let ptt_call = self.hub.read(|s| {
+			s.calls
+				.iter()
+				.find(|c| !c.phase.is_terminal() && c.transmit.mode == Mode::PushToTalk)
+				.map(|c| c.call_id.clone())
+		});
+		let held = self.talk_held.load(Ordering::Acquire);
+		if pressed && held {
+			// Auto-repeat of the key already taken.
+			return true;
+		}
+		let id = match (pressed, ptt_call) {
+			(true, Some(id)) => id,
+			(false, _) if held => match self.active_call_id() {
+				Some(id) => id,
+				None => return false,
+			},
+			_ => return false,
+		};
+		self.talk_held.store(pressed, Ordering::Release);
+		let _ = self.talk_tx.send((id, pressed));
+		true
 	}
 
 	fn active_call_id(&self) -> Option<String> {
@@ -330,7 +360,6 @@ async fn talk_worker(
 	actions: Actions,
 	mut presses: tokio::sync::mpsc::UnboundedReceiver<(String, bool)>,
 ) {
-	use relay_ui::model::Mode;
 	while let Some((call_id, pressed)) = presses.recv().await {
 		let mode = if pressed {
 			Mode::OpenMic

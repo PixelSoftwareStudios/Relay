@@ -32,7 +32,7 @@ impl HostBridge for FakeBridge {
 			.strip_prefix(prefix.as_bytes())
 			.map(|body| body.iter().map(|b| b ^ 0x5a).collect())
 			.ok_or(HostError::Failed {
-				message: "wrong context".into(),
+				reason: "wrong context".into(),
 			})
 	}
 

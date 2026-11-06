@@ -1,0 +1,13 @@
+# The Kotlin binding generator, in its own tiny crate so it builds fast on the
+# host without compiling the engine. Gradle runs it (app/build.gradle.kts).
+[package]
+name = "uniffi-bindgen"
+version = "0.0.0"
+edition = "2024"
+publish = false
+license = "Apache-2.0"
+
+[workspace]
+
+[dependencies]
+uniffi = { version = "0.32.2", features = ["cli"] }

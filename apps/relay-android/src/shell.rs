@@ -117,7 +117,7 @@ impl FilePicker for AndroidShell {
 					Ok(Some(PickedFile { name, bytes }))
 				}
 				PickOutcome::Cancelled => Ok(None),
-				PickOutcome::Failed { message } => Err(message),
+				PickOutcome::Failed { reason } => Err(reason),
 				PickOutcome::File { .. } => Err("unexpected file result".to_owned()),
 			}
 		})
@@ -130,7 +130,7 @@ impl FilePicker for AndroidShell {
 			match self.pick(PickKind::File).await {
 				PickOutcome::File { path } => Ok(Some(path.into())),
 				PickOutcome::Cancelled => Ok(None),
-				PickOutcome::Failed { message } => Err(message),
+				PickOutcome::Failed { reason } => Err(reason),
 				PickOutcome::Image { .. } => Err("unexpected image result".to_owned()),
 			}
 		})
