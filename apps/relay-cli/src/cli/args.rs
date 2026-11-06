@@ -105,6 +105,8 @@ pub enum Command {
 	/// Read, change, export or import settings.
 	#[command(subcommand)]
 	Config(ConfigCommand),
+	/// Storage and retention limits: current value, default and allowed range.
+	Limits,
 	/// Your avatar.
 	#[command(subcommand)]
 	Avatar(AvatarCommand),

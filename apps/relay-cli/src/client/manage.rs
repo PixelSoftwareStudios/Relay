@@ -106,6 +106,10 @@ pub trait Manage {
 		&mut self,
 		values: Vec<(String, String)>,
 	) -> Result<Vec<SettingResult>, ApiError>;
+	/// Bytes in use next to the limit that bounds them (keyed by the limit's preference key).
+	async fn get_limit_usage(&mut self) -> Result<BTreeMap<String, u64>, ApiError> {
+		Ok(BTreeMap::new())
+	}
 }
 
 impl RealClient {
@@ -318,6 +322,10 @@ impl Manage for RealClient {
 
 	async fn get_settings(&mut self) -> Result<BTreeMap<String, String>, ApiError> {
 		self.client_mut().get_settings().await
+	}
+
+	async fn get_limit_usage(&mut self) -> Result<BTreeMap<String, u64>, ApiError> {
+		self.client_mut().get_limit_usage().await
 	}
 
 	async fn set_settings(

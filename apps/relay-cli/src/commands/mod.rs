@@ -13,6 +13,7 @@ mod doctor;
 mod history;
 mod hold;
 mod hotkey;
+pub mod limits;
 pub mod messages;
 mod mic_test;
 pub mod names;
@@ -77,6 +78,7 @@ async fn dispatch(
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
 		Command::Config(cmd) => config::run(&cli.global, cmd, &mut out).await,
+		Command::Limits => limits::run(&cli.global, &mut out).await,
 		Command::Completions(args) => docs::completions(&args, &mut out),
 		Command::Man(args) => docs::man(&args, &mut out),
 		Command::Messages(args) => {
@@ -134,6 +136,7 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		| Command::Tui(_)
 		| Command::Hotkey(_)
 		| Command::Config(_)
+		| Command::Limits
 		| Command::Completions(_)
 		| Command::Man(_)
 		| Command::Messages(_) => Err(CliError::Usage(

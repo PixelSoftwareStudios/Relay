@@ -114,6 +114,10 @@ fn load(paths: &Paths) -> Result<Preferences, CliError> {
 		.unwrap_or_default())
 }
 
+pub(super) fn load_prefs(paths: &Paths) -> Result<Preferences, CliError> {
+	load(paths)
+}
+
 pub(super) async fn engine_running(
 	global: &GlobalArgs,
 ) -> Result<Option<client::RealClient>, CliError> {
@@ -157,9 +161,10 @@ async fn export(
 	file: Option<&Path>,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	let mut prefs = Preferences::default();
-	for (key, value) in current(global, paths).await? {
-		prefs = flat::set(&prefs, &key, &value).map_err(config_error)?;
+	let entries: Vec<(String, String)> = current(global, paths).await?.into_iter().collect();
+	let (prefs, answers) = flat::set_many(&Preferences::default(), &entries);
+	if let Some(reason) = answers.into_iter().flatten().next() {
+		return Err(CliError::Usage(reason));
 	}
 	let text = export_toml(&prefs).map_err(config_error)?;
 	match file {

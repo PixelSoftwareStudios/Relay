@@ -472,6 +472,8 @@ impl Engine for FakeEngine {
 		let values = self.settings.lock().unwrap().clone();
 		Ok(Response::new(SettingsDump {
 			values: values.into_iter().collect(),
+			// A scripted cache of 3 MiB so `relay limits` has something to show.
+			usage: [("limits.avatar_cache_mib".to_owned(), 3 * 1024 * 1024)].into(),
 		}))
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
