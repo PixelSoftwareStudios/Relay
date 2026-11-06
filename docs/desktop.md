@@ -111,3 +111,5 @@ The language is a desktop-only preference stored with the notification switch in
 `assets/icon/relay.icns` holds every size macOS asks for (16 to 512 pt at 1x and 2x, so 16 to 1024 px), built from `assets/icon/relay-app-macos.svg` by `assets/icon/make-icns.sh` (needs `iconutil` and `resvg`). The packaged `.app` bundle uses it as `CFBundleIconFile`; `cargo run` uses the padded PNG set at runtime. Keep the SVG as the source and regenerate both outputs with the script.
 
 Found nearby: the daemon dials discovered devices while the app is attached and the device is discoverable, so a device on the same network appears on Connect under Nearby (with its local address) until the user trusts it, and then under Contacts after comparing fingerprints (`docs/ui.md`, `docs/engine.md`). A Private device does not dial out.
+
+Navigation, contact cards, chat controls and banners use Phosphor icons with tooltips; see the Icons section of `docs/ui.md`.

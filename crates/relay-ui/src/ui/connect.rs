@@ -82,7 +82,7 @@ fn collapsed(ui: &mut Ui, cx: &mut Cx) {
 	{
 		let text = info.connection_string.clone();
 		button_row(ui, |ui| {
-			if icon_button(ui, Icon::Copy, tr!("connection-copy")).clicked() {
+			if icon_label(ui, Icon::Copy, tr!("connection-copy")).clicked() {
 				cx.actions.copy_text(&text);
 			}
 		});
