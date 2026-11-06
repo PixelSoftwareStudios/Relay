@@ -295,6 +295,10 @@ impl Manage for FakeControl {
 	async fn forget_peer(&mut self, peer_id: &[u8], query: &str) -> Result<Operation, ApiError> {
 		self.record(format!("forget {} {query}", hex::encode(peer_id)))
 	}
+	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError> {
+		let ids: Vec<String> = peer_ids.iter().map(|id| hex::encode(&id[..1])).collect();
+		self.record(format!("favorites {}", ids.join(",")))
+	}
 	async fn call_history(
 		&mut self,
 		limit: u32,
@@ -304,10 +308,6 @@ impl Manage for FakeControl {
 		let entries: Vec<_> = self
 			.history
 			.iter()
-	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError> {
-		let ids: Vec<String> = peer_ids.iter().map(|id| hex::encode(&id[..1])).collect();
-		self.record(format!("favorites {}", ids.join(",")))
-	}
 			.filter(|e| before_id.is_none_or(|b| e.id < b))
 			.take(limit as usize)
 			.cloned()

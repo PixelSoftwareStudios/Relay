@@ -172,7 +172,7 @@ impl Display for CallList {
 }
 
 impl CallView {
-	fn row(&self) -> [String; 6] {
+	fn row(&self) -> [String; 7] {
 		[
 			short(&self.id),
 			self.peer_name

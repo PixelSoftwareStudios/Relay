@@ -152,10 +152,7 @@ fn call_card_shows_route_effective_ptt_meter_and_speaking() {
 	}));
 	let text = screen(&m, 90, 14);
 	assert!(text.contains("Alice connected (speaking)"), "{text}");
-	assert!(
-		text.contains("mode: push-to-talk  TRANSMITTING"),
-		"{text}"
-	);
+	assert!(text.contains("mode: push-to-talk  TRANSMITTING"), "{text}");
 	assert!(text.contains("rtt 2.5ms"));
 	assert!(
 		text.contains("mic [##################--]"),

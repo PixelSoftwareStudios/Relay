@@ -30,7 +30,10 @@ async fn status_shows_the_daemon_build_and_flags_a_mismatch() {
 	let h = EngineHarness::start().await;
 	let text = h.run(&["daemon", "status"]).await.expect("status");
 	let older = relay_api::API_REVISION - 1;
-	assert!(text.contains(&format!("build test (api {older})")), "{text}");
+	assert!(
+		text.contains(&format!("build test (api {older})")),
+		"{text}"
+	);
 	assert!(
 		text.contains("out of date"),
 		"the stand-in is another build: {text}"

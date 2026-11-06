@@ -558,16 +558,6 @@ pub enum TrustCommand {
 	},
 }
 
-/// Arguments of `relay mic-test`.
-#[derive(Debug, Clone, Args)]
-pub struct MicTestArgs {
-	/// How long to listen.
-	#[arg(long, default_value_t = 5)]
-	pub seconds: u64,
-	/// Play the microphone back locally (may cause feedback).
-	#[arg(long)]
-	pub local_playback: bool,
-	/// Acknowledge the feedback warning of `--local-playback`.
 /// `relay favorites ...`
 #[derive(Debug, Subcommand)]
 pub enum FavoritesCommand {
@@ -592,6 +582,16 @@ pub enum FavoritesCommand {
 	},
 }
 
+/// Arguments of `relay mic-test`.
+#[derive(Debug, Clone, Args)]
+pub struct MicTestArgs {
+	/// How long to listen.
+	#[arg(long, default_value_t = 5)]
+	pub seconds: u64,
+	/// Play the microphone back locally (may cause feedback).
+	#[arg(long)]
+	pub local_playback: bool,
+	/// Acknowledge the feedback warning of `--local-playback`.
 	#[arg(long, requires = "local_playback")]
 	pub accept_feedback: bool,
 }

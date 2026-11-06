@@ -74,10 +74,7 @@ fn card(frame: &mut Frame, area: Rect, model: &Model, call: &relay_api::pb::Call
 		Span::styled("mic closed", Style::new().fg(Color::DarkGray))
 	};
 	let mut route = vec![
-		Span::raw(format!(
-			"mode: {}  ",
-			names::transmit_mode(transmit.mode)
-		)),
+		Span::raw(format!("mode: {}  ", names::transmit_mode(transmit.mode))),
 		tx,
 	];
 	if model.ptt_latched.as_deref() == Some(call.call_id.as_slice()) {
