@@ -59,7 +59,7 @@ impl<'de> Deserialize<'de> for SecretBytes {
 }
 
 /// Everything Relay keeps in the credential store, under one service and account.
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub(super) struct Bundle {
 	version: u32,
 	#[serde(default)]

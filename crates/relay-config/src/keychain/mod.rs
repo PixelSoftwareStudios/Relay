@@ -5,6 +5,12 @@
 //! secret. Every change is a locked read-modify-write: an in-process mutex, then the
 //! cross-process [`ProcessLock`] on a lock file, so two processes of one user never
 //! lose each other's updates.
+//!
+//! The daemon is the only process that opens the OS store ([`Keychain::os`]). It reads the
+//! item once and keeps the decoded bundle in memory for the life of the process, so the
+//! operating system prompts at most once per start, and never twice at the same time:
+//! readers queue behind the one read that is in flight. A failed read is not cached, so a
+//! retry asks the store again.
 
 mod backend;
 mod bundle;
@@ -31,6 +37,8 @@ pub struct Keychain {
 	backend: Arc<dyn SecretBackend>,
 	lock_file: PathBuf,
 	local: Arc<Mutex<()>>,
+	/// `Some` when the decoded bundle is kept in memory after the first read.
+	cache: Option<Mutex<Option<Bundle>>>,
 }
 
 impl std::fmt::Debug for Keychain {
@@ -43,36 +51,61 @@ impl std::fmt::Debug for Keychain {
 
 impl Keychain {
 	/// Independent in-process lock; processes (and tests) are kept apart by the lock file.
+	/// Every read goes to the backend.
 	pub fn new(backend: Arc<dyn SecretBackend>, lock_file: impl Into<PathBuf>) -> Self {
 		Self {
 			backend,
 			lock_file: lock_file.into(),
 			local: Arc::default(),
+			cache: None,
 		}
 	}
 
-	/// The OS credential store, sharing one in-process lock per lock file so the identity
-	/// store and the channel vault of one process never contend through the file lock.
+	/// Like [`Keychain::new`] but the bundle is read from the backend once and then served
+	/// from memory; writes go through to the backend and update the copy. Only for a
+	/// process that is the single owner of the item (the daemon).
+	pub fn cached(backend: Arc<dyn SecretBackend>, lock_file: impl Into<PathBuf>) -> Self {
+		Self {
+			cache: Some(Mutex::new(None)),
+			..Self::new(backend, lock_file)
+		}
+	}
+
+	/// The OS credential store. One cached instance per lock file and process, shared by the
+	/// identity store and the channel vault: they contend through neither the file lock nor
+	/// a second prompt.
 	pub fn os(lock_file: &Path) -> Arc<Self> {
-		static LOCALS: OnceLock<Mutex<HashMap<PathBuf, Arc<Mutex<()>>>>> = OnceLock::new();
-		let local = LOCALS
+		static SHARED: OnceLock<Mutex<HashMap<PathBuf, Arc<Keychain>>>> = OnceLock::new();
+		SHARED
 			.get_or_init(Mutex::default)
 			.lock_unpoisoned()
 			.entry(lock_file.to_path_buf())
-			.or_default()
-			.clone();
-		Arc::new(Self {
-			backend: Arc::new(KeyringBackend),
-			lock_file: lock_file.to_path_buf(),
-			local,
-		})
+			.or_insert_with(|| Arc::new(Self::cached(Arc::new(KeyringBackend), lock_file)))
+			.clone()
 	}
 
-	fn read_bundle(&self) -> Result<Bundle> {
+	fn fetch(&self) -> Result<Bundle> {
 		match self.backend.get()? {
 			Some(blob) => Bundle::decode(&blob),
 			None => Ok(Bundle::default()),
 		}
+	}
+
+	/// Runs `f` on the current bundle. With a cache the backend is asked only while the copy
+	/// is empty, and the cache lock is held across that read so there is one read in flight.
+	fn with_bundle<R>(&self, f: impl FnOnce(&Bundle) -> R) -> Result<R> {
+		let Some(cache) = &self.cache else {
+			return Ok(f(&self.fetch()?));
+		};
+		let mut held = cache.lock_unpoisoned();
+		if held.is_none() {
+			*held = Some(self.fetch()?);
+		}
+		Ok(f(held.as_ref().unwrap_or(&Bundle::default())))
+	}
+
+	fn current(&self) -> Result<Bundle> {
+		self.with_bundle(Bundle::clone)
 	}
 
 	fn acquire(&self) -> Result<ProcessLock> {
@@ -91,7 +124,7 @@ impl Keychain {
 
 	/// Reads one value out of the bundle.
 	fn read<R>(&self, f: impl FnOnce(&Bundle) -> R) -> Result<R> {
-		Ok(f(&self.read_bundle()?))
+		self.with_bundle(f)
 	}
 
 	/// Atomic read-modify-write. `f` returns whether it changed anything; an unchanged
@@ -99,13 +132,16 @@ impl Keychain {
 	fn update<R>(&self, f: impl FnOnce(&mut Bundle) -> (bool, R)) -> Result<R> {
 		let _local = self.local.lock_unpoisoned();
 		let _file = self.acquire()?;
-		let mut bundle = self.read_bundle()?;
+		let mut bundle = self.current()?;
 		let (changed, out) = f(&mut bundle);
 		if changed {
 			if bundle.is_empty() {
 				self.backend.delete()?;
 			} else {
 				self.backend.set(&bundle.encode()?)?;
+			}
+			if let Some(cache) = &self.cache {
+				*cache.lock_unpoisoned() = Some(bundle);
 			}
 		}
 		Ok(out)
