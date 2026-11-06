@@ -58,6 +58,11 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
   yields such an address.
 - `SecureSession::handshake_hash()` exposes the Noise `h` (commits to prologue, epoch, both
   static keys and all handshake messages). Upper layers bind proofs to it; it is not a key.
+- A discovered record carries only a key hint, so the engine may dial it to learn the key
+  (`relay-engine` `peers/probing.rs`, see `docs/engine.md`). What that reveals to the responder is
+  this device's static public key and display name, through the normal handshake, and only while
+  this device is visible (attached client, not hidden). The responder treats it as an unknown,
+  untrusted link.
 - Discovery: `Advertisement.mode` (`Open` or `Hidden`: no name, no fingerprint hint),
   `Advertisement.extra_txt` (<= 8 short ASCII entries, core keys protected) and
   `DiscoveredPeer.txt` (bounded raw TXT, never interpreted by discovery).

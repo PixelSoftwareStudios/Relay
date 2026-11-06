@@ -347,6 +347,8 @@ pub(super) enum Command {
 	AvatarServed(Fingerprint),
 	Discovered(Box<relay_net::discovery::DiscoveredPeer>),
 	Removed(String),
+	/// Whether this device is present and visible changed: probe, or stop probing.
+	Visibility,
 	Shutdown,
 }
 

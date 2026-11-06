@@ -99,7 +99,6 @@ impl Actor {
 	fn upkeep(&mut self) {
 		self.table.expire(DISCOVERY_TTL);
 		self.table.take_evicted();
-		self.prune_probed();
 		self.probe_discovered();
 	}
 
@@ -170,6 +169,7 @@ impl Actor {
 			Command::Removed(name) => {
 				self.table.remove(&name);
 			}
+			Command::Visibility => self.probe_discovered(),
 			Command::Shutdown => {}
 		}
 	}

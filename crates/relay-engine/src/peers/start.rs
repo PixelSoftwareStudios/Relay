@@ -196,6 +196,7 @@ fn spawn_discovery(
 						break;
 					}
 					published = current(&spec);
+					let _ = commands.try_send(Command::Visibility);
 					let now = profile.borrow().clone();
 					let _ = backend.show(plan(&now, &published));
 				}

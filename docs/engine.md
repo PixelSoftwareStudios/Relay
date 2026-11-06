@@ -386,9 +386,19 @@ disk), `messages_secrets` (TRACE grep).
 ## Not done / owned elsewhere
 
 - Discovered devices have no peer id until their first handshake, so only peers with a known key
-  are listed. The manager therefore dials every discovered device that carries a key hint, is not
-  this device and is not linked (`peers/probing.rs`: at most 8 at once, each instance again after
-  30 s); the resulting link is untrusted and waits for the user's decision. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
+  are listed. The manager therefore dials discovered devices that carry a key hint, are not this
+  device and are not linked (`peers/probing.rs`). A probe is an ordinary control-link handshake: it
+  shows the responder this device's static public key and display name (and its IP address, which
+  it sees anyway) and nothing else; no audio, no call and no trust. It is made only while this
+  device is itself visible, that is discovery advertising is on, a client is attached (presence)
+  and `privacy.advert_mode` is not `hidden`; when either stops, no new probe starts (established
+  links stay) and the per-instance memory is dropped, and when both hold again the current
+  discoveries are probed at once (`Command::Visibility`, sent when the advert spec changes). At
+  most 8 probes run at once and an instance is probed again only after 30 s. The responder holds
+  the resulting link untrusted: it raises the usual trust notice, never auto-trusts, and the
+  inbound policy (who may ring) still applies before any call reaches call state. Anyone on the
+  LAN who advertises can trigger a probe; being private (hidden) is what stops this device from
+  dialling out. mDNS is not exercised by the loopback tests (`relay-net` has an opt-in live test).
 - `InputControlMessage.transmit_route_generation` is not validated; the core binds a press to
   the route generation internally.
 - `MutationContext.expected_revision` is honoured for `SetGlobalControls` only (settings
