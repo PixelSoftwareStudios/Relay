@@ -427,6 +427,13 @@ impl Operations for MockOps {
 		Ok(Outcome::default())
 	}
 
+	async fn watch_call_stats(
+		&self,
+		call_id: Vec<u8>,
+	) -> Result<Box<dyn crate::engine::CallStatsSource>, EngineError> {
+		Ok(Box::new(MockCallStats(hex::encode(call_id))))
+	}
+
 	async fn connection_info(&self) -> Result<ConnectionView, EngineError> {
 		Ok(ConnectionView {
 			addresses: vec!["192.168.1.40".into()],
@@ -561,5 +568,45 @@ pub async fn run(hub: Arc<Hub>, slot: Arc<SessionSlot>) {
 				hub.set_meters(meters_at(&state, started.elapsed().as_secs_f32() * 1.4));
 			}
 		}
+	}
+}
+
+/// Synthetic statistics: a healthy 40 ms path, one sample per second.
+struct MockCallStats(String);
+
+#[async_trait]
+impl crate::engine::CallStatsSource for MockCallStats {
+	async fn next(&mut self) -> Result<Option<crate::model::CallStats>, EngineError> {
+		tokio::time::sleep(Duration::from_secs(1)).await;
+		Ok(Some(crate::model::CallStats {
+			call_id: self.0.clone(),
+			path: crate::model::MediaPath::Connected,
+			path_reason: String::new(),
+			sending: true,
+			receiving: true,
+			packets_sent: 100,
+			packets_received: 99,
+			mic_level_dbfs: Some(-30.0),
+			rtt_ms: Some(40.0),
+			rtt_min_ms: Some(38.0),
+			rtt_max_ms: Some(44.0),
+			jitter_ms: Some(2.0),
+			loss_percent_5s: 0.5,
+			loss_percent_total: 0.5,
+			jitter_buffer_target_ms: 20.0,
+			jitter_buffer_depth_ms: 20.0,
+			playout_delay_ms: 25.0,
+			mouth_to_ear_ms: Some(100.0),
+			codec_bitrate_bps: 32_000,
+			packet_bytes: 140,
+			local_addr: "192.168.1.20:50000".into(),
+			remote_addr: "192.168.1.21:50001".into(),
+			transport: "lan".into(),
+			clock_drift_ppm: Some(0.0),
+			capture_buffer_frames: 512,
+			capture_buffer_ms: 10.7,
+			playback_buffer_frames: 512,
+			playback_buffer_ms: 10.7,
+		}))
 	}
 }

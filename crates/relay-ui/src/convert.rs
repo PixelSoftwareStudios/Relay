@@ -269,3 +269,43 @@ pub fn meters(t: &pb::TelemetrySnapshot) -> Meters {
 			.collect(),
 	}
 }
+
+/// One call-statistics sample. Non-finite readings are dropped as "no data".
+pub fn call_stats(s: &pb::CallStats) -> crate::model::CallStats {
+	let finite = |v: Option<f64>| v.filter(|x| x.is_finite());
+	let number = |v: f64| if v.is_finite() { v } else { 0.0 };
+	crate::model::CallStats {
+		call_id: hex::encode(&s.call_id),
+		path: match pb::MediaPathState::try_from(s.path_state) {
+			Ok(pb::MediaPathState::Connected) => crate::model::MediaPath::Connected,
+			Ok(pb::MediaPathState::Failed) => crate::model::MediaPath::Failed,
+			_ => crate::model::MediaPath::Waiting,
+		},
+		path_reason: s.path_reason.chars().take(200).collect(),
+		sending: s.sending,
+		receiving: s.receiving,
+		packets_sent: s.packets_sent,
+		packets_received: s.packets_received,
+		mic_level_dbfs: finite(s.mic_level_dbfs.map(f64::from)).map(|v| v as f32),
+		rtt_ms: finite(s.rtt_ms),
+		rtt_min_ms: finite(s.rtt_min_ms),
+		rtt_max_ms: finite(s.rtt_max_ms),
+		jitter_ms: finite(s.jitter_ms),
+		loss_percent_5s: number(s.loss_percent_5s),
+		loss_percent_total: number(s.loss_percent_total),
+		jitter_buffer_target_ms: number(s.jitter_buffer_target_ms),
+		jitter_buffer_depth_ms: number(s.jitter_buffer_depth_ms),
+		playout_delay_ms: number(s.playout_delay_ms),
+		mouth_to_ear_ms: finite(s.mouth_to_ear_ms),
+		codec_bitrate_bps: s.codec_bitrate_bps,
+		packet_bytes: s.packet_bytes,
+		local_addr: s.local_addr.chars().take(64).collect(),
+		remote_addr: s.remote_addr.chars().take(64).collect(),
+		transport: s.transport.chars().take(16).collect(),
+		clock_drift_ppm: finite(s.clock_drift_ppm),
+		capture_buffer_frames: s.capture_buffer_frames,
+		capture_buffer_ms: number(s.capture_buffer_ms),
+		playback_buffer_frames: s.playback_buffer_frames,
+		playback_buffer_ms: number(s.playback_buffer_ms),
+	}
+}

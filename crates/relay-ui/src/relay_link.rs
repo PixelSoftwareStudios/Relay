@@ -158,6 +158,20 @@ impl TelemetrySource for Telemetry {
 	}
 }
 
+struct CallStatsStream(tonic::Streaming<pb::CallStats>);
+
+#[async_trait]
+impl crate::engine::CallStatsSource for CallStatsStream {
+	async fn next(&mut self) -> Result<Option<crate::model::CallStats>, EngineError> {
+		Ok(self
+			.0
+			.message()
+			.await
+			.map_err(status)?
+			.map(|s| convert::call_stats(&s)))
+	}
+}
+
 struct Ops {
 	client: Mutex<RelayClient>,
 }
@@ -343,6 +357,17 @@ impl Operations for Ops {
 			.await
 			.map_err(map_error)?;
 		Ok(page.entries.iter().map(convert::history_entry).collect())
+	}
+
+	async fn watch_call_stats(
+		&self,
+		call_id: Vec<u8>,
+	) -> Result<Box<dyn crate::engine::CallStatsSource>, EngineError> {
+		let mut client = self.client.lock().await;
+		let stream = relay_client::wire::open_call_stats(&mut client, &call_id)
+			.await
+			.map_err(map_error)?;
+		Ok(Box::new(CallStatsStream(stream)))
 	}
 
 	async fn get_settings(&self) -> Result<BTreeMap<String, String>, EngineError> {

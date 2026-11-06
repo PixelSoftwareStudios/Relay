@@ -371,3 +371,53 @@ pub struct Meters {
 	pub microphone_dbfs: Option<f32>,
 	pub calls: Vec<CallMeter>,
 }
+
+/// Where the UDP media path of a call stands.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum MediaPath {
+	/// Waiting for the other device to answer the path challenge.
+	Waiting,
+	Connected,
+	/// Gave up; `CallStats::path_reason` says why.
+	Failed,
+}
+
+/// Live measurements of one call, about once a second, for a debug panel. All latency figures
+/// are estimates (`docs/engine.md`).
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CallStats {
+	pub call_id: String,
+	pub path: MediaPath,
+	/// Why the path waits or failed; empty when connected.
+	pub path_reason: String,
+	/// A packet was sent in the last 500 ms.
+	pub sending: bool,
+	/// A packet was received in the last 500 ms.
+	pub receiving: bool,
+	pub packets_sent: u64,
+	pub packets_received: u64,
+	pub mic_level_dbfs: Option<f32>,
+	pub rtt_ms: Option<f64>,
+	pub rtt_min_ms: Option<f64>,
+	pub rtt_max_ms: Option<f64>,
+	pub jitter_ms: Option<f64>,
+	pub loss_percent_5s: f64,
+	pub loss_percent_total: f64,
+	pub jitter_buffer_target_ms: f64,
+	pub jitter_buffer_depth_ms: f64,
+	pub playout_delay_ms: f64,
+	pub mouth_to_ear_ms: Option<f64>,
+	pub codec_bitrate_bps: u32,
+	pub packet_bytes: u32,
+	pub local_addr: String,
+	pub remote_addr: String,
+	/// `lan` or `overlay`.
+	pub transport: String,
+	pub clock_drift_ppm: Option<f64>,
+	pub capture_buffer_frames: u32,
+	pub capture_buffer_ms: f64,
+	pub playback_buffer_frames: u32,
+	pub playback_buffer_ms: f64,
+}

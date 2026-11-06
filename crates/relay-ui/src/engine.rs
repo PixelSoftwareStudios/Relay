@@ -225,6 +225,15 @@ pub trait Operations: Send + Sync {
 		Ok(std::collections::BTreeMap::new())
 	}
 
+	/// Opens one call's live statistics (`WatchCallStats`, one sample per second). Open it only
+	/// while the debug panel is visible and drop it when the panel closes.
+	async fn watch_call_stats(
+		&self,
+		_call_id: Vec<u8>,
+	) -> Result<Box<dyn CallStatsSource>, EngineError> {
+		Err(unsupported())
+	}
+
 	/// Change preferences (`SetSettings`); one result per key.
 	async fn set_settings(
 		&self,
@@ -245,6 +254,12 @@ fn unsupported() -> EngineError {
 pub trait EventSource: Send {
 	/// Next validated item; `Ok(None)` when the engine closed the stream.
 	async fn next(&mut self) -> Result<Option<WatchItem>, EngineError>;
+}
+
+/// A stream of call statistics samples; `Ok(None)` when the engine closed it.
+#[async_trait]
+pub trait CallStatsSource: Send {
+	async fn next(&mut self) -> Result<Option<crate::model::CallStats>, EngineError>;
 }
 
 #[async_trait]
