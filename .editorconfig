@@ -1,0 +1,20 @@
+# Tabs everywhere; editors and the Android toolchain read this.
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.{rs,kt,kts,xml,toml,proto,sh,gradle}]
+indent_style = tab
+
+# Fluent only accepts spaces as continuation indent.
+[*.ftl]
+indent_style = space
+indent_size = 4
+
+[*.{md,yml,yaml,json}]
+indent_style = space
+indent_size = 2

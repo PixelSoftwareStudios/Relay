@@ -21,37 +21,37 @@ import javax.crypto.spec.GCMParameterSpec
  */
 class Sealer(private val key: () -> SecretKey) {
 
-    fun seal(context: String, plain: ByteArray): ByteArray {
-        val cipher = Cipher.getInstance(TRANSFORM)
-        cipher.init(Cipher.ENCRYPT_MODE, key())
-        cipher.updateAAD(context.toByteArray(Charsets.UTF_8))
-        val body = cipher.doFinal(plain)
-        val iv = cipher.iv
-        check(iv.size == IV_BYTES) { "unexpected IV size ${iv.size}" }
-        return byteArrayOf(VERSION) + iv + body
-    }
+	fun seal(context: String, plain: ByteArray): ByteArray {
+		val cipher = Cipher.getInstance(TRANSFORM)
+		cipher.init(Cipher.ENCRYPT_MODE, key())
+		cipher.updateAAD(context.toByteArray(Charsets.UTF_8))
+		val body = cipher.doFinal(plain)
+		val iv = cipher.iv
+		check(iv.size == IV_BYTES) { "unexpected IV size ${iv.size}" }
+		return byteArrayOf(VERSION) + iv + body
+	}
 
-    @Throws(GeneralSecurityException::class)
-    fun open(context: String, sealed: ByteArray): ByteArray {
-        if (sealed.size < 1 + IV_BYTES + TAG_BYTES || sealed[0] != VERSION) {
-            throw GeneralSecurityException("not a sealed value")
-        }
-        val cipher = Cipher.getInstance(TRANSFORM)
-        cipher.init(
-            Cipher.DECRYPT_MODE,
-            key(),
-            GCMParameterSpec(TAG_BYTES * 8, sealed, 1, IV_BYTES),
-        )
-        cipher.updateAAD(context.toByteArray(Charsets.UTF_8))
-        return cipher.doFinal(sealed, 1 + IV_BYTES, sealed.size - 1 - IV_BYTES)
-    }
+	@Throws(GeneralSecurityException::class)
+	fun open(context: String, sealed: ByteArray): ByteArray {
+		if (sealed.size < 1 + IV_BYTES + TAG_BYTES || sealed[0] != VERSION) {
+			throw GeneralSecurityException("not a sealed value")
+		}
+		val cipher = Cipher.getInstance(TRANSFORM)
+		cipher.init(
+			Cipher.DECRYPT_MODE,
+			key(),
+			GCMParameterSpec(TAG_BYTES * 8, sealed, 1, IV_BYTES),
+		)
+		cipher.updateAAD(context.toByteArray(Charsets.UTF_8))
+		return cipher.doFinal(sealed, 1 + IV_BYTES, sealed.size - 1 - IV_BYTES)
+	}
 
-    companion object {
-        const val VERSION: Byte = 1
-        private const val TRANSFORM = "AES/GCM/NoPadding"
-        private const val IV_BYTES = 12
-        private const val TAG_BYTES = 16
-    }
+	companion object {
+		const val VERSION: Byte = 1
+		private const val TRANSFORM = "AES/GCM/NoPadding"
+		private const val IV_BYTES = 12
+		private const val TAG_BYTES = 16
+	}
 }
 
 /**
@@ -59,35 +59,35 @@ class Sealer(private val key: () -> SecretKey) {
  * the secure hardware or the keystore daemon; only sealed values reach disk.
  */
 object KeystoreKey {
-    private const val PROVIDER = "AndroidKeyStore"
-    const val ALIAS = "relay-secrets-v1"
+	private const val PROVIDER = "AndroidKeyStore"
+	const val ALIAS = "relay-secrets-v1"
 
-    fun get(alias: String = ALIAS): SecretKey {
-        val store = KeyStore.getInstance(PROVIDER).apply { load(null) }
-        (store.getKey(alias, null) as? SecretKey)?.let { return it }
-        return create(alias, strongBox = true) ?: create(alias, strongBox = false)!!
-    }
+	fun get(alias: String = ALIAS): SecretKey {
+		val store = KeyStore.getInstance(PROVIDER).apply { load(null) }
+		(store.getKey(alias, null) as? SecretKey)?.let { return it }
+		return create(alias, strongBox = true) ?: create(alias, strongBox = false)!!
+	}
 
-    private fun create(alias: String, strongBox: Boolean): SecretKey? {
-        val purposes = KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
-        val spec = KeyGenParameterSpec.Builder(alias, purposes)
-            .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
-            .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setKeySize(256)
-            .setRandomizedEncryptionRequired(true)
-            .setUserAuthenticationRequired(false)
-            .apply { if (strongBox) setIsStrongBoxBacked(true) }
-            .build()
-        return try {
-            KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
-                .apply { init(spec) }
-                .generateKey()
-        } catch (e: StrongBoxUnavailableException) {
-            if (strongBox) null else throw e
-        }
-    }
+	private fun create(alias: String, strongBox: Boolean): SecretKey? {
+		val purposes = KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+		val spec = KeyGenParameterSpec.Builder(alias, purposes)
+			.setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+			.setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+			.setKeySize(256)
+			.setRandomizedEncryptionRequired(true)
+			.setUserAuthenticationRequired(false)
+			.apply { if (strongBox) setIsStrongBoxBacked(true) }
+			.build()
+		return try {
+			KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, PROVIDER)
+				.apply { init(spec) }
+				.generateKey()
+		} catch (e: StrongBoxUnavailableException) {
+			if (strongBox) null else throw e
+		}
+	}
 
-    fun delete(alias: String = ALIAS) {
-        KeyStore.getInstance(PROVIDER).apply { load(null) }.deleteEntry(alias)
-    }
+	fun delete(alias: String = ALIAS) {
+		KeyStore.getInstance(PROVIDER).apply { load(null) }.deleteEntry(alias)
+	}
 }
