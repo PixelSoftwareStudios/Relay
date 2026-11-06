@@ -11,7 +11,6 @@ err-unknown-call = 未知通话
 err-no-lease = 引擎没有返回控制租约
 err-bad-peer-id = 对等端 ID 格式不正确
 err-unknown-peer = 未知对等端
-err-consent-required = 发送声音需要麦克风授权
 err-ring-volume = 铃声音量必须在 0 到 1 之间
 err-unknown-device = 未知或不可用的音频设备
 err-display-name = 显示名称必须为 1 到 64 个可打印字符

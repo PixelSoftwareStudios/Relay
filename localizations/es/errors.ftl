@@ -9,7 +9,6 @@ err-unknown-call = llamada desconocida
 err-no-lease = el motor no devolvió ninguna concesión de control
 err-bad-peer-id = id de par con formato incorrecto
 err-unknown-peer = par desconocido
-err-consent-required = se necesita el permiso del micrófono para transmitir
 err-ring-volume = el volumen del tono de llamada debe estar entre 0 y 1
 err-unknown-device = dispositivo de audio desconocido o no disponible
 err-display-name = el nombre visible debe tener de 1 a 64 caracteres imprimibles

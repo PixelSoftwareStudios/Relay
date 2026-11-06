@@ -10,7 +10,6 @@ err-unknown-call = अज्ञात कॉल
 err-no-lease = इंजन ने कोई नियंत्रण लीज़ नहीं दी
 err-bad-peer-id = पीयर आईडी गलत रूप में है
 err-unknown-peer = अज्ञात पीयर
-err-consent-required = आवाज़ भेजने के लिए माइक्रोफ़ोन की सहमति ज़रूरी है
 err-ring-volume = रिंगटोन की आवाज़ 0 से 1 के बीच होनी चाहिए
 err-unknown-device = अज्ञात या अनुपलब्ध ऑडियो डिवाइस
 err-display-name = प्रदर्शित नाम 1 से 64 प्रिंट होने योग्य अक्षरों का होना चाहिए

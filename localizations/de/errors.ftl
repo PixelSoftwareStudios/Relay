@@ -10,7 +10,6 @@ err-unknown-call = unbekannter Anruf
 err-no-lease = die Engine hat keine Steuerungsberechtigung zurückgegeben
 err-bad-peer-id = ungültige Peer-ID
 err-unknown-peer = unbekannter Peer
-err-consent-required = zum Senden ist die Erlaubnis für das Mikrofon erforderlich
 err-ring-volume = die Klingeltonlautstärke muss zwischen 0 und 1 liegen
 err-unknown-device = unbekanntes oder nicht verfügbares Audiogerät
 err-display-name = der Anzeigename muss aus 1 bis 64 druckbaren Zeichen bestehen

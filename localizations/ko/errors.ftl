@@ -11,7 +11,6 @@ err-unknown-call = 알 수 없는 통화입니다
 err-no-lease = 엔진이 제어 권한을 반환하지 않았습니다
 err-bad-peer-id = 사용자 ID 형식이 잘못되었습니다
 err-unknown-peer = 알 수 없는 사용자입니다
-err-consent-required = 전송하려면 마이크 동의가 필요합니다
 err-ring-volume = 벨소리 음량은 0에서 1 사이여야 합니다
 err-unknown-device = 알 수 없거나 사용할 수 없는 오디오 장치입니다
 err-display-name = 표시 이름은 표시 가능한 문자 1~64자여야 합니다

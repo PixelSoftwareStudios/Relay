@@ -9,7 +9,6 @@ err-unknown-call = 不明な通話です
 err-no-lease = エンジンが制御権を返しませんでした
 err-bad-peer-id = ピア ID の形式が正しくありません
 err-unknown-peer = 不明なピアです
-err-consent-required = 送信にはマイクの許可が必要です
 err-ring-volume = 着信音の音量は 0 から 1 の間で指定してください
 err-unknown-device = 不明、または利用できないオーディオデバイスです
 err-display-name = 表示名は表示可能な文字で 1 から 64 文字にしてください

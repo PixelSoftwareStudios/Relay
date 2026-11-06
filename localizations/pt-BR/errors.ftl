@@ -9,7 +9,6 @@ err-unknown-call = chamada desconhecida
 err-no-lease = o engine não retornou nenhuma concessão de controle
 err-bad-peer-id = id de pessoa malformado
 err-unknown-peer = pessoa desconhecida
-err-consent-required = a permissão do microfone é necessária para transmitir
 err-ring-volume = o volume do toque deve ficar entre 0 e 1
 err-unknown-device = dispositivo de áudio desconhecido ou indisponível
 err-display-name = o nome de exibição deve ter de 1 a 64 caracteres imprimíveis

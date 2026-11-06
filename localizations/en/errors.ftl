@@ -12,7 +12,6 @@ err-unknown-call = unknown call
 err-no-lease = the engine returned no control lease
 err-bad-peer-id = malformed peer id
 err-unknown-peer = unknown peer
-err-consent-required = microphone consent is required to transmit
 err-ring-volume = ringtone volume must be between 0 and 1
 err-unknown-device = unknown or unavailable audio device
 err-display-name = display name must be 1 to 64 printable characters
