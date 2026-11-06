@@ -24,6 +24,7 @@
 		android:allowBackup="false"
 		android:fullBackupContent="false"
 		android:dataExtractionRules="@xml/no_backup"
+		android:enableOnBackInvokedCallback="true"
 		android:theme="@style/Theme.Relay">
 
 		<activity

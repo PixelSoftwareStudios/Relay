@@ -7,6 +7,7 @@
 
 uniffi::setup_scaffolding!();
 
+mod back;
 mod bridge;
 mod ffi;
 mod host;

@@ -9,6 +9,7 @@ import android.os.Looper
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.WindowManager
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -26,6 +27,11 @@ import uniffi.relay_android.PickKind
 class MainActivity : GameActivity() {
 	private lateinit var picker: DocumentPicker
 	private lateinit var scanner: QrScanner
+	/** The UI gets Back first; at the home screen the task goes to the background, the engine keeps running. */
+	private val back = BackRouter(
+		ui = { RelayRuntime.engine?.handleBack() ?: false },
+		toBackground = { moveTaskToBack(true) },
+	)
 	private lateinit var permissions: androidx.activity.result.ActivityResultLauncher<Array<String>>
 
 	override fun onCreate(savedInstanceState: Bundle?) {
@@ -41,6 +47,9 @@ class MainActivity : GameActivity() {
 			}
 		}
 		super.onCreate(savedInstanceState)
+		onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+			override fun handleOnBackPressed() = back.back()
+		})
 		InsetsTracker(window.decorView).attach()
 		readPermissions()
 		requestMissingPermissions()

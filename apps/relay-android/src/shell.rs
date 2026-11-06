@@ -14,6 +14,7 @@ use relay_ui::qr_scan::ScanError;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use tokio::sync::oneshot;
 
+use crate::back::{BackGate, WAIT};
 use crate::bridge::{HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome, ScanOutcome};
 use relay_ui::microphone::MicrophoneAccess;
 
@@ -47,6 +48,8 @@ pub struct AndroidShell {
 	pending: Mutex<Pending>,
 	scanner: AtomicBool,
 	scans: Mutex<HashMap<u64, oneshot::Sender<ScanOutcome>>>,
+	/// Back requests waiting for the render thread.
+	pub back: BackGate,
 }
 
 impl AndroidShell {
@@ -65,12 +68,19 @@ impl AndroidShell {
 			pending: Mutex::new(Pending::new()),
 			scanner: AtomicBool::new(false),
 			scans: Mutex::new(HashMap::new()),
+			back: BackGate::default(),
 		}
 	}
 
 	/// The activity's egui context exists only while the activity does.
 	pub fn set_context(&self, ctx: Option<egui::Context>) {
 		*self.ctx.lock_unpoisoned() = ctx;
+	}
+
+	/// The system Back action: true when the UI used it (closed something or
+	/// went up a level), false when the app should leave to the background.
+	pub fn handle_back(&self) -> bool {
+		self.back.ask(|| self.request_repaint(), WAIT)
 	}
 
 	pub fn set_visible(&self, visible: bool) {

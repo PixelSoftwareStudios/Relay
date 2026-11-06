@@ -19,6 +19,7 @@ struct App {
 impl eframe::App for App {
 	fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		self.app.begin_frame(ctx);
+		self.host.shell.back.serve(|| self.app.handle_back());
 	}
 
 	fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {

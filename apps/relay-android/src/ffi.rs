@@ -52,6 +52,14 @@ impl RelayEngine {
 		self.host.shell.set_insets(insets);
 	}
 
+	/// The system Back button or gesture. True when the UI used it (closed a
+	/// chat or dialog, went up one level); false at the home screen, where
+	/// Kotlin sends the app to the background. Blocks for at most one frame
+	/// (400 ms), so call it from the main thread's back callback only.
+	pub fn handle_back(&self) -> bool {
+		self.host.shell.handle_back()
+	}
+
 	pub fn complete_pick(&self, request_id: u64, outcome: PickOutcome) {
 		self.host.shell.complete_pick(request_id, outcome);
 	}
