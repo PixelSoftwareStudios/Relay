@@ -108,7 +108,7 @@ async fn icon_only_controls_are_touch_sized_on_a_phone() {
 }
 
 #[tokio::test]
-async fn chevrons_keep_their_distance_from_the_border() {
+async fn section_chevrons_sit_on_the_left_inside_the_card() {
 	let mut phone = Phone::new(360.0, 800.0, relay_ui::i18n::Language::En);
 	let drawn = phone.page(Page::Channels);
 	for glyph in icon_rects(&drawn, Icon::ChevronRight) {
@@ -119,8 +119,8 @@ async fn chevrons_keep_their_distance_from_the_border() {
 			.min_by(|a, b| a.area().total_cmp(&b.area()))
 			.expect("a card around the section");
 		assert!(
-			card.max.x - glyph.max.x >= relay_ui::theme::SPACE_M,
-			"{glyph:?} in {card:?}"
+			glyph.center().x < card.center().x,
+			"the chevron is on the left, before the title: {glyph:?} in {card:?}"
 		);
 	}
 }

@@ -157,7 +157,7 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		"channel-create",
 		tr!("channel-create-heading"),
 		false,
-		ChevronSide::Right,
+		ChevronSide::Left,
 		|ui| {
 			let f = &mut local.new_channel;
 			ui.add(
@@ -198,7 +198,7 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		"channel-join",
 		tr!("channel-join-heading"),
 		false,
-		ChevronSide::Right,
+		ChevronSide::Left,
 		|ui| {
 			ui.label(tr!("channel-join-note"));
 			ui.add(

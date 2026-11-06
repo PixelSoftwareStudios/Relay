@@ -60,7 +60,7 @@ fn card(ui: &mut Ui, cx: &mut Cx, no_contacts: bool) {
 			"connect-section",
 			tr!("connect-title"),
 			open,
-			ChevronSide::Right,
+			ChevronSide::Left,
 			|ui| body(ui, cx),
 		);
 		if pressed {
