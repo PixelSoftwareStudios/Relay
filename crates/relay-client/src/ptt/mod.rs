@@ -17,12 +17,12 @@
 //! renewal, so a call that ended, left push-to-talk or changed controller ends
 //! the press at once.
 //!
-//! Every way a key can vanish ends in a release: [`PttWorker::release`] sends a
-//! release (the engine's release delay applies), [`PttWorker::cancel`] and
-//! dropping the worker close the stream, which the engine treats as an
-//! immediate release of everything the source held. A held key older than
-//! [`MAX_HOLD`] is released too (a key-up that never arrived), and if this
-//! process dies the lease lapses within [`LEASE_MS`].
+//! Every way a key can vanish ends in a release. [`PttWorker::release`] sends a
+//! release (the engine's release delay applies). [`PttWorker::cancel`],
+//! dropping the worker, a press older than [`MAX_HOLD`] (a key-up that never
+//! arrived) and a call that is no longer a controlled push-to-talk call close
+//! the stream, which the engine treats as an immediate release of everything
+//! the source held. If this process dies the lease lapses within [`LEASE_MS`].
 
 mod worker;
 

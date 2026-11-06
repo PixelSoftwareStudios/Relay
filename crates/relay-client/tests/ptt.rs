@@ -179,15 +179,16 @@ async fn dropping_the_worker_closes_the_stream() {
 }
 
 #[tokio::test]
-async fn a_call_that_stops_being_a_push_to_talk_call_releases_the_press() {
+async fn a_call_that_stops_being_a_push_to_talk_call_releases_at_once() {
 	let rig = rig().await;
 	rig.worker.press(CALL);
 	rig.state(PttState::Transmitting).await;
 	*rig.target.lock().unwrap() = None;
-	rig.until("release on mode change", |r| {
-		r.actions().last() == Some(&InputAction::Release)
+	rig.until("the stream to close", |r| {
+		r.harness.engine.streams_closed.load(Ordering::SeqCst) == 1
 	})
 	.await;
+	assert!(!rig.actions().contains(&InputAction::Release));
 	rig.state(PttState::Idle).await;
 }
 
@@ -202,8 +203,8 @@ async fn a_changed_controller_generation_ends_the_press() {
 		.as_mut()
 		.unwrap()
 		.controller_generation = 6;
-	rig.until("release", |r| {
-		r.actions().last() == Some(&InputAction::Release)
+	rig.until("the stream to close", |r| {
+		r.harness.engine.streams_closed.load(Ordering::SeqCst) == 1
 	})
 	.await;
 }
@@ -233,14 +234,14 @@ async fn an_engine_that_is_not_transmitting_is_shown_as_gated() {
 }
 
 #[tokio::test(start_paused = true)]
-async fn a_stuck_key_is_released_after_a_minute() {
+async fn a_stuck_key_is_released_at_once_after_a_minute() {
 	let rig = rig().await;
 	rig.worker.press(CALL);
 	rig.until("press", |r| r.actions().contains(&InputAction::Press))
 		.await;
 	tokio::time::sleep(relay_client::ptt::MAX_HOLD + Duration::from_secs(1)).await;
-	rig.until("release", |r| {
-		r.actions().last() == Some(&InputAction::Release)
+	rig.until("the stream to close", |r| {
+		r.harness.engine.streams_closed.load(Ordering::SeqCst) == 1
 	})
 	.await;
 	rig.state(PttState::Idle).await;

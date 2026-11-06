@@ -95,13 +95,7 @@ impl Worker {
 		match msg {
 			Msg::Press(call) => self.press(call).await,
 			Msg::Release => self.release().await,
-			Msg::Cancel => {
-				// No explicit release first: a plain release starts the release
-				// delay and the closed stream would no longer name the lease.
-				self.held = None;
-				self.session = None;
-				self.set(PttState::Idle);
-			}
+			Msg::Cancel => self.close(),
 			Msg::Ack {
 				sequence,
 				accepted,
@@ -130,6 +124,15 @@ impl Worker {
 			tracing::info!(%code, "push-to-talk refused by the engine; released");
 			self.set(PttState::Rejected { code });
 		}
+	}
+
+	/// Close the stream, which the engine treats as an immediate release.
+	/// No explicit release first: a plain release starts the release delay
+	/// and the closed stream would no longer name the lease.
+	fn close(&mut self) {
+		self.held = None;
+		self.session = None;
+		self.set(PttState::Idle);
 	}
 
 	async fn press(&mut self, call_hex: String) {
@@ -171,14 +174,15 @@ impl Worker {
 		};
 		if held.since.elapsed() >= MAX_HOLD {
 			tracing::warn!("push-to-talk held too long; released as a stuck key");
-			self.held = Some(held);
-			self.release().await;
+			self.close();
 			return;
 		}
 		let still = (self.resolve)(&held.call_hex).is_some_and(|t| t == held.target);
 		if !still {
-			self.held = Some(held);
-			self.release().await;
+			// The call ended, left push-to-talk, changed controller or the
+			// client detached: nothing is left to hold, so no release delay.
+			tracing::info!("push-to-talk target gone; released");
+			self.close();
 			return;
 		}
 		if self.send(&held, InputAction::Renew, LEASE_MS).await {
