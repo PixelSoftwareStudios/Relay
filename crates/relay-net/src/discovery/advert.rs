@@ -150,65 +150,93 @@ fn truncate(text: &str, max_bytes: usize) -> String {
 /// Converts a resolved mDNS record into a candidate. Returns `None` for records that are
 /// malformed, of another protocol major, or that have no LAN-eligible address.
 pub fn parse_resolved(service: &ResolvedService, policy: &AddressPolicy) -> Option<DiscoveredPeer> {
-	if service.txt_properties.get_property_val_str("v")? != PROTOCOL_MAJOR.to_string()
-		|| service.port == 0
-	{
+	let addresses = service
+		.addresses
+		.iter()
+		.filter_map(|scoped| match scoped {
+			ScopedIp::V4(v4) => Some(SocketAddr::new(IpAddr::V4(*v4.addr()), service.port)),
+			ScopedIp::V6(v6) => Some(SocketAddr::V6(SocketAddrV6::new(
+				*v6.addr(),
+				service.port,
+				0,
+				v6.scope_id().index,
+			))),
+			_ => None,
+		})
+		.collect();
+	let txt: Vec<(String, String)> = service
+		.txt_properties
+		.iter()
+		.map(|p| (p.key().to_owned(), p.val_str().to_owned()))
+		.collect();
+	from_record(&service.fullname, service.port, addresses, &txt, policy)
+}
+
+/// A service resolved by a browser other than `mdns-sd` (Android's `NsdManager`), as
+/// plain values. It goes through the same checks as an mDNS record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PlatformRecord {
+	pub fullname: String,
+	pub port: u16,
+	pub addresses: Vec<IpAddr>,
+	pub txt: Vec<(String, String)>,
+}
+
+/// Converts a platform-resolved record into a candidate; same rules as [`parse_resolved`].
+pub fn parse_platform_record(
+	record: &PlatformRecord,
+	policy: &AddressPolicy,
+) -> Option<DiscoveredPeer> {
+	let addresses = record
+		.addresses
+		.iter()
+		.map(|ip| SocketAddr::new(*ip, record.port))
+		.collect();
+	from_record(
+		&record.fullname,
+		record.port,
+		addresses,
+		&record.txt,
+		policy,
+	)
+}
+
+fn from_record(
+	fullname: &str,
+	port: u16,
+	addresses: Vec<SocketAddr>,
+	txt: &[(String, String)],
+	policy: &AddressPolicy,
+) -> Option<DiscoveredPeer> {
+	let get = |key: &str| txt.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
+	if get("v")? != PROTOCOL_MAJOR.to_string() || port == 0 {
 		return None;
 	}
-	let instance_id =
-		fixed_hex::decode::<INSTANCE_ID_BYTES>(service.txt_properties.get_property_val_str("id")?)?;
-	let display_name = sanitize_display_name(
-		service
-			.txt_properties
-			.get_property_val_str("n")
-			.unwrap_or_default(),
-	);
-	let fingerprint_hint = service
-		.txt_properties
-		.get_property_val_str("fp")
-		.and_then(FingerprintHint::from_hex);
-	let capabilities = service
-		.txt_properties
-		.get_property_val_str("caps")
+	let instance_id = fixed_hex::decode::<INSTANCE_ID_BYTES>(get("id")?)?;
+	let display_name = sanitize_display_name(get("n").unwrap_or_default());
+	let fingerprint_hint = get("fp").and_then(FingerprintHint::from_hex);
+	let capabilities = get("caps")
 		.filter(|c| c.len() <= CAPS_MAX_BYTES && c.is_ascii())
 		.unwrap_or_default()
 		.to_owned();
-
-	let mut addresses: Vec<SocketAddr> = service
-		.addresses
-		.iter()
-		.filter_map(|scoped| {
-			let addr = match scoped {
-				ScopedIp::V4(v4) => SocketAddr::new(IpAddr::V4(*v4.addr()), service.port),
-				ScopedIp::V6(v6) => SocketAddr::V6(SocketAddrV6::new(
-					*v6.addr(),
-					service.port,
-					0,
-					v6.scope_id().index,
-				)),
-				_ => return None,
-			};
-			policy.check_socket(addr).ok().map(|()| addr)
-		})
+	let mut addresses: Vec<SocketAddr> = addresses
+		.into_iter()
+		.filter(|addr| policy.check_socket(*addr).is_ok())
 		.collect();
 	if addresses.is_empty() {
 		return None;
 	}
 	addresses.sort();
-	let txt = service
-		.txt_properties
+	let txt = txt
 		.iter()
-		.filter(|p| !RESERVED_KEYS.contains(&p.key()))
-		.filter(|p| p.key().len() <= TXT_KEY_MAX_BYTES)
-		.filter_map(|p| {
-			let value = p.val_str();
-			(value.len() <= TXT_VALUE_MAX_BYTES && value.is_ascii())
-				.then(|| (p.key().to_owned(), value.to_owned()))
-		})
+		.filter(|(k, _)| !RESERVED_KEYS.contains(&k.as_str()))
+		.filter(|(k, _)| k.len() <= TXT_KEY_MAX_BYTES)
+		.filter(|(_, v)| v.len() <= TXT_VALUE_MAX_BYTES && v.is_ascii())
+		.map(|(k, v)| (k.clone(), v.clone()))
 		.take(EXTRA_TXT_MAX)
 		.collect();
 	Some(DiscoveredPeer {
-		fullname: service.fullname.clone(),
+		fullname: fullname.to_owned(),
 		instance_id,
 		display_name,
 		fingerprint_hint,
@@ -216,4 +244,42 @@ pub fn parse_resolved(service: &ResolvedService, policy: &AddressPolicy) -> Opti
 		addresses,
 		txt,
 	})
+}
+
+#[cfg(test)]
+mod platform_tests {
+	use super::*;
+
+	fn record(addr: &str) -> PlatformRecord {
+		let txt = [
+			("v", PROTOCOL_MAJOR.to_string()),
+			("id", "00112233445566778899aabbccddeeff".to_owned()),
+			("n", "Laptop".to_owned()),
+			("ch", "abc".to_owned()),
+		];
+		PlatformRecord {
+			fullname: "Laptop._praxis-relay._tcp.local.".to_owned(),
+			port: 4747,
+			addresses: vec![addr.parse().unwrap()],
+			txt: txt.map(|(k, v)| (k.to_owned(), v)).to_vec(),
+		}
+	}
+
+	#[test]
+	fn lan_record_becomes_a_candidate_with_extra_txt() {
+		let peer = parse_platform_record(&record("192.168.1.20"), &AddressPolicy::lan_only())
+			.expect("candidate");
+		assert_eq!(peer.display_name, "Laptop");
+		assert_eq!(peer.addresses, vec!["192.168.1.20:4747".parse().unwrap()]);
+		assert_eq!(peer.txt.get("ch").map(String::as_str), Some("abc"));
+	}
+
+	#[test]
+	fn policy_and_protocol_checks_still_apply() {
+		let policy = AddressPolicy::lan_only();
+		assert!(parse_platform_record(&record("8.8.8.8"), &policy).is_none());
+		let mut other = record("192.168.1.20");
+		other.txt[0].1 = "999".to_owned();
+		assert!(parse_platform_record(&other, &policy).is_none());
+	}
 }

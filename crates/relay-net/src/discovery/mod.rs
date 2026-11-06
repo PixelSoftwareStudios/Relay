@@ -10,7 +10,8 @@ mod table;
 use thiserror::Error;
 
 pub use advert::{
-	AdvertMode, Advertisement, DiscoveredPeer, EXTRA_TXT_MAX, FingerprintHint, parse_resolved,
+	AdvertMode, Advertisement, DiscoveredPeer, EXTRA_TXT_MAX, FingerprintHint, PlatformRecord,
+	parse_platform_record, parse_resolved,
 };
 pub use interfaces::InterfacePolicy;
 pub use names::{name_skeleton, sanitize_display_name};

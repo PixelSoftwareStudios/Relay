@@ -102,8 +102,16 @@ impl AudioBackend for AAudioBackend {
 		Ok(Enumeration {
 			generation: self.generation,
 			devices: vec![
-				self.descriptor(Direction::Input, INPUT_INDEX, "Phone microphone (voice call)"),
-				self.descriptor(Direction::Output, OUTPUT_INDEX, "Phone audio output (voice call)"),
+				self.descriptor(
+					Direction::Input,
+					INPUT_INDEX,
+					"Phone microphone (voice call)",
+				),
+				self.descriptor(
+					Direction::Output,
+					OUTPUT_INDEX,
+					"Phone audio output (voice call)",
+				),
 			],
 		})
 	}

@@ -7,6 +7,7 @@ mod dialing;
 mod election;
 mod forgetting;
 mod handle;
+mod hints;
 mod link;
 mod manager;
 mod names;
@@ -27,6 +28,7 @@ pub use handle::{
 	AdvertSink, AdvertSpec, ChannelEvent, DiscoverySetup, LinkInfo, PeerConfig, PeerError,
 	PeerHandle, PeerOutput, PeerSnapshot, SessionEvent, SinkHandle, fingerprint, peer_id,
 };
+pub use hints::{Hint, HintSender, HintSource, hint_channel};
 pub use link::{LinkError, LinkTiming};
 pub use names::disambiguated;
 pub use profile::{CHUNK_BYTES, LocalProfile};

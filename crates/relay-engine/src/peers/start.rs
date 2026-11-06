@@ -15,6 +15,7 @@ use tokio::sync::{mpsc, watch};
 use super::handle::{
 	AdvertSink, AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput,
 };
+use super::hints::Hint;
 use super::link::{LinkEvent, LinkParams, establish};
 use super::manager::Actor;
 use super::profile::{LocalProfile, Profiles};
@@ -124,6 +125,8 @@ fn spawn_discovery(
 		),
 	};
 	let advertise = setup.advertise;
+	let mut hints = setup.hints.as_ref().and_then(super::HintSource::take);
+	let policy = config.policy;
 	let mut spec = config.advert.clone();
 	// What goes out, if anything. The name is sanitized and truncated by
 	// relay-net; it is a hint. Without an attached client nothing goes out.
@@ -157,6 +160,24 @@ fn spawn_discovery(
 					let command = match event {
 						DiscoveryEvent::Found(peer) => Command::Discovered(peer),
 						DiscoveryEvent::Removed(name) => Command::Removed(name),
+					};
+					if commands.send(command).await.is_err() {
+						break;
+					}
+				}
+				hint = next_hint(&mut hints) => {
+					let command = match hint {
+						Some(Hint::Found(record)) => {
+							match relay_net::discovery::parse_platform_record(&record, &policy) {
+								Some(peer) => Command::Discovered(Box::new(peer)),
+								None => continue,
+							}
+						}
+						Some(Hint::Lost(name)) => Command::Removed(name),
+						None => {
+							hints = None;
+							continue;
+						}
 					};
 					if commands.send(command).await.is_err() {
 						break;
@@ -221,6 +242,13 @@ impl Backend {
 			Self::Mdns(discovery) => discovery.shutdown(),
 			Self::Sink(sink) => sink.publish(None),
 		}
+	}
+}
+
+async fn next_hint(hints: &mut Option<mpsc::UnboundedReceiver<Hint>>) -> Option<Hint> {
+	match hints {
+		Some(rx) => rx.recv().await,
+		None => std::future::pending().await,
 	}
 }
 

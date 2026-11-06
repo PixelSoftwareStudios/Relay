@@ -67,6 +67,8 @@ pub struct DiscoverySetup {
 	pub advertise: bool,
 	/// Publish through this sink instead of mDNS (no browsing happens then).
 	pub sink: Option<SinkHandle>,
+	/// Peers pushed by the shell's platform browser, merged with mDNS results.
+	pub hints: Option<super::HintSource>,
 }
 
 /// What the local advertisement says beyond the display name: set by the
