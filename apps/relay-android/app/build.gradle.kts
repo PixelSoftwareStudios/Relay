@@ -88,6 +88,8 @@ val bindgen = tasks.register<Exec>("uniffiBindgen") {
         "generate", "--library", library.path, "--language", "kotlin",
         "--no-format", "--out-dir", bindingsOut.get().asFile.path,
     )
+    // Regenerate whenever the library changes; without an input Gradle never reruns this.
+    inputs.file(library)
     outputs.dir(bindingsOut)
 }
 
