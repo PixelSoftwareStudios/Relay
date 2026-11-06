@@ -20,6 +20,14 @@ impl State {
 				self.complete_open(generation, CaptureState::Lost)
 			}
 			SystemEvent::CaptureLost { generation } => self.capture_lost(generation),
+			SystemEvent::InputAccessChanged => {
+				if self.capture.state == CaptureState::Lost && !self.capture.exhausted {
+					self.capture.state = CaptureState::Closed;
+					self.capture.open_failed = false;
+					self.scratch.dirty_global = true;
+				}
+				Ok(Reply::Done)
+			}
 			SystemEvent::TrackPresence => {
 				self.presence.get_or_insert_with(Default::default);
 				Ok(Reply::Done)
@@ -72,6 +80,7 @@ impl State {
 		}
 		if outcome == CaptureState::Lost {
 			self.invalidate_capture(generation);
+			self.capture.open_failed = true;
 		} else {
 			self.capture.state = outcome;
 		}
@@ -88,6 +97,7 @@ impl State {
 			return Err(Reject::StaleGeneration);
 		}
 		self.invalidate_capture(generation);
+		self.capture.open_failed = false;
 		self.close_all_leases(InputFault::DeviceInvalid);
 		self.scratch.dirty_global = true;
 		Ok(Reply::Done)
@@ -141,6 +151,14 @@ impl State {
 				let generation = self.capture.generation;
 				self.capture.state = CaptureState::Closed;
 				self.push_effect(Effect::CloseCapture { generation });
+				self.scratch.dirty_global = true;
+			}
+			// A device that could not be opened is tried again by the next call
+			// (a permission may have been granted meanwhile); a lost device waits
+			// for an explicit resume.
+			(false, CaptureState::Lost) if self.capture.open_failed && !self.capture.exhausted => {
+				self.capture.state = CaptureState::Closed;
+				self.capture.open_failed = false;
 				self.scratch.dirty_global = true;
 			}
 			_ => {}

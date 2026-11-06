@@ -209,6 +209,9 @@ pub enum SystemEvent {
 		/// The generation the open was issued under.
 		generation: AudioGeneration,
 	},
+	/// The system's answer about using the microphone changed (a permission
+	/// was granted). A capture stuck in the lost state may be tried again.
+	InputAccessChanged,
 	/// The capture device went away or was invalidated.
 	CaptureLost {
 		/// The generation that was running.

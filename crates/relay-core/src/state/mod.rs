@@ -62,6 +62,9 @@ pub(crate) struct Capture {
 	pub state: CaptureState,
 	pub generation: AudioGeneration,
 	pub exhausted: bool,
+	/// The last open failed (the device could not be opened), as opposed to
+	/// an open device being lost: the next call tries again.
+	pub open_failed: bool,
 }
 
 /// An attached local client.
@@ -130,6 +133,7 @@ impl State {
 				state: CaptureState::Closed,
 				generation: AudioGeneration::ZERO,
 				exhausted: false,
+				open_failed: false,
 			},
 			clients: BTreeMap::new(),
 			links: BTreeSet::new(),
