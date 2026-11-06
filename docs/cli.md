@@ -31,7 +31,7 @@ relay call <peer|ip:port>              never enables the microphone
 relay accept|decline|end [call]
 relay mute|deafen [on|off] [--call C]  global unless --call
 relay gain mic|playback|receive <v> [--call C]
-relay talk on|off|ptt [--call C] [--consent]
+relay talk muted|unmuted|ptt [--call C]
 relay devices list | select [--input X] [--output Y]
 relay ns set <backend>
 relay profile set --name <n>
@@ -63,6 +63,7 @@ relay messages accept <offer> [--dest DIR] [--name NAME] | reject|cancel <offer>
 relay messages preview request|approve <offer> [--deny]
 relay hotkey [--binding KEYS]          run the global push-to-talk key
 relay hotkey status | set <keys>
+# With ptt.enabled=false the key is not registered at start; while running it has no target (`push-to-talk is off in the settings`) and sends nothing.
 relay tui [--no-hotkey | --binding KEYS]
 ```
 
@@ -75,7 +76,7 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 - `relay stats [CALL] [--watch]` prints the live statistics of a call (`WatchCallStats`): the path and why it waits or failed, sending and receiving, packets, rtt with min and max, jitter, loss over 5 s and total, jitter buffer, mouth-to-ear estimate, codec, drift and device buffers. `--watch` prints one sample per second; with `--json` one JSON object per line. `call` is the dial command, so statistics live under `stats`. Source `commands/stats.rs`, tests `tests/stats_cmd.rs`.
 
 ### Consent and safety
-- `talk on` and `talk ptt` fail locally (exit 2, no request sent) without `--consent`; the flag becomes `explicit_microphone_consent`. `talk off` is always allowed.
+- The mode is the consent: `talk unmuted` and `talk ptt` are the explicit consent to send the microphone to that call, in one request; `talk muted` withdraws it. There is no `--consent` flag. `ptt.enabled=false` makes `talk ptt` fail with `PTT_DISABLED`. New calls start in `calls.default_transmit_mode` (`relay config set calls.default_transmit_mode unmuted`).
 - `mic-test --accept-feedback` requires `--local-playback`.
 - `favorites` lists, adds, removes or moves the quick-call favorites (up to 6 trusted peers; `<peer>` is a name or id prefix as for `call`). Positions are 1-based, the order of the Calls page grid; `--json` prints `[{position, id, name, fingerprint_short, reachable}]`. It sends the whole new list with `SetFavorites`; a seventh favorite is refused with `You can have up to 6 favorites`. Source `commands/favorites.rs`, tests `tests/favorites_cmd.rs`.
 - `trust verify` needs the 64-hex SHA-256 the user compared out of band (`:` and `-` separators are fine); it sends `out_of_band_verified = true`. `forget` uses `ForgetPeer`: the argument is a hex fingerprint prefix (at least 8 digits; `:`, `-`, spaces and case are ignored, so the short form from `trust list` or its first groups work) or an exact, case-insensitive display name, tried in that order. An unknown or ambiguous argument is exit 5; ambiguity prints the candidates with their short fingerprints and changes nothing. `trust list` and `peers` show each peer's short fingerprint (`A1B2-C3D4-E5F6-0718-293A`, a hint to tell devices apart, never a verification string).
@@ -131,7 +132,7 @@ Text by default. With `--json`, stdout is exactly one JSON value per command (ar
 |---|---|
 | 0 | success |
 | 1 | other failure (I/O, a failed `doctor` check, hosted engine error) |
-| 2 | bad usage or a request refused locally (clap errors, missing `--consent`, bad gain or fingerprint) |
+| 2 | bad usage or a request refused locally (clap errors, bad gain or fingerprint) |
 | 3 | engine unreachable: auto-start is disabled (`--no-autostart`, `RELAY_NO_AUTOSTART`) or failed (the reason and the log tail are printed), or the command never starts one (below), or `daemon stop` ran earlier in this process |
 | 4 | engine rejected the request (failed operation, gRPC error other than below) |
 | 5 | target not found or ambiguous (peer, call, device, gRPC `NOT_FOUND`) |
@@ -153,9 +154,9 @@ Checks, in order: endpoint, engine reachability and version, input and output de
 
 `relay tui` opens registered connections: one for commands, one for the state watch, one for telemetry (plus two `messages`-only ones, below). The state feed (`client::run_state_feed`) reopens the watch, which begins with a snapshot, on revision gaps, stale revisions, incarnation changes, subscription overflow, an engine `Resync`, or a closed stream; the header shows `live`, `resyncing (...)` or `offline (...)` meanwhile. Telemetry is best-effort and reopens after errors.
 
-Screens: Peers, Calls (cards), Devices, Settings, Messages. Header: link state, revision, microphone meter, mute/deafen, noise suppression. Call cards show peer, state, speaking indicator, route, consent, the engine's `effective_transmitting` ("TRANSMITTING" or "mic closed"), `blocked_reason`, receive meter and transport stats.
+Screens: Peers, Calls (cards), Devices, Settings, Messages. Header: link state, revision, microphone meter, mute/deafen, noise suppression. Call cards show peer, state, speaking indicator, mode, the engine's `effective_transmitting` ("TRANSMITTING" or "mic closed"), `blocked_reason`, receive meter and transport stats.
 
-Keys: `tab`/`1-5` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle route (receive-only, push-to-talk, open mic; transmitting modes ask `y` first), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings (and the PTT release delay row, in 50 ms steps from 0 to 2000), `q` quit.
+Keys: `tab`/`1-5` screens, `j/k` move, `enter` call or select, `c` call, `a/x/e` accept/decline/end, `t` cycle the mode (muted, push-to-talk, unmuted; applied at once, push-to-talk is skipped while `ptt.enabled` is off), `space` push-to-talk, `m`/`d` mute/deafen, `+`/`-` gain on Settings (and the PTT release delay row, in 50 ms steps from 0 to 2000), `q` quit.
 
 ### Messages tab
 

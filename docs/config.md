@@ -120,7 +120,7 @@ Call history is local only. It is written by the daemon on this device, read ove
 - Damage is never silent. Opening returns `Notice`s the UI must show (`Storage::notices`).
 - A database that is not a database, fails `PRAGMA quick_check`, is truncated, or is missing/empty
   while a `.bak` exists is moved to `.corrupt`, then the `.bak` is restored. Recovered or reset
-  preferences have **no microphone selected and start receive-only**
+  preferences have **no microphone selected and start muted** (`calls.default_transmit_mode = muted`)
   (`Notice::PreferencesRecoveredFromBackup`, `TrustRecoveredFromBackup`). With no usable backup
   the result is an empty database plus `PreferencesReset` and `TrustStoreLost`.
 - Backups are refreshed at every open, after each trust change (forced) and after preference
@@ -146,6 +146,8 @@ CLI-facing helpers (for `relay config get|set|export|import`):
 |---|---|
 | `prefs::flat::keys()` | Settable keys, sorted |
 | `PreferenceStore::get(key)` / `set(key, text)` | One setting; string settings are taken literally, other types parse as TOML (`2.5`, `false`, `rnnoise`); validated before saving |
+| `calls.default_transmit_mode` | The mode a call starts in when it connects, incoming accepted or outgoing: `muted`, `unmuted` (open mic) or `push_to_talk` (default). Choosing `unmuted` or `push_to_talk` is advance consent to send the microphone in every call; `muted` makes calls start silent. A mode chosen in the call wins. Replaces `privacy.new_calls_receive_only`. Applies live |
+| `ptt.enabled` | Push-to-talk may be used (default true). Off: the global key is not registered at the next start and is ignored while running, the talk button is not offered, `push_to_talk` cannot be chosen (`PTT_DISABLED`), a default of `push_to_talk` becomes `muted` (reported as `effective_default_transmit_mode`) and calls in push-to-talk are muted at once. Applies live |
 | `ptt.release_delay_ms` | Push-to-talk release delay: after an ordinary key release the transmit gate stays open this long (0 to 2000 ms, default 200; 0 closes at once) so a sentence end is not clipped. Applies live; every safety close (disconnect, takeover, mute, lock, device loss, call end) ignores it |
 | `audio.ringtone_enabled` / `audio.ringtone_volume` | Play the ring for an incoming call while a client is attached (default true) and its volume (0.0 to 1.0, default 0.7). Apply live; disabling while ringing stops the ring |
 | `audio.ringback_enabled` | Play the ringback while an outgoing call rings (default true). Applies live |

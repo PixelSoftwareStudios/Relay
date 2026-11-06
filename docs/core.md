@@ -43,14 +43,29 @@ table, route/controls), `gate` (pure policy), `command`, `effect`, `event`, `out
   or deafen cancel holds without touching held keys. A press that stalls out (missed
   refresh) also cancels the call's pending holds. Invariant (property-tested): `releasing`
   implies the gate is open.
-- Receive-only is the default. Capture is opened only while a Connecting/Active call has
-  transmit consent and the OS session allows it; withdrawal closes it.
+- **The transmit mode is the consent.** A call has one mode: `Muted`, `Unmuted` (open mic) or
+  `PushToTalk` (`call::RouteMode`, carried by `TransmitRoute`). Choosing `Unmuted` or
+  `PushToTalk` through `Command::SetTransmitMode` is the user's explicit consent to send the
+  microphone to that call; `Muted` withdraws it. There is no separate consent flag, so mode
+  and consent cannot disagree. Every change takes a new route generation, closes the old
+  leases and publishes the gate with the new route in the same outcome, so the gate opens only
+  after the change was applied and audio captured earlier is never sent (RT-02 still holds;
+  `routing` and `defaults` tests). A call is muted until a mode applies; capture is opened
+  only while a Connecting/Active call has a transmitting mode and the OS session allows it.
+- **Default mode.** `SystemEvent::CallDefaults { mode, ptt_enabled }` (sent at start and when
+  `calls.default_transmit_mode` or `ptt.enabled` change) makes each call that becomes Active
+  start in that mode unless a mode was chosen explicitly since it last (re)connected
+  (`Call::route_chosen`). The default is advance consent by the user's own setting, applied
+  as a normal route change with a new generation. With push-to-talk disabled, choosing it is
+  rejected (`Reject::PttDisabled`), a default of push-to-talk applies as `Muted` (muted is the
+  safe fallback: it can never open the microphone by surprise) and calls already in
+  push-to-talk are muted at once, their leases closed.
 - Gate = conjunction of independent conditions (`gate::evaluate`); every deny wins.
   Global mute/deafen are stored separately from per-call state.
 - Any change of controller, route generation, session lock/suspend, device loss, or
   call end/interruption drops all PTT leases. Leases expire at `now + ttl`
   (default 300 ms, hard max 500 ms); sequences per `(client, source)` must increase.
-- Takeover and controller loss reset the route to receive-only unless it is
+- Takeover and controller loss reset the route to muted unless it is
   background open-mic. Interruption and link loss always reset it.
 - Capture generation changes on every open and every invalidation; stale completions are
   rejected. Device loss needs an explicit `ResumeCapture`; no device is auto-selected.

@@ -44,8 +44,18 @@ and plug in through the port traits below.
   actor applies synchronously.
 - Naming boundary: core `Connecting`/`Active` are `NEGOTIATING`/`CONNECTED` on the wire
   (`convert/view.rs`).
-- Consent: `SetTransmitRoute` to push-to-talk or open mic requires
-  `explicit_microphone_consent`; starting a call never authorizes the microphone.
+- Consent: the per-call transmit mode is the consent. `SetTransmitMode` to `UNMUTED` or
+  `PUSH_TO_TALK` is the explicit consent, in that one request (there is no consent flag);
+  `MUTED` withdraws it. Starting a call or accepting one never authorizes the microphone by
+  itself; a new call starts in `calls.default_transmit_mode` (default `push_to_talk`, a
+  user setting applied live when the call connects, through the same route change and gate
+  rules, so no audio captured before the change is ever sent). `ptt.enabled = false`
+  rejects `PUSH_TO_TALK` (`PTT_DISABLED`), turns a push-to-talk default into `muted`
+  (`Settings.effective_default_transmit_mode`) and mutes calls already in push-to-talk.
+  Audio is verified end to end by `tests/audio_flow.rs`: two whole engines on loopback with
+  real sockets, Noise links, Opus and RTP, a synthetic tone as the microphone and a recording
+  speaker, after a manual dial plus trust on first use. UDP path challenges are sent again
+  every 250 ms until answered, so one lost datagram does not stall a call.
 - The controller lease generation is core's `ControllerLeaseId`; `lease_id` is that number
   widened to 16 bytes. Leases do not expire (`expires_in_ms = 0`); a client that goes quiet
   with no open stream for `idle_client_ttl` (default 5 min) is detached and releases what it

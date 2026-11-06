@@ -4,7 +4,7 @@ Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps
 
 | Module | Role |
 |---|---|
-| `command` | `Command` (every engine mutation), `CallTarget`, `CallAction`. Call-bound commands carry the controller generation; microphone consent is a field of `SetTransmit`, i.e. in the same request |
+| `command` | `Command` (every engine mutation), `CallTarget`, `CallAction`. Call-bound commands carry the controller generation; the transmit mode of `SetTransmit` is itself the microphone consent (no separate flag) |
 | `wire` | The one place commands become RPCs: `send`, `mutation` (fresh idempotent operation id), `acquire_generation` (lease, optional explicit takeover), `open_telemetry`, `connect_registered` |
 | `operation` | `settle` polls until an operation leaves `ACCEPTED`, over the `OperationSource` trait (a client, a client behind a lock taken per poll, or a test fake) |
 | `endpoint` | `RELAY_TCP_PROFILE`, `RELAY_SOCKET`, per-user default, `describe`. Flags stay in the CLI |

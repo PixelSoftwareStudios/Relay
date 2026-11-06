@@ -340,6 +340,15 @@ impl RelayApp {
 		} else {
 			egui::Frame::central_panel(ui.style()).inner_margin(theme::SPACE_L)
 		};
+		// The page lives under a fixed id: auto ids count the widgets before
+		// them, so panels that come and go (the tabs while the keyboard is up)
+		// would renumber every field, drop its focus and close the keyboard.
+		let page = ui.available_rect_before_wrap();
+		let ui = &mut ui.new_child(
+			egui::UiBuilder::new()
+				.scope_id(egui::Id::NULL.with("relay-page"))
+				.max_rect(page),
+		);
 		let mut back = false;
 		egui::CentralPanel::default().frame(frame).show(ui, |ui| {
 			match (self.page, class.is_compact()) {
