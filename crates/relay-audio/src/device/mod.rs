@@ -7,6 +7,7 @@ mod cpal_backend;
 mod descriptor;
 mod fake;
 mod health;
+mod reconnect;
 
 #[cfg(target_os = "android")]
 pub use aaudio::AAudioBackend;
@@ -21,3 +22,4 @@ pub use descriptor::{
 };
 pub use fake::{FakeBackend, FakeCaptureDriver, FakeDeviceSpec, FakePlaybackDriver, Signal};
 pub use health::{Recovery, StreamHealth, StreamState, recovery_for};
+pub use reconnect::{Outcome, Poll, Reconnect};
