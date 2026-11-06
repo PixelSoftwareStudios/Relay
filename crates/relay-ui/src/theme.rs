@@ -56,6 +56,8 @@ pub fn style_for(theme: Theme, class: LayoutClass) -> Style {
 		style.spacing.button_padding = egui::vec2(SPACE_L, SPACE_M);
 		style.spacing.item_spacing = egui::vec2(SPACE_M, SPACE_M);
 		style.spacing.slider_width = 160.0;
+		// A touch screen has no text-selection drag; labels are not tap targets.
+		style.interaction.selectable_labels = false;
 	}
 	style
 }

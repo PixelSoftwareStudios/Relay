@@ -20,6 +20,7 @@ mod widgets;
 use crate::actions::Actions;
 use crate::imaging::{Decoded, decode_for_texture};
 use crate::layout::{LayoutClass, Page};
+use crate::shell::Insets;
 use crate::theme;
 use crate::viewmodel::{call_cards, peer_rows};
 
@@ -42,6 +43,8 @@ pub struct RelayApp {
 	messages: MessagesUi,
 	/// The Messages side panel of the regular layout is showing.
 	messages_open: bool,
+	/// Keyboard height and focused field the view was last scrolled for.
+	scrolled_for: Option<(u32, egui::Id)>,
 	/// The language the installed fonts were built for; `None` before the first frame.
 	font_language: Option<crate::i18n::Language>,
 }
@@ -62,6 +65,7 @@ impl RelayApp {
 			page: Page::default(),
 			messages: MessagesUi::new(zone),
 			messages_open: false,
+			scrolled_for: None,
 			font_language: None,
 		}
 	}
@@ -162,8 +166,13 @@ impl RelayApp {
 	/// Draw the whole screen into `ui` (the shell's root ui).
 	pub fn ui(&mut self, ui: &mut egui::Ui) {
 		let class = self.class.unwrap_or(LayoutClass::Regular);
+		let insets = self.actions.shell.safe_area_insets();
+		let keyboard = self.actions.shell.keyboard_height().max(0.0);
+		inset_panels(ui, insets, keyboard);
 		if class.is_compact() {
-			nav::bottom_bar(ui, &mut self.page);
+			if keyboard <= 0.0 {
+				egui::Panel::bottom("relay-nav").show(ui, |ui| nav::bottom_bar(ui, &mut self.page));
+			}
 		} else if self.messages_open {
 			egui::Panel::right("relay-messages")
 				.resizable(true)
@@ -193,6 +202,7 @@ impl RelayApp {
 				.show(ui, |ui| {
 					self.header(ui, class);
 					self.pages(ui, class);
+					self.keep_focus_visible(ui, keyboard);
 				});
 		});
 		if let Some(call) = self.local.open_messages.take() {
@@ -202,6 +212,26 @@ impl RelayApp {
 			} else {
 				self.messages_open = true;
 			}
+		}
+	}
+
+	/// While the soft keyboard is up, scroll the focused field into view once
+	/// per keyboard height or focus change (never fighting a later manual scroll).
+	fn keep_focus_visible(&mut self, ui: &mut egui::Ui, keyboard: f32) {
+		let focused = if keyboard > 0.0 {
+			ui.memory(|m| m.focused())
+		} else {
+			None
+		};
+		let key = focused.map(|id| (keyboard.to_bits(), id));
+		if key == self.scrolled_for {
+			return;
+		}
+		self.scrolled_for = key;
+		if let Some(id) = focused
+			&& let Some(response) = ui.ctx().read_response(id)
+		{
+			ui.scroll_to_rect(response.rect.expand(theme::SPACE_M), None);
 		}
 	}
 
@@ -264,4 +294,25 @@ impl RelayApp {
 			app_panel::app_panel(ui, &state, actions, local, has_tray);
 		}
 	}
+}
+
+/// Empty panels that keep the content out of the system bars and the soft
+/// keyboard. `keyboard` is the height from the screen bottom, so it covers the
+/// bottom inset when shown.
+fn inset_panels(ui: &mut egui::Ui, insets: Insets, keyboard: f32) {
+	let spacer = |panel: egui::Panel, size: f32, ui: &mut egui::Ui| {
+		if size > 0.0 {
+			panel
+				.resizable(false)
+				.exact_size(size)
+				.frame(egui::Frame::NONE)
+				.show_separator_line(false)
+				.show(ui, |_| {});
+		}
+	};
+	spacer(egui::Panel::top("relay-inset-top"), insets.top, ui);
+	spacer(egui::Panel::left("relay-inset-left"), insets.left, ui);
+	spacer(egui::Panel::right("relay-inset-right"), insets.right, ui);
+	let bottom = keyboard.max(insets.bottom);
+	spacer(egui::Panel::bottom("relay-inset-bottom"), bottom, ui);
 }

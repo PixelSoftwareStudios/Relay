@@ -12,7 +12,7 @@ use crate::hotkey_settings::{ACCELERATOR_MAX_CHARS, outcome_text};
 use crate::theme;
 
 use super::local::Local;
-use super::widgets::banner;
+use super::widgets::{banner, field_width};
 use crate::tr;
 
 pub fn hotkey(ui: &mut Ui, actions: &Actions, local: &mut Local) {
@@ -47,15 +47,16 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		Some(Ok(values)) => values.clone(),
 	};
 	ui.label(tr!("hotkey-intro"));
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		ui.label(tr!("hotkey-field"));
 		ui.add(
 			egui::TextEdit::singleline(&mut panel.draft.accelerator)
+				.desired_width(field_width(ui))
 				.char_limit(ACCELERATOR_MAX_CHARS)
 				.hint_text(tr!("hotkey-hint")),
 		);
 	});
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		ui.label(tr!("hotkey-delay"));
 		ui.add(
 			egui::DragValue::new(&mut panel.draft.release_delay_ms)
@@ -69,7 +70,7 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	if let Some(text) = problem {
 		ui.label(RichText::new(text).color(theme::WARN));
 	}
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		let ready = panel.dirty() && problem.is_none() && !panel.saving;
 		if ui
 			.add_enabled(ready, egui::Button::new(tr!("action-save")))

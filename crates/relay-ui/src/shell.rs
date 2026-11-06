@@ -67,15 +67,6 @@ pub struct Insets {
 	pub right: f32,
 }
 
-/// The kind of device the shell runs on; it selects platform-appropriate copy
-/// and controls (no tray or global hotkey on a phone, an on-screen talk button).
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum PlatformKind {
-	#[default]
-	Desktop,
-	Mobile,
-}
-
 /// Services the shell implements for the shared UI. Methods may be called from
 /// the UI thread or from a runtime thread, so they must not block.
 pub trait Shell: FilePicker {
@@ -131,9 +122,15 @@ pub trait Shell: FilePicker {
 	fn keyboard_height(&self) -> f32 {
 		0.0
 	}
-	/// The kind of device; the default is a desktop.
-	fn platform_kind(&self) -> PlatformKind {
-		PlatformKind::Desktop
+	/// Whether the shell registers a system-wide push-to-talk key. When false
+	/// the settings drop the global-hotkey wording and panel.
+	fn has_global_hotkey(&self) -> bool {
+		true
+	}
+	/// Whether the UI shows an on-screen hold-to-talk button on calls in
+	/// push-to-talk mode (for devices without a physical key).
+	fn has_talk_button(&self) -> bool {
+		false
 	}
 	/// The on-screen hold-to-talk button went down (`true`) or up (`false`) for
 	/// the call `call_id` (hex). The shell forwards it to the engine's

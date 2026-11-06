@@ -12,7 +12,7 @@ use crate::viewmodel::local_avatar;
 
 use super::local::Local;
 use super::textures::Textures;
-use super::widgets::avatar;
+use super::widgets::{avatar, field_width};
 use crate::tr;
 
 pub fn profile(
@@ -31,7 +31,7 @@ pub fn profile(
 	ui.heading(tr!("profile-heading"));
 	egui::Frame::group(ui.style()).show(ui, |ui| {
 		ui.set_width(ui.available_width());
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			match &local.picked {
 				Some(p) => avatar(ui, &p.texture, 64.0),
 				None => {
@@ -40,9 +40,10 @@ pub fn profile(
 				}
 			}
 			ui.vertical(|ui| {
-				ui.horizontal(|ui| {
+				ui.horizontal_wrapped(|ui| {
 					ui.add(
 						egui::TextEdit::singleline(&mut local.name_input)
+							.desired_width(field_width(ui))
 							.hint_text(tr!("profile-name-hint"))
 							.char_limit(64),
 					);
@@ -68,7 +69,7 @@ pub fn profile(
 }
 
 fn image_buttons(ui: &mut Ui, actions: &Actions, local: &mut Local, stored: bool) {
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		if ui.button(tr!("profile-choose-image")).clicked() {
 			actions.pick_avatar();
 		}

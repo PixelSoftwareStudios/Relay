@@ -9,6 +9,7 @@ use crate::actions::Actions;
 use crate::model::{Advert, AppState, Channel, Inbound};
 
 use super::local::{INVITE_USES, Local, invite_ttls};
+use super::widgets::{combo, field_width};
 use crate::tr;
 
 pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
@@ -44,26 +45,22 @@ fn flags(channel: &Channel) -> String {
 }
 
 fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
-	ui.horizontal(|ui| {
-		ui.vertical(|ui| {
-			ui.label(RichText::new(&channel.name).strong());
-			ui.label(
-				RichText::new(tr!(
-					"channel-summary",
-					role = channel.role.as_str(),
-					flags = flags(channel),
-					peers = channel.shared_peers
-				))
-				.weak(),
-			);
-		});
-		ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-			leave_button(ui, channel, actions, local);
-			if channel.can_admin() && ui.button(tr!("channel-invite")).clicked() {
-				local.invite_channel = Some(channel.channel_id.clone());
-				local.invite = None;
-			}
-		});
+	ui.label(RichText::new(&channel.name).strong());
+	ui.label(
+		RichText::new(tr!(
+			"channel-summary",
+			role = channel.role.as_str(),
+			flags = flags(channel),
+			peers = channel.shared_peers
+		))
+		.weak(),
+	);
+	ui.horizontal_wrapped(|ui| {
+		if channel.can_admin() && ui.button(tr!("channel-invite")).clicked() {
+			local.invite_channel = Some(channel.channel_id.clone());
+			local.invite = None;
+		}
+		leave_button(ui, channel, actions, local);
 	});
 	if local.invite_channel.as_deref() == Some(&channel.channel_id) {
 		invite_form(ui, channel, actions, local);
@@ -86,7 +83,7 @@ fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut L
 }
 
 fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		egui::ComboBox::from_id_salt("invite-ttl")
 			.selected_text(invite_ttls()[local.invite_ttl].0)
 			.show_ui(ui, |ui| {
@@ -128,7 +125,7 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				.selectable(true)
 				.wrap(),
 		);
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			if ui.button(tr!("action-copy")).clicked() {
 				actions.copy_text(&token);
 			}
@@ -146,6 +143,7 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			let f = &mut local.new_channel;
 			ui.add(
 				egui::TextEdit::singleline(&mut f.name)
+					.desired_width(field_width(ui))
 					.hint_text(tr!("channel-name-hint"))
 					.char_limit(32),
 			);
@@ -155,6 +153,7 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			if f.password_required {
 				ui.add(
 					egui::TextEdit::singleline(&mut f.password)
+						.desired_width(field_width(ui))
 						.password(true)
 						.hint_text(tr!("password-hint")),
 				);
@@ -183,10 +182,12 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			ui.label(tr!("channel-join-note"));
 			ui.add(
 				egui::TextEdit::singleline(&mut local.join_target)
+					.desired_width(field_width(ui))
 					.hint_text(tr!("channel-join-hint")),
 			);
 			ui.add(
 				egui::TextEdit::singleline(&mut local.join_password)
+					.desired_width(field_width(ui))
 					.password(true)
 					.hint_text(tr!("password-optional-hint")),
 			);
@@ -217,8 +218,7 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 			Inbound::SharedChannelOnly => tr!("privacy-inbound-shared"),
 		};
 		let mut inbound = settings.inbound;
-		egui::ComboBox::from_label(tr!("privacy-who-rings"))
-			.selected_text(inbound_label(inbound))
+		combo(ui, tr!("privacy-who-rings"), inbound_label(inbound))
 			.show_ui(ui, |ui| {
 				for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
 					ui.selectable_value(&mut inbound, v, inbound_label(v));
@@ -232,8 +232,7 @@ pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
 			Advert::Hidden => tr!("privacy-advert-hidden"),
 		};
 		let mut advert = settings.advert;
-		egui::ComboBox::from_label(tr!("privacy-visibility"))
-			.selected_text(advert_label(advert))
+		combo(ui, tr!("privacy-visibility"), advert_label(advert))
 			.show_ui(ui, |ui| {
 				for v in [Advert::Visible, Advert::Hidden] {
 					ui.selectable_value(&mut advert, v, advert_label(v));

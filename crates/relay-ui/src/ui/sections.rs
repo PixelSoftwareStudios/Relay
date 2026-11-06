@@ -87,7 +87,7 @@ fn call_card(
 	textures: &mut Textures,
 ) {
 	let id = card.call_id.clone();
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		let tex = textures.texture(&card.avatar, actions);
 		avatar(ui, &tex, 36.0);
 		ui.vertical(|ui| {
@@ -112,7 +112,7 @@ fn call_card(
 	}
 	if card.incoming {
 		ui.label(RichText::new(trust_line(&card.trust, &card.fingerprint)).small());
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			if ui.button(tr!("call-accept")).clicked() {
 				actions.run(|c| async move { c.accept_call(&id).await });
 			}
@@ -140,7 +140,7 @@ fn trust_line(trust: &str, fingerprint: &str) -> String {
 fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) {
 	let call = &card.call;
 	let cid = card.call_id.clone();
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		let end = if card.phase == crate::model::Phase::OutgoingRinging {
 			tr!("action-cancel")
 		} else {
@@ -208,7 +208,7 @@ fn controls(ui: &mut Ui, card: &CallCard, actions: &Actions, local: &mut Local) 
 		egui::Checkbox::new(consent, tr!("call-consent", name = card.name.as_str())),
 	);
 	let consent = *consent;
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		for (label, mode) in modes() {
 			let selected = call.transmit.mode == mode;
 			let enabled = mode_enabled(mode, consent);
@@ -239,7 +239,7 @@ pub fn peers(
 	for row in rows {
 		egui::Frame::group(ui.style()).show(ui, |ui| {
 			ui.set_width(ui.available_width());
-			ui.horizontal(|ui| {
+			ui.horizontal_wrapped(|ui| {
 				let tex = textures.texture(&row.avatar, actions);
 				avatar(ui, &tex, 36.0);
 				ui.vertical(|ui| {
@@ -262,16 +262,14 @@ pub fn peers(
 						);
 					}
 				});
-				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-					if ui
-						.add_enabled(row.can_call, egui::Button::new(tr!("peer-call")))
-						.clicked()
-					{
-						let id = row.peer_id.clone();
-						actions.run(|c| async move { c.start_call(&id).await });
-					}
-				});
 			});
+			if ui
+				.add_enabled(row.can_call, egui::Button::new(tr!("peer-call")))
+				.clicked()
+			{
+				let id = row.peer_id.clone();
+				actions.run(|c| async move { c.start_call(&id).await });
+			}
 			for (channel_id, channel_name) in &row.revocable {
 				revoke_row(ui, actions, local, row, channel_id, channel_name);
 			}
@@ -289,7 +287,7 @@ fn revoke_row(
 	channel_name: &str,
 ) {
 	let key = (channel_id.to_owned(), row.peer_id.clone());
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		if local.revoke_confirm.as_ref() == Some(&key) {
 			ui.label(tr!(
 				"revoke-ask",

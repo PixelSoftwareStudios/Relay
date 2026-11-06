@@ -1,19 +1,59 @@
-//! Bottom navigation of the compact layout: one touch-sized tab per page.
+//! Bottom navigation of the compact layout: one touch-sized tab per page. A
+//! label is never broken mid-word: the font shrinks to fit, then the label is
+//! cut with an ellipsis. Tapping a tab names it in full in the page heading,
+//! and the full name is also the hover text.
 
-use egui::{Ui, vec2};
+use egui::{FontId, Sense, Ui, text::LayoutJob, vec2};
 
 use crate::layout::{MIN_TOUCH_TARGET, Page};
 
+/// Tab label sizes tried largest first (points).
+const TAB_FONT_MAX: f32 = 13.0;
+const TAB_FONT_MIN: f32 = 10.0;
+
 pub fn bottom_bar(ui: &mut Ui, page: &mut Page) {
-	egui::Panel::bottom("relay-nav").show(ui, |ui| {
-		ui.columns(Page::ALL.len(), |cols| {
-			for (col, p) in cols.iter_mut().zip(Page::ALL) {
-				let size = vec2(col.available_width(), MIN_TOUCH_TARGET);
-				let button = egui::Button::selectable(*page == p, p.label()).min_size(size);
-				if col.add(button).clicked() {
-					*page = p;
-				}
+	ui.columns(Page::ALL.len(), |cols| {
+		for (col, p) in cols.iter_mut().zip(Page::ALL) {
+			let size = vec2(col.available_width(), MIN_TOUCH_TARGET);
+			let (rect, response) = col.allocate_exact_size(size, Sense::click());
+			if response.clicked() {
+				*page = p;
 			}
-		});
+			let selected = *page == p;
+			let visuals = col.style().interact_selectable(&response, selected);
+			col.painter().rect(
+				rect,
+				visuals.corner_radius,
+				visuals.weak_bg_fill,
+				visuals.bg_stroke,
+				egui::StrokeKind::Inside,
+			);
+			let galley = fitted(col, p.label(), rect.width() - 4.0, visuals.text_color());
+			let pos = rect.center() - galley.size() / 2.0;
+			col.painter().galley(pos, galley, visuals.text_color());
+			response.on_hover_text(p.label());
+		}
 	});
+}
+
+/// The label in the largest font that fits `width`, else cut with an ellipsis
+/// at the smallest font.
+fn fitted(ui: &Ui, text: &str, width: f32, color: egui::Color32) -> std::sync::Arc<egui::Galley> {
+	let mut size = TAB_FONT_MAX;
+	loop {
+		let font = FontId::proportional(size);
+		let whole = ui.painter().layout_no_wrap(text.to_owned(), font.clone(), color);
+		if whole.size().x <= width || size <= TAB_FONT_MIN {
+			if whole.size().x <= width {
+				return whole;
+			}
+			let mut job = LayoutJob::simple_singleline(text.to_owned(), font, color);
+			job.wrap.max_width = width;
+			job.wrap.max_rows = 1;
+			job.wrap.break_anywhere = true;
+			job.wrap.overflow_character = Some('…');
+			return ui.painter().layout_job(job);
+		}
+		size -= 1.0;
+	}
 }

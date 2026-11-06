@@ -6,7 +6,7 @@ use crate::actions::Actions;
 use crate::model::{AppState, Direction, Meters};
 
 use super::local::Local;
-use super::widgets::{gain_slider, meter, release_delay_slider};
+use super::widgets::{combo, gain_slider, meter, release_delay_slider};
 use crate::tr;
 
 pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, local: &mut Local) {
@@ -24,8 +24,7 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 				.iter()
 				.find(|d| d.device_id == current)
 				.map_or(current, |d| d.name.as_str());
-			egui::ComboBox::from_label(label)
-				.selected_text(shown)
+			combo(ui, label, shown)
 				.show_ui(ui, |ui| {
 					for d in state.devices.iter().filter(|d| d.direction == dir) {
 						let text = if d.system_default {
@@ -64,7 +63,7 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 			let inp = settings.input_device_id.clone();
 			actions.run(|c| async move { c.select_devices(&inp, &id).await });
 		}
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			ui.label(tr!("audio-mic-level"));
 			meter(ui, meters.microphone_dbfs, tr!("audio-mic-level"));
 		});
@@ -84,7 +83,7 @@ pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, 
 			actions.run(|c| async move { c.set_ptt_release_delay(ms).await });
 		}
 		super::ring::ring_controls(ui, settings, actions, local);
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			let (m, d) = (settings.global_muted, settings.global_deafened);
 			if ui
 				.selectable_label(

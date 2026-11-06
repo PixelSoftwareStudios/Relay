@@ -36,12 +36,13 @@ pub fn meter(ui: &mut Ui, dbfs: Option<f32>, label: &str) -> Response {
 /// value lives in `edit` until released; returns the value to send.
 pub fn release_delay_slider(ui: &mut Ui, edit: &mut Option<u32>, current: u32) -> Option<u32> {
 	let mut value = edit.unwrap_or(current);
-	let response = ui.add(
-		egui::Slider::new(&mut value, 0..=crate::controller::RELEASE_DELAY_MAX_MS)
-			.step_by(10.0)
-			.suffix(format!(" {}", tr!("unit-ms")))
-			.text(tr!("slider-release-delay")),
-	);
+	let response = slider_row(ui, tr!("slider-release-delay"), |ui| {
+		ui.add(
+			egui::Slider::new(&mut value, 0..=crate::controller::RELEASE_DELAY_MAX_MS)
+				.step_by(10.0)
+				.suffix(format!(" {}", tr!("unit-ms"))),
+		)
+	});
 	if response.dragged() || (response.changed() && edit.is_some()) {
 		*edit = Some(value);
 	}
@@ -50,6 +51,33 @@ pub fn release_delay_slider(ui: &mut Ui, edit: &mut Option<u32>, current: u32) -
 		return Some(value);
 	}
 	None
+}
+
+/// Width for a single-line text field: the row, up to a comfortable length, so
+/// a field never makes its row wider than the screen.
+pub fn field_width(ui: &Ui) -> f32 {
+	ui.available_width().min(280.0)
+}
+
+/// A drop-down with its label on its own line above and the button as wide as
+/// the row, so neither can run past the right edge. Long selected text is cut.
+pub fn combo<'a>(ui: &mut Ui, label: &str, selected: &str) -> egui::ComboBox<'a> {
+	ui.label(label);
+	egui::ComboBox::from_id_salt(label)
+		.width(ui.available_width())
+		.selected_text(selected)
+}
+
+/// A slider with its label above and the track filling the row, leaving room
+/// for the value box.
+pub fn slider_row(ui: &mut Ui, label: &str, slider: impl FnOnce(&mut Ui) -> Response) -> Response {
+	ui.label(label);
+	ui.scope(|ui| {
+		let room = ui.spacing().interact_size.x + ui.spacing().item_spacing.x;
+		ui.spacing_mut().slider_width = (ui.available_width() - room).max(60.0);
+		slider(ui)
+	})
+	.inner
 }
 
 pub fn banner(ui: &mut Ui, text: &str, error: bool) {
@@ -66,11 +94,9 @@ pub fn banner(ui: &mut Ui, text: &str, error: bool) {
 /// arriving mid-drag do not fight the user. Returns the value to send.
 pub fn gain_slider(ui: &mut Ui, edit: &mut Option<f32>, current: f32, label: &str) -> Option<f32> {
 	let mut value = edit.unwrap_or(current);
-	let response = ui.add(
-		egui::Slider::new(&mut value, 0.0..=2.0)
-			.text(label)
-			.fixed_decimals(2),
-	);
+	let response = slider_row(ui, label, |ui| {
+		ui.add(egui::Slider::new(&mut value, 0.0..=2.0).fixed_decimals(2))
+	});
 	if response.dragged() || (response.changed() && edit.is_some()) {
 		*edit = Some(value);
 	}

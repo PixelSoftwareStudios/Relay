@@ -24,7 +24,7 @@ pub fn app_panel(
 		ui.set_width(ui.available_width());
 		let live = own_live_calls(&state.calls).len();
 		ui.label(close_note(has_tray, live));
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			if has_tray && ui.button(tr!("app-hide")).clicked() {
 				actions.hide_window();
 			}
@@ -41,7 +41,7 @@ pub fn app_panel(
 		});
 		if local.confirm_quit_app {
 			ui.label(RichText::new(quit_prompt(live)).strong());
-			ui.horizontal(|ui| {
+			ui.horizontal_wrapped(|ui| {
 				if ui.button(tr!("app-hang-up-quit")).clicked() {
 					actions.quit_app();
 				}
@@ -100,7 +100,7 @@ fn daemon_panel(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Lo
 			return;
 		}
 		ui.label(RichText::new(tr!("daemon-quit-confirm")).strong());
-		ui.horizontal(|ui| {
+		ui.horizontal_wrapped(|ui| {
 			if ui
 				.add_enabled(!busy, egui::Button::new(tr!("daemon-quit")))
 				.clicked()

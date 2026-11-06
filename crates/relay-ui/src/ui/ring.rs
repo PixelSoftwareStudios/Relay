@@ -10,11 +10,9 @@ use crate::tr;
 /// Volume slider whose drag value lives in `edit` until released.
 fn volume_slider(ui: &mut Ui, edit: &mut Option<f32>, current: f32) -> Option<f32> {
 	let mut value = edit.unwrap_or(current);
-	let response = ui.add(
-		egui::Slider::new(&mut value, 0.0..=1.0)
-			.text(tr!("ring-volume"))
-			.fixed_decimals(2),
-	);
+	let response = super::widgets::slider_row(ui, tr!("ring-volume"), |ui| {
+		ui.add(egui::Slider::new(&mut value, 0.0..=1.0).fixed_decimals(2))
+	});
 	if response.dragged() || (response.changed() && edit.is_some()) {
 		*edit = Some(value);
 	}
@@ -46,7 +44,7 @@ pub fn ring_controls(ui: &mut Ui, settings: &Settings, actions: &Actions, local:
 		actions
 			.run(|c| async move { c.set_ring_preferences(None, None, None, Some(sounds)).await });
 	}
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		if let Some(volume) =
 			volume_slider(ui, &mut local.ring_volume_edit, settings.ringtone_volume)
 		{

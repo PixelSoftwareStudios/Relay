@@ -9,7 +9,7 @@ use crate::qr;
 
 use super::local::Local;
 use super::textures::upload;
-use super::widgets::banner;
+use super::widgets::{banner, field_width};
 use crate::tr;
 
 /// Pixels per QR module.
@@ -53,7 +53,7 @@ fn show_info(ui: &mut Ui, actions: &Actions, info: &crate::model::ConnectionView
 		return;
 	}
 	ui.label(tr!("connection-share"));
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		ui.add(
 			egui::Label::new(RichText::new(&info.connection_string).monospace()).selectable(true),
 		);
@@ -102,9 +102,11 @@ fn paste_field(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	let problem = (!local.paste.trim().is_empty())
 		.then(|| connection::check(&local.paste).err())
 		.flatten();
-	ui.horizontal(|ui| {
+	ui.horizontal_wrapped(|ui| {
 		ui.add(
-			egui::TextEdit::singleline(&mut local.paste).hint_text("relay://192.168.1.20:7000#…"),
+			egui::TextEdit::singleline(&mut local.paste)
+				.desired_width(field_width(ui))
+				.hint_text("relay://192.168.1.20:7000#…"),
 		);
 		let ready = !local.paste.trim().is_empty() && problem.is_none();
 		if ui
