@@ -2,6 +2,8 @@
 //! `format`; the platform shell calls [`RelayApp::begin_frame`] then
 //! [`RelayApp::ui`] each frame and supplies services through `Shell`.
 
+mod app_panel;
+mod audio;
 mod channels;
 mod connection;
 mod host_switches;
@@ -255,11 +257,11 @@ impl RelayApp {
 			channels::privacy(ui, &state, actions);
 		}
 		if show(Page::Calls) {
-			sections::audio(ui, &state, &meters, actions, local);
+			audio::audio(ui, &state, &meters, actions, local);
 		}
 		if show(Page::Settings) {
 			profile::profile(ui, &state, actions, local, textures);
-			sections::app_panel(ui, &state, actions, local, has_tray);
+			app_panel::app_panel(ui, &state, actions, local, has_tray);
 		}
 	}
 }

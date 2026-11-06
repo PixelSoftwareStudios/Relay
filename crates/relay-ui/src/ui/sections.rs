@@ -5,15 +5,13 @@ use std::sync::atomic::Ordering;
 use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
-use crate::format::{
-	close_note, gain_percent, hotkey_note, link_label, own_live_calls, quit_prompt,
-};
-use crate::model::{AppState, Direction, Link, Meters, Mode};
+use crate::format::{gain_percent, link_label};
+use crate::model::{AppState, Link, Mode};
 use crate::viewmodel::{CallCard, PeerRow, mode_enabled, modes};
 
 use super::local::Local;
 use super::textures::Textures;
-use super::widgets::{avatar, banner, gain_slider, meter, release_delay_slider, tone_color};
+use super::widgets::{avatar, banner, gain_slider, meter, tone_color};
 use crate::tr;
 
 pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Actions) {
@@ -50,7 +48,7 @@ pub fn status(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Acti
 	}
 }
 
-fn start_daemon_button(ui: &mut Ui, actions: &Actions) {
+pub(super) fn start_daemon_button(ui: &mut Ui, actions: &Actions) {
 	let busy = actions.shared.daemon_busy.load(Ordering::Acquire);
 	let label = if busy {
 		tr!("daemon-starting-button")
@@ -312,219 +310,5 @@ fn revoke_row(
 		{
 			local.revoke_confirm = Some(key);
 		}
-	});
-}
-
-pub fn audio(ui: &mut Ui, state: &AppState, meters: &Meters, actions: &Actions, local: &mut Local) {
-	ui.heading(tr!("audio-heading"));
-	let Some(settings) = &state.settings else {
-		ui.label(RichText::new(tr!("audio-none")).weak());
-		return;
-	};
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
-		let pick = |ui: &mut Ui, label: &str, dir: Direction, current: &str| -> Option<String> {
-			let mut chosen = None;
-			let shown = state
-				.devices
-				.iter()
-				.find(|d| d.device_id == current)
-				.map_or(current, |d| d.name.as_str());
-			egui::ComboBox::from_label(label)
-				.selected_text(shown)
-				.show_ui(ui, |ui| {
-					for d in state.devices.iter().filter(|d| d.direction == dir) {
-						let text = if d.system_default {
-							format!("{} {}", d.name, tr!("device-default"))
-						} else {
-							d.name.clone()
-						};
-						if ui
-							.add_enabled(
-								d.available,
-								egui::Button::selectable(d.device_id == current, text),
-							)
-							.clicked()
-						{
-							chosen = Some(d.device_id.clone());
-						}
-					}
-				});
-			chosen
-		};
-		if let Some(id) = pick(
-			ui,
-			tr!("audio-microphone"),
-			Direction::Input,
-			&settings.input_device_id,
-		) {
-			let out = settings.output_device_id.clone();
-			actions.run(|c| async move { c.select_devices(&id, &out).await });
-		}
-		if let Some(id) = pick(
-			ui,
-			tr!("audio-speakers"),
-			Direction::Output,
-			&settings.output_device_id,
-		) {
-			let inp = settings.input_device_id.clone();
-			actions.run(|c| async move { c.select_devices(&inp, &id).await });
-		}
-		ui.horizontal(|ui| {
-			ui.label(tr!("audio-mic-level"));
-			meter(ui, meters.microphone_dbfs, tr!("audio-mic-level"));
-		});
-		let mic = local.gain_edits.entry("mic".into()).or_default();
-		if let Some(g) = gain_slider(ui, mic, settings.microphone_gain, tr!("audio-mic-gain")) {
-			actions.run(|c| async move { c.set_global_controls(None, None, Some(g), None).await });
-		}
-		let play = local.gain_edits.entry("play".into()).or_default();
-		if let Some(g) = gain_slider(ui, play, settings.playback_gain, tr!("audio-playback-gain")) {
-			actions.run(|c| async move { c.set_global_controls(None, None, None, Some(g)).await });
-		}
-		if let Some(ms) = release_delay_slider(
-			ui,
-			&mut local.release_delay_edit,
-			settings.ptt_release_delay_ms,
-		) {
-			actions.run(|c| async move { c.set_ptt_release_delay(ms).await });
-		}
-		super::ring::ring_controls(ui, settings, actions, local);
-		ui.horizontal(|ui| {
-			let (m, d) = (settings.global_muted, settings.global_deafened);
-			if ui
-				.selectable_label(
-					m,
-					if m {
-						tr!("audio-unmute-all")
-					} else {
-						tr!("audio-mute-all")
-					},
-				)
-				.clicked()
-			{
-				actions.run(
-					|c| async move { c.set_global_controls(Some(!m), None, None, None).await },
-				);
-			}
-			if ui
-				.selectable_label(
-					d,
-					if d {
-						tr!("audio-undeafen-all")
-					} else {
-						tr!("audio-deafen-all")
-					},
-				)
-				.clicked()
-			{
-				actions.run(
-					|c| async move { c.set_global_controls(None, Some(!d), None, None).await },
-				);
-			}
-		});
-	});
-}
-
-pub fn app_panel(
-	ui: &mut Ui,
-	state: &AppState,
-	actions: &Actions,
-	local: &mut Local,
-	has_tray: bool,
-) {
-	ui.heading(tr!("app-heading"));
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
-		let live = own_live_calls(&state.calls).len();
-		ui.label(close_note(has_tray, live));
-		ui.horizontal(|ui| {
-			if has_tray && ui.button(tr!("app-hide")).clicked() {
-				actions.hide_window();
-			}
-			if live == 0 {
-				local.confirm_quit_app = false;
-			}
-			if ui.button(tr!("app-quit")).clicked() {
-				if live == 0 {
-					actions.quit_app();
-				} else {
-					local.confirm_quit_app = true;
-				}
-			}
-		});
-		if local.confirm_quit_app {
-			ui.label(RichText::new(quit_prompt(live)).strong());
-			ui.horizontal(|ui| {
-				if ui.button(tr!("app-hang-up-quit")).clicked() {
-					actions.quit_app();
-				}
-				if ui.button(tr!("action-cancel")).clicked() {
-					local.confirm_quit_app = false;
-				}
-			});
-		}
-		autostart_checkbox(ui, state, actions);
-		super::host_switches::draw(ui, actions);
-		ui.label(RichText::new(hotkey_note()).weak());
-	});
-	if actions.shell.can_manage_daemon() {
-		daemon_panel(ui, state, actions, local);
-	}
-}
-
-/// The stored "Start daemon automatically" preference.
-fn autostart_checkbox(ui: &mut Ui, state: &AppState, actions: &Actions) {
-	let Some(settings) = &state.settings else {
-		return;
-	};
-	let mut on = settings.autostart_daemon;
-	if ui
-		.checkbox(&mut on, tr!("autostart-label"))
-		.on_hover_text(tr!("autostart-hover"))
-		.changed()
-	{
-		actions.shared.autostart.set_setting(on);
-		actions.run(|c| async move { c.set_autostart(on).await });
-	}
-}
-
-/// The daemon is its own process; stopping it is a separate, confirmed act.
-fn daemon_panel(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
-	ui.heading(tr!("daemon-heading"));
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
-		let busy = actions.shared.daemon_busy.load(Ordering::Acquire);
-		if state.link != Link::Connected {
-			ui.label(tr!("daemon-not-connected"));
-			start_daemon_button(ui, actions);
-			if actions.shared.autostart.paused() {
-				ui.label(RichText::new(tr!("daemon-paused")).weak());
-			}
-			return;
-		}
-		ui.label(tr!("daemon-keeps-running"));
-		if !local.confirm_quit_daemon {
-			if ui
-				.add_enabled(!busy, egui::Button::new(tr!("daemon-quit-ask")))
-				.clicked()
-			{
-				local.confirm_quit_daemon = true;
-			}
-			return;
-		}
-		ui.label(RichText::new(tr!("daemon-quit-confirm")).strong());
-		ui.horizontal(|ui| {
-			if ui
-				.add_enabled(!busy, egui::Button::new(tr!("daemon-quit")))
-				.clicked()
-			{
-				local.confirm_quit_daemon = false;
-				actions.quit_daemon();
-			}
-			if ui.button(tr!("action-cancel")).clicked() {
-				local.confirm_quit_daemon = false;
-			}
-		});
 	});
 }
