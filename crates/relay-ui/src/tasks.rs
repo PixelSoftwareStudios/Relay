@@ -10,12 +10,20 @@ use crate::limits_settings::LimitValues;
 use crate::shell::PickedFile;
 use crate::tr;
 
+/// What a daemon job does.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Job {
+	Start,
+	Stop,
+	Restart,
+}
+
 impl Actions {
 	/// Start the standalone daemon (only when the user clicks). The window
 	/// reconnects by itself once the endpoint is up.
 	pub fn start_daemon(&self) {
 		self.shared.autostart.user_start();
-		self.daemon_job(false);
+		self.daemon_job(Job::Start);
 	}
 
 	/// Ask the daemon to stop: calls end and the microphone is released. This
@@ -23,10 +31,18 @@ impl Actions {
 	pub fn quit_daemon(&self) {
 		// Quitting on purpose is not a crash: nothing restarts it this session.
 		self.shared.autostart.user_quit();
-		self.daemon_job(true);
+		self.daemon_job(Job::Stop);
 	}
 
-	fn daemon_job(&self, stop: bool) {
+	/// Stop the daemon and start it again, so a newer build takes over. The
+	/// same control path as Start and Quit; calls end, so the UI offers it
+	/// only when none is active.
+	pub fn restart_daemon(&self) {
+		self.shared.autostart.user_quit();
+		self.daemon_job(Job::Restart);
+	}
+
+	fn daemon_job(&self, job: Job) {
 		use std::sync::atomic::Ordering;
 		if self.shared.daemon_busy.swap(true, Ordering::AcqRel) {
 			return;
@@ -34,13 +50,19 @@ impl Actions {
 		let (shared, shell, hub) = (self.shared.clone(), self.shell.clone(), self.hub.clone());
 		self.runtime.spawn(async move {
 			shared.clear_error();
-			let result = if stop {
-				shell
-					.stop_daemon()
-					.await
-					.map(|()| tr!("daemon-stopped").to_owned())
-			} else {
-				shell.start_daemon().await
+			let stopped = match job {
+				Job::Start => Ok(()),
+				Job::Stop | Job::Restart => shell.stop_daemon().await,
+			};
+			let result = match (job, stopped) {
+				(_, Err(message)) => Err(message),
+				(Job::Stop, Ok(())) => Ok(tr!("daemon-stopped").to_owned()),
+				(Job::Start | Job::Restart, Ok(())) => {
+					if job == Job::Restart {
+						shared.autostart.user_start();
+					}
+					shell.start_daemon().await
+				}
 			};
 			match result {
 				Ok(note) => hub.update(|s| s.notice = Some(note)),
@@ -204,12 +226,33 @@ impl Actions {
 	}
 
 	/// The shell's QR scanner. The text goes to the inbox; the UI checks it like a
-	/// pasted connection string and only fills in the address field.
+	/// pasted connection string and then trusts the device (`connect_and_trust`).
 	pub fn scan_qr(&self) {
 		let (shared, shell) = (self.shared.clone(), self.shell.clone());
 		self.runtime.spawn(async move {
 			let result = shell.scan_qr().await;
 			shared.inbox.set_scanned(result);
+			shell.request_repaint();
+		});
+	}
+
+	/// Dial a scanned connection string and trust the device when its key matches
+	/// the fingerprint in the code. The outcome goes to the inbox.
+	pub fn connect_and_trust(&self, text: String) {
+		use crate::controller::ControlError;
+		use crate::qr_scan::ScanTrust;
+		let (controller, shared, shell) = (
+			self.controller.clone(),
+			self.shared.clone(),
+			self.shell.clone(),
+		);
+		self.runtime.spawn(async move {
+			let result = match controller.connect_and_trust(&text).await {
+				Ok(()) => ScanTrust::Added(ScanTrust::digest_of(&text)),
+				Err(ControlError::Engine(message)) => ScanTrust::from_failure(&message),
+				Err(other) => ScanTrust::Failed(other.to_string()),
+			};
+			shared.inbox.set_scan_trusted(result);
 			shell.request_repaint();
 		});
 	}

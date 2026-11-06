@@ -63,6 +63,8 @@ pub struct Local {
 	pub scanning: bool,
 	/// What the last scan said; cleared when the section is left.
 	pub scan_note: Option<crate::qr_scan::ScanNote>,
+	/// Where "connect and trust" after a scan stands; cleared by the next scan.
+	pub scan_trust: Option<crate::qr_scan::ScanTrust>,
 	/// The user's choice for the "Connect a device" section; `None` follows the default.
 	pub connect_open: Option<bool>,
 

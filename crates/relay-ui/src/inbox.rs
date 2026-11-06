@@ -12,7 +12,7 @@ use crate::hotkey_settings::HotkeyValues;
 use crate::imaging::Decoded;
 use crate::limits_settings::Loaded;
 use crate::model::ConnectionView;
-use crate::qr_scan::ScanError;
+use crate::qr_scan::{ScanError, ScanTrust};
 
 /// A profile image the user chose, ready to preview and upload.
 pub struct Picked {
@@ -33,6 +33,7 @@ pub struct Inbox {
 	connection: Mutex<Option<Result<ConnectionView, String>>>,
 	picked: Mutex<Option<Picked>>,
 	scanned: Mutex<Option<Result<Option<String>, ScanError>>>,
+	scan_trusted: Mutex<Option<ScanTrust>>,
 	invite: Mutex<Option<Invite>>,
 	hotkey_loaded: Mutex<Option<Result<HotkeyValues, String>>>,
 	hotkey_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
@@ -79,6 +80,14 @@ impl Inbox {
 
 	pub fn take_scanned(&self) -> Option<Result<Option<String>, ScanError>> {
 		self.scanned.lock_unpoisoned().take()
+	}
+
+	pub fn set_scan_trusted(&self, result: ScanTrust) {
+		*self.scan_trusted.lock_unpoisoned() = Some(result);
+	}
+
+	pub fn take_scan_trusted(&self) -> Option<ScanTrust> {
+		self.scan_trusted.lock_unpoisoned().take()
 	}
 
 	pub fn set_invite(&self, invite: Invite) {

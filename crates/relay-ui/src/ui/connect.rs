@@ -9,7 +9,7 @@ use relay_client::connection::{self, ConnectionStringProblem};
 
 use crate::model::ConnectionView;
 use crate::qr;
-use crate::qr_scan::{ScanError, ScanNote};
+use crate::qr_scan::{ScanError, ScanNote, ScanTrust};
 
 use super::kit::{self, Cx};
 use super::local::Local;
@@ -35,6 +35,8 @@ pub fn is_open(local: &Local, no_contacts: bool) -> bool {
 pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	kit::page_title(ui, tr!("nav-connect"));
 	visibility::card(ui, cx);
+	kit::gap(ui);
+	scan(ui, cx);
 	let found: Vec<&PeerRow> = rows.iter().filter(|r| !r.known).collect();
 	nearby::section(ui, &found, cx);
 	kit::gap(ui);
@@ -101,45 +103,76 @@ fn body(ui: &mut Ui, cx: &mut Cx) {
 				kit::gap(ui);
 				qr_code(ui, cx.local, &info.connection_string);
 			}
-			scan(ui, cx);
 			details(ui, &info);
 		}
 	}
 }
 
-/// The Scan button under the QR code, shown only when the shell has a camera
-/// scanner, and what the last scan said. A scan only fills in the address
-/// field of "Add a device by address"; it never trusts or calls anything.
+/// The Scan card, shown only when the shell has a camera scanner: scanning the
+/// code on another device adds it to Contacts (connect and trust), and the
+/// card says how that went, in plain words.
 fn scan(ui: &mut Ui, cx: &mut Cx) {
 	if !cx.actions.shell.can_scan_qr() {
 		return;
 	}
-	kit::gap(ui);
-	let idle = !cx.local.scanning;
-	button_row(ui, |ui| {
-		if ui
-			.add_enabled(idle, egui::Button::new(tr!("connection-scan")))
-			.clicked()
-		{
-			cx.local.scanning = true;
-			cx.local.scan_note = None;
-			cx.actions.scan_qr();
-		}
-	});
-	let Some(note) = cx.local.scan_note else {
-		return;
-	};
-	if note.is_problem() {
-		ui.label(RichText::new(note.message()).color(theme::WARN));
-	} else {
-		kit::help(ui, note.message());
-	}
-	if note == ScanNote::Failed(ScanError::CameraBlocked) {
+	kit::card(ui, |ui| {
+		kit::help(ui, tr!("scan-help"));
+		let idle = !cx.local.scanning && cx.local.scan_trust != Some(ScanTrust::Working);
 		button_row(ui, |ui| {
-			if ui.button(tr!("mic-open-settings")).clicked() {
-				cx.actions.shell.open_camera_settings();
+			if ui
+				.add_enabled(idle, egui::Button::new(tr!("connection-scan")))
+				.clicked()
+			{
+				cx.local.scanning = true;
+				cx.local.scan_note = None;
+				cx.local.scan_trust = None;
+				cx.actions.scan_qr();
 			}
 		});
+		scan_status(ui, cx);
+	});
+	kit::gap(ui);
+}
+
+fn scan_status(ui: &mut Ui, cx: &mut Cx) {
+	if let Some(note) = cx.local.scan_note {
+		ui.label(RichText::new(note.message()).color(theme::WARN));
+		if note == ScanNote::Failed(ScanError::CameraBlocked) {
+			button_row(ui, |ui| {
+				if ui.button(tr!("mic-open-settings")).clicked() {
+					cx.actions.shell.open_camera_settings();
+				}
+			});
+		}
+	}
+	match &cx.local.scan_trust {
+		None => {}
+		Some(ScanTrust::Working) => kit::help(ui, tr!("scan-trusting")),
+		Some(ScanTrust::Added(digest)) => {
+			let name = cx
+				.state
+				.peers
+				.iter()
+				.find(|p| p.peer_id.eq_ignore_ascii_case(digest))
+				.map(|p| p.display_name.as_str());
+			let text = match name {
+				Some(name) => tr!("scan-added", name = name),
+				None => tr!("scan-added-unnamed").to_owned(),
+			};
+			ui.label(RichText::new(text).color(theme::LIVE));
+		}
+		Some(ScanTrust::Unreachable) => {
+			ui.label(RichText::new(tr!("scan-unreachable")).color(theme::WARN));
+		}
+		Some(ScanTrust::Mismatch) => {
+			ui.label(RichText::new(tr!("scan-mismatch")).color(theme::WARN));
+		}
+		Some(ScanTrust::Failed(reason)) => {
+			ui.label(
+				RichText::new(tr!("scan-trust-failed", reason = reason.as_str()))
+					.color(theme::WARN),
+			);
+		}
 	}
 }
 
@@ -148,6 +181,10 @@ pub fn forget(local: &mut Local) {
 	local.connection = None;
 	local.connection_requested = false;
 	local.qr = None;
+	local.scan_note = None;
+	if local.scan_trust != Some(ScanTrust::Working) {
+		local.scan_trust = None;
+	}
 }
 
 fn show_info(ui: &mut Ui, actions: &Actions, info: &ConnectionView) {

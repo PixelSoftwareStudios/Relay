@@ -1,17 +1,24 @@
-//! The Scan button under the QR code: hidden unless the shell can scan, and a
-//! scanned string takes the same checks as a pasted one.
+//! The Scan card of the Connect page: hidden unless the shell can scan. A scanned
+//! string takes the same checks as a pasted one, then the device is dialled and
+//! trusted (`connect_and_trust`) and the page says how that went.
 
+mod common;
 mod phone;
+
+use std::sync::Arc;
 
 use std::sync::atomic::Ordering;
 use std::time::Duration;
 
+use common::FakeOps;
 use phone::{Drawn, Phone};
 use relay_client::connection::ConnectionStringProblem;
+use relay_ui::engine::Command;
 use relay_ui::i18n::Language;
 use relay_ui::layout::Page;
 use relay_ui::model::ConnectionView;
-use relay_ui::qr_scan::{self, ScanError, ScanNote};
+use relay_ui::model::{Peer, Trust};
+use relay_ui::qr_scan::{self, ScanError, ScanNote, ScanTrust, Scanned};
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 use relay_ui::tr;
 
@@ -88,13 +95,79 @@ async fn the_button_asks_the_shell_to_scan() {
 	}
 }
 
+/// A phone whose daemon is the fake; the device in `OTHER` is already known by
+/// name (as the engine reports it once it is trusted).
+fn with_ops() -> (Phone, Arc<FakeOps>) {
+	let phone = people(false, true);
+	let ops = Arc::new(FakeOps::default());
+	phone.slot.set(ops.clone());
+	let mut state = phone::busy_state();
+	state.peers.clear();
+	state.calls.clear();
+	state.peers.push(Peer {
+		peer_id: "cd".repeat(32),
+		display_name: "Dantes Laptop".into(),
+		addresses: Vec::new(),
+		trust: Trust::Verified,
+		reachable: true,
+		avatar_hash: String::new(),
+		fingerprint_short: String::new(),
+		shared_channels: Vec::new(),
+		favorite: false,
+		favorite_position: 0,
+		port: 7000,
+		last_seen_unix_ms: 0,
+	});
+	phone.show_state(&state);
+	(phone, ops)
+}
+
 #[tokio::test]
-async fn a_scanned_address_fills_the_field_and_calls_nobody() {
-	let mut phone = people(false, true);
+async fn a_scanned_code_connects_trusts_and_says_so() {
+	let (mut phone, ops) = with_ops();
 	let drawn = scan(&mut phone, Ok(Some(format!(" {OTHER}\n")))).await;
-	assert!(has(&drawn, tr!("scan-filled")), "{:?}", drawn.labels);
-	assert!(has(&drawn, OTHER), "the address is in the field");
-	assert_eq!(phone.shell.copied.lock().unwrap().len(), 0);
+	tokio::time::sleep(Duration::from_millis(50)).await;
+	assert_eq!(
+		ops.recorded(),
+		vec![Command::ConnectAndTrust { text: OTHER.into() }]
+	);
+	let done = phone.settle();
+	assert!(
+		has(&done, "Added Dantes Laptop to Contacts."),
+		"{:?} / {:?}",
+		drawn.labels,
+		done.labels
+	);
+	assert!(!has(&done, OTHER), "nothing is put in the paste field");
+}
+
+#[tokio::test]
+async fn failures_are_said_in_plain_words_and_nothing_is_added() {
+	for (engine_says, shown) in [
+		("the peer could not be reached", tr!("scan-unreachable")),
+		(
+			"static key does not match the fingerprint",
+			tr!("scan-mismatch"),
+		),
+	] {
+		let (mut phone, ops) = with_ops();
+		*ops.fail_with.lock().unwrap() = Some(engine_says.into());
+		scan(&mut phone, Ok(Some(OTHER.into()))).await;
+		tokio::time::sleep(Duration::from_millis(50)).await;
+		let done = phone.settle();
+		assert!(has(&done, shown), "{engine_says}: {:?}", done.labels);
+		assert!(!done.labels.iter().any(|l| l.starts_with("Added ")));
+	}
+	let (mut phone, ops) = with_ops();
+	*ops.fail_with.lock().unwrap() = Some("something odd".into());
+	scan(&mut phone, Ok(Some(OTHER.into()))).await;
+	tokio::time::sleep(Duration::from_millis(50)).await;
+	let done = phone.settle();
+	assert!(
+		has(&done, "Could not add that device: something odd"),
+		"{:?}",
+		done.labels
+	);
 }
 
 #[tokio::test]
@@ -102,7 +175,7 @@ async fn a_cancelled_scan_changes_nothing() {
 	let mut phone = people(false, true);
 	let drawn = scan(&mut phone, Ok(None)).await;
 	for key in [
-		"scan-filled",
+		"scan-trusting",
 		"scan-wrong",
 		"scan-failed",
 		"scan-camera-denied",
@@ -129,7 +202,10 @@ async fn a_code_that_is_not_relay_is_refused_in_plain_words() {
 		!has(&drawn, "https://example.com/x"),
 		"not put in the field"
 	);
-	assert!(!has(&drawn, tr!("scan-filled")));
+	let (mut phone, ops) = with_ops();
+	scan(&mut phone, Ok(Some("https://example.com/x".into()))).await;
+	tokio::time::sleep(Duration::from_millis(30)).await;
+	assert!(ops.recorded().is_empty(), "a wrong code dials nobody");
 }
 
 #[tokio::test]
@@ -184,16 +260,19 @@ fn every_scan_result_has_a_note() {
 	assert_eq!(qr_scan::outcome(Ok(None)), None);
 	assert_eq!(
 		qr_scan::outcome(Ok(Some(OTHER.into()))),
-		Some((ScanNote::Filled, Some(OTHER.into())))
+		Some(Scanned::Connect(OTHER.into()))
 	);
 	assert_eq!(
 		qr_scan::outcome(Ok(Some("nope".into()))),
-		Some((ScanNote::Wrong(ConnectionStringProblem::Scheme), None))
+		Some(Scanned::Note(ScanNote::Wrong(
+			ConnectionStringProblem::Scheme
+		)))
 	);
 	assert_eq!(
 		qr_scan::outcome(Err(ScanError::Unavailable)),
-		Some((ScanNote::Failed(ScanError::Unavailable), None))
+		Some(Scanned::Note(ScanNote::Failed(ScanError::Unavailable)))
 	);
+	assert_eq!(ScanTrust::digest_of(OTHER), "cd".repeat(32));
 	for error in [
 		ScanError::CameraDenied,
 		ScanError::CameraBlocked,
@@ -201,9 +280,7 @@ fn every_scan_result_has_a_note() {
 		ScanError::Failed,
 	] {
 		assert!(!ScanNote::Failed(error).message().is_empty());
-		assert!(ScanNote::Failed(error).is_problem());
 	}
-	assert!(!ScanNote::Filled.is_problem());
 }
 
 /// A shell that implements only the required methods.

@@ -33,6 +33,7 @@ use std::time::Instant;
 use crate::actions::Actions;
 use crate::capabilities::{Capabilities, SettingsCategory};
 use crate::imaging::{Decoded, decode_for_texture};
+use crate::qr_scan::{ScanTrust, Scanned};
 use crate::layout::{LayoutClass, Page};
 use crate::shell::Insets;
 use crate::theme;
@@ -216,12 +217,17 @@ impl RelayApp {
 		}
 		if let Some(result) = inbox.take_scanned() {
 			self.local.scanning = false;
-			if let Some((note, address)) = crate::qr_scan::outcome(result) {
-				self.local.scan_note = Some(note);
-				if let Some(address) = address {
-					self.local.paste = address;
+			match crate::qr_scan::outcome(result) {
+				Some(Scanned::Note(note)) => self.local.scan_note = Some(note),
+				Some(Scanned::Connect(text)) => {
+					self.local.scan_trust = Some(ScanTrust::Working);
+					self.actions.connect_and_trust(text);
 				}
+				None => {}
 			}
+		}
+		if let Some(result) = inbox.take_scan_trusted() {
+			self.local.scan_trust = Some(result);
 		}
 		if let Some(p) = inbox.take_picked() {
 			let texture = upload(ctx, "picked-avatar", &p.preview);
