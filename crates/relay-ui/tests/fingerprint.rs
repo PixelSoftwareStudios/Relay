@@ -91,8 +91,8 @@ async fn the_controller_sends_nothing_unless_the_full_fingerprint_is_given() {
 		.unwrap();
 	assert_eq!(
 		ops.recorded(),
-		vec![Command::ReplacePinnedKey {
-			peer_id: vec![0x59, 0xf1].repeat(16),
+		[Command::ReplacePinnedKey {
+			peer_id: [0x59, 0xf1].repeat(16),
 			fingerprint: FULL.into(),
 		}]
 	);
@@ -109,16 +109,16 @@ async fn forgetting_sends_the_stored_key_after_a_change_and_the_plain_one_otherw
 	ctl.forget_peer(FULL).await.unwrap();
 	assert_eq!(
 		ops.recorded(),
-		vec![Command::ForgetPeer {
-			peer_id: vec![0x1a, 0x10].repeat(16)
+		[Command::ForgetPeer {
+			peer_id: [0x1a, 0x10].repeat(16)
 		}]
 	);
 	let (ctl, ops) = controller(changed(false));
 	ctl.forget_peer(FULL).await.unwrap();
 	assert_eq!(
 		ops.recorded(),
-		vec![Command::ForgetPeer {
-			peer_id: vec![0x59, 0xf1].repeat(16)
+		[Command::ForgetPeer {
+			peer_id: [0x59, 0xf1].repeat(16)
 		}]
 	);
 }

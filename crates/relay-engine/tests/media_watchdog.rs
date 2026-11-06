@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use relay_engine::media::{Heartbeat, WorkerFailure, WorkerId, Watched, watchdog};
+use relay_engine::media::{Heartbeat, Watched, WorkerFailure, WorkerId, watchdog};
 
 type Reports = Arc<Mutex<Vec<WorkerFailure>>>;
 

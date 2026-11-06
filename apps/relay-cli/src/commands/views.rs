@@ -39,8 +39,7 @@ impl From<&Peer> for PeerView {
 			reachable: p.reachable,
 			addresses: p.local_addresses.clone(),
 			key_changed: p.key_changed,
-			previous_fingerprint_short: Some(p.previous_fingerprint_short.clone())
-				.filter(|_| p.key_changed),
+			previous_fingerprint_short: p.key_changed.then(|| p.previous_fingerprint_short.clone()),
 		}
 	}
 }

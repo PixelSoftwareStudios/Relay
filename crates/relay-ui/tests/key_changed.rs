@@ -198,8 +198,8 @@ async fn trust_is_enabled_only_for_the_exact_fingerprint() {
 	tokio::time::sleep(Duration::from_millis(50)).await;
 	assert_eq!(
 		ops.recorded(),
-		vec![Command::ReplacePinnedKey {
-			peer_id: vec![0x59, 0xf1].repeat(16),
+		[Command::ReplacePinnedKey {
+			peer_id: [0x59, 0xf1].repeat(16),
 			fingerprint: full,
 		}]
 	);
@@ -220,8 +220,8 @@ async fn removing_the_contact_forgets_the_stored_pinned_key() {
 	tokio::time::sleep(Duration::from_millis(50)).await;
 	assert_eq!(
 		ops.recorded(),
-		vec![Command::ForgetPeer {
-			peer_id: vec![0x1a, 0x10].repeat(16)
+		[Command::ForgetPeer {
+			peer_id: [0x1a, 0x10].repeat(16)
 		}]
 	);
 }

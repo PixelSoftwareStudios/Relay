@@ -34,6 +34,7 @@ impl Real {
 			trust: PeerTrust::TofuUnverified,
 			reachable: true,
 			avatar: None,
+			key_change: None,
 		}]);
 		let ports = fakes.ports();
 		let mut options = RunOptions::new(Paths::under(dir.path().join("cfg")));

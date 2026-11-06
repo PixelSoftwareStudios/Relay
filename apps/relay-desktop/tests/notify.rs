@@ -21,6 +21,9 @@ fn peer(name: &str) -> Peer {
 		last_seen_unix_ms: 0,
 		favorite: false,
 		favorite_position: 0,
+		key_changed: false,
+		previous_peer_id: String::new(),
+		previous_fingerprint_short: String::new(),
 	}
 }
 
