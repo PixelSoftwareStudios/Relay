@@ -69,7 +69,11 @@ async fn channel_members_get_independent_calls_and_no_cross_audio() {
 	}
 	for call in [&to_b, &to_c] {
 		let view = call_in(&mut a.cli, call).await.expect("call");
-		assert!(!view.transmit.expect("route").consent_granted);
+		// Membership grants nothing; the user's default (push-to-talk) holds the gate shut
+		// until a key is held.
+		let route = view.transmit.expect("route");
+		assert_eq!(route.mode, TransmitMode::PushToTalk as i32);
+		assert!(!route.effective_transmitting);
 	}
 
 	// Everyone consents on their own call(s).

@@ -317,7 +317,8 @@ async fn a_microphone_test_during_a_call_never_transmits_and_speech_is_reported(
 		.expect("call")
 		.transmit
 		.expect("route");
-	assert!(!transmit.consent_granted && !transmit.effective_transmitting);
+	// The call is in the default push-to-talk mode with no key held: the gate stays shut.
+	assert!(!transmit.effective_transmitting);
 	let req = TelemetryRequest {
 		client: b.cli.context(),
 		call_ids: vec![call.clone()],
