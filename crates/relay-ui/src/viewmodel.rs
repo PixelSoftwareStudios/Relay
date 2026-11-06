@@ -38,6 +38,10 @@ pub struct PeerRow {
 	/// Short key digest to tell devices apart (empty when the engine sent none).
 	pub fingerprint: String,
 	pub can_call: bool,
+	/// Local IP address of the device (first one seen, without a port); empty when none.
+	pub address: String,
+	/// Every address seen for it, as the engine reported them.
+	pub addresses: Vec<String>,
 	/// The device answers on the network now.
 	pub reachable: bool,
 	/// A trust decision is stored for it (so it can be forgotten).
@@ -131,6 +135,13 @@ fn shared_channels<'a>(
 		.filter(|c| peer.shared_channels.contains(&c.channel_id))
 }
 
+/// The host of `address` without its port (`192.168.1.4:7000` is `192.168.1.4`).
+pub fn host_of(address: &str) -> String {
+	address
+		.parse::<std::net::SocketAddr>()
+		.map_or_else(|_| address.to_owned(), |a| a.ip().to_string())
+}
+
 pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 	state
 		.peers
@@ -150,6 +161,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			),
 			fingerprint: p.fingerprint_short.clone(),
 			can_call: callable(state, p),
+			address: p.addresses.first().map_or_else(String::new, |a| host_of(a)),
+			addresses: p.addresses.clone(),
 			reachable: p.reachable,
 			known: p.trust != Trust::Unknown,
 			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),

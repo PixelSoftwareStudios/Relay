@@ -2,6 +2,8 @@
 //! The regular layout shows the list beside the page; the compact layout
 //! drills down (list, then one category with a Back button). Each category is
 //! its own small module that draws into a `Ui` and holds no navigation.
+//! Settings always fills the window: no notice or incoming-call strip is
+//! drawn above it (see `RelayApp::ui`).
 
 mod advanced;
 mod audio;
@@ -65,6 +67,7 @@ pub fn show_regular(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 		.show(ui, |ui| {
 			egui::ScrollArea::vertical()
 				.id_salt("settings-categories")
+				.auto_shrink([false, false])
 				.show(ui, |ui| {
 					for category in SettingsCategory::visible(caps) {
 						if entry(ui, category, category == selected, false) {
@@ -78,6 +81,7 @@ pub fn show_regular(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 		.show(ui, |ui| {
 			egui::ScrollArea::vertical()
 				.id_salt(("settings-page", selected))
+				.auto_shrink([false, false])
 				.show(ui, |ui| {
 					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
 					category_page(ui, selected, cx);

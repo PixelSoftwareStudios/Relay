@@ -2,7 +2,7 @@
 //! `format`; the platform shell calls [`RelayApp::begin_frame`] then
 //! [`RelayApp::ui`] each frame and supplies services through `Shell`.
 //!
-//! Pages: Calls, People and Channels, plus Settings (a separate page with its
+//! Pages: Calls, Contacts, Connect and Channels, plus Settings (a separate page with its
 //! own category list). The regular layout navigates with a sidebar, the
 //! compact layout with bottom tabs. Messages are not a page: the chat of a
 //! call opens from its call card or its history row (see `chat`).
@@ -12,7 +12,7 @@ mod call_card;
 mod channels;
 mod chat;
 mod connect;
-mod found;
+mod contacts;
 mod history;
 mod home;
 mod incoming;
@@ -21,7 +21,7 @@ mod local;
 pub mod messages;
 mod microphone;
 mod nav;
-mod people;
+mod nearby;
 mod settings;
 mod sidebar;
 mod textures;
@@ -239,7 +239,7 @@ impl RelayApp {
 		}
 		if let Some(result) = inbox.take_history_saved() {
 			self.local.history_saving = false;
-			self.local.history_report = Some(result);
+			self.local.history_report = Some(result.map_err(crate::setting_support::friendly));
 		}
 		if let Some(invite) = inbox.take_invite() {
 			self.local.invite = Some(invite);
@@ -247,13 +247,13 @@ impl RelayApp {
 	}
 
 	/// Keyboard: Esc closes the open chat, or leaves Settings (or a category in
-	/// the compact layout), Ctrl/Cmd+1 to 3 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
+	/// the compact layout), Ctrl/Cmd+1 to 4 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
 	/// to an open drop-down.
 	fn handle_keys(&mut self, ctx: &egui::Context, class: LayoutClass) {
 		use egui::{Key, Modifiers};
 		let (escape, jump) = ctx.input_mut(|i| {
 			let escape = i.consume_key(Modifiers::NONE, Key::Escape);
-			let keys = [Key::Num1, Key::Num2, Key::Num3];
+			let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4];
 			let jump = keys
 				.iter()
 				.position(|k| i.consume_key(Modifiers::COMMAND, *k))
@@ -303,7 +303,8 @@ impl RelayApp {
 		let chat_screen = class.is_compact() && cx.local.chat.is_some();
 		if class.is_compact() {
 			if keyboard <= 0.0 && !chat_screen {
-				egui::Panel::bottom("relay-nav").show(ui, |ui| nav::bottom_bar(ui, &mut self.page));
+				egui::Panel::bottom("relay-nav")
+					.show(ui, |ui| nav::bottom_bar(ui, &mut self.page, ringing));
 			}
 		} else {
 			egui::Panel::left("relay-sidebar")
@@ -314,13 +315,15 @@ impl RelayApp {
 					sidebar::show(ui, &mut self.page, logo, &mut cx, ringing);
 				});
 		}
+		// Settings is a calm page: no strips above it. A ringing call still
+		// shows on the Calls entry of the sidebar or the tabs.
 		let notices = banners::any(&state, error.as_deref());
-		if notices || ringing {
+		if (notices || ringing) && self.page != Page::Settings {
 			egui::Panel::top("relay-top")
 				.frame(top_frame(ui, class))
 				.show(ui, |ui| {
 					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
-					banners::show(ui, &state, error.as_deref(), cx.actions, cx.local);
+					banners::show(ui, &state, error.as_deref(), cx.actions);
 					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
 					incoming::show(ui, &incoming, &mut cx);
 				});
@@ -339,7 +342,8 @@ impl RelayApp {
 				}
 				_ => scrolling(ui, |ui| match self.page {
 					Page::Calls => home::show(ui, &cards, &rows, &mut cx),
-					Page::People => people::show(ui, &rows, &mut cx),
+					Page::Contacts => contacts::show(ui, &rows, &mut cx),
+					Page::Connect => connect::show(ui, &rows, &mut cx),
 					Page::Channels => channels::show(ui, &mut cx),
 					_ => settings::show_compact(ui, &mut self.category, &mut cx),
 				}),
@@ -370,7 +374,7 @@ impl RelayApp {
 			false => Some(settings::current(self.category, caps)),
 		});
 		settings::release_unseen(&mut self.local, shown.flatten());
-		if self.page != Page::People && self.local.connection_requested {
+		if self.page != Page::Connect && self.local.connection_requested {
 			connect::forget(&mut self.local);
 		}
 	}

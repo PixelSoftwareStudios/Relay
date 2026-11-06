@@ -11,13 +11,15 @@ use crate::store::{SessionInfo, SessionStore};
 /// Owns every session transcript in the daemon.
 ///
 /// Active sessions are never evicted. Ended transcripts stay readable until the user clears
-/// them, a new session with the same peer starts, the global budget evicts them (oldest ended
+/// them, a new session with the same peer starts, the global budget or the ended-call count evicts them (oldest ended
 /// first), or the daemon exits.
 pub struct HistoryManager {
 	sessions: HashMap<SessionId, SessionStore>,
 	/// Ended sessions, oldest first.
 	ended: Vec<SessionId>,
 	budget: u64,
+	/// Most ended transcripts kept.
+	max_ended: usize,
 	clock: Arc<dyn Clock>,
 }
 
@@ -33,6 +35,7 @@ impl HistoryManager {
 			sessions: HashMap::new(),
 			ended: Vec::new(),
 			budget,
+			max_ended: usize::MAX,
 			clock,
 		}
 	}
@@ -62,7 +65,7 @@ impl HistoryManager {
 		replaced
 	}
 
-	/// Ends a session and enforces the retained budget. Returns evicted session ids.
+	/// Ends a session and enforces the retained budget and call count. Returns evicted session ids.
 	pub fn end_session(&mut self, id: SessionId) -> Vec<SessionId> {
 		let Some(s) = self.sessions.get_mut(&id) else {
 			return Vec::new();
@@ -77,6 +80,11 @@ impl HistoryManager {
 
 	fn enforce(&mut self) -> Vec<SessionId> {
 		let mut evicted = Vec::new();
+		while self.ended.len() > self.max_ended {
+			let oldest = self.ended[0];
+			self.remove(oldest);
+			evicted.push(oldest);
+		}
 		while self.retained_bytes() > self.budget && !self.ended.is_empty() {
 			let oldest = self.ended[0];
 			self.remove(oldest);
@@ -94,6 +102,13 @@ impl HistoryManager {
 	/// Returns the evicted ids.
 	pub fn set_budget(&mut self, budget: u64) -> Vec<SessionId> {
 		self.budget = budget;
+		self.enforce()
+	}
+
+	/// Changes how many ended transcripts are kept (`0` keeps none) and evicts the oldest
+	/// surplus. Returns the evicted ids.
+	pub fn set_max_ended(&mut self, max: usize) -> Vec<SessionId> {
+		self.max_ended = max;
 		self.enforce()
 	}
 

@@ -169,7 +169,12 @@ impl Hub {
 		let clock = Arc::new(HubClock(origin));
 		let rate = watch::channel(env.config.load().rate_bytes_per_sec()).0;
 		Self {
-			history: HistoryManager::with_budget(clock.clone(), env.limits.retained_bytes),
+			history: {
+				let mut history =
+					HistoryManager::with_budget(clock.clone(), env.limits.retained_bytes);
+				history.set_max_ended(env.limits.retained_calls);
+				history
+			},
 			env,
 			sessions: HashMap::new(),
 			by_call: HashMap::new(),
@@ -327,7 +332,7 @@ impl Hub {
 		tracing::debug!(session = %sid.to_hex(), "messaging session ended");
 		self.emit_summary(sid);
 		for old in evicted {
-			self.forget(old, "retained history budget");
+			self.forget(old, "retained history limit");
 		}
 	}
 

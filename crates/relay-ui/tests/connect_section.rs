@@ -1,4 +1,4 @@
-//! The "Connect a device" section of the People page: open while nobody is
+//! The "Connect a device" section of the Connect page: open while nobody is
 //! known, collapsed once there are people, the user's choice kept, and Copy
 //! address one click away either way.
 
@@ -16,7 +16,7 @@ fn has(drawn: &Drawn, text: &str) -> bool {
 	drawn.labels.iter().any(|l| l.contains(text))
 }
 
-/// A rig on the People page whose daemon answered with `ADDRESS`; `peers`
+/// A rig on the Connect page whose daemon answered with `ADDRESS`; `peers`
 /// keeps or drops the seeded devices.
 fn people(desktop: bool, language: Language, peers: bool) -> Phone {
 	let phone = if desktop {
@@ -64,7 +64,7 @@ fn open_body(drawn: &Drawn) -> bool {
 async fn the_section_is_open_with_nobody_known() {
 	for desktop in [true, false] {
 		let mut phone = people(desktop, Language::En, false);
-		let drawn = phone.page(Page::People);
+		let drawn = phone.page(Page::Connect);
 		assert!(has(&drawn, "Connect a device"), "{:?}", drawn.labels);
 		assert!(open_body(&drawn), "desktop={desktop}: {:?}", drawn.labels);
 		assert!(has(&drawn, "Scan this code"), "the QR code is shown");
@@ -79,7 +79,7 @@ async fn the_section_is_open_with_nobody_known() {
 async fn the_section_is_collapsed_with_people_but_copy_stays() {
 	for desktop in [true, false] {
 		let mut phone = people(desktop, Language::En, true);
-		let drawn = phone.page(Page::People);
+		let drawn = phone.page(Page::Connect);
 		assert!(has(&drawn, "Connect a device"));
 		assert!(!open_body(&drawn), "desktop={desktop}: {:?}", drawn.labels);
 		assert!(!has(&drawn, "Scan this code"));
@@ -92,7 +92,7 @@ async fn the_section_is_collapsed_with_people_but_copy_stays() {
 async fn copy_address_copies_the_connection_string_in_both_states() {
 	for peers in [false, true] {
 		let mut phone = people(true, Language::En, peers);
-		phone.page(Page::People);
+		phone.page(Page::Connect);
 		phone.click_label("Copy address");
 		assert_eq!(
 			*phone.shell.copied.lock().unwrap(),
@@ -104,13 +104,13 @@ async fn copy_address_copies_the_connection_string_in_both_states() {
 #[tokio::test]
 async fn the_users_choice_is_kept_across_pages() {
 	let mut phone = people(true, Language::En, true);
-	phone.page(Page::People);
+	phone.page(Page::Connect);
 	phone.click_label("Connect a device");
 	let drawn = phone.settle();
 	assert!(open_body(&drawn) && has(&drawn, "Scan this code"));
 	phone.page(Page::Calls);
 	// Leaving the page dropped the string; the daemon answers again on return.
-	phone.app.set_page(Page::People);
+	phone.app.set_page(Page::Connect);
 	answer(&phone);
 	let back = phone.settle();
 	assert!(open_body(&back), "still open after leaving the page");

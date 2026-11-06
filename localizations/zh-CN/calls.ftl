@@ -91,3 +91,4 @@ mic-allow = 允许使用麦克风
 mic-off-title = 麦克风访问已关闭
 mic-off-body = 关闭后通话中没有人能听到你。请在系统设置中开启，然后回到这里。
 mic-open-settings = 打开系统设置
+history-open-contact = 打开联系人

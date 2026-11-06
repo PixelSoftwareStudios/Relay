@@ -89,3 +89,4 @@ mic-allow = マイクを許可
 mic-off-title = マイクへのアクセスがオフです
 mic-off-body = オフのままだと通話で誰にも声が届きません。システム設定でオンにしてから戻ってください。
 mic-open-settings = システム設定を開く
+history-open-contact = 連絡先を開く

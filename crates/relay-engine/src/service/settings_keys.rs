@@ -29,6 +29,7 @@ const LIVE_KEYS: [&str; 21] = [
 	"limits.avatar_cache_mib",
 	"limits.messages_session_mib",
 	"limits.messages_retained_mib",
+	"limits.messages_retained_calls",
 	"limits.history_max_entries",
 	"limits.history_max_age_days",
 	"limits.transfer_concurrency",
@@ -51,6 +52,7 @@ pub fn is_messaging_limit(key: &str) -> bool {
 		key,
 		"limits.messages_session_mib"
 			| "limits.messages_retained_mib"
+			| "limits.messages_retained_calls"
 			| "limits.transfer_concurrency"
 	)
 }

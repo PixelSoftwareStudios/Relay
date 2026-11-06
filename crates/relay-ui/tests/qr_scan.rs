@@ -55,7 +55,7 @@ fn people(desktop: bool, scanner: bool) -> Phone {
 /// Press Scan with `reply` as the shell's answer and let the task finish.
 async fn scan(phone: &mut Phone, reply: Result<Option<String>, ScanError>) -> Drawn {
 	*phone.shell.scan_reply.lock().unwrap() = Some(reply);
-	phone.page(Page::People);
+	phone.page(Page::Connect);
 	phone.click_label(tr!("connection-scan"));
 	tokio::time::sleep(Duration::from_millis(30)).await;
 	// The fake daemon refused the first fetch; the page keeps the seeded answer.
@@ -67,7 +67,7 @@ async fn scan(phone: &mut Phone, reply: Result<Option<String>, ScanError>) -> Dr
 async fn no_button_when_the_shell_cannot_scan() {
 	for desktop in [true, false] {
 		let mut phone = people(desktop, false);
-		let drawn = phone.page(Page::People);
+		let drawn = phone.page(Page::Connect);
 		assert!(
 			drawn.labels.iter().any(|l| l.contains("Scan this code")),
 			"the QR is drawn"
@@ -80,7 +80,7 @@ async fn no_button_when_the_shell_cannot_scan() {
 async fn the_button_asks_the_shell_to_scan() {
 	for desktop in [true, false] {
 		let mut phone = people(desktop, true);
-		let drawn = phone.page(Page::People);
+		let drawn = phone.page(Page::Connect);
 		assert!(has(&drawn, tr!("connection-scan")), "desktop={desktop}");
 		assert_eq!(phone.shell.scans.load(Ordering::SeqCst), 0);
 		scan(&mut phone, Ok(None)).await;

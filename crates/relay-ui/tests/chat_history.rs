@@ -120,11 +120,11 @@ async fn on_a_phone_the_history_chat_is_a_screen_with_a_back() {
 	);
 	assert!(has_exact(&open, "\u{2039} Back"));
 	assert!(has(&open, "Kept Caller"));
-	assert!(!has_exact(&open, "People"), "the tabs are out of the way");
+	assert!(!has_exact(&open, "Contacts"), "the tabs are out of the way");
 	phone.click_label("\u{2039} Back");
 	assert_eq!(phone.app.chat_call(), None);
 	let back = phone.settle();
-	assert!(has_exact(&back, "People") && has(&back, "History"));
+	assert!(has_exact(&back, "Contacts") && has(&back, "History"));
 }
 
 #[tokio::test]

@@ -12,10 +12,12 @@ fn the_messaging_defaults_match_the_library_constants() {
 	assert_eq!(d.session_bytes(), SESSION_BUDGET_BYTES);
 	assert_eq!(d.retained_bytes(), GLOBAL_RETAINED_BYTES);
 	assert_eq!(d.transfer_concurrency as usize, MAX_CONCURRENT_TRANSFERS);
+	assert_eq!(d.retained_calls(), 3);
 	let live = MessagingLimits::default();
 	assert_eq!(live.session_bytes, SESSION_BUDGET_BYTES);
 	assert_eq!(live.retained_bytes, GLOBAL_RETAINED_BYTES);
 	assert_eq!(live.transfers, MAX_CONCURRENT_TRANSFERS);
+	assert_eq!(live.retained_calls, 3);
 }
 
 #[test]

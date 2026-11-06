@@ -20,6 +20,8 @@ pub struct MessagingLimits {
 	pub session_bytes: u64,
 	/// Budget of all ended transcripts together.
 	pub retained_bytes: u64,
+	/// Most ended calls whose transcript is kept.
+	pub retained_calls: usize,
 	/// File transfers running at once in one session.
 	pub transfers: usize,
 }
@@ -30,6 +32,7 @@ impl MessagingLimits {
 		Self {
 			session_bytes: limits.session_bytes(),
 			retained_bytes: limits.retained_bytes(),
+			retained_calls: limits.retained_calls(),
 			transfers: limits.transfer_concurrency as usize,
 		}
 	}

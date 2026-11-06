@@ -31,7 +31,7 @@ impl HotkeyValues {
 	pub fn from_dump(dump: &BTreeMap<String, String>) -> Result<Self, String> {
 		let get = |key: &str| {
 			dump.get(key)
-				.ok_or_else(|| tr!("hotkey-missing-key", key = key))
+				.ok_or_else(|| tr!("setting-unsupported").to_owned())
 		};
 		let delay = get(KEY_RELEASE_DELAY)?;
 		Ok(Self {
@@ -87,7 +87,7 @@ pub fn key_label(key: &str) -> &str {
 /// One line per key: what happened to it.
 pub fn outcome_text(result: &SettingResult) -> String {
 	let label = key_label(&result.key);
-	let reason = result.reason.trim();
+	let reason = crate::setting_support::reason(&result.reason);
 	match (result.outcome, reason.is_empty()) {
 		(SettingOutcome::AppliedLive, _) => tr!("hotkey-applied", label = label),
 		(SettingOutcome::SavedNeedsRestart, true) => tr!("hotkey-saved", label = label),
@@ -130,7 +130,7 @@ impl HotkeyPanel {
 	/// A save finished.
 	pub fn saved(&mut self, result: Result<Vec<SettingResult>, String>) {
 		self.saving = false;
-		self.report = Some(result);
+		self.report = Some(result.map_err(crate::setting_support::friendly));
 	}
 
 	/// The draft differs from what the daemon holds.

@@ -93,3 +93,4 @@ mic-allow = Permitir microfone
 mic-off-title = O acesso ao microfone está desativado
 mic-off-body = Sem ele ninguém consegue ouvir você em uma chamada. Ative nas configurações do sistema e volte aqui.
 mic-open-settings = Abrir configurações do sistema
+history-open-contact = Abrir contato

@@ -11,7 +11,8 @@ use crate::layout::{MIN_TOUCH_TARGET, Page};
 const TAB_FONT_MAX: f32 = 13.0;
 const TAB_FONT_MIN: f32 = 10.0;
 
-pub fn bottom_bar(ui: &mut Ui, page: &mut Page) {
+/// `ringing` puts a dot on the Calls tab: a call is waiting, whatever page is open.
+pub fn bottom_bar(ui: &mut Ui, page: &mut Page, ringing: bool) {
 	ui.columns(Page::ALL.len(), |cols| {
 		for (col, p) in cols.iter_mut().zip(Page::ALL) {
 			let size = vec2(col.available_width(), MIN_TOUCH_TARGET);
@@ -31,6 +32,13 @@ pub fn bottom_bar(ui: &mut Ui, page: &mut Page) {
 			let galley = fitted(col, p.label(), rect.width() - 4.0, visuals.text_color());
 			let pos = rect.center() - galley.size() / 2.0;
 			col.painter().galley(pos, galley, visuals.text_color());
+			if ringing && p == Page::Calls {
+				col.painter().circle_filled(
+					rect.right_top() + vec2(-8.0, 8.0),
+					4.0,
+					crate::theme::LIVE,
+				);
+			}
 			response.on_hover_text(p.label());
 		}
 	});

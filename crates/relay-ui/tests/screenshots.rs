@@ -208,6 +208,8 @@ async fn screenshots() {
 	for (name, desktop, w, h) in [
 		("desktop", true, 720.0, 800.0),
 		("phone", false, 360.0, 800.0),
+		("desktop-tall", true, 720.0, 1700.0),
+		("phone-tall", false, 360.0, 1900.0),
 	] {
 		for language in [Language::En, Language::De, Language::Ru] {
 			let lang = format!("{language:?}").to_lowercase();
@@ -228,7 +230,7 @@ async fn screenshots() {
 					&dir.join(format!("{name}-{lang}-{page:?}.png")),
 				);
 			}
-			people_shots(&mut phone, &mut textures, &dir, &format!("{name}-{lang}"));
+			connect_shots(&mut phone, &mut textures, &dir, &format!("{name}-{lang}"));
 			for category in SettingsCategory::ALL {
 				phone.app.open_settings(Some(category));
 				shoot(
@@ -241,9 +243,9 @@ async fn screenshots() {
 	}
 }
 
-/// People with nobody known (connect section open), with people (collapsed),
+/// Connect and Contacts with nobody known (connect section open), with contacts (collapsed),
 /// and the sidebar chip for a private and an offline device.
-fn people_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Path, tag: &str) {
+fn connect_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Path, tag: &str) {
 	let base = phone::busy_state();
 	let mut empty = base.clone();
 	empty.peers.clear();
@@ -254,10 +256,10 @@ fn people_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Pat
 	let mut offline = base.clone();
 	offline.link = relay_ui::model::Link::Offline;
 	for (name, state) in [
-		("people-empty", empty),
-		("people-peers", base.clone()),
-		("people-private", private),
-		("people-offline", offline),
+		("connect-empty", empty),
+		("connect-peers", base.clone()),
+		("connect-private", private),
+		("connect-offline", offline),
 	] {
 		phone.show_state(&state);
 		phone
@@ -270,7 +272,10 @@ fn people_shots(phone: &mut Phone, textures: &mut Textures, dir: &std::path::Pat
 				fingerprint: "ab".repeat(32),
 				connection_string: format!("relay://192.168.1.40:7000#{}", "ab".repeat(32)),
 			}));
-		phone.app.set_page(Page::People);
+		phone.app.set_page(Page::Connect);
+		shoot(phone, textures, &dir.join(format!("{tag}-{name}.png")));
+		phone.app.set_page(Page::Contacts);
+		let name = name.replace("connect", "contacts");
 		shoot(phone, textures, &dir.join(format!("{tag}-{name}.png")));
 	}
 	phone.show_state(&base);
@@ -325,6 +330,95 @@ async fn chat_screenshots() {
 			&mut phone,
 			&mut textures,
 			&dir.join(format!("{name}-history-chat.png")),
+		);
+	}
+}
+
+/// Run one frame with `events`, keeping its texture updates.
+fn pump(phone: &mut Phone, textures: &mut Textures, events: Vec<egui::Event>) {
+	let input = egui::RawInput {
+		screen_rect: Some(phone.screen()),
+		events,
+		..Default::default()
+	};
+	let app = &mut phone.app;
+	let mut out = phone.ctx.run_ui(input, |ui| {
+		app.begin_frame(ui.ctx());
+		app.ui(ui);
+	});
+	textures.apply(&out.textures_delta);
+	out.textures_delta.clear();
+}
+
+/// The redesigned chat: desktop and phone transcript, the open message menu
+/// and a history row with its new time.
+#[tokio::test]
+async fn chat_design_screenshots() {
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	for (name, desktop, w, h) in [
+		("desktop", true, 720.0, 800.0),
+		("phone", false, 360.0, 800.0),
+	] {
+		let mut phone = if desktop {
+			Phone::desktop(w, h, Language::En)
+		} else {
+			Phone::new(w, h, Language::En)
+		};
+		if desktop {
+			phone.ctx.set_pixels_per_point(1.5);
+		}
+		let mut textures = Textures::default();
+		phone.show_state(&chatkit::state(false));
+		chatkit::live_messages(&phone);
+		phone
+			.shell
+			.now_ms
+			.store(chatkit::NOW_MS, std::sync::atomic::Ordering::SeqCst);
+		chatkit::talk(&phone);
+		phone.app.open_chat(&chatkit::ada_call());
+		for _ in 0..6 {
+			pump(&mut phone, &mut textures, vec![]);
+		}
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-chat.png")),
+		);
+		let side = if desktop { 26.0 } else { 44.0 };
+		let drawn = phone.frame_with(vec![]);
+		let dots = chatkit::squares(&drawn, side);
+		if let Some(r) = dots.get(dots.len() / 2) {
+			let pos = r.center();
+			let press = |pressed| egui::Event::PointerButton {
+				pos,
+				button: egui::PointerButton::Primary,
+				pressed,
+				modifiers: Default::default(),
+			};
+			pump(
+				&mut phone,
+				&mut textures,
+				vec![egui::Event::PointerMoved(pos)],
+			);
+			pump(&mut phone, &mut textures, vec![press(true)]);
+			pump(&mut phone, &mut textures, vec![press(false)]);
+			shoot(
+				&mut phone,
+				&mut textures,
+				&dir.join(format!("{name}-chat-menu.png")),
+			);
+		}
+		phone.app.close_chat();
+		phone.show_state(&chatkit::history_state());
+		phone.size.y = 1100.0;
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("{name}-chat-history.png")),
 		);
 	}
 }

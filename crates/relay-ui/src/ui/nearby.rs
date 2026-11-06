@@ -1,6 +1,7 @@
-//! "Found nearby": devices on the network that the user has not trusted yet.
-//! Trusting one is a two-step action that tells the user to compare the
-//! fingerprint with the one the other device shows.
+//! Nearby: devices on the network that the user has not trusted yet. Each
+//! card shows the local address next to the name. Trusting one is a two-step
+//! action that tells the user to compare the fingerprint with the one the
+//! other device shows. A trusted device lives on the Contacts page.
 
 use egui::{RichText, Ui};
 
@@ -12,7 +13,15 @@ use super::widgets::{avatar, button_row};
 use crate::theme;
 
 pub fn section(ui: &mut Ui, rows: &[&PeerRow], cx: &mut Cx) {
-	kit::section_title(ui, tr!("people-found-title"));
+	kit::section_title(ui, tr!("home-nearby"));
+	if rows.is_empty() {
+		kit::empty_state(
+			ui,
+			tr!("people-none-nearby"),
+			tr!("people-none-nearby-help"),
+		);
+		return;
+	}
 	kit::help(ui, tr!("people-found-help"));
 	for row in rows {
 		card(ui, row, cx);
@@ -45,6 +54,9 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 					))
 					.weak(),
 				);
+				if !row.address.is_empty() {
+					ui.label(RichText::new(&row.address).weak().small().monospace());
+				}
 			});
 		});
 		trust_row(ui, row, cx);
@@ -57,6 +69,9 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 				.monospace(),
 			);
 			kit::help(ui, tr!("peer-key-help"));
+			if !row.addresses.is_empty() {
+				ui.label(tr!("peer-addresses", addresses = row.addresses.join(", ")));
+			}
 		});
 	});
 }
@@ -76,7 +91,11 @@ fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 				cx.local.trust_confirm = None;
 			}
 		});
-	} else if ui.button(tr!("found-trust")).clicked() {
-		cx.local.trust_confirm = Some(row.peer_id.clone());
+	} else {
+		button_row(ui, |ui| {
+			if ui.button(tr!("found-trust")).clicked() {
+				cx.local.trust_confirm = Some(row.peer_id.clone());
+			}
+		});
 	}
 }

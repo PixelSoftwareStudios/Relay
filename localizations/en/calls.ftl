@@ -96,3 +96,4 @@ mic-allow = Allow microphone
 mic-off-title = Microphone access is turned off
 mic-off-body = Without it nobody can hear you in a call. Turn it on in the system settings, then come back.
 mic-open-settings = Open system settings
+history-open-contact = Open contact

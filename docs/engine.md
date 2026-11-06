@@ -204,10 +204,10 @@ again.
 a limit changed, puts it into force itself: `AvatarCache::set_limit` evicts at once and
 `CallHistory::set_limits` prunes at once (both are shared with the other clones the daemon holds).
 The messaging half (`limits.messages_session_mib`, `limits.messages_retained_mib`,
-`limits.transfer_concurrency`) goes to the messaging actor as `Hub::set_limits(MessagingLimits)`
+`limits.messages_retained_calls`, `limits.transfer_concurrency`) goes to the messaging actor as `Hub::set_limits(MessagingLimits)`
 (`messaging/storage.rs`): every transcript, running or ended, takes the new per-session budget
 (nothing is deleted; a chat over its budget refuses new data until it is under), ended
-transcripts over a smaller retained budget are removed oldest first with `HistoryEvicted`, and
+transcripts over a smaller retained budget or call count are removed oldest first with `HistoryEvicted`, and
 the transfer count applies from the next offer or accept. At start the saved values are read
 (`MessagingLimits::from_prefs`; `MessagingOptions.limits` overrides them for tests that need a
 budget below the allowed minimum). If the messaging actor is not running the keys are
@@ -317,7 +317,7 @@ deadlines (`SessionStore::next_deadline`, `poll`), the "engine tick" for messagi
 - **Sessions follow calls.** After every domain revision change the control actor reports
   `CallFact`s (`Actor::sync_messaging`). A session starts when a call is `Connecting`, `Active` or
   `Interrupted` and ends when the call is over or gone. It is a `relay_messages::SessionStore`
-  inside one `HistoryManager` (256 MiB retained budget by default, `limits.messages_retained_mib`, oldest ended first; a new call with the
+  inside one `HistoryManager` (256 MiB retained budget by default, `limits.messages_retained_mib`, and the last 3 ended calls, `limits.messages_retained_calls` via `HistoryManager::set_max_ended`; whichever is stricter evicts the oldest ended first; a new call with the
   same peer replaces the old transcript). **At most one session per peer**: no call id travels
   on the session lane, so a message is routed by the *authenticated link's peer* to that peer's
   one session. A message for session S can only come from S's peer; a peer with no session gets

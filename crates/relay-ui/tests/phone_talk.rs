@@ -73,7 +73,7 @@ async fn leaving_the_page_while_held_releases() {
 		.center();
 	touch(&mut phone, target, egui::TouchPhase::Start);
 	phone.frame_with(Vec::new());
-	phone.page(Page::People);
+	phone.page(Page::Contacts);
 	let log = phone.shell.ptt.lock().unwrap().clone();
 	assert_eq!(log.last().map(|e| e.1), Some(false), "{log:?}");
 }

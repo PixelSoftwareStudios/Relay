@@ -1,4 +1,4 @@
-//! Devices found on the network but not trusted: their own section on People, a
+//! Devices found on the network but not trusted: the Nearby section of Connect, a
 //! confirm step that points at the fingerprint check, and the trust decision
 //! that goes to the engine with the full key digest.
 
@@ -13,13 +13,11 @@ use relay_ui::i18n::Language;
 use relay_ui::layout::Page;
 use relay_ui::model::{Peer, Problem, Trust};
 
-const FOUND: &str = "Found nearby";
-
 fn stranger() -> Peer {
 	Peer {
 		peer_id: "ab".repeat(32),
 		display_name: "Dantes Laptop".into(),
-		addresses: Vec::new(),
+		addresses: vec!["192.168.1.77:7000".into()],
 		trust: Trust::Unknown,
 		reachable: false,
 		avatar_hash: String::new(),
@@ -37,7 +35,7 @@ fn rig(width: f32, height: f32, language: Language) -> (Phone, Arc<FakeOps>) {
 	phone.show_state(&state);
 	// The controller checks the device against the hub's state.
 	phone.actions.hub.update(|s| s.peers.push(stranger()));
-	phone.page(Page::People);
+	phone.page(Page::Connect);
 	(phone, ops)
 }
 
@@ -53,18 +51,27 @@ fn position(labels: &[String], text: &str) -> usize {
 }
 
 #[tokio::test]
-async fn an_untrusted_device_is_found_nearby_not_among_trusted_ones() {
+async fn an_untrusted_device_is_nearby_with_its_address_and_not_among_contacts() {
 	let (mut phone, _ops) = rig(720.0, 1800.0, Language::En);
 	let drawn = phone.settle();
 	let labels = &drawn.labels;
-	let found = position(labels, FOUND);
-	let known = position(labels, "Other trusted devices");
-	let name = position(labels, "Dantes Laptop");
-	assert!(found < name && name < known, "{labels:?}");
+	assert!(position(labels, "Nearby") < position(labels, "Dantes Laptop"));
 	assert!(has(labels, "Not trusted yet"));
 	assert!(has(labels, "Trust this device"));
-	// A trusted online device stays under Nearby with Call.
-	assert!(position(labels, "Ada Lovelace") < found);
+	assert!(
+		has(labels, "192.168.1.77") && !has(labels, "192.168.1.77:7000"),
+		"the local address without the port: {labels:?}"
+	);
+	// A trusted device lives in Contacts only.
+	assert!(!has(labels, "Online · Verified"), "{labels:?}");
+	let contacts = phone.page(Page::Contacts);
+	assert!(has(&contacts.labels, "Online · Verified"));
+	assert!(
+		!has(&contacts.labels, "Dantes Laptop"),
+		"{:?}",
+		contacts.labels
+	);
+	assert!(!has(&contacts.labels, "Trust this device"));
 }
 
 #[tokio::test]
@@ -101,20 +108,40 @@ async fn not_now_sends_nothing_and_goes_back() {
 }
 
 #[tokio::test]
-async fn the_trust_notice_leads_to_the_page() {
+async fn the_engines_trust_warning_is_not_shown_anywhere() {
+	for page in [Page::Calls, Page::Contacts, Page::Connect, Page::Channels] {
+		let mut phone = Phone::desktop(720.0, 1800.0, Language::En);
+		let mut state = phone::busy_state();
+		state.peers.push(stranger());
+		state.warnings.push(Problem {
+			code: "TRUST_REQUIRED".into(),
+			message: "`Dantes Laptop` (ABAB) is waiting for a trust decision".into(),
+			retryable: false,
+			recovery_action: "decide_peer_trust".into(),
+		});
+		phone.show_state(&state);
+		let drawn = phone.page(page);
+		assert!(
+			!has(&drawn.labels, "waiting for a trust decision"),
+			"{page:?}"
+		);
+		assert!(!has(&drawn.labels, "Review"), "{page:?}");
+	}
+}
+
+#[tokio::test]
+async fn other_warnings_still_show() {
 	let mut phone = Phone::desktop(720.0, 1800.0, Language::En);
 	let mut state = phone::busy_state();
-	state.peers.push(stranger());
 	state.warnings.push(Problem {
-		code: "TRUST_REQUIRED".into(),
-		message: "`Dantes Laptop` (ABAB) is waiting for a trust decision".into(),
+		code: "PEER_KEY_CHANGED".into(),
+		message: "A device changed its key".into(),
 		retryable: false,
-		recovery_action: "decide_peer_trust".into(),
+		recovery_action: String::new(),
 	});
 	phone.show_state(&state);
-	phone.page(Page::Calls);
-	phone.click_label("Review");
-	assert_eq!(phone.app.page(), Page::People);
+	let drawn = phone.page(Page::Calls);
+	assert!(has(&drawn.labels, "A device changed its key"));
 }
 
 #[tokio::test]
@@ -134,7 +161,7 @@ async fn the_section_fits_in_every_language_and_width() {
 				let mut state = phone::busy_state();
 				state.peers.push(stranger());
 				phone.show_state(&state);
-				phone.page(Page::People);
+				phone.page(Page::Connect);
 				if confirm {
 					phone.click_label(tr_trust(language));
 				}

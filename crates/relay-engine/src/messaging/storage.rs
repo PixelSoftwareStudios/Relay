@@ -13,14 +13,16 @@ pub struct MessagingUsage {
 }
 
 impl Hub {
-	/// Puts new limits into force. Ended transcripts over the new retained budget are removed
+	/// Puts new limits into force. Ended transcripts over the new retained budget or call count are removed
 	/// at once, oldest first. A transcript over a smaller session budget keeps what it has and
 	/// accepts nothing new until it shrinks. A transfer limit applies to the next transfer.
 	pub fn set_limits(&mut self, limits: MessagingLimits) {
 		self.env.limits = limits;
 		self.history.set_session_limit(limits.session_bytes);
-		for old in self.history.set_budget(limits.retained_bytes) {
-			self.forget(old, "retained history budget");
+		let mut evicted = self.history.set_max_ended(limits.retained_calls);
+		evicted.extend(self.history.set_budget(limits.retained_bytes));
+		for old in evicted {
+			self.forget(old, "retained history limit");
 		}
 	}
 

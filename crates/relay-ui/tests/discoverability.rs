@@ -1,5 +1,5 @@
 //! Whether the device is discoverable, private or not advertising: the model,
-//! the sidebar chip, the People card and the sidebar's width.
+//! the sidebar chip, the Connect card and the sidebar's width.
 
 mod phone;
 
@@ -72,7 +72,7 @@ async fn the_sidebar_chip_and_the_people_card_follow_the_state() {
 	for (link, advert, shown, absent) in cases {
 		let mut phone = Phone::desktop(720.0, 800.0, Language::En);
 		phone.show_state(&state(link, advert));
-		let drawn = phone.page(Page::People);
+		let drawn = phone.page(Page::Connect);
 		let sidebar = drawn
 			.named
 			.iter()
@@ -89,7 +89,7 @@ async fn the_sidebar_chip_and_the_people_card_follow_the_state() {
 async fn the_people_card_offers_the_switch_and_names_the_reason() {
 	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
 	phone.show_state(&state(Link::Connected, Some(Advert::Visible)));
-	let drawn = phone.page(Page::People);
+	let drawn = phone.page(Page::Connect);
 	assert!(has(&drawn, "Go private"), "{:?}", drawn.labels);
 	phone.show_state(&state(Link::Connected, Some(Advert::Hidden)));
 	let drawn = phone.settle();

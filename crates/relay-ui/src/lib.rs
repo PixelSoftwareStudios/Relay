@@ -34,6 +34,7 @@ pub mod model;
 pub mod qr;
 pub mod qr_scan;
 pub mod relay_link;
+pub mod setting_support;
 pub mod shell;
 pub mod supervisor;
 pub mod tasks;

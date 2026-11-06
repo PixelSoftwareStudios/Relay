@@ -145,7 +145,7 @@ impl LimitValues {
 		for (slot, def) in values.iter_mut().zip(&DEFS) {
 			let text = dump
 				.get(def.key)
-				.ok_or_else(|| tr!("hotkey-missing-key", key = def.key))?;
+				.ok_or_else(|| tr!("setting-unsupported").to_owned())?;
 			*slot = text
 				.parse()
 				.map_err(|_| tr!("hotkey-bad-value", key = def.key, value = text.as_str()))?;
@@ -193,7 +193,7 @@ pub fn key_label(key: &str) -> &str {
 /// One line per key: what happened to it.
 pub fn outcome_text(result: &SettingResult) -> String {
 	let label = key_label(&result.key);
-	let reason = result.reason.trim();
+	let reason = crate::setting_support::reason(&result.reason);
 	match (result.outcome, reason.is_empty()) {
 		(SettingOutcome::AppliedLive, _) => tr!("limits-applied", label = label),
 		(SettingOutcome::SavedNeedsRestart, true) => tr!("limits-saved", label = label),
@@ -243,7 +243,7 @@ impl LimitsPanel {
 	/// A save finished.
 	pub fn saved(&mut self, result: Result<Vec<SettingResult>, String>) {
 		self.saving = false;
-		self.report = Some(result);
+		self.report = Some(result.map_err(crate::setting_support::friendly));
 	}
 
 	/// What the daemon holds, when it was read.

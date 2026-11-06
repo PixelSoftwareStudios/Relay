@@ -80,6 +80,7 @@ async fn limits_apply_live_are_rejected_with_a_reason_and_survive_a_restart() {
 			("limits.history_max_entries", "0"),
 			("limits.history_max_age_days", "30"),
 			("limits.transfer_concurrency", "4"),
+			("limits.messages_retained_calls", "0"),
 		],
 	)
 	.await;
@@ -98,6 +99,7 @@ async fn limits_apply_live_are_rejected_with_a_reason_and_survive_a_restart() {
 			("limits.history_max_entries", "5001"),
 			("limits.history_max_age_days", "0"),
 			("limits.transfer_concurrency", "9"),
+			("limits.messages_retained_calls", "21"),
 			("limits.messages_session_mib", "1025"),
 			("limits.messages_retained_mib", "10"),
 		],
@@ -119,6 +121,7 @@ async fn limits_apply_live_are_rejected_with_a_reason_and_survive_a_restart() {
 	assert_eq!(all["limits.messages_session_mib"], "16");
 	assert_eq!(all["limits.messages_retained_mib"], "20");
 	assert_eq!(all["limits.transfer_concurrency"], "4");
+	assert_eq!(all["limits.messages_retained_calls"], "0");
 	daemon.shutdown().await.unwrap();
 }
 

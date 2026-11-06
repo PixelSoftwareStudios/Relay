@@ -78,6 +78,8 @@ pub struct Local {
 	pub goto: Option<crate::layout::Page>,
 	/// When this app first saw each call connected (hex call id).
 	pub call_since: HashMap<String, Instant>,
+	/// The contact (hex peer id) the Contacts page should scroll to and show.
+	pub focus_contact: Option<String>,
 	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
 	pub forget_confirm: Option<String>,
 	/// The found device (hex peer id) whose "Trust this device" awaits confirmation.

@@ -184,11 +184,26 @@ async fn a_new_call_with_the_same_peer_replaces_the_old_transcript() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn the_retained_budget_evicts_the_oldest_ended_transcript_first() {
 	// Two ended transcripts of two messages each do not fit in 2.5 KB.
+	oldest_ended_is_evicted(relay_engine::messaging::MessagingLimits {
+		retained_bytes: 2_500,
+		..Default::default()
+	})
+	.await;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_retained_call_count_evicts_the_oldest_ended_transcript_first() {
+	// Plenty of bytes, but only the last ended call is kept.
+	oldest_ended_is_evicted(relay_engine::messaging::MessagingLimits {
+		retained_calls: 1,
+		..Default::default()
+	})
+	.await;
+}
+
+async fn oldest_ended_is_evicted(limits: relay_engine::messaging::MessagingLimits) {
 	let mut a = support_channels::side_tuned(440.0, None, true, |o| {
-		o.messaging.limits = Some(relay_engine::messaging::MessagingLimits {
-			retained_bytes: 2_500,
-			..Default::default()
-		});
+		o.messaging.limits = Some(limits);
 	})
 	.await;
 	let mut b = side(1_700.0).await;

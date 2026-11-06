@@ -28,7 +28,7 @@ pub struct LimitSpec {
 }
 
 /// Number of tweakable limits.
-pub const COUNT: usize = 6;
+pub const COUNT: usize = 7;
 
 /// Every tweakable limit, in display order.
 pub const SPECS: [LimitSpec; COUNT] = [
@@ -74,6 +74,13 @@ pub const SPECS: [LimitSpec; COUNT] = [
 		max: 8,
 		unit: "transfers",
 	},
+	LimitSpec {
+		key: "limits.messages_retained_calls",
+		default: 3,
+		min: 0,
+		max: 20,
+		unit: "calls",
+	},
 ];
 
 /// The spec of `key`, if it is a tweakable limit.
@@ -97,6 +104,8 @@ pub struct Limits {
 	pub history_max_age_days: u32,
 	/// File transfers running at once in one session.
 	pub transfer_concurrency: u32,
+	/// Most ended calls whose chat transcript is kept; `0` keeps nothing once a call ends.
+	pub messages_retained_calls: u32,
 }
 
 impl Default for Limits {
@@ -109,6 +118,7 @@ impl Default for Limits {
 			history_max_entries: d(3),
 			history_max_age_days: d(4),
 			transfer_concurrency: d(5),
+			messages_retained_calls: d(6),
 		}
 	}
 }
@@ -123,6 +133,7 @@ impl Limits {
 			self.history_max_entries,
 			self.history_max_age_days,
 			self.transfer_concurrency,
+			self.messages_retained_calls,
 		]
 	}
 
@@ -135,7 +146,7 @@ impl Limits {
 				*slot = value;
 			}
 		}
-		let [avatar, session, retained, entries, days, transfers] = values;
+		let [avatar, session, retained, entries, days, transfers, calls] = values;
 		Self {
 			avatar_cache_mib: avatar,
 			messages_session_mib: session,
@@ -143,6 +154,7 @@ impl Limits {
 			history_max_entries: entries,
 			history_max_age_days: days,
 			transfer_concurrency: transfers,
+			messages_retained_calls: calls,
 		}
 	}
 
@@ -178,6 +190,11 @@ impl Limits {
 	/// Ended-transcript budget in bytes.
 	pub fn retained_bytes(&self) -> u64 {
 		u64::from(self.messages_retained_mib) * MIB
+	}
+
+	/// Ended chat transcripts kept.
+	pub fn retained_calls(&self) -> usize {
+		self.messages_retained_calls as usize
 	}
 
 	/// Maximum call-history age in milliseconds.

@@ -1,5 +1,6 @@
 //! Navigation: the sidebar and bottom tabs, Settings and Back, Esc and the
-//! shortcuts, and an incoming call surfacing on every page.
+//! shortcuts, and an incoming call surfacing on every page but Settings, which
+//! shows no strip at all.
 
 mod phone;
 
@@ -41,11 +42,11 @@ async fn back_returns_to_the_page_settings_was_opened_from() {
 #[tokio::test]
 async fn escape_leaves_settings_on_a_wide_window() {
 	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
-	phone.page(Page::People);
+	phone.page(Page::Contacts);
 	phone.app.open_settings(None);
 	phone.settle();
 	phone.frame_with(vec![key(Key::Escape, Modifiers::NONE)]);
-	assert_eq!(phone.app.page(), Page::People);
+	assert_eq!(phone.app.page(), Page::Contacts);
 }
 
 #[tokio::test]
@@ -65,16 +66,19 @@ async fn escape_steps_out_of_a_category_on_a_phone() {
 #[tokio::test]
 async fn shortcuts_switch_pages() {
 	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
-	phone.frame_with(vec![key(Key::Num2, Modifiers::COMMAND)]);
-	assert_eq!(phone.app.page(), Page::People);
-	phone.frame_with(vec![key(Key::Num3, Modifiers::COMMAND)]);
-	assert_eq!(phone.app.page(), Page::Channels);
-	phone.frame_with(vec![key(Key::Num1, Modifiers::COMMAND)]);
+	for (digit, page) in [
+		(Key::Num2, Page::Contacts),
+		(Key::Num3, Page::Connect),
+		(Key::Num4, Page::Channels),
+		(Key::Num1, Page::Calls),
+	] {
+		phone.frame_with(vec![key(digit, Modifiers::COMMAND)]);
+		assert_eq!(phone.app.page(), page);
+	}
+	// There is no fifth page: Ctrl/Cmd+5 changes nothing.
+	phone.frame_with(vec![key(Key::Num5, Modifiers::COMMAND)]);
 	assert_eq!(phone.app.page(), Page::Calls);
-	// There is no fourth page: Ctrl/Cmd+4 changes nothing.
 	phone.frame_with(vec![key(Key::Num4, Modifiers::COMMAND)]);
-	assert_eq!(phone.app.page(), Page::Calls);
-	phone.frame_with(vec![key(Key::Num3, Modifiers::COMMAND)]);
 	phone.frame_with(vec![key(Key::Comma, Modifiers::COMMAND)]);
 	assert_eq!(phone.app.page(), Page::Settings);
 	phone.frame_with(vec![key(Key::Escape, Modifiers::NONE)]);
@@ -82,14 +86,14 @@ async fn shortcuts_switch_pages() {
 }
 
 #[tokio::test]
-async fn an_incoming_call_shows_on_every_page_and_size() {
+async fn an_incoming_call_shows_on_every_page_but_settings() {
 	for (desktop, w, h) in [(true, 720.0, 800.0), (false, 360.0, 800.0)] {
 		let mut phone = if desktop {
 			Phone::desktop(w, h, Language::En)
 		} else {
 			Phone::new(w, h, Language::En)
 		};
-		for page in Page::ALL {
+		for page in Page::ALL.into_iter().filter(|p| *p != Page::Settings) {
 			let drawn = phone.page(page);
 			assert!(
 				has(&drawn, "Accept") && has(&drawn, "Decline"),
@@ -97,10 +101,79 @@ async fn an_incoming_call_shows_on_every_page_and_size() {
 				drawn.labels
 			);
 		}
-		phone.app.open_settings(Some(SettingsCategory::Privacy));
-		let drawn = phone.settle();
-		assert!(has(&drawn, "Accept"), "{w}x{h} inside Settings");
 	}
+}
+
+/// Painted shapes that are the size of the Calls indicator dot (a circle of
+/// the given radius).
+fn dots(drawn: &phone::Drawn, radius: f32) -> usize {
+	drawn
+		.painted
+		.iter()
+		.filter(|r| {
+			(r.width() - 2.0 * radius).abs() < 0.5 && (r.height() - 2.0 * radius).abs() < 0.5
+		})
+		.count()
+}
+
+#[tokio::test]
+async fn settings_shows_no_strips_but_the_calls_entry_still_signals_a_ringing_call() {
+	for (desktop, w, h, radius) in [(true, 720.0, 800.0, 5.0), (false, 360.0, 800.0, 4.0)] {
+		let ringing = phone::busy_state();
+		let mut calm = ringing.clone();
+		calm.calls
+			.retain(|c| c.phase != relay_ui::model::Phase::IncomingRinging);
+		let mut counts = Vec::new();
+		for mut state in [ringing, calm] {
+			state.mock = true;
+			state.notice = Some("A passing notice".into());
+			state.warnings.push(relay_ui::model::Problem {
+				code: "SOMETHING".into(),
+				message: "A warning".into(),
+				retryable: false,
+				recovery_action: String::new(),
+			});
+			let mut phone = if desktop {
+				Phone::desktop(w, h, Language::En)
+			} else {
+				Phone::new(w, h, Language::En)
+			};
+			phone.show_state(&state);
+			phone.app.open_settings(Some(SettingsCategory::Advanced));
+			let in_settings = phone.settle();
+			for text in [
+				"Accept",
+				"Decline",
+				"A passing notice",
+				"A warning",
+				"Mock data",
+			] {
+				assert!(
+					!has(&in_settings, text),
+					"{w}x{h}: {text:?} in Settings: {:?}",
+					in_settings.labels
+				);
+			}
+			counts.push(dots(&in_settings, radius));
+			// The same state shows its strips on another page.
+			let calls = phone.page(Page::Calls);
+			assert!(has(&calls, "A passing notice") && has(&calls, "Mock data"));
+		}
+		assert_eq!(counts[0], counts[1] + 1, "{w}x{h}: the Calls indicator");
+	}
+}
+
+#[tokio::test]
+async fn settings_starts_at_the_top_of_the_window() {
+	let mut phone = Phone::new(360.0, 800.0, Language::En);
+	phone.app.open_settings(None);
+	let drawn = phone.settle();
+	let top = drawn
+		.named
+		.iter()
+		.map(|(_, r)| r.min.y)
+		.fold(f32::MAX, f32::min);
+	assert!(top < 40.0, "the list starts at the top: {top}");
 }
 
 #[tokio::test]

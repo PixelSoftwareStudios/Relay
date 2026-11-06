@@ -95,6 +95,10 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 				cx.actions.run(|c| async move { c.start_call(&id).await });
 			}
 			messages_button(ui, row, kept, cx);
+			if is_contact(cx, &row.peer_id) && ui.button(tr!("history-open-contact")).clicked() {
+				cx.local.focus_contact = Some(row.peer_id.clone());
+				cx.local.goto = Some(crate::layout::Page::Contacts);
+			}
 		});
 		if kept == Kept::No {
 			kit::help(ui, tr!("history-messages-gone"));
@@ -105,6 +109,14 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 			None => {}
 		}
 	});
+}
+
+/// Whether the peer is a trusted device, so Contacts has a card for it.
+fn is_contact(cx: &Cx, peer_id: &str) -> bool {
+	cx.state
+		.peers
+		.iter()
+		.any(|p| p.peer_id == peer_id && p.trust != crate::model::Trust::Unknown)
 }
 
 /// Opens or closes the read-only transcript of the call. It is off only when

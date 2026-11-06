@@ -94,3 +94,4 @@ mic-allow = Mikrofon erlauben
 mic-off-title = Der Mikrofonzugriff ist ausgeschaltet
 mic-off-body = Ohne ihn kann dich in einem Anruf niemand hören. Schalte ihn in den Systemeinstellungen ein und komm dann zurück.
 mic-open-settings = Systemeinstellungen öffnen
+history-open-contact = Kontakt öffnen

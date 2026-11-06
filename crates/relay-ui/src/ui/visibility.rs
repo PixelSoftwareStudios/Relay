@@ -1,5 +1,5 @@
 //! Discoverability: whether other devices on the network can find this one.
-//! A chip for the sidebar and, on the People page, a card that explains the
+//! A chip for the sidebar and, on the Connect page, a card that explains the
 //! state in one line and changes it through the Privacy setting.
 
 use egui::{Color32, RichText, Ui};
@@ -52,7 +52,7 @@ pub fn chip(ui: &mut Ui, d: Discoverability) {
 	});
 }
 
-/// The People card: state, one sentence, and the switch.
+/// The Connect card: state, one sentence, and the switch.
 pub fn card(ui: &mut Ui, cx: &mut Cx) {
 	let Some(d) = discoverability(cx.state) else {
 		return;

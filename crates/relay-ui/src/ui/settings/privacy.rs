@@ -9,8 +9,8 @@ use crate::model::Advert;
 use crate::theme;
 use crate::viewmodel::peer_rows;
 
+use super::super::contacts;
 use super::super::kit::{self, Cx};
-use super::super::people;
 use super::super::widgets::{banner, combo};
 use crate::tr;
 
@@ -97,7 +97,7 @@ fn trusted(ui: &mut Ui, cx: &mut Cx) {
 	}
 	kit::help(ui, tr!("privacy-trusted-help"));
 	for row in &rows {
-		kit::card(ui, |ui| people::trusted_row(ui, row, cx));
+		kit::card(ui, |ui| contacts::trusted_row(ui, row, cx));
 		kit::gap(ui);
 	}
 }

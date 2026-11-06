@@ -137,7 +137,7 @@ async fn reads_the_values_and_the_usage() {
 	assert_eq!(loaded.usage["limits.avatar_cache_mib"], 3 * MIB);
 	let mut dump = BTreeMap::new();
 	let error = LimitValues::from_dump(&dump).unwrap_err();
-	assert!(error.contains("limits.avatar_cache_mib"), "{error}");
+	assert!(error.contains("restart it"), "an older daemon: {error}");
 	dump.extend(DEFS.iter().map(|d| (d.key.to_owned(), "x".to_owned())));
 	assert!(LimitValues::from_dump(&dump).is_err(), "no silent default");
 }
