@@ -337,6 +337,13 @@ impl Actor {
 	async fn on_up(&mut self, link: Established) {
 		let peer = link.fingerprint;
 		self.dialling.remove(&link.id);
+		if self.config.blocks.contains(&peer) {
+			// Silent: no prompt, no event, no trace in the lists. Dropping the link closes it.
+			if let Some(waiter) = self.waiters.remove(&link.id) {
+				let _ = waiter.send(Err(PeerError::Trust("blocked".to_owned())));
+			}
+			return;
+		}
 		self.trust.lock().observe(&link.key);
 		let trust = evaluate_peer(&*self.trust.lock(), &peer, &link.name);
 		if let PeerTrust::KeyChanged { previous } = &trust {

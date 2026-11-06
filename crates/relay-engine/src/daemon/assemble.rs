@@ -73,6 +73,7 @@ pub(super) async fn assemble(
 	// Only addresses the user types may enter overlay space.
 	config.allow_overlay_manual = env.preferences.network.allow_overlay_manual;
 	config.discovery = network.discovery;
+	config.blocks = env.blocks.clone();
 	config.avatars = Some(Arc::clone(&env.avatars));
 	config.avatar = stored.avatar;
 	let manual_policy = config.manual_policy();

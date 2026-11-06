@@ -401,6 +401,7 @@ impl Booting {
 			identity_storage: loaded.identity_storage,
 			transport_identity: loaded.transport_identity,
 			trust: loaded.trust,
+			blocks: loaded.blocks,
 			incarnation: registry.incarnation(),
 			settings: loaded.settings,
 			avatars: loaded.avatars,

@@ -134,6 +134,9 @@ impl PeerHandle {
 	/// us and calls again is treated as unknown. After a key change the refused key selects
 	/// the same contact as the pinned one, and the key-change state goes with it.
 	pub fn forget(&self, selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
+		if let Some(unblocked) = self.unblock(selector)? {
+			return Ok(unblocked);
+		}
 		let changes: Vec<_> = self
 			.key_changes
 			.all()
@@ -154,6 +157,52 @@ impl PeerHandle {
 			let _ = self.try_send_forgotten(offending);
 		}
 		Ok(found)
+	}
+
+	/// Unblocks the device an id selector names. Names and prefixes select stored contacts
+	/// only; a blocked device is found by its id, which the blocked list shows.
+	fn unblock(&self, selector: &PeerSelector) -> Result<Option<ForgottenPeer>, PortError> {
+		let PeerSelector::Id(id) = selector else {
+			return Ok(None);
+		};
+		let peer = Fingerprint::from_bytes(*id.as_bytes());
+		let name = self.blocks.name_of(&peer);
+		if !self.blocks.unblock(&peer)? {
+			return Ok(None);
+		}
+		Ok(Some(ForgottenPeer {
+			id: *id,
+			name: name.unwrap_or_default(),
+			key_changed: Vec::new(),
+		}))
+	}
+
+	/// Every blocked device with the name it had when it was blocked.
+	pub fn blocked(&self) -> Vec<(relay_core::PeerId, String)> {
+		self.blocks
+			.entries()
+			.into_iter()
+			.map(|(fingerprint, name)| (peer_id(&fingerprint), name))
+			.collect()
+	}
+
+	/// Blocks a device: its links are refused from now on. A stored contact is forgotten at
+	/// the same time (its trust record, favorite and link go), and unblocking does not bring
+	/// it back.
+	pub fn block(&self, peer: relay_core::PeerId) -> Result<(), PortError> {
+		let fingerprint = Fingerprint::from_bytes(*peer.as_bytes());
+		let name = self
+			.peers()
+			.iter()
+			.find(|p| p.id == Some(peer))
+			.map(|p| p.name.clone())
+			.or_else(|| self.trust.lock().get(&fingerprint).map(|r| r.display_name))
+			.unwrap_or_else(|| fingerprint.short());
+		self.blocks.block(fingerprint, &name)?;
+		// Nothing to remove for a device that was never trusted.
+		let _ = self.trust.lock().remove(&fingerprint);
+		self.try_send_forgotten(fingerprint)
+			.map_err(|e| PortError::Unavailable(e.to_string()))
 	}
 
 	fn try_send_forgotten(&self, peer: Fingerprint) -> Result<(), PeerError> {

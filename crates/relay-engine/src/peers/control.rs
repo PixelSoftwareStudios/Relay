@@ -199,7 +199,8 @@ impl PeerControl for PeerAdapter {
 	}
 
 	fn peers(&self) -> Vec<PeerInfo> {
-		self.handle
+		let mut found: Vec<PeerInfo> = self
+			.handle
 			.peers()
 			.iter()
 			.filter_map(info)
@@ -207,7 +208,16 @@ impl PeerControl for PeerAdapter {
 				found.key_change = self.handle.key_change(found.id).map(|c| c.previous);
 				found
 			})
-			.collect()
+			.collect();
+		// Blocked devices are listed (for Settings) but are never reachable.
+		let blocked = self.handle.blocked();
+		found.retain(|p| !blocked.iter().any(|(id, _)| *id == p.id));
+		found.extend(blocked.into_iter().map(|(id, name)| PeerInfo {
+			display_name: name,
+			trust: PeerTrust::Blocked,
+			..PeerInfo::bare(id)
+		}));
+		found
 	}
 
 	fn replace_pinned_key(
@@ -232,6 +242,9 @@ impl PeerControl for PeerAdapter {
 	}
 
 	fn confirm_trust(&self, request: &TrustRequest) -> Result<(), PortError> {
+		if request.requested == PeerTrust::Blocked {
+			return Ok(());
+		}
 		let state = trust_state(request)?;
 		let (handle, peer) = (self.handle.clone(), request.peer);
 		let pin = async move {
@@ -253,6 +266,12 @@ impl PeerControl for PeerAdapter {
 
 	/// The pin itself happened in [`Self::confirm_trust`]; this only re-checks the request.
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError> {
+		if request.requested == PeerTrust::Blocked {
+			if request.expected_key != request.peer {
+				return Err(PortError::Invalid("key does not match the peer".to_owned()));
+			}
+			return self.handle.block(request.peer);
+		}
 		trust_state(&request).map(drop)
 	}
 

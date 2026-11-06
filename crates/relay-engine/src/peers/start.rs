@@ -73,6 +73,7 @@ pub async fn spawn(
 		)?;
 	}
 	let key_changes = super::key_changes::KeyChanges::default();
+	let blocks = config.blocks.clone();
 	let actor = Actor {
 		config,
 		local,
@@ -109,6 +110,7 @@ pub async fn spawn(
 		sessions,
 		trust,
 		key_changes,
+		blocks,
 	};
 	Ok((handle, output_rx))
 }

@@ -20,7 +20,7 @@ use super::SqliteChannelStore;
 use super::error::DaemonError;
 use super::favorites::FavoriteBook;
 use super::settings::FileSettings;
-use crate::peers::{ConfigTrust, SharedTrust};
+use crate::peers::{Blocks, ConfigBlocks, ConfigTrust, SharedTrust};
 use crate::service::{ControlHandle, GateReader};
 
 /// Process-wide facts and stores handed to the adapter factory.
@@ -43,6 +43,8 @@ pub struct Environment {
 	pub transport_identity: Arc<Identity>,
 	/// Persistent trust store sharing the writer lock.
 	pub trust: SharedTrust,
+	/// Persistent block list.
+	pub blocks: Blocks,
 	/// The engine incarnation clients see; peers and media echo it.
 	pub incarnation: [u8; 16],
 	/// Preferences and avatar persistence.
@@ -68,6 +70,7 @@ pub(super) struct Loaded {
 	pub identity_storage: &'static str,
 	pub transport_identity: Arc<Identity>,
 	pub trust: SharedTrust,
+	pub blocks: Blocks,
 	pub settings: Arc<FileSettings>,
 	pub avatars: Arc<AvatarCache>,
 	pub channels: Arc<dyn ChannelStore>,
@@ -160,6 +163,9 @@ pub(super) fn finish(
 	);
 
 	let trust = SharedTrust::new(ConfigTrust::new(TrustStore::open(&storage.database)?));
+	let blocks = Blocks::persistent(Arc::new(ConfigBlocks(
+		relay_config::blocklist::Blocklist::open(&storage.database),
+	)));
 	let transport_identity = Arc::new(
 		Identity::from_secret_bytes(*identity.secret.expose())
 			.map_err(|e| DaemonError::Identity(e.to_string()))?,
@@ -202,6 +208,7 @@ pub(super) fn finish(
 		identity,
 		transport_identity,
 		trust,
+		blocks,
 		settings,
 		avatars,
 		channels,

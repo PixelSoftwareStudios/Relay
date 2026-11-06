@@ -2,6 +2,7 @@
 //! election, reconnect and the mapping to domain events.
 
 mod backoff;
+mod blocking;
 mod control;
 mod dialing;
 mod election;
@@ -25,6 +26,7 @@ mod subnet;
 mod trust;
 
 pub use backoff::BackoffConfig;
+pub use blocking::{BlockStore, Blocks, ConfigBlocks};
 pub use control::{InterfaceSource, PeerAdapter, system_interfaces};
 pub use election::{LinkFacts, Verdict, elect};
 pub use handle::{

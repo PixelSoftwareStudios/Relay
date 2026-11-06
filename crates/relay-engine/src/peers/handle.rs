@@ -125,6 +125,8 @@ pub struct PeerConfig {
 	/// Source of the advertisement's channel and privacy parts; `None` keeps a
 	/// plain open advertisement.
 	pub advert: Option<tokio::sync::watch::Receiver<AdvertSpec>>,
+	/// Devices whose links are refused without a word.
+	pub blocks: super::blocking::Blocks,
 }
 
 impl PeerConfig {
@@ -146,6 +148,7 @@ impl PeerConfig {
 			avatars: None,
 			avatar: None,
 			advert: None,
+			blocks: super::blocking::Blocks::in_memory(),
 		}
 	}
 }
@@ -376,6 +379,7 @@ pub struct PeerHandle {
 	pub(super) sessions: Arc<std::sync::Mutex<super::sessions::SessionTable>>,
 	pub(super) trust: super::trust::SharedTrust,
 	pub(super) key_changes: super::key_changes::KeyChanges,
+	pub(super) blocks: super::blocking::Blocks,
 }
 
 impl PeerHandle {
