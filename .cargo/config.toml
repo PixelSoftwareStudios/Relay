@@ -1,0 +1,5 @@
+# macOS only: sign relayd, relay and relay-desktop with a stable local identity on
+# `cargo run` so keychain "Always Allow" sticks. Inert until
+# scripts/dev-sign-macos.sh has been run once. See docs/packaging.md.
+[target.'cfg(target_os = "macos")']
+runner = "scripts/cargo-runner-macos.sh"

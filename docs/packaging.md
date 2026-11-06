@@ -25,6 +25,34 @@ executable first, so a portable folder works with no `PATH` entry; then `RELAY_D
 On macOS a bundle can keep `relay-desktop` in `Contents/MacOS` and `relayd` beside it. A package must
 not make `relay-desktop` depend on `relay`.
 
+## macOS development signing (dev ergonomics only)
+
+The keychain remembers "Always Allow" by the program's designated requirement. An unsigned or
+ad-hoc Rust binary gets a requirement based on its cdhash, which changes on every build, so the
+prompt for the `relay-voice` item returns after each rebuild. Signing with a fixed identifier and a
+fixed self-signed certificate makes the requirement
+`identifier "dev.relay.relayd" and certificate leaf = H"..."`, stable across builds.
+
+```
+scripts/dev-sign-macos.sh               # once: creates the cert, then signs target/debug binaries
+cargo build && scripts/dev-sign-macos.sh   # after later builds (idempotent)
+scripts/dev-sign-macos.sh --release     # target/release
+scripts/dev-sign-macos.sh --no-cert     # no certificate: ad-hoc with `designated => identifier "..."`
+```
+
+The script creates a self-signed code-signing certificate "Relay Local Dev Signing" with openssl and
+imports it into the login keychain (macOS may ask for the login password). It never changes trust
+settings, never needs sudo, and does nothing when the binaries are already signed correctly.
+`.cargo/config.toml` sets `scripts/cargo-runner-macos.sh` as the macOS runner, which re-signs
+`relayd`, `relay` and `relay-desktop` on `cargo run` once the certificate exists; it is inert before
+that and never fails a run. Binaries started by other means (a client autostarting
+`target/debug/relayd`) need the post-build command. After signing, answer the keychain prompt once
+with "Always Allow". The older per-secret items from earlier builds are not read; delete any
+`relay-voice` entries other than `vault` in Keychain Access.
+
+This is not release signing: Developer ID, hardened runtime, entitlements and notarization are
+open (`docs/gates.md`, `docs/release.md`).
+
 ## Starting and stopping
 
 Clients start the daemon when none answers: `relay` commands (unless `--no-autostart` or
