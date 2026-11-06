@@ -84,3 +84,10 @@ history-time-minutes = { $count }분 전
 history-time-hours = { $count }시간 전
 history-time-yesterday = 어제 { $time }
 history-time-days = { $count }일 전
+
+mic-ask-title = Relay에 마이크가 필요합니다
+mic-ask-body = 통화에서 상대방이 내 목소리를 들을 수 있도록 마이크 접근을 허용하세요.
+mic-allow = 마이크 허용
+mic-off-title = 마이크 접근이 꺼져 있습니다
+mic-off-body = 꺼져 있으면 통화에서 아무도 내 목소리를 들을 수 없습니다. 시스템 설정에서 켠 다음 돌아오세요.
+mic-open-settings = 시스템 설정 열기

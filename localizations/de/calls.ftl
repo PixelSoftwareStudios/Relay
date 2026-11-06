@@ -87,3 +87,10 @@ history-time-days =
         [one] vor 1 Tag
        *[other] vor { $count } Tagen
     }
+
+mic-ask-title = Relay braucht dein Mikrofon
+mic-ask-body = Erlaube den Zugriff auf das Mikrofon, damit dich die andere Person in Anrufen hören kann.
+mic-allow = Mikrofon erlauben
+mic-off-title = Der Mikrofonzugriff ist ausgeschaltet
+mic-off-body = Ohne ihn kann dich in einem Anruf niemand hören. Schalte ihn in den Systemeinstellungen ein und komm dann zurück.
+mic-open-settings = Systemeinstellungen öffnen

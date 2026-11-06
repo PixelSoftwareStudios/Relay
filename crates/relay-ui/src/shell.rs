@@ -148,4 +148,14 @@ pub trait Shell: FilePicker {
 	/// the call `call_id` (hex). The shell forwards it to the engine's
 	/// push-to-talk input; the default ignores it.
 	fn push_to_talk(&self, _call_id: &str, _pressed: bool) {}
+	/// Whether the app may use the microphone, as the OS says. Called per
+	/// frame, so it must be cheap. The default needs no permission.
+	fn microphone_access(&self) -> crate::microphone::MicrophoneAccess {
+		crate::microphone::MicrophoneAccess::Ready
+	}
+	/// Show the OS permission prompt (the user pressed "Allow microphone").
+	/// Never blocks; the answer arrives through [`Shell::microphone_access`].
+	fn request_microphone(&self) {}
+	/// Open the OS page where the microphone permission can be turned on.
+	fn open_microphone_settings(&self) {}
 }

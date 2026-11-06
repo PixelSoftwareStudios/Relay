@@ -18,6 +18,7 @@ mod incoming;
 mod kit;
 mod local;
 pub mod messages;
+mod microphone;
 mod nav;
 mod people;
 mod settings;

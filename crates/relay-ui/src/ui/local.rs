@@ -81,6 +81,9 @@ pub struct Local {
 
 	pub hotkey: HotkeyPanel,
 
+	/// The microphone card was dismissed for the current access state.
+	pub microphone: crate::microphone::Dismissal,
+
 	/// How many call history rows the Calls page shows.
 	pub history_shown: usize,
 	/// "Clear history" is waiting for confirmation.

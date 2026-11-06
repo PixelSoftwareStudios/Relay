@@ -89,3 +89,10 @@ history-time-days =
         [one] 1 day ago
        *[other] { $count } days ago
     }
+
+mic-ask-title = Relay needs your microphone
+mic-ask-body = Allow microphone access so the other person can hear you in calls.
+mic-allow = Allow microphone
+mic-off-title = Microphone access is turned off
+mic-off-body = Without it nobody can hear you in a call. Turn it on in the system settings, then come back.
+mic-open-settings = Open system settings

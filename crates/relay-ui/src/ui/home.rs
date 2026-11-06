@@ -8,11 +8,12 @@ use crate::model::Link;
 use crate::viewmodel::{CallCard, PeerRow};
 
 use super::kit::{self, Cx};
-use super::{call_card, chat, history, people};
+use super::{call_card, chat, history, microphone, people};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cards: &[CallCard], rows: &[PeerRow], cx: &mut Cx) {
 	kit::page_title(ui, tr!("calls-heading"));
+	microphone::show(ui, cx);
 	let active: Vec<&CallCard> = cards.iter().filter(|c| !c.incoming).collect();
 	for card in &active {
 		chat::with_chat(ui, cx, &card.call_id, |ui, cx| {

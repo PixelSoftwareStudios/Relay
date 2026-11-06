@@ -86,3 +86,10 @@ history-time-days =
         [one] há 1 dia
        *[other] há { $count } dias
     }
+
+mic-ask-title = O Relay precisa do seu microfone
+mic-ask-body = Permita o acesso ao microfone para que a outra pessoa possa ouvir você nas chamadas.
+mic-allow = Permitir microfone
+mic-off-title = O acesso ao microfone está desativado
+mic-off-body = Sem ele ninguém consegue ouvir você em uma chamada. Ative nas configurações do sistema e volte aqui.
+mic-open-settings = Abrir configurações do sistema

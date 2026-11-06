@@ -28,6 +28,7 @@ pub mod inbox;
 pub mod layout;
 pub mod limits_settings;
 pub mod messaging;
+pub mod microphone;
 pub mod mock;
 pub mod model;
 pub mod qr;
