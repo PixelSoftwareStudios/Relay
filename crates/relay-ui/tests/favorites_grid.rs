@@ -101,9 +101,16 @@ async fn zero_to_six_favorites_make_rows_of_three() {
 			let tiles: Vec<_> = NAMES[..count].iter().map(|n| rect_of(&drawn, n)).collect();
 			let mut rows: Vec<f32> = tiles.iter().map(|r| r.center().y.round()).collect();
 			rows.dedup();
-			assert_eq!(rows.len(), count.div_ceil(3), "{count} favorites at {width}");
+			assert_eq!(
+				rows.len(),
+				count.div_ceil(3),
+				"{count} favorites at {width}"
+			);
 			for (i, tile) in tiles.iter().enumerate() {
-				assert!(tile.min.x >= 0.0 && tile.max.x <= width, "{tile:?} at {width}");
+				assert!(
+					tile.min.x >= 0.0 && tile.max.x <= width,
+					"{tile:?} at {width}"
+				);
 				if i % 3 > 0 {
 					assert!(tile.min.x > tiles[i - 1].min.x, "left to right");
 				}
@@ -187,7 +194,10 @@ async fn with_no_contacts_at_all_the_empty_state_points_to_connect() {
 async fn the_buttons_below_a_full_grid_navigate() {
 	let mut phone = rig(360.0, &state(6, 6));
 	let drawn = phone.page(Page::Calls);
-	let (grid_bottom, buttons_top) = (rect_of(&drawn, "Flo").max.y, rect_of(&drawn, "Go to Contacts").min.y);
+	let (grid_bottom, buttons_top) = (
+		rect_of(&drawn, "Flo").max.y,
+		rect_of(&drawn, "Go to Contacts").min.y,
+	);
 	assert!(buttons_top > grid_bottom, "the buttons sit below the grid");
 	phone.click_label("Find nearby users");
 	assert_eq!(phone.app.page(), Page::Connect);

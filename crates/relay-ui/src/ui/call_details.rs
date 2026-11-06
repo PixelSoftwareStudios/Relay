@@ -104,7 +104,12 @@ fn reason(text: &str) -> &str {
 fn rows(s: &CallStats) -> Vec<(&'static str, String)> {
 	let rtt = match (s.rtt_ms, s.rtt_min_ms, s.rtt_max_ms) {
 		(Some(now), Some(min), Some(max)) => {
-			tr!("details-range", value = ms(now), min = ms(min), max = ms(max))
+			tr!(
+				"details-range",
+				value = ms(now),
+				min = ms(min),
+				max = ms(max)
+			)
 		}
 		(now, ..) => ms_or_none(now),
 	};

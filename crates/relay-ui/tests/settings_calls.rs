@@ -9,9 +9,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use phone::{Drawn, Phone};
 use relay_ui::capabilities::SettingsCategory;
-use relay_ui::engine::{
-	Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult,
-};
+use relay_ui::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
 use relay_ui::i18n::Language;
 use relay_ui::model::Mode;
 
@@ -90,7 +88,12 @@ async fn the_ptt_switch_is_on_by_default_and_shows_what_the_daemon_said() {
 	);
 	let drawn = phone.settle();
 	assert!(has(&drawn, "Enable push-to-talk"), "{:?}", drawn.labels);
-	assert!(!drawn.labels.iter().any(|l| l.starts_with("Push-to-talk is off")));
+	assert!(
+		!drawn
+			.labels
+			.iter()
+			.any(|l| l.starts_with("Push-to-talk is off"))
+	);
 	phone.click_label("Enable push-to-talk");
 	settle_until(&mut phone, "Saved.").await;
 	assert_eq!(
@@ -109,7 +112,10 @@ async fn with_ptt_off_the_hotkey_and_delay_are_greyed_with_an_explanation() {
 	);
 	let drawn = phone.settle();
 	assert!(
-		drawn.labels.iter().any(|l| l.starts_with("Push-to-talk is off.")),
+		drawn
+			.labels
+			.iter()
+			.any(|l| l.starts_with("Push-to-talk is off.")),
 		"{:?}",
 		drawn.labels
 	);
@@ -121,7 +127,10 @@ async fn with_ptt_off_the_hotkey_and_delay_are_greyed_with_an_explanation() {
 		.find(|(t, _)| t == "Push-to-talk release delay")
 		.unwrap();
 	assert!(
-		!drawn.tappable.iter().any(|r| r.min.y > delay.max.y && r.min.y < delay.max.y + 90.0),
+		!drawn
+			.tappable
+			.iter()
+			.any(|r| r.min.y > delay.max.y && r.min.y < delay.max.y + 90.0),
 		"the delay slider is disabled"
 	);
 }

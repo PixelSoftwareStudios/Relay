@@ -20,7 +20,11 @@ use relay_ui::model::{Mode, Phase};
 const NOW: u64 = 1_793_880_000_000;
 const CALL: [u8; 16] = phone::stats::CALL;
 
-fn rig_with(desktop: bool, mode: Mode, tweak: impl FnOnce(&mut relay_ui::model::AppState)) -> (Phone, Arc<Ops>) {
+fn rig_with(
+	desktop: bool,
+	mode: Mode,
+	tweak: impl FnOnce(&mut relay_ui::model::AppState),
+) -> (Phone, Arc<Ops>) {
 	let mut phone = if desktop {
 		Phone::desktop(720.0, 1600.0, Language::En)
 	} else {
@@ -82,7 +86,10 @@ async fn there_is_no_consent_checkbox_and_the_active_mode_is_the_only_one_filled
 	let (mut phone, _ops) = rig(Mode::Muted);
 	let drawn = phone.settle();
 	assert!(
-		!drawn.labels.iter().any(|l| l.contains("I allow my microphone")),
+		!drawn
+			.labels
+			.iter()
+			.any(|l| l.contains("I allow my microphone")),
 		"{:?}",
 		drawn.labels
 	);
@@ -162,7 +169,10 @@ async fn the_hold_button_follows_the_mouse_on_desktop_too_and_only_in_push_to_ta
 	let (mut phone, _ops) = rig_with(true, Mode::Unmuted, |_| {});
 	let drawn = phone.settle();
 	assert!(
-		!drawn.tappable.iter().any(|r| r.height() >= 70.0 && r.width() >= 200.0),
+		!drawn
+			.tappable
+			.iter()
+			.any(|r| r.height() >= 70.0 && r.width() >= 200.0),
 		"no talk button while unmuted"
 	);
 	let (mut phone, _ops) = rig_with(true, Mode::PushToTalk, |_| {});
@@ -238,7 +248,12 @@ async fn the_volume_popup_opens_on_a_right_click_and_resets() {
 	let drawn = phone.settle();
 	assert!(!has(&drawn, "Reset to 100%"), "hidden until asked");
 	assert!(!drawn.labels.iter().any(|l| l.contains("Their volume")));
-	let name = drawn.named.iter().find(|(t, _)| t == "Ada Lovelace").unwrap().1;
+	let name = drawn
+		.named
+		.iter()
+		.find(|(t, _)| t == "Ada Lovelace")
+		.unwrap()
+		.1;
 	secondary_click(&mut phone, name.center());
 	let open = phone.settle();
 	assert!(has(&open, "Ada Lovelace's volume"), "{:?}", open.labels);
@@ -265,7 +280,11 @@ async fn the_details_panel_opens_the_stats_stream_only_while_it_is_shown() {
 	let (mut phone, ops) = rig(Mode::Muted);
 	let drawn = phone.settle();
 	assert!(!has(&drawn, "Round trip"));
-	assert_eq!(ops.opened.load(Ordering::SeqCst), 0, "closed panel, no stream");
+	assert_eq!(
+		ops.opened.load(Ordering::SeqCst),
+		0,
+		"closed panel, no stream"
+	);
 	phone.click_label(&glyph(Icon::More));
 	phone.click_label("Connection details");
 	let call = "02".repeat(16);
@@ -281,13 +300,21 @@ async fn the_details_panel_opens_the_stats_stream_only_while_it_is_shown() {
 		("Bitrate", "32 kbit/s"),
 		("Connection", "Not working: no reply to the path challenge"),
 	] {
-		assert!(has(&panel, label) && has(&panel, value), "{label}: {:?}", panel.labels);
+		assert!(
+			has(&panel, label) && has(&panel, value),
+			"{label}: {:?}",
+			panel.labels
+		);
 	}
 	// The addresses and clock drift are one level deeper.
 	assert!(!has(&panel, "Clock drift"));
 	phone.click_label("Details");
 	let more = phone.settle();
-	assert!(has(&more, "Clock drift") && has(&more, "+12 ppm"), "{:?}", more.labels);
+	assert!(
+		has(&more, "Clock drift") && has(&more, "+12 ppm"),
+		"{:?}",
+		more.labels
+	);
 	assert!(has(&more, "10.0.0.2:5000 \u{2192} 10.0.0.3:5000"));
 	// Hiding it closes the stream.
 	phone.click_label(&glyph(Icon::More));
@@ -328,7 +355,11 @@ async fn the_incoming_prompt_says_the_mode_the_call_will_start_in() {
 	] {
 		let mut phone = Phone::new(360.0, 1000.0, Language::En);
 		let mut state = phone::busy_state();
-		state.settings.as_mut().unwrap().effective_default_transmit_mode = mode;
+		state
+			.settings
+			.as_mut()
+			.unwrap()
+			.effective_default_transmit_mode = mode;
 		phone.show_state(&state);
 		let drawn = phone.page(Page::Calls);
 		assert!(has(&drawn, line), "{line}: {:?}", drawn.labels);

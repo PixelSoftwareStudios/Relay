@@ -326,10 +326,9 @@ impl AppState {
 	/// service and should be restarted. Only the API revision decides (the build text may differ
 	/// between binaries of one tree). False until settings arrive.
 	pub fn daemon_out_of_date(&self) -> bool {
-		self.settings.as_ref().is_some_and(|s| {
-			s.daemon_api_revision != relay_api::API_REVISION
-				|| s.daemon_build_revision != relay_api::BUILD_REVISION
-		})
+		self.settings
+			.as_ref()
+			.is_some_and(|s| s.daemon_api_revision != relay_api::API_REVISION)
 	}
 }
 

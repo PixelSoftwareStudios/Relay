@@ -42,18 +42,28 @@ async fn the_call_card_shows_the_chat_below_it_and_toggles_it_on_desktop() {
 	let mut phone = desktop(Language::En, false);
 	let before = phone.settle();
 	assert!(has_exact(&before, "Hang up") || has(&before, "End call"));
-	assert!(!phone::has_icon(&before, relay_ui::icons::Icon::Send), "closed by default");
+	assert!(
+		!phone::has_icon(&before, relay_ui::icons::Icon::Send),
+		"closed by default"
+	);
 	phone.click_label(&chatkit::badge(&phone));
 	assert_eq!(phone.app.chat_call(), Some(ada_call().as_str()));
 	let open = phone.settle();
-	assert!(phone::has_icon(&open, relay_ui::icons::Icon::Send), "{:?}", open.labels);
+	assert!(
+		phone::has_icon(&open, relay_ui::icons::Icon::Send),
+		"{:?}",
+		open.labels
+	);
 	assert!(has(&open, "Message (Enter sends"), "the composer is there");
 	// The card is still on the page: the chat is part of the call, not another page.
 	assert!(has(&open, "End call"));
 	assert!(!has(&open, "Back to the call"), "no full screen on desktop");
 	phone.click_label(&chat_glyph());
 	assert_eq!(phone.app.chat_call(), None);
-	assert!(!phone::has_icon(&phone.settle(), relay_ui::icons::Icon::Send));
+	assert!(!phone::has_icon(
+		&phone.settle(),
+		relay_ui::icons::Icon::Send
+	));
 }
 
 #[tokio::test]
@@ -64,7 +74,11 @@ async fn the_call_card_opens_a_full_screen_chat_with_a_way_back_on_a_phone() {
 	assert!(has_exact(&calls, "Contacts"));
 	phone.click_label(&chatkit::badge(&phone));
 	let chat = phone.settle();
-	assert!(phone::has_icon(&chat, relay_ui::icons::Icon::Send), "{:?}", chat.labels);
+	assert!(
+		phone::has_icon(&chat, relay_ui::icons::Icon::Send),
+		"{:?}",
+		chat.labels
+	);
 	assert!(
 		phone::has_icon(&chat, relay_ui::icons::Icon::Back),
 		"a way back: {:?}",
@@ -130,7 +144,11 @@ async fn an_incoming_call_still_surfaces_while_the_chat_is_open() {
 	for mut phone in [desktop(Language::En, true), handset(Language::En, true)] {
 		phone.app.open_chat(&ada_call());
 		let drawn = phone.settle();
-		assert!(phone::has_icon(&drawn, relay_ui::icons::Icon::Send), "{:?}", drawn.labels);
+		assert!(
+			phone::has_icon(&drawn, relay_ui::icons::Icon::Send),
+			"{:?}",
+			drawn.labels
+		);
 		assert!(
 			has_exact(&drawn, "Accept") && has_exact(&drawn, "Decline"),
 			"{:?}",

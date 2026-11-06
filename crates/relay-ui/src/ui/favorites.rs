@@ -92,13 +92,15 @@ fn reason(row: &PeerRow, cx: &Cx) -> Option<&'static str> {
 		.iter()
 		.find(|p| p.peer_id == row.peer_id)
 		.map(|p| p.trust);
-	Some(if matches!(trust, Some(Trust::Blocked | Trust::KeyChanged)) {
-		tr!("favorite-blocked")
-	} else if !row.reachable {
-		tr!("favorite-offline")
-	} else {
-		tr!("favorite-busy")
-	})
+	Some(
+		if matches!(trust, Some(Trust::Blocked | Trust::KeyChanged)) {
+			tr!("favorite-blocked")
+		} else if !row.reachable {
+			tr!("favorite-offline")
+		} else {
+			tr!("favorite-busy")
+		},
+	)
 }
 
 fn tile(ui: &mut Ui, row: &PeerRow, size: Vec2, cx: &mut Cx) {
@@ -144,7 +146,13 @@ fn tile(ui: &mut Ui, row: &PeerRow, size: Vec2, cx: &mut Cx) {
 		.paint_at(ui, picture);
 	status_dot(ui, picture, row.reachable, fill);
 	let inner = size.x - 2.0 * theme::SPACE_S;
-	let name = clipped(ui, &row.name, inner, FontId::proportional(theme::TEXT_SMALL + 2.0), text_color);
+	let name = clipped(
+		ui,
+		&row.name,
+		inner,
+		FontId::proportional(theme::TEXT_SMALL + 2.0),
+		text_color,
+	);
 	let y = picture.max.y + theme::SPACE_S;
 	let name_height = name.size().y;
 	ui.painter().galley(
@@ -154,7 +162,13 @@ fn tile(ui: &mut Ui, row: &PeerRow, size: Vec2, cx: &mut Cx) {
 	);
 	if let Some(reason) = reason {
 		let weak = ui.visuals().weak_text_color();
-		let line = clipped(ui, reason, inner, FontId::proportional(theme::TEXT_SMALL), weak);
+		let line = clipped(
+			ui,
+			reason,
+			inner,
+			FontId::proportional(theme::TEXT_SMALL),
+			weak,
+		);
 		ui.painter().galley(
 			egui::pos2(rect.center().x - line.size().x / 2.0, y + name_height),
 			line,

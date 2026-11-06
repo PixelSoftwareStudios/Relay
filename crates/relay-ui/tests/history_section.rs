@@ -75,14 +75,17 @@ async fn the_chevron_is_left_of_the_title_and_turns_down_when_open() {
 		.map(|(_, r)| *r)
 		.next()
 		.expect("a chevron on the title's line");
-	assert!(chevron.max.x <= title.min.x, "left of the text: {chevron:?} {title:?}");
+	assert!(
+		chevron.max.x <= title.min.x,
+		"left of the text: {chevron:?} {title:?}"
+	);
 	phone.click_label("History");
 	let open = phone.settle();
 	let title = rect_of(&open, "History");
 	assert!(
-		open.named
-			.iter()
-			.any(|(t, r)| *t == down && r.max.x <= title.min.x && (r.center().y - title.center().y).abs() < 8.0),
+		open.named.iter().any(|(t, r)| *t == down
+			&& r.max.x <= title.min.x
+			&& (r.center().y - title.center().y).abs() < 8.0),
 		"{:?}",
 		open.labels
 	);

@@ -7,6 +7,7 @@ mod phone;
 use chatkit::*;
 use phone::{Drawn, LANGUAGES, Phone};
 use relay_ui::i18n::Language;
+use relay_ui::icons::Icon;
 
 fn rect_of(drawn: &Drawn, text: &str) -> egui::Rect {
 	drawn

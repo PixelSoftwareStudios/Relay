@@ -23,7 +23,10 @@ pub struct StatsFeed {
 impl StatsFeed {
 	/// The call whose stream is open (hex id).
 	pub fn watching(&self) -> Option<String> {
-		self.open.lock_unpoisoned().as_ref().map(|(id, _)| id.clone())
+		self.open
+			.lock_unpoisoned()
+			.as_ref()
+			.map(|(id, _)| id.clone())
 	}
 
 	/// The newest sample of `call_id`, if one has arrived.

@@ -31,8 +31,12 @@ pub fn answer(ui: &mut Ui, cx: &Cx, key: &'static str) {
 			for result in results.iter().filter(|r| r.key == key) {
 				let reason = crate::setting_support::reason(&result.reason);
 				let text = match (result.outcome, reason.is_empty()) {
-					(SettingOutcome::AppliedLive, _) => RichText::new(tr!("setting-saved")).color(theme::LIVE),
-					(SettingOutcome::SavedNeedsRestart, true) => RichText::new(tr!("setting-saved-restart")),
+					(SettingOutcome::AppliedLive, _) => {
+						RichText::new(tr!("setting-saved")).color(theme::LIVE)
+					}
+					(SettingOutcome::SavedNeedsRestart, true) => {
+						RichText::new(tr!("setting-saved-restart"))
+					}
 					(SettingOutcome::SavedNeedsRestart, false) => {
 						RichText::new(tr!("setting-saved-restart-why", reason = reason))
 					}
@@ -40,7 +44,8 @@ pub fn answer(ui: &mut Ui, cx: &Cx, key: &'static str) {
 						RichText::new(tr!("setting-rejected")).color(theme::WARN)
 					}
 					(SettingOutcome::Rejected, false) => {
-						RichText::new(tr!("setting-rejected-why", reason = reason)).color(theme::WARN)
+						RichText::new(tr!("setting-rejected-why", reason = reason))
+							.color(theme::WARN)
 					}
 				};
 				ui.label(text);

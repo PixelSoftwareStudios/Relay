@@ -21,7 +21,11 @@ pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 	choice(ui, card, cx.actions, ptt_on);
 	let t = &card.transmit;
 	ui.add_space(theme::SPACE_S);
-	ui.label(RichText::new(t.label).strong().color(tone_color(t.tone, ui)));
+	ui.label(
+		RichText::new(t.label)
+			.strong()
+			.color(tone_color(t.tone, ui)),
+	);
 	if !t.detail.is_empty() {
 		kit::help(ui, &t.detail);
 	}
@@ -114,7 +118,10 @@ fn segment(ui: &mut Ui, width: f32, selected: bool, icon: Icon, label: &str) -> 
 		width - 6.0,
 	);
 	painter.galley(
-		egui::pos2(rect.center().x - galley.size().x / 2.0, rect.max.y - galley.size().y - 4.0),
+		egui::pos2(
+			rect.center().x - galley.size().x / 2.0,
+			rect.max.y - galley.size().y - 4.0,
+		),
 		galley,
 		color,
 	);

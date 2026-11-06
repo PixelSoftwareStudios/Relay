@@ -71,9 +71,7 @@ async fn the_transmit_mode_is_the_consent_and_travels_alone() {
 	ctl.set_transmit(&call_hex(), Mode::PushToTalk)
 		.await
 		.unwrap();
-	ctl.set_transmit(&call_hex(), Mode::Muted)
-		.await
-		.unwrap();
+	ctl.set_transmit(&call_hex(), Mode::Muted).await.unwrap();
 	let sent = ops.recorded();
 	assert_eq!(
 		sent[0],

@@ -66,7 +66,11 @@ fn default_mode(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
 		let chosen = settings.default_transmit_mode;
 		let options = [
 			(Mode::Muted, tr!("mode-muted"), tr!("calls-default-muted")),
-			(Mode::Unmuted, tr!("mode-unmuted"), tr!("calls-default-unmuted")),
+			(
+				Mode::Unmuted,
+				tr!("mode-unmuted"),
+				tr!("calls-default-unmuted"),
+			),
 			(Mode::PushToTalk, tr!("mode-ptt"), tr!("calls-default-ptt")),
 		];
 		for (mode, label, help) in options {

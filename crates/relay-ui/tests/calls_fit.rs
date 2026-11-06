@@ -18,7 +18,11 @@ use relay_ui::model::{AppState, Mode};
 
 /// 2026-11-05 12:00:00 UTC.
 const NOW: u64 = 1_793_880_000_000;
-const SIZES: [(bool, f32, f32); 3] = [(false, 360.0, 800.0), (false, 320.0, 640.0), (true, 720.0, 800.0)];
+const SIZES: [(bool, f32, f32); 3] = [
+	(false, 360.0, 800.0),
+	(false, 320.0, 640.0),
+	(true, 720.0, 800.0),
+];
 const LANGS: [Language; 3] = [Language::En, Language::De, Language::Ru];
 
 /// A long name must be cut, never widen its tile.
@@ -89,13 +93,24 @@ async fn the_calls_page_fits_with_every_content_in_every_language() {
 				phone.shell.now_ms.store(NOW, Ordering::SeqCst);
 				phone.show_state(&state);
 				let drawn = phone.page(Page::Calls);
-				check(&format!("{language:?} {w}x{h} {name}"), &drawn, &phone, !desktop, &mut bad);
+				check(
+					&format!("{language:?} {w}x{h} {name}"),
+					&drawn,
+					&phone,
+					!desktop,
+					&mut bad,
+				);
 			}
 		}
 	}
 	bad.sort();
 	bad.dedup();
-	assert!(bad.is_empty(), "{} problems: {:#?}", bad.len(), &bad[..bad.len().min(8)]);
+	assert!(
+		bad.is_empty(),
+		"{} problems: {:#?}",
+		bad.len(),
+		&bad[..bad.len().min(8)]
+	);
 }
 
 #[tokio::test]
@@ -133,15 +148,29 @@ async fn the_connection_details_fit_with_data_in_every_language() {
 			phone.click_label(relay_ui::i18n::t("action-details"));
 			let drawn = phone.settle();
 			assert!(
-				drawn.labels.iter().any(|l| l == relay_ui::i18n::t("details-title")),
+				drawn
+					.labels
+					.iter()
+					.any(|l| l == relay_ui::i18n::t("details-title")),
 				"{language:?}: the panel is open"
 			);
-			check(&format!("{language:?} {w}x{h} details"), &drawn, &phone, !desktop, &mut bad);
+			check(
+				&format!("{language:?} {w}x{h} details"),
+				&drawn,
+				&phone,
+				!desktop,
+				&mut bad,
+			);
 		}
 	}
 	bad.sort();
 	bad.dedup();
-	assert!(bad.is_empty(), "{} problems: {:#?}", bad.len(), &bad[..bad.len().min(8)]);
+	assert!(
+		bad.is_empty(),
+		"{} problems: {:#?}",
+		bad.len(),
+		&bad[..bad.len().min(8)]
+	);
 }
 
 #[tokio::test]
@@ -178,5 +207,10 @@ async fn the_settings_of_this_area_fit_in_every_language() {
 	}
 	bad.sort();
 	bad.dedup();
-	assert!(bad.is_empty(), "{} problems: {:#?}", bad.len(), &bad[..bad.len().min(8)]);
+	assert!(
+		bad.is_empty(),
+		"{} problems: {:#?}",
+		bad.len(),
+		&bad[..bad.len().min(8)]
+	);
 }

@@ -134,8 +134,9 @@ fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 			};
 			if icon_toggle(ui, mute, icon, tip).clicked() {
 				let id = cid.clone();
-				actions
-					.run(|c| async move { c.set_call_controls(&id, Some(!mute), None, None).await });
+				actions.run(
+					|c| async move { c.set_call_controls(&id, Some(!mute), None, None).await },
+				);
 			}
 			let (icon, tip) = if deaf {
 				(Icon::HeadphonesOff, tr!("call-undeafen"))
@@ -144,8 +145,9 @@ fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 			};
 			if icon_toggle(ui, deaf, icon, tip).clicked() {
 				let id = cid.clone();
-				actions
-					.run(|c| async move { c.set_call_controls(&id, None, Some(!deaf), None).await });
+				actions.run(
+					|c| async move { c.set_call_controls(&id, None, Some(!deaf), None).await },
+				);
 			}
 			messages_button(ui, card, cx);
 		}

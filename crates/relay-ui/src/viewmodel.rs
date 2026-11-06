@@ -3,9 +3,7 @@
 
 use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
-use crate::model::{
-	Advert, AppState, Call, CallMeter, Channel, Link, Meters, Peer, Phase, Trust,
-};
+use crate::model::{Advert, AppState, Call, CallMeter, Channel, Link, Meters, Peer, Phase, Trust};
 use crate::tr;
 
 #[derive(Debug, Clone, PartialEq)]
