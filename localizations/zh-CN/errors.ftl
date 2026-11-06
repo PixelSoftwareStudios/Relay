@@ -45,3 +45,4 @@ err-no-paths = 此设备无法为 Relay 守护进程选择文件或文件夹。
 err-cannot-start-daemon = 此设备无法启动 Relay 守护进程。
 err-cannot-stop-daemon = 此设备无法停止 Relay 守护进程。
 err-read-file = 无法读取文件：{ $error }
+err-fingerprint-mismatch = 这不是该设备新密钥的指纹。

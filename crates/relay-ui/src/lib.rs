@@ -14,6 +14,7 @@ pub mod convert;
 pub mod daemon_control;
 pub mod emitter;
 pub mod engine;
+pub mod fingerprint;
 pub mod fonts;
 pub mod format;
 pub mod history_settings;

@@ -49,3 +49,21 @@ contact-last-seen = 最后在线：{ $when }
 peer-port = 端口 { $port }
 contact-favorite-add = 添加到收藏
 contact-favorite-remove = 从收藏中移除
+
+# 密钥已更改：受信任的设备出示了另一把安全密钥。
+contact-key-changed-label = 安全密钥已更改
+keychange-title = { $name } 的安全密钥已更改
+keychange-body = 通常是因为那台设备上的 Relay 被重新安装或重置了。在你再次验证之前，通话会被阻止。
+keychange-scan = 扫描对方的二维码
+keychange-compare = 比对并信任新密钥
+keychange-remove = 删除联系人
+keychange-remove-ask = 要从联系人中删除 { $name } 吗？将不再信任它。
+keychange-remove-yes = 是，删除
+keychange-compare-intro = 在 { $name } 上依次打开连接、连接设备、详情。输入或粘贴那里显示的指纹。只有两者一致时才信任新密钥。
+keychange-new-key = 此设备看到的新密钥
+keychange-field-hint = 另一台设备上的指纹
+keychange-match = 两者一致。
+keychange-no-match = 这些数字还不一样。
+keychange-confirm = 信任新密钥
+keychange-cancel = 暂不
+keychange-previous = 之前的密钥 { $fingerprint }

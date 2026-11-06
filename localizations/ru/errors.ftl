@@ -43,3 +43,4 @@ err-no-paths = Это устройство не может выбирать фа
 err-cannot-start-daemon = Это устройство не может запустить демон Relay.
 err-cannot-stop-daemon = Это устройство не может остановить демон Relay.
 err-read-file = Не удалось прочитать файл: { $error }
+err-fingerprint-mismatch = Это не отпечаток нового ключа этого устройства.

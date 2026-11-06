@@ -45,3 +45,4 @@ err-no-paths = 이 기기에서는 Relay 데몬용 파일이나 폴더를 선택
 err-cannot-start-daemon = 이 기기에서는 Relay 데몬을 시작할 수 없습니다.
 err-cannot-stop-daemon = 이 기기에서는 Relay 데몬을 중지할 수 없습니다.
 err-read-file = 파일을 읽을 수 없습니다: { $error }
+err-fingerprint-mismatch = 이 기기의 새 키 지문이 아닙니다.

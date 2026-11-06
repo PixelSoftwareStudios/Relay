@@ -47,3 +47,21 @@ contact-last-seen = Был в сети: { $when }
 peer-port = Порт { $port }
 contact-favorite-add = Добавить в избранное
 contact-favorite-remove = Убрать из избранного
+
+# Ключ изменился: доверенное устройство показывает другой ключ безопасности.
+contact-key-changed-label = Ключ безопасности изменился
+keychange-title = Ключ безопасности устройства { $name } изменился
+keychange-body = Обычно так бывает, когда Relay на том устройстве переустановили или сбросили. Звонки заблокированы, пока вы не проверите ключ снова.
+keychange-scan = Сканировать его QR-код
+keychange-compare = Сравнить и доверять новому ключу
+keychange-remove = Удалить контакт
+keychange-remove-ask = Удалить { $name } из контактов? Ему больше не будут доверять.
+keychange-remove-yes = Да, удалить
+keychange-compare-intro = На устройстве { $name } откройте Подключение, затем Подключить устройство, затем Подробности. Введите или вставьте показанный там отпечаток. Доверяйте новому ключу, только если они совпадают.
+keychange-new-key = Новый ключ, увиденный с этого устройства
+keychange-field-hint = Отпечаток с другого устройства
+keychange-match = Совпадают.
+keychange-no-match = Эти цифры пока не совпадают.
+keychange-confirm = Доверять новому ключу
+keychange-cancel = Не сейчас
+keychange-previous = Прежний ключ { $fingerprint }

@@ -30,7 +30,6 @@ engine-reason = 엔진 사유: { $reason }.
 trust-unknown = 알 수 없음
 trust-tofu = 이전에 본 적 있음, 확인되지 않음
 trust-verified = 확인됨
-trust-key-changed = 키가 바뀜: 신뢰하지 마세요
 trust-blocked = 차단됨
 call-speaking = 말하는 중
 mode-ptt = 푸시 투 토크

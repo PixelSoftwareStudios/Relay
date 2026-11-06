@@ -115,6 +115,9 @@ fn with_ops() -> (Phone, Arc<FakeOps>) {
 		shared_channels: Vec::new(),
 		favorite: false,
 		favorite_position: 0,
+		key_changed: false,
+		previous_peer_id: String::new(),
+		previous_fingerprint_short: String::new(),
 		port: 7000,
 		last_seen_unix_ms: 0,
 	});

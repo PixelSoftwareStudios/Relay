@@ -50,3 +50,21 @@ contact-last-seen = Last seen { $when }
 peer-port = Port { $port }
 contact-favorite-add = Add to favorites
 contact-favorite-remove = Remove from favorites
+
+# Key changed: a trusted device shows another security key.
+contact-key-changed-label = Security key changed
+keychange-title = { $name }'s security key changed
+keychange-body = This usually happens after Relay was reinstalled or reset on that device. Calls are blocked until you verify it again.
+keychange-scan = Scan their QR code
+keychange-compare = Compare and trust new key
+keychange-remove = Remove contact
+keychange-remove-ask = Remove { $name } from your contacts? It will no longer be trusted.
+keychange-remove-yes = Yes, remove
+keychange-compare-intro = On { $name }, open Connect, then Connect a device, then Details. Type or paste the fingerprint it shows. Trust the new key only if both are the same.
+keychange-new-key = New key seen from this device
+keychange-field-hint = Fingerprint from the other device
+keychange-match = They match.
+keychange-no-match = These digits are not the same yet.
+keychange-confirm = Trust new key
+keychange-cancel = Not now
+keychange-previous = Previous key { $fingerprint }

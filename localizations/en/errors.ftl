@@ -46,3 +46,4 @@ err-no-paths = This device cannot choose files or folders for the Relay daemon.
 err-cannot-start-daemon = This device cannot start the Relay daemon.
 err-cannot-stop-daemon = This device cannot stop the Relay daemon.
 err-read-file = Cannot read the file: { $error }
+err-fingerprint-mismatch = That is not the fingerprint of this device's new key.

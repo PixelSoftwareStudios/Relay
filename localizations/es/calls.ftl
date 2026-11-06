@@ -28,7 +28,6 @@ engine-reason = Motivo del motor: { $reason }.
 trust-unknown = Desconocido
 trust-tofu = Visto antes, sin verificar
 trust-verified = Verificado
-trust-key-changed = La clave cambió: no confíes
 trust-blocked = Bloqueado
 call-speaking = hablando
 mode-ptt = Pulsar para hablar

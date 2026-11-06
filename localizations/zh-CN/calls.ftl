@@ -30,7 +30,6 @@ engine-reason = 引擎原因：{ $reason }。
 trust-unknown = 未知
 trust-tofu = 见过，未验证
 trust-verified = 已验证
-trust-key-changed = 密钥已更改：请勿信任
 trust-blocked = 已屏蔽
 call-speaking = 正在说话
 mode-ptt = 按键通话

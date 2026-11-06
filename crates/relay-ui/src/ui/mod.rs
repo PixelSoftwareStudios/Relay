@@ -23,6 +23,7 @@ mod history;
 mod home;
 pub mod icon_style;
 mod incoming;
+mod key_changed;
 mod kit;
 mod local;
 pub mod messages;

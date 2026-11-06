@@ -133,7 +133,7 @@ fn scan(ui: &mut Ui, cx: &mut Cx) {
 	kit::gap(ui);
 }
 
-fn scan_status(ui: &mut Ui, cx: &mut Cx) {
+pub(super) fn scan_status(ui: &mut Ui, cx: &mut Cx) {
 	if let Some(note) = cx.local.scan_note {
 		ui.label(RichText::new(note.message()).color(theme::WARN));
 		if note == ScanNote::Failed(ScanError::CameraBlocked) {

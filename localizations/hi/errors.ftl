@@ -44,3 +44,4 @@ err-no-paths = यह डिवाइस Relay डेमन के लिए फ
 err-cannot-start-daemon = यह डिवाइस Relay डेमन शुरू नहीं कर सकता।
 err-cannot-stop-daemon = यह डिवाइस Relay डेमन बंद नहीं कर सकता।
 err-read-file = फ़ाइल पढ़ी नहीं जा सकी: { $error }
+err-fingerprint-mismatch = यह इस डिवाइस की नई कुंजी का फ़िंगरप्रिंट नहीं है।

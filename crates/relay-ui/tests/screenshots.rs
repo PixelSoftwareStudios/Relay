@@ -639,3 +639,88 @@ async fn notices_screenshots() {
 		}
 	}
 }
+
+/// Contacts with a key-changed device: the card and its compare step, on a desktop and a phone.
+#[tokio::test]
+async fn key_changed_screenshots() {
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	let mut peer = relay_ui::mock::seed().peers[2].clone();
+	peer.peer_id = "59f1".repeat(16);
+	peer.display_name = "Dantes-Laptop.local".into();
+	peer.fingerprint_short = "59F1-59F1-59F1-59F1-59F1".into();
+	peer.previous_peer_id = "1a10".repeat(16);
+	peer.previous_fingerprint_short = "1A10-1A10-1A10-1A10-1A10".into();
+	peer.favorite = true;
+	for (name, desktop, w, h) in [
+		("desktop", true, 720.0, 1000.0),
+		("phone", false, 360.0, 800.0),
+	] {
+		for step in ["card", "compare"] {
+			let mut phone = if desktop {
+				Phone::desktop(w, h, Language::En)
+			} else {
+				Phone::new(w, h, Language::En)
+			};
+			if desktop {
+				phone.ctx.set_pixels_per_point(1.5);
+			}
+			phone
+				.shell
+				.scanner
+				.store(!desktop, std::sync::atomic::Ordering::SeqCst);
+			let mut state = phone::busy_state();
+			state.peers.retain(|p| !p.key_changed);
+			state.peers.push(peer.clone());
+			state.calls.clear();
+			phone.show_state(&state);
+			phone.actions.hub.update(|s| *s = state.clone());
+			phone.app.set_page(Page::Contacts);
+			let mut textures = Textures::default();
+			shoot(&mut phone, &mut textures, &dir.join("scratch.png"));
+			if step == "compare" {
+				let at = phone
+					.settle()
+					.named
+					.iter()
+					.find(|(t, _)| t == relay_ui::i18n::t("keychange-compare"))
+					.map(|(_, r)| r.center())
+					.unwrap();
+				let button = |pressed| egui::Event::PointerButton {
+					pos: at,
+					button: egui::PointerButton::Primary,
+					pressed,
+					modifiers: Default::default(),
+				};
+				for events in [
+					vec![egui::Event::PointerMoved(at)],
+					vec![button(true)],
+					vec![button(false)],
+					Vec::new(),
+					Vec::new(),
+				] {
+					let input = egui::RawInput {
+						screen_rect: Some(phone.screen()),
+						events,
+						..Default::default()
+					};
+					let app = &mut phone.app;
+					let mut out = phone.ctx.run_ui(input, |ui| {
+						app.begin_frame(ui.ctx());
+						app.ui(ui);
+					});
+					textures.apply(&out.textures_delta);
+					out.textures_delta.clear();
+				}
+			}
+			shoot(
+				&mut phone,
+				&mut textures,
+				&dir.join(format!("keychange-{name}-{step}.png")),
+			);
+		}
+	}
+}

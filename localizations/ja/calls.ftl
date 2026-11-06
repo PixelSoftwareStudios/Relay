@@ -28,7 +28,6 @@ engine-reason = エンジンの理由: { $reason }。
 trust-unknown = 不明
 trust-tofu = 以前に接続済み、未確認
 trust-verified = 確認済み
-trust-key-changed = 鍵が変更されました。信頼しないでください
 trust-blocked = ブロック中
 call-speaking = 発話中
 mode-ptt = プッシュトゥトーク

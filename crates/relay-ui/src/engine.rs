@@ -125,6 +125,12 @@ pub enum Command {
 	ForgetPeer {
 		peer_id: Vec<u8>,
 	},
+	/// Replace the pinned key of a contact whose key changed by the key it presents now
+	/// (`peer_id`, 32 bytes), after the user typed its full fingerprint from the other device.
+	ReplacePinnedKey {
+		peer_id: Vec<u8>,
+		fingerprint: String,
+	},
 	/// Replace the favorites by this ordered list of trusted peers (32 bytes each, first =
 	/// place 0). More than 6, a repeat or an untrusted peer is refused by the engine.
 	SetFavorites {

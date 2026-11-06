@@ -29,7 +29,6 @@ engine-reason = इंजन का कारण: { $reason }।
 trust-unknown = अज्ञात
 trust-tofu = पहले देखा गया, सत्यापित नहीं
 trust-verified = सत्यापित
-trust-key-changed = कुंजी बदल गई: भरोसा न करें
 trust-blocked = ब्लॉक किया गया
 call-speaking = बोल रहे हैं
 mode-ptt = पुश-टू-टॉक

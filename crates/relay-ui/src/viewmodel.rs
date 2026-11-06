@@ -56,6 +56,11 @@ pub struct PeerRow {
 	pub favorite: bool,
 	/// 0-based place among the favorites; zero when not a favorite.
 	pub favorite_position: u32,
+	/// The device presented a new key and is blocked until the user verifies it. `peer_id`
+	/// and `fingerprint` are those of the new key.
+	pub key_changed: bool,
+	/// Short form of the pinned key; empty unless `key_changed`.
+	pub previous_fingerprint: String,
 }
 
 pub fn trust_label(trust: Trust) -> &'static str {
@@ -63,7 +68,7 @@ pub fn trust_label(trust: Trust) -> &'static str {
 		Trust::Unknown => tr!("trust-unknown"),
 		Trust::TofuUnverified => tr!("trust-tofu"),
 		Trust::Verified => tr!("trust-verified"),
-		Trust::KeyChanged => tr!("trust-key-changed"),
+		Trust::KeyChanged => tr!("contact-key-changed-label"),
 		Trust::Blocked => tr!("trust-blocked"),
 	}
 }
@@ -177,6 +182,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 				.collect(),
 			favorite: p.favorite,
 			favorite_position: p.favorite_position,
+			key_changed: p.key_changed,
+			previous_fingerprint: p.previous_fingerprint_short.clone(),
 		})
 		.collect()
 }

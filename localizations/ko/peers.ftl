@@ -49,3 +49,21 @@ contact-last-seen = 마지막 확인: { $when }
 peer-port = 포트 { $port }
 contact-favorite-add = 즐겨찾기에 추가
 contact-favorite-remove = 즐겨찾기에서 삭제
+
+# 키가 바뀜: 신뢰하던 기기가 다른 보안 키를 보여 줍니다.
+contact-key-changed-label = 보안 키가 바뀌었습니다
+keychange-title = { $name }의 보안 키가 바뀌었습니다
+keychange-body = 해당 기기에서 Relay를 다시 설치했거나 초기화했을 때 흔히 생깁니다. 다시 확인할 때까지 통화할 수 없습니다.
+keychange-scan = 상대의 QR 코드 스캔
+keychange-compare = 비교하고 새 키 신뢰
+keychange-remove = 연락처 삭제
+keychange-remove-ask = { $name }을(를) 연락처에서 삭제할까요? 더 이상 신뢰하지 않게 됩니다.
+keychange-remove-yes = 예, 삭제
+keychange-compare-intro = { $name }에서 연결, 기기 연결, 자세히 순서로 여세요. 표시된 지문을 입력하거나 붙여 넣으세요. 두 값이 같을 때만 새 키를 신뢰하세요.
+keychange-new-key = 이 기기에서 확인한 새 키
+keychange-field-hint = 다른 기기의 지문
+keychange-match = 일치합니다.
+keychange-no-match = 아직 같은 숫자가 아닙니다.
+keychange-confirm = 새 키 신뢰
+keychange-cancel = 나중에
+keychange-previous = 이전 키 { $fingerprint }

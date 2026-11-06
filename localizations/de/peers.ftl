@@ -48,3 +48,21 @@ contact-last-seen = Zuletzt gesehen: { $when }
 peer-port = Port { $port }
 contact-favorite-add = Zu Favoriten hinzufügen
 contact-favorite-remove = Aus Favoriten entfernen
+
+# Schlüssel geändert: ein vertrauenswürdiges Gerät zeigt einen anderen Sicherheitsschlüssel.
+contact-key-changed-label = Sicherheitsschlüssel geändert
+keychange-title = Der Sicherheitsschlüssel von { $name } hat sich geändert
+keychange-body = Das passiert meist, wenn Relay auf diesem Gerät neu installiert oder zurückgesetzt wurde. Anrufe sind gesperrt, bis du den Schlüssel erneut bestätigst.
+keychange-scan = Ihren QR-Code scannen
+keychange-compare = Vergleichen und neuem Schlüssel vertrauen
+keychange-remove = Kontakt entfernen
+keychange-remove-ask = { $name } aus deinen Kontakten entfernen? Dem Gerät wird dann nicht mehr vertraut.
+keychange-remove-yes = Ja, entfernen
+keychange-compare-intro = Öffne auf { $name } Verbinden, dann Gerät verbinden, dann Details. Tippe oder füge den dort angezeigten Fingerabdruck ein. Vertraue dem neuen Schlüssel nur, wenn beide gleich sind.
+keychange-new-key = Neuer Schlüssel, von diesem Gerät gesehen
+keychange-field-hint = Fingerabdruck vom anderen Gerät
+keychange-match = Sie stimmen überein.
+keychange-no-match = Diese Ziffern sind noch nicht gleich.
+keychange-confirm = Neuem Schlüssel vertrauen
+keychange-cancel = Jetzt nicht
+keychange-previous = Bisheriger Schlüssel { $fingerprint }

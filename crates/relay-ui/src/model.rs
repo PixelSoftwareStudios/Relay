@@ -94,6 +94,13 @@ pub struct Peer {
 	pub favorite: bool,
 	/// 0-based place among the favorites; zero when not a favorite.
 	pub favorite_position: u32,
+	/// The device presented a key other than the pinned one and was refused. `peer_id` and
+	/// `fingerprint_short` are then those of the new key.
+	pub key_changed: bool,
+	/// Hex digest of the pinned key; empty unless `key_changed`.
+	pub previous_peer_id: String,
+	/// Short form of the pinned key; empty unless `key_changed`.
+	pub previous_fingerprint_short: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

@@ -43,3 +43,4 @@ err-no-paths = このデバイスでは、Relay デーモン用のファイル�
 err-cannot-start-daemon = このデバイスでは Relay デーモンを起動できません。
 err-cannot-stop-daemon = このデバイスでは Relay デーモンを停止できません。
 err-read-file = ファイルを読み取れません: { $error }
+err-fingerprint-mismatch = これはこのデバイスの新しいキーのフィンガープリントではありません。

@@ -28,7 +28,6 @@ engine-reason = Причина от движка: { $reason }.
 trust-unknown = Неизвестно
 trust-tofu = Встречался раньше, не проверен
 trust-verified = Проверен
-trust-key-changed = Ключ изменился: не доверяйте
 trust-blocked = Заблокирован
 call-speaking = говорит
 mode-ptt = Рация

@@ -90,6 +90,9 @@ pub fn peer(p: &pb::Peer) -> Peer {
 			.collect(),
 		favorite: p.favorite,
 		favorite_position: p.favorite_position,
+		key_changed: p.key_changed,
+		previous_peer_id: hex::encode(&p.previous_peer_id),
+		previous_fingerprint_short: short_fingerprint(&p.previous_fingerprint_short),
 	}
 }
 

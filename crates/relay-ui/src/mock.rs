@@ -64,6 +64,17 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		shared_channels: Vec::new(),
 		favorite: false,
 		favorite_position: 0,
+		key_changed: trust == Trust::KeyChanged,
+		previous_peer_id: if trust == Trust::KeyChanged {
+			id(n.wrapping_add(100), 32)
+		} else {
+			String::new()
+		},
+		previous_fingerprint_short: if trust == Trust::KeyChanged {
+			"1A10-5C77-0E42-9B13-D8F6".into()
+		} else {
+			String::new()
+		},
 	}
 }
 
@@ -407,7 +418,22 @@ impl Operations for MockOps {
 			}
 			Command::ForgetPeer { peer_id } => {
 				let wanted = hex::encode(peer_id);
-				self.hub.update(|s| s.peers.retain(|p| p.peer_id != wanted));
+				self.hub.update(|s| {
+					s.peers
+						.retain(|p| p.peer_id != wanted && p.previous_peer_id != wanted);
+				});
+			}
+			Command::ReplacePinnedKey { peer_id, .. } => {
+				let wanted = hex::encode(peer_id);
+				self.hub.update(|s| {
+					if let Some(p) = s.peers.iter_mut().find(|p| p.peer_id == wanted) {
+						p.trust = Trust::Verified;
+						p.key_changed = false;
+						p.previous_peer_id.clear();
+						p.previous_fingerprint_short.clear();
+						p.reachable = true;
+					}
+				});
 			}
 			Command::SetFavorites { peer_ids } => return self.set_favorites(&peer_ids),
 			Command::TrustPeer { peer_id } => {

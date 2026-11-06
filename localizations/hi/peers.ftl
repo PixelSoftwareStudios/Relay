@@ -48,3 +48,21 @@ contact-last-seen = आख़िरी बार देखा गया: { $when
 peer-port = पोर्ट { $port }
 contact-favorite-add = पसंदीदा में जोड़ें
 contact-favorite-remove = पसंदीदा से हटाएँ
+
+# कुंजी बदल गई: भरोसेमंद डिवाइस अब दूसरी सुरक्षा कुंजी दिखा रहा है।
+contact-key-changed-label = सुरक्षा कुंजी बदल गई
+keychange-title = { $name } की सुरक्षा कुंजी बदल गई
+keychange-body = ऐसा आम तौर पर तब होता है जब उस डिवाइस पर Relay दोबारा इंस्टॉल या रीसेट किया गया हो। जब तक आप इसे फिर से सत्यापित नहीं करते, कॉल बंद रहेंगी।
+keychange-scan = उनका QR कोड स्कैन करें
+keychange-compare = मिलान करें और नई कुंजी पर भरोसा करें
+keychange-remove = संपर्क हटाएँ
+keychange-remove-ask = { $name } को अपने संपर्कों से हटाएँ? उस पर भरोसा नहीं रहेगा।
+keychange-remove-yes = हाँ, हटाएँ
+keychange-compare-intro = { $name } पर कनेक्ट खोलें, फिर डिवाइस कनेक्ट करें, फिर विवरण। वहाँ दिखने वाला फ़िंगरप्रिंट यहाँ लिखें या पेस्ट करें। नई कुंजी पर तभी भरोसा करें जब दोनों एक जैसे हों।
+keychange-new-key = इस डिवाइस से दिखी नई कुंजी
+keychange-field-hint = दूसरे डिवाइस का फ़िंगरप्रिंट
+keychange-match = दोनों मेल खाते हैं।
+keychange-no-match = ये अंक अभी एक जैसे नहीं हैं।
+keychange-confirm = नई कुंजी पर भरोसा करें
+keychange-cancel = अभी नहीं
+keychange-previous = पिछली कुंजी { $fingerprint }

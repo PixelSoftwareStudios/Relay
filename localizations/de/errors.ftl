@@ -44,3 +44,4 @@ err-no-paths = Dieses Gerät kann keine Dateien oder Ordner für den Relay-Daemo
 err-cannot-start-daemon = Dieses Gerät kann den Relay-Daemon nicht starten.
 err-cannot-stop-daemon = Dieses Gerät kann den Relay-Daemon nicht beenden.
 err-read-file = Die Datei kann nicht gelesen werden: { $error }
+err-fingerprint-mismatch = Das ist nicht der Fingerabdruck des neuen Schlüssels dieses Geräts.

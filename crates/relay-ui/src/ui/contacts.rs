@@ -30,10 +30,15 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 		});
 		return;
 	}
-	// Online devices first; the order within each group is the engine's.
-	contacts.sort_by_key(|r| !r.reachable);
+	// A device that needs a decision first, then online devices; the order within each
+	// group is the engine's.
+	contacts.sort_by_key(|r| (!r.key_changed, !r.reachable));
 	for row in contacts {
-		self::row(ui, row, cx, true);
+		if row.key_changed {
+			super::key_changed::card(ui, row, cx);
+		} else {
+			self::row(ui, row, cx, true);
+		}
 		kit::gap(ui);
 	}
 }
@@ -96,7 +101,7 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 
 /// The star: filled when the device is a favorite. The tooltip names what a
 /// press does. The engine refuses a seventh favorite; the error banner says so.
-fn favorite_toggle(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
+pub(super) fn favorite_toggle(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	let (icon, tip) = if row.favorite {
 		(Icon::StarFilled, tr!("contact-favorite-remove"))
 	} else {
@@ -116,7 +121,7 @@ fn last_seen(cx: &Cx, then_ms: u64) -> String {
 	tr!("contact-last-seen", when = when.as_str())
 }
 
-fn peer_details(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
+pub(super) fn peer_details(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	if row.fingerprint.is_empty() {
 		kit::help(ui, tr!("peer-no-key"));
 	} else {

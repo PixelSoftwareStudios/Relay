@@ -359,9 +359,46 @@ impl Controller {
 		{
 			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
 		}
-		self.run(Command::ForgetPeer { peer_id: id })
-			.await
-			.map(drop)
+		// After a key change the card shows the new key, but what is stored is the pinned one:
+		// that is what is forgotten (the engine accepts either).
+		let stored = self.hub.read(|s| {
+			s.peers
+				.iter()
+				.find(|p| p.peer_id == peer_id && p.key_changed)
+				.and_then(|p| decode_id(&p.previous_peer_id, PEER_ID_LEN, "").ok())
+		});
+		self.run(Command::ForgetPeer {
+			peer_id: stored.unwrap_or(id),
+		})
+		.await
+		.map(drop)
+	}
+
+	/// Trust the new key of a contact whose key changed: `fingerprint` is what the user typed
+	/// from the other device. Nothing is sent unless it is the full fingerprint of the key
+	/// the device presents (the engine checks again).
+	pub async fn replace_pinned_key(
+		&self,
+		peer_id: &str,
+		fingerprint: &str,
+	) -> Result<(), ControlError> {
+		let id = decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
+		if !self.hub.read(|s| {
+			s.peers
+				.iter()
+				.any(|p| p.peer_id == peer_id && p.key_changed)
+		}) {
+			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
+		}
+		if !crate::fingerprint::matches(peer_id, fingerprint) {
+			return Err(ControlError::Invalid(tr!("err-fingerprint-mismatch")));
+		}
+		self.run(Command::ReplacePinnedKey {
+			peer_id: id,
+			fingerprint: crate::fingerprint::digits(fingerprint),
+		})
+		.await
+		.map(drop)
 	}
 
 	/// The favorites in order, as hex ids.

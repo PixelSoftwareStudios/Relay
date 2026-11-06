@@ -47,3 +47,21 @@ contact-last-seen = 最終確認: { $when }
 peer-port = ポート { $port }
 contact-favorite-add = お気に入りに追加
 contact-favorite-remove = お気に入りから削除
+
+# 鍵が変更されました: 信頼済みのデバイスが別のセキュリティキーを示しています。
+contact-key-changed-label = セキュリティキーが変更されました
+keychange-title = { $name } のセキュリティキーが変更されました
+keychange-body = そのデバイスでRelayを再インストールまたはリセットした後によく起こります。もう一度確認するまで、通話はできません。
+keychange-scan = 相手のQRコードをスキャン
+keychange-compare = 照合して新しいキーを信頼
+keychange-remove = 連絡先を削除
+keychange-remove-ask = { $name } を連絡先から削除しますか？ 信頼されなくなります。
+keychange-remove-yes = はい、削除する
+keychange-compare-intro = { $name } で「接続」、「デバイスを接続」、「詳細」の順に開きます。表示されるフィンガープリントを入力または貼り付けてください。両方が同じ場合のみ、新しいキーを信頼してください。
+keychange-new-key = このデバイスから見えた新しいキー
+keychange-field-hint = 相手のデバイスのフィンガープリント
+keychange-match = 一致しています。
+keychange-no-match = まだ同じ数字ではありません。
+keychange-confirm = 新しいキーを信頼
+keychange-cancel = 今はしない
+keychange-previous = 以前のキー { $fingerprint }

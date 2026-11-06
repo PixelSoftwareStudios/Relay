@@ -78,7 +78,7 @@ async fn an_open_chat_closes_first() {
 
 #[tokio::test]
 async fn a_confirmation_is_dismissed_before_leaving_the_page() {
-	let mut phone = Phone::new(360.0, 800.0, Language::En);
+	let mut phone = Phone::new(360.0, 2400.0, Language::En);
 	phone.page(Page::Contacts);
 	phone.click_icon(relay_ui::icons::Icon::More);
 	phone.click_label("Forget this device");

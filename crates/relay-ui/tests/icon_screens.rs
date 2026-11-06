@@ -55,9 +55,9 @@ async fn no_page_paints_a_character_without_a_glyph() {
 async fn navigation_and_cards_carry_icons() {
 	for desktop in [true, false] {
 		let mut phone = if desktop {
-			Phone::desktop(720.0, 800.0, relay_ui::i18n::Language::En)
+			Phone::desktop(720.0, 2400.0, relay_ui::i18n::Language::En)
 		} else {
-			Phone::new(360.0, 800.0, relay_ui::i18n::Language::En)
+			Phone::new(360.0, 2400.0, relay_ui::i18n::Language::En)
 		};
 		let contacts = phone.page(Page::Contacts);
 		for icon in [

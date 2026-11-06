@@ -29,7 +29,6 @@ engine-reason = Grund der Engine: { $reason }.
 trust-unknown = Unbekannt
 trust-tofu = Schon gesehen, nicht verifiziert
 trust-verified = Verifiziert
-trust-key-changed = Schlüssel geändert: nicht vertrauen
 trust-blocked = Blockiert
 call-speaking = spricht
 mode-ptt = Push-to-Talk

@@ -47,3 +47,21 @@ contact-last-seen = Visto por última vez: { $when }
 peer-port = Puerto { $port }
 contact-favorite-add = Añadir a favoritos
 contact-favorite-remove = Quitar de favoritos
+
+# Clave cambiada: un dispositivo de confianza muestra otra clave de seguridad.
+contact-key-changed-label = La clave de seguridad cambió
+keychange-title = La clave de seguridad de { $name } cambió
+keychange-body = Suele ocurrir cuando Relay se reinstaló o se restableció en ese dispositivo. Las llamadas están bloqueadas hasta que lo verifiques de nuevo.
+keychange-scan = Escanear su código QR
+keychange-compare = Comparar y confiar en la nueva clave
+keychange-remove = Quitar contacto
+keychange-remove-ask = ¿Quitar a { $name } de tus contactos? Dejará de ser de confianza.
+keychange-remove-yes = Sí, quitar
+keychange-compare-intro = En { $name }, abre Conectar, luego Conectar un dispositivo y después Detalles. Escribe o pega la huella que aparece allí. Confía en la nueva clave solo si ambas son iguales.
+keychange-new-key = Clave nueva vista desde este dispositivo
+keychange-field-hint = Huella del otro dispositivo
+keychange-match = Coinciden.
+keychange-no-match = Estos dígitos aún no son iguales.
+keychange-confirm = Confiar en la nueva clave
+keychange-cancel = Ahora no
+keychange-previous = Clave anterior { $fingerprint }
