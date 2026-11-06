@@ -54,6 +54,8 @@ pub enum ConfigError {
 	InsecureStorageNotEnabled,
 	#[error("{0}")]
 	Favorites(String),
+	#[error("{0}")]
+	Blocklist(String),
 	#[error("the database lacks the {0} table")]
 	MissingTable(String),
 	#[error("avatar rejected: {0}")]

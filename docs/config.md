@@ -67,6 +67,7 @@ left untouched.
 | `channels`, `channel_*` | Channel metadata (see below) |
 | `call_history(id, peer_name, peer_fingerprint, peer_fingerprint_short, direction, outcome, started_at, duration_ms, call_id)` | Past calls (see "Call history" below) |
 | `favorites(public_key, position)` | The quick-call favorites: an ordered list of at most 6 peers. `public_key` references `trust(public_key)` with `ON DELETE CASCADE`, so forgetting a peer (or any removal of its trust) deletes its favorite; `position` is unique and 0-based. `relay_config::favorites::Favorites::{list,set}` replace the whole list in one transaction and refuse, changing nothing, a list over 6 (`You can have up to 6 favorites`), a repeated peer, or a peer that is not in `trust` |
+| `blocked(fingerprint, display_name, blocked_at)` | Devices the user blocked, by the SHA-256 digest of their key (the peer id; 64 hex digits), with the name they had then. At most 256 rows (`relay_config::blocklist::MAX_BLOCKED`); blocking a full list is refused, re-blocking only renames. `Blocklist::{list,add,remove}`. A blocked key is refused by the engine; blocking a contact removes its `trust` row, and unblocking does not bring it back |
 
 `Preferences::config_version` (currently 1) is the data-model version stored in `prefs`; it is
 separate from the SQL schema version.

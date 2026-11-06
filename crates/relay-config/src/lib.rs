@@ -6,6 +6,7 @@
 //! device, and the identity key only reaches a plaintext file if the user chose that.
 
 pub mod avatar;
+pub mod blocklist;
 pub mod channels;
 pub mod db;
 pub mod diagnostics;
