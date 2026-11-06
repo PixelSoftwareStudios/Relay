@@ -88,14 +88,20 @@ pub fn seed() -> AppState {
 		],
 		calls: vec![call(100, 1, Phase::IncomingRinging)],
 		devices: vec![
-			device("Built-in Microphone", Direction::Input, true),
+			device("MacBook Pro Microphone", Direction::Input, true),
 			device("USB Headset Mic", Direction::Input, false),
-			device("Built-in Speakers", Direction::Output, true),
+			device("MacBook Pro Speakers", Direction::Output, true),
 			device("USB Headset", Direction::Output, false),
 		],
 		settings: Some(Settings {
-			input_device_id: "built-in-microphone".into(),
-			output_device_id: "built-in-speakers".into(),
+			input_device_id: String::new(),
+			output_device_id: String::new(),
+			input_is_default: true,
+			output_is_default: true,
+			input_device_name: "MacBook Pro Microphone".into(),
+			output_device_name: "MacBook Pro Speakers".into(),
+			input_pinned_missing: false,
+			output_pinned_missing: false,
 			global_muted: false,
 			global_deafened: false,
 			microphone_gain: 1.0,
@@ -227,7 +233,27 @@ impl Operations for MockOps {
 				input_id,
 				output_id,
 			} => self.hub.update(|s| {
+				let in_use = |id: &str, dir: Direction| {
+					let found = |d: &&Device| d.direction == dir && (d.device_id == id);
+					let named = s.devices.iter().find(found);
+					let default = s
+						.devices
+						.iter()
+						.find(|d| d.direction == dir && d.system_default);
+					named
+						.or(default)
+						.map(|d| d.name.clone())
+						.unwrap_or_default()
+				};
+				let (input_name, output_name) = (
+					in_use(&input_id, Direction::Input),
+					in_use(&output_id, Direction::Output),
+				);
 				if let Some(g) = s.settings.as_mut() {
+					g.input_is_default = input_id.is_empty();
+					g.output_is_default = output_id.is_empty();
+					g.input_device_name = input_name;
+					g.output_device_name = output_name;
 					g.input_device_id = input_id;
 					g.output_device_id = output_id;
 				}

@@ -313,9 +313,12 @@ impl Controller {
 		input_id: &str,
 		output_id: &str,
 	) -> Result<(), ControlError> {
+		// An empty id follows the system default.
 		let known = |id: &str| {
-			self.hub
-				.read(|s| s.devices.iter().any(|d| d.device_id == id && d.available))
+			id.is_empty()
+				|| self
+					.hub
+					.read(|s| s.devices.iter().any(|d| d.device_id == id && d.available))
 		};
 		if !known(input_id) || !known(output_id) {
 			return Err(ControlError::Invalid(tr!("err-unknown-device")));

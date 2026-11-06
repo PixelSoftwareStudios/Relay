@@ -137,8 +137,22 @@ pub struct Device {
 #[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Settings {
+	/// Pinned microphone id; empty when the system default is followed.
 	pub input_device_id: String,
+	/// Pinned playback device id; empty when the system default is followed.
 	pub output_device_id: String,
+	/// No microphone is pinned.
+	pub input_is_default: bool,
+	/// No playback device is pinned.
+	pub output_is_default: bool,
+	/// The microphone the engine opens (empty when the system has none).
+	pub input_device_name: String,
+	/// The playback device the engine opens (empty when the system has none).
+	pub output_device_name: String,
+	/// The pinned microphone is absent; the system default is used instead.
+	pub input_pinned_missing: bool,
+	/// The pinned playback device is absent; the system default is used instead.
+	pub output_pinned_missing: bool,
 	pub global_muted: bool,
 	pub global_deafened: bool,
 	pub microphone_gain: f32,

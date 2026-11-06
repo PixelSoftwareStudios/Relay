@@ -167,6 +167,12 @@ pub fn settings(s: &pb::Settings) -> Settings {
 	Settings {
 		input_device_id: s.input_device_id.clone(),
 		output_device_id: s.output_device_id.clone(),
+		input_is_default: s.input_is_default,
+		output_is_default: s.output_is_default,
+		input_device_name: s.input_device_name.clone(),
+		output_device_name: s.output_device_name.clone(),
+		input_pinned_missing: s.input_pinned_missing,
+		output_pinned_missing: s.output_pinned_missing,
 		global_muted: s.global_muted,
 		global_deafened: s.global_deafened,
 		microphone_gain: s.microphone_gain,

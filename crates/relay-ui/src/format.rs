@@ -1,6 +1,6 @@
 //! Display text and small pure helpers shared by the views.
 
-use crate::model::{Call, Link, Phase};
+use crate::model::{Call, Device, Direction, Link, Phase};
 use crate::tr;
 
 pub const MAX_AVATAR_BYTES: usize = 1024 * 1024;
@@ -12,6 +12,44 @@ pub fn release_delay_label(millis: u32) -> String {
 	} else {
 		tr!("duration-ms", millis = millis)
 	}
+}
+
+/// A device as listed in a drop-down: the OS default carries the localized
+/// suffix, any other device shows its plain name.
+pub fn device_option_label(name: &str, is_system_default: bool) -> String {
+	match (is_system_default, name.is_empty()) {
+		(true, false) => tr!("audio-device-default", name = name),
+		(true, true) => tr!("audio-system-default").to_owned(),
+		(false, _) => name.to_owned(),
+	}
+}
+
+/// The collapsed drop-down text for one direction. Never empty: with nothing
+/// pinned it names the resolved default (the engine's name, else the listed
+/// default device) and falls back to the bare localized phrase.
+pub fn selected_device_text(
+	devices: &[Device],
+	direction: Direction,
+	is_default: bool,
+	resolved_name: &str,
+	pinned_id: &str,
+) -> String {
+	if !is_default {
+		let pinned = devices.iter().find(|d| d.device_id == pinned_id);
+		if let Some(d) = pinned.filter(|d| !d.name.is_empty()) {
+			return d.name.clone();
+		}
+	}
+	let listed = devices
+		.iter()
+		.find(|d| d.direction == direction && d.system_default)
+		.map_or("", |d| d.name.as_str());
+	let name = if resolved_name.is_empty() {
+		listed
+	} else {
+		resolved_name
+	};
+	device_option_label(name, true)
 }
 
 pub fn format_dbfs(dbfs: Option<f32>) -> String {

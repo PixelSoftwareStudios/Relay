@@ -3,7 +3,8 @@
 
 use egui::{self, Ui};
 
-use crate::model::{AppState, Direction};
+use crate::format::{device_option_label, selected_device_text};
+use crate::model::{AppState, Device, Direction};
 
 use super::super::kit::{self, Cx};
 use super::super::widgets::{button_row, combo, gain_slider, meter};
@@ -17,14 +18,26 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	let actions = cx.actions;
 	kit::card(ui, |ui| {
 		kit::card_title(ui, tr!("audio-devices"));
+		let output = Endpoint {
+			pinned: &settings.output_device_id,
+			is_default: settings.output_is_default,
+			name: &settings.output_device_name,
+			missing: settings.output_pinned_missing,
+		};
+		let input = Endpoint {
+			pinned: &settings.input_device_id,
+			is_default: settings.input_is_default,
+			name: &settings.input_device_name,
+			missing: settings.input_pinned_missing,
+		};
 		if let Some(id) = pick(
 			ui,
 			cx.state,
 			tr!("audio-microphone"),
 			Direction::Input,
-			&settings.input_device_id,
+			&input,
 		) {
-			let out = settings.output_device_id.clone();
+			let out = other_pin(&output);
 			actions.run(|c| async move { c.select_devices(&id, &out).await });
 		}
 		if let Some(id) = pick(
@@ -32,9 +45,9 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 			cx.state,
 			tr!("audio-speakers"),
 			Direction::Output,
-			&settings.output_device_id,
+			&output,
 		) {
-			let inp = settings.input_device_id.clone();
+			let inp = other_pin(&input);
 			actions.run(|c| async move { c.select_devices(&inp, &id).await });
 		}
 		kit::help(ui, tr!("audio-devices-help"));
@@ -85,32 +98,82 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	});
 }
 
-/// A device drop-down; returns the newly chosen device id.
+/// What the engine reports for one direction.
+struct Endpoint<'a> {
+	/// Pinned device id; empty when following the system default.
+	pinned: &'a str,
+	is_default: bool,
+	/// The device in use.
+	name: &'a str,
+	/// The pinned device is not connected.
+	missing: bool,
+}
+
+/// The pin to keep for the direction that did not change. A pinned device
+/// that is not connected is dropped (back to the system default).
+fn other_pin(endpoint: &Endpoint) -> String {
+	if endpoint.missing {
+		String::new()
+	} else {
+		endpoint.pinned.to_owned()
+	}
+}
+
+/// A device drop-down. The OS default device is listed once, with the
+/// "(System Default)" suffix, and choosing it means "follow the default"
+/// (empty id); any other device is pinned. Returns the newly chosen id.
 fn pick(
 	ui: &mut Ui,
 	state: &AppState,
 	label: &str,
 	dir: Direction,
-	current: &str,
+	current: &Endpoint,
 ) -> Option<String> {
 	let mut chosen = None;
-	let shown = state
-		.devices
-		.iter()
-		.find(|d| d.device_id == current)
-		.map_or(current, |d| d.name.as_str());
-	combo(ui, label, shown).show_ui(ui, |ui| {
-		for d in state.devices.iter().filter(|d| d.direction == dir) {
-			let text = if d.system_default {
-				format!("{} {}", d.name, tr!("device-default"))
+	let shown = selected_device_text(
+		&state.devices,
+		dir,
+		current.is_default || current.missing,
+		current.name,
+		current.pinned,
+	);
+	combo(ui, label, &shown).show_ui(ui, |ui| {
+		let listed = |d: &&Device| d.direction == dir;
+		if !state
+			.devices
+			.iter()
+			.filter(listed)
+			.any(|d| d.system_default)
+		{
+			let text = device_option_label("", true);
+			if ui
+				.add(egui::Button::selectable(current.is_default, text))
+				.clicked()
+			{
+				chosen = Some(String::new());
+			}
+		}
+		for d in state.devices.iter().filter(listed) {
+			let text = device_option_label(&d.name, d.system_default);
+			let on = if d.system_default {
+				current.is_default
 			} else {
-				d.name.clone()
+				!current.is_default && d.device_id == current.pinned
 			};
-			let button = egui::Button::selectable(d.device_id == current, text);
-			if ui.add_enabled(d.available, button).clicked() {
-				chosen = Some(d.device_id.clone());
+			if ui
+				.add_enabled(d.available, egui::Button::selectable(on, text))
+				.clicked()
+			{
+				chosen = Some(if d.system_default {
+					String::new()
+				} else {
+					d.device_id.clone()
+				});
 			}
 		}
 	});
+	if current.missing {
+		kit::help(ui, tr!("audio-pinned-missing"));
+	}
 	chosen
 }
