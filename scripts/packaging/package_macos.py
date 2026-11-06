@@ -19,7 +19,7 @@ APP = "Relay.app"
 MINIMUM_SYSTEM = "13.0"
 IDENTIFIER_PREFIX = "dev.relay"
 BACKGROUND = ROOT / "assets/packaging/macos/dmg-background.png"
-DMG_LAYOUT = {"window_rect": ((200, 200), (640, 300)), "icon_size": 128,
+DMG_LAYOUT = {"window_rect": ((200, 200), (640, 356)), "icon_size": 128,
               "icon_locations": {APP: (160, 150), "Applications": (480, 150)}}
 
 
