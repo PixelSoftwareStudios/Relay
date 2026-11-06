@@ -72,11 +72,13 @@ pub async fn spawn(
 			profile_rx,
 		)?;
 	}
+	let key_changes = super::key_changes::KeyChanges::default();
 	let actor = Actor {
 		config,
 		local,
 		params,
 		trust: trust.clone(),
+		key_changes: key_changes.clone(),
 		links: HashMap::new(),
 		canonical: HashMap::new(),
 		wanted: HashMap::new(),
@@ -106,6 +108,7 @@ pub async fn spawn(
 		snapshot,
 		sessions,
 		trust,
+		key_changes,
 	};
 	Ok((handle, output_rx))
 }

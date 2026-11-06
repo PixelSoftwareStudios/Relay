@@ -66,6 +66,8 @@ pub struct PeerInfo {
 	pub reachable: bool,
 	/// Content hash of the peer's cached avatar, if any.
 	pub avatar: Option<[u8; 32]>,
+	/// Set when this peer presented a key other than the pinned one: the pinned key digest.
+	pub key_change: Option<PeerId>,
 }
 
 /// Direction of an audio device.
@@ -122,6 +124,19 @@ pub struct ForgottenPeer {
 	/// The peer.
 	pub id: PeerId,
 	/// The name it was known by.
+	pub name: String,
+	/// Refused keys of this contact whose key-change state went with it.
+	pub key_changed: Vec<PeerId>,
+}
+
+/// A contact whose pinned key was replaced after the user verified the new key.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplacedPeer {
+	/// The new key digest, now the contact's identity.
+	pub id: PeerId,
+	/// The key digest that was pinned before.
+	pub previous: PeerId,
+	/// The name carried over.
 	pub name: String,
 }
 
@@ -338,6 +353,24 @@ pub trait PeerControl: Send + Sync {
 	/// stops reconnecting.
 	fn forget_peer(&self, _selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
 		Err(PortError::Unsupported("forgetting peers"))
+	}
+	/// Replaces the pinned key behind the key-changed device `peer` (the refused key) by that
+	/// key, verified. Needs a remembered key change, `verified`, and `fingerprint` equal to the
+	/// full fingerprint of `peer`; otherwise nothing changes. `via` is a connection string whose
+	/// address is dialled afterwards.
+	fn replace_pinned_key(
+		&self,
+		_peer: PeerId,
+		_fingerprint: &str,
+		_verified: bool,
+		_via: Option<&str>,
+	) -> Result<ReplacedPeer, PortError> {
+		Err(PortError::Unsupported("replacing a pinned key"))
+	}
+	/// The refused key a scanned connection string names, when that device is a key-changed
+	/// contact.
+	fn key_change_for(&self, _text: &str) -> Option<PeerId> {
+		None
 	}
 	/// The advertised local profile changed.
 	fn profile_changed(&self, profile: &LocalProfile);

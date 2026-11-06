@@ -8,6 +8,7 @@ mod election;
 mod forgetting;
 mod handle;
 mod hints;
+mod key_changes;
 mod link;
 mod manager;
 mod names;
@@ -15,6 +16,7 @@ mod overlay;
 mod probing;
 mod profile;
 mod profiling;
+mod replacing;
 mod rtt;
 mod sessions;
 mod signaling;
@@ -30,9 +32,11 @@ pub use handle::{
 	PeerHandle, PeerOutput, PeerSnapshot, SessionEvent, SinkHandle, fingerprint, peer_id,
 };
 pub use hints::{Hint, HintSender, HintSource, hint_channel};
+pub use key_changes::{KeyChange, KeyChangeInfo, KeyChanges};
 pub use link::{LinkError, LinkTiming};
 pub use names::disambiguated;
 pub use profile::{CHUNK_BYTES, LocalProfile};
+pub use replacing::normalize_fingerprint;
 pub use rtt::RttCell;
 pub use sessions::SessionTable;
 pub use signaling::{

@@ -299,6 +299,9 @@ impl Engine for FakeEngine {
 	async fn connect_and_trust(&self, _: Request<ConnectAndTrustRequest>) -> Resp<Operation> {
 		unsupported()
 	}
+	async fn replace_pinned_key(&self, _: Request<ReplacePinnedKeyRequest>) -> Resp<Operation> {
+		unsupported()
+	}
 	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
 	async fn watch_call_stats(
 		&self,

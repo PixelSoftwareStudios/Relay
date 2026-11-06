@@ -37,8 +37,8 @@ pub use ids::{CounterEntropy, Entropy, Ids, OsEntropy};
 pub use ports::{
 	AdvertMode, CallMeter, ConnectionDetails, DeviceControl, DeviceDirection, DeviceInfo,
 	ForgottenPeer, InboundPolicy, LocalProfile, MediaControl, MediaTelemetry, PeerControl,
-	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, SettingsChange, SettingsStore,
-	StoredSettings, TrustRequest,
+	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, ReplacedPeer, SettingsChange,
+	SettingsStore, StoredSettings, TrustRequest,
 };
 pub use recorder::WallClock;
 pub use rpc::EngineService;

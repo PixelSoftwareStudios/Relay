@@ -13,7 +13,7 @@ use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
 use crate::service::ConnectFailure;
 use crate::service::ports::{
 	ConnectionDetails, ForgottenPeer, LocalProfile as PortProfile, PeerControl, PeerInfo,
-	PeerSelector, PeerTrust, PortError, TrustRequest,
+	PeerSelector, PeerTrust, PortError, ReplacedPeer, TrustRequest,
 };
 use relay_net::connect::ConnectionString;
 
@@ -97,6 +97,7 @@ fn info(snapshot: &PeerSnapshot) -> Option<PeerInfo> {
 		},
 		reachable: snapshot.linked,
 		avatar: snapshot.avatar,
+		key_change: None,
 	})
 }
 
@@ -180,7 +181,36 @@ impl PeerControl for PeerAdapter {
 	}
 
 	fn peers(&self) -> Vec<PeerInfo> {
-		self.handle.peers().iter().filter_map(info).collect()
+		self.handle
+			.peers()
+			.iter()
+			.filter_map(info)
+			.map(|mut found| {
+				found.key_change = self.handle.key_change(found.id).map(|c| c.previous);
+				found
+			})
+			.collect()
+	}
+
+	fn replace_pinned_key(
+		&self,
+		peer: PeerId,
+		fingerprint: &str,
+		verified: bool,
+		via: Option<&str>,
+	) -> Result<ReplacedPeer, PortError> {
+		let addresses = via
+			.and_then(|text| ConnectionString::parse(text, &self.policy).ok())
+			.map(|target| vec![target.addr])
+			.unwrap_or_default();
+		self.handle
+			.replace_pinned_key(peer, fingerprint, verified, addresses)
+	}
+
+	fn key_change_for(&self, text: &str) -> Option<PeerId> {
+		let target = ConnectionString::parse(text, &self.policy).ok()?;
+		let peer = peer_id(&target.expected);
+		self.handle.key_change(peer).map(|_| peer)
 	}
 
 	fn decide_trust(&self, request: TrustRequest) -> Result<(), PortError> {

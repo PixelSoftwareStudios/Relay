@@ -3,8 +3,8 @@
 use std::collections::BTreeMap;
 
 use crate::pb::{
-	CallHistoryPage, ForgetPeerRequest, ListCallHistoryRequest, Operation, SetSettingsRequest,
-	SetSettingsResponse,
+	CallHistoryPage, ForgetPeerRequest, ListCallHistoryRequest, Operation, ReplacePinnedKeyRequest,
+	SetSettingsRequest, SetSettingsResponse,
 };
 use crate::{ApiError, RelayClient};
 
@@ -29,6 +29,25 @@ impl RelayClient {
 			query: query.to_owned(),
 		};
 		Ok(self.inner.forget_peer(request).await?.into_inner())
+	}
+
+	/// Replaces the pinned key of a contact whose key changed by the key it presents now
+	/// (`peer_id`, 32 bytes). The engine accepts it only when `fingerprint` (64 hex digits)
+	/// is that key's full fingerprint and `verified` says the user compared it on the other
+	/// device; anything else fails with `INVALID_ARGUMENT` or `NOT_FOUND` and changes nothing.
+	pub async fn replace_pinned_key(
+		&mut self,
+		peer_id: &[u8],
+		fingerprint: &str,
+		verified: bool,
+	) -> Result<Operation, ApiError> {
+		let request = ReplacePinnedKeyRequest {
+			context: Some(self.new_mutation()?),
+			peer_id: peer_id.to_vec(),
+			expected_fingerprint: fingerprint.to_owned(),
+			verified,
+		};
+		Ok(self.inner.replace_pinned_key(request).await?.into_inner())
 	}
 
 	/// Every preference as flat `section.key` text, for export.

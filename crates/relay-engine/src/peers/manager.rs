@@ -49,6 +49,7 @@ pub(super) struct Actor {
 	pub(super) local: Fingerprint,
 	pub(super) params: Arc<LinkParams>,
 	pub(super) trust: SharedTrust,
+	pub(super) key_changes: super::key_changes::KeyChanges,
 	pub(super) links: HashMap<LinkId, Entry>,
 	pub(super) canonical: HashMap<Fingerprint, LinkId>,
 	pub(super) wanted: HashMap<Fingerprint, Want>,
@@ -110,6 +111,7 @@ impl Actor {
 		match command {
 			Command::Ensure(peer) => self.ensure(peer).await,
 			Command::Forgotten(peer) => self.forgotten(peer).await,
+			Command::Replaced { old, new, via } => self.replaced(old, new, via).await,
 			Command::Release(peer) => {
 				self.wanted.remove(&peer);
 				self.pending.remove(&peer);
@@ -290,6 +292,7 @@ impl Actor {
 				relay_net::identity::TrustError::Unknown => PeerError::UnknownKey,
 				other => PeerError::Trust(other.to_string()),
 			})?;
+		self.key_changes.remove(&peer);
 		let promoted = self
 			.canonical
 			.get(&peer)
@@ -332,6 +335,15 @@ impl Actor {
 		self.trust.lock().observe(&link.key);
 		let trust = evaluate_peer(&*self.trust.lock(), &peer, &link.name);
 		if let PeerTrust::KeyChanged { previous } = &trust {
+			self.key_changes.note(
+				peer,
+				super::key_changes::KeyChange {
+					previous: previous.fingerprint,
+					previous_name: previous.display_name.clone(),
+					name: link.name.clone(),
+					at: now(),
+				},
+			);
 			let output = PeerOutput::KeyChanged {
 				peer: peer_id(&peer),
 				name: link.name.clone(),
@@ -347,6 +359,10 @@ impl Actor {
 			let _ = waiter.send(Ok(peer));
 		}
 		let trusted = matches!(trust, PeerTrust::Verified | PeerTrust::UnverifiedFirstUse);
+		if trusted {
+			// The pinned key is back: no refused key stands against it any more.
+			self.key_changes.clear_previous(&peer);
+		}
 		let mut previously_up = false;
 		if let Some(old_id) = self.canonical.get(&peer).copied() {
 			let old = &self.links[&old_id];

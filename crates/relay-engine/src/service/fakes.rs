@@ -202,6 +202,7 @@ impl PeerControl for FakePeers {
 		Ok(ForgottenPeer {
 			id: gone.id,
 			name: gone.display_name,
+			key_changed: Vec::new(),
 		})
 	}
 	fn profile_changed(&self, profile: &LocalProfile) {

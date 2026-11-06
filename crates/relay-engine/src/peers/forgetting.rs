@@ -28,12 +28,25 @@ fn name_of(record: &TrustRecord, live: &[PeerSnapshot]) -> String {
 		.map_or_else(|| record.display_name.clone(), |p| p.name.clone())
 }
 
-/// Picks exactly one stored trust record. A fingerprint prefix (8 or more hex digits, any
-/// separators) is tried before an exact, case-insensitive display name. Nothing is guessed:
-/// several matches are an error that names them.
+/// The stored record a refused (offending) key stands for, if one is remembered.
+fn behind<'a>(
+	records: &'a [TrustRecord],
+	changes: &[(Fingerprint, Fingerprint)],
+	offending: &[u8],
+) -> Option<&'a TrustRecord> {
+	let (_, previous) = changes.iter().find(|(o, _)| o.as_bytes() == offending)?;
+	records.iter().find(|r| r.fingerprint == *previous)
+}
+
+/// Picks exactly one stored trust record. The key may be the pinned one or, after a key
+/// change, the new key that was refused: both name the same contact. A fingerprint prefix
+/// (8 or more hex digits, any separators) is tried before an exact, case-insensitive display
+/// name. Nothing is guessed: several matches are an error that names them. `changes` pairs
+/// each refused key with the pinned key it would replace.
 pub(super) fn resolve(
 	records: &[TrustRecord],
 	live: &[PeerSnapshot],
+	changes: &[(Fingerprint, Fingerprint)],
 	selector: &PeerSelector,
 ) -> Result<ForgottenPeer, PortError> {
 	let query = match selector {
@@ -41,10 +54,12 @@ pub(super) fn resolve(
 			let found = records
 				.iter()
 				.find(|r| r.fingerprint.as_bytes() == id.as_bytes())
+				.or_else(|| behind(records, changes, id.as_bytes()))
 				.ok_or_else(|| PortError::NotFound("no stored trust for that peer".to_owned()))?;
 			return Ok(ForgottenPeer {
-				id: *id,
+				id: peer_id(&found.fingerprint),
 				name: name_of(found, live),
+				key_changed: Vec::new(),
 			});
 		}
 		PeerSelector::Query(query) => query.trim(),
@@ -53,10 +68,19 @@ pub(super) fn resolve(
 		return Err(PortError::Invalid("name a peer".to_owned()));
 	}
 	let by_digits = digits(query).map(|wanted| {
-		records
+		let mut found: Vec<&TrustRecord> = records
 			.iter()
 			.filter(|r| hex::encode(r.fingerprint.as_bytes()).starts_with(&wanted))
-			.collect::<Vec<_>>()
+			.collect();
+		for (offending, _) in changes {
+			if hex::encode(offending.as_bytes()).starts_with(&wanted)
+				&& let Some(record) = behind(records, changes, offending.as_bytes())
+				&& !found.iter().any(|r| r.fingerprint == record.fingerprint)
+			{
+				found.push(record);
+			}
+		}
+		found
 	});
 	let matches = match by_digits {
 		Some(found) if !found.is_empty() => found,
@@ -78,6 +102,7 @@ pub(super) fn resolve(
 		[one] => Ok(ForgottenPeer {
 			id: peer_id(&one.fingerprint),
 			name: name_of(one, live),
+			key_changed: Vec::new(),
 		}),
 		many => {
 			let listed: Vec<String> = many
@@ -106,16 +131,28 @@ impl PeerHandle {
 
 	/// Finds the one stored peer `selector` names and forgets it: the decision is removed at
 	/// once and the manager cuts the link and stops reconnecting. A device that still trusts
-	/// us and calls again is treated as unknown.
+	/// us and calls again is treated as unknown. After a key change the refused key selects
+	/// the same contact as the pinned one, and the key-change state goes with it.
 	pub fn forget(&self, selector: &PeerSelector) -> Result<ForgottenPeer, PortError> {
-		let found = resolve(&self.trust_records(), &self.peers(), selector)?;
+		let changes: Vec<_> = self
+			.key_changes
+			.all()
+			.into_iter()
+			.map(|(offending, change)| (offending, change.previous))
+			.collect();
+		let mut found = resolve(&self.trust_records(), &self.peers(), &changes, selector)?;
 		let fingerprint = Fingerprint::from_bytes(*found.id.as_bytes());
 		self.trust
 			.lock()
 			.remove(&fingerprint)
 			.map_err(|e| PortError::Unavailable(e.to_string()))?;
+		let offenders = self.key_changes.clear_previous(&fingerprint);
+		found.key_changed = offenders.iter().map(peer_id).collect();
 		self.try_send_forgotten(fingerprint)
 			.map_err(|e| PortError::Unavailable(e.to_string()))?;
+		for offending in offenders {
+			let _ = self.try_send_forgotten(offending);
+		}
 		Ok(found)
 	}
 

@@ -44,6 +44,17 @@ pub enum ServiceOp {
 	ClearAvatar,
 	/// Forget a stored trust decision.
 	ForgetPeer(super::ports::PeerSelector),
+	/// Replace the pinned key of a key-changed contact by its new, verified key.
+	ReplaceKey {
+		/// The refused (new) key.
+		peer: PeerId,
+		/// The fingerprint the user typed or scanned.
+		fingerprint: String,
+		/// The user compared it on the other device.
+		verified: bool,
+		/// A scanned connection string to dial afterwards.
+		via: Option<String>,
+	},
 	/// Replace the favorites by this ordered list of trusted peers.
 	SetFavorites(Vec<PeerId>),
 	/// Decide a peer's trust.

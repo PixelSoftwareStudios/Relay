@@ -14,6 +14,7 @@ mod messages;
 mod messages_watch;
 mod ops;
 mod privacy;
+mod replace_key;
 mod session;
 mod settings;
 mod telemetry;
@@ -444,6 +445,14 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		forget::forget(self, &mutation, &body).await
+	}
+
+	async fn replace_pinned_key(
+		&self,
+		request: Request<relay_api::pb::ReplacePinnedKeyRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		replace_key::replace(self, &mutation, &body).await
 	}
 
 	async fn set_favorites(

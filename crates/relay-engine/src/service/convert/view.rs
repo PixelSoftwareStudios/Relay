@@ -153,6 +153,17 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		favorite_position: 0,
 		fingerprint_short: relay_net::identity::Fingerprint::from_bytes(*info.id.as_bytes())
 			.short(),
+		key_changed: info.key_change.is_some(),
+		previous_peer_id: info
+			.key_change
+			.map(|previous| previous.as_bytes().to_vec())
+			.unwrap_or_default(),
+		previous_fingerprint_short: info
+			.key_change
+			.map(|previous| {
+				relay_net::identity::Fingerprint::from_bytes(*previous.as_bytes()).short()
+			})
+			.unwrap_or_default(),
 	}
 }
 

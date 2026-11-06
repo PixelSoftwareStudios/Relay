@@ -9,7 +9,10 @@ use super::convert::{problem_of, service_problem, snapshot_to_pb};
 use super::error::ServiceError;
 use super::handle::{ServiceOp, Subscribed};
 use super::ledger::{Fingerprint, Lookup};
-use super::ports::{PortError, SettingsChange};
+use super::ports::{PeerInfo, PeerTrust, PortError, SettingsChange};
+
+/// The warning code raised when a trusted name presents another key.
+const KEY_CHANGED_WARNING: &str = "PEER_KEY_CHANGED";
 
 fn operation_pb(id: OperationId, state: OperationState, revision: u64) -> Operation {
 	Operation {
@@ -149,6 +152,38 @@ impl Actor {
 			ServiceOp::ForgetPeer(selector) => {
 				let gone = self.ports.peers.forget_peer(&selector)?;
 				let mut events = self.directory.forget_peer(gone.id);
+				for offending in &gone.key_changed {
+					events.extend(self.directory.forget_peer(*offending));
+				}
+				if !gone.key_changed.is_empty() {
+					events.extend(self.directory.clear_warning(KEY_CHANGED_WARNING));
+				}
+				events.extend(self.directory.set_peers(self.ports.peers.peers()));
+				events.extend(
+					self.directory
+						.set_favorites(self.ports.settings.favorites()),
+				);
+				self.publish(events);
+			}
+			ServiceOp::ReplaceKey {
+				peer,
+				fingerprint,
+				verified,
+				via,
+			} => {
+				let done = self.ports.peers.replace_pinned_key(
+					peer,
+					&fingerprint,
+					verified,
+					via.as_deref(),
+				)?;
+				let mut events = self.directory.forget_peer(done.previous);
+				events.extend(self.directory.flag(PeerInfo {
+					display_name: done.name,
+					trust: PeerTrust::Verified,
+					..PeerInfo::bare(done.id)
+				}));
+				events.extend(self.directory.clear_warning(KEY_CHANGED_WARNING));
 				events.extend(self.directory.set_peers(self.ports.peers.peers()));
 				events.extend(
 					self.directory

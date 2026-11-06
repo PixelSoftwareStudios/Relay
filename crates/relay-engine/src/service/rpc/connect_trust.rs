@@ -21,21 +21,52 @@ pub(super) async fn connect(
 ) -> Result<Response<Operation>, Status> {
 	let peers = service.shared.peers.clone();
 	let text = body.connection_string.clone();
-	let dialled = tokio::task::spawn_blocking(move || peers.connect_pinned(&text))
+	// A scanned code of a key-changed contact is the out-of-band check of its new key: the
+	// contact is repaired, not trusted anew. Name or address alone never get here: only the
+	// scanned key equal to the key the device was refused with does.
+	let repair = |peers: std::sync::Arc<dyn crate::service::ports::PeerControl>, text: String| {
+		tokio::task::spawn_blocking(move || peers.key_change_for(&text))
+	};
+	let mut changed = repair(peers.clone(), text.clone())
 		.await
 		.map_err(|_| ServiceError::Stopped)?;
-	match dialled {
-		Ok(peer) => {
-			let request = TrustRequest {
-				peer,
-				expected_key: peer,
-				requested: PeerTrust::Verified,
-				out_of_band_verified: true,
-			};
-			service_op(service, mutation, body, ServiceOp::Trust(request)).await
+	if changed.is_none() {
+		let (dial_peers, dial_text) = (peers.clone(), text.clone());
+		let dialled = tokio::task::spawn_blocking(move || dial_peers.connect_pinned(&dial_text))
+			.await
+			.map_err(|_| ServiceError::Stopped)?;
+		match dialled {
+			Ok(peer) => {
+				let request = TrustRequest {
+					peer,
+					expected_key: peer,
+					requested: PeerTrust::Verified,
+					out_of_band_verified: true,
+				};
+				return service_op(service, mutation, body, ServiceOp::Trust(request)).await;
+			}
+			Err(failure) => {
+				// The dial itself may have shown the key change (a contact whose new key was
+				// not seen yet): then the same repair applies.
+				changed = repair(peers, text.clone())
+					.await
+					.map_err(|_| ServiceError::Stopped)?;
+				if changed.is_none() {
+					return Ok(Response::new(failed(mutation, &failure)));
+				}
+			}
 		}
-		Err(failure) => Ok(Response::new(failed(mutation, &failure))),
 	}
+	let Some(peer) = changed else {
+		return Err(ServiceError::Stopped.into());
+	};
+	let op = ServiceOp::ReplaceKey {
+		peer,
+		fingerprint: hex::encode(peer.as_bytes()),
+		verified: true,
+		via: Some(text),
+	};
+	service_op(service, mutation, body, op).await
 }
 
 fn failed(mutation: &Mutation, failure: &ConnectFailure) -> Operation {

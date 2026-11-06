@@ -171,7 +171,10 @@ pub(super) fn peer_output(
 						),
 						"verify_out_of_band",
 					);
-					let info = flagged(peer, name, PeerTrust::KeyChanged);
+					let info = PeerInfo {
+						key_change: Some(previous),
+						..flagged(peer, name, PeerTrust::KeyChanged)
+					};
 					handle.attention(Some(info), warning).await
 				}
 				PeerOutput::AvatarRejected { peer, reason, .. } => {

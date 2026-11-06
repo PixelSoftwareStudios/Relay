@@ -40,6 +40,9 @@ service Engine {
   rpc WatchCallStats(WatchCallStatsRequest) returns (stream CallStats);
   // Removes a stored trust decision, found by peer id, fingerprint prefix or exact name.
   rpc ForgetPeer(ForgetPeerRequest) returns (Operation);
+  // Replaces the pinned key of a contact whose key changed by the key it now presents, after
+  // the user compared its full fingerprint on the other device. See ReplacePinnedKeyRequest.
+  rpc ReplacePinnedKey(ReplacePinnedKeyRequest) returns (Operation);
   // Replaces the favorites by this ordered list of trusted peers (docs/engine.md). More than 6,
   // a repeated or an untrusted peer FAILS the operation and changes nothing. Needs `call-control`.
   rpc SetFavorites(SetFavoritesRequest) returns (Operation);
@@ -225,6 +228,11 @@ message Peer {
   // Favorites (the quick-call grid): at most 6 trusted peers in a user-chosen order.
   bool favorite = 20;
   uint32 favorite_position = 21; // 0-based place in the favorites; 0 and meaningless when not a favorite
+  // Key change: the device presented a key other than the pinned one and was refused. The
+  // peer_id and fingerprint_short above are then those of the NEW key.
+  bool key_changed = 30;
+  bytes previous_peer_id = 31; // the pinned key digest (32 bytes); empty unless key_changed
+  string previous_fingerprint_short = 32; // short form of the pinned key; empty unless key_changed
 }
 message Device {
   string device_id = 1; // opaque adapter-qualified ID; never an enumeration index
@@ -449,6 +457,17 @@ message ForgetPeerRequest {
   MutationContext context = 1;
   bytes peer_id = 2; // 32 bytes; when empty `query` is used
   string query = 3; // hex fingerprint prefix (>= 8 digits, separators ignored) or an exact display name
+}
+// Re-verifies a contact whose key changed. Only when the engine remembers the key change of
+// `peer_id` (the key the device presents now), `verified` is true and `expected_fingerprint`
+// (64 hex digits, separators and case ignored) equals that key's full fingerprint, the pinned
+// record is replaced by the new key as verified, with its name and favorite place, and the
+// device is dialled. Anything else is refused and nothing changes. `ForgetPeer` accepts either key.
+message ReplacePinnedKeyRequest {
+  MutationContext context = 1;
+  bytes peer_id = 2; // the new (offending) key digest, 32 bytes
+  string expected_fingerprint = 3;
+  bool verified = 4; // the user compared the fingerprint with what the other device shows
 }
 enum CallDirection {
   CALL_DIRECTION_UNSPECIFIED = 0;

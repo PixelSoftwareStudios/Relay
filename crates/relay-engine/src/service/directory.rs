@@ -403,6 +403,7 @@ impl PeerInfo {
 			trust: super::ports::PeerTrust::Unknown,
 			reachable: false,
 			avatar: None,
+			key_change: None,
 		}
 	}
 }

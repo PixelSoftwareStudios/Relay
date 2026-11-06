@@ -186,6 +186,7 @@ async fn discovered_peers_and_devices_arrive_as_events() {
 		trust: relay_engine::service::PeerTrust::TofuUnverified,
 		reachable: true,
 		avatar: None,
+		key_change: None,
 	};
 	rig.daemon
 		.control()

@@ -25,6 +25,10 @@ pub trait KeyedTrustStore: TrustStore + Send {
 
 	/// Every fingerprint the user has trusted (bounded by the store).
 	fn fingerprints(&self) -> Vec<Fingerprint>;
+
+	/// Atomically replaces the pinned key `old` by the authenticated key `new` as verified,
+	/// carrying over the name and keeping the favorite. `new` must have been observed.
+	fn replace(&mut self, old: &Fingerprint, new: &Fingerprint) -> Result<TrustRecord, TrustError>;
 }
 
 /// Shared handle used by link tasks and the manager. Never held across `.await`.
@@ -106,6 +110,22 @@ impl KeyedTrustStore for MemoryTrust {
 	fn fingerprints(&self) -> Vec<Fingerprint> {
 		self.keys.iter().copied().collect()
 	}
+
+	fn replace(&mut self, old: &Fingerprint, new: &Fingerprint) -> Result<TrustRecord, TrustError> {
+		let previous = self.store.get(old).ok_or(TrustError::Unknown)?;
+		if self.store.get(new).is_some() {
+			return Err(TrustError::Full);
+		}
+		let record = TrustRecord {
+			fingerprint: *new,
+			state: TrustState::Verified,
+			..previous
+		};
+		self.store.remove(old)?;
+		self.keys.remove(old);
+		self.put(record.clone())?;
+		Ok(record)
+	}
 }
 
 /// Adapter over the persistent `relay-config` trust file.
@@ -134,6 +154,15 @@ impl ConfigTrust {
 			display_name: entry.display_name.clone(),
 			trusted_at: UNIX_EPOCH + Duration::from_secs(entry.first_seen),
 		})
+	}
+
+	fn key_of(&self, fingerprint: &Fingerprint) -> Option<[u8; 32]> {
+		let entry = self
+			.store
+			.entries()
+			.iter()
+			.find(|e| Self::record(e).is_some_and(|r| &r.fingerprint == fingerprint))?;
+		hex::decode(&entry.public_key).ok()?.try_into().ok()
 	}
 
 	fn records(&self) -> impl Iterator<Item = TrustRecord> + '_ {
@@ -203,6 +232,16 @@ impl KeyedTrustStore for ConfigTrust {
 
 	fn fingerprints(&self) -> Vec<Fingerprint> {
 		self.records().map(|r| r.fingerprint).collect()
+	}
+
+	fn replace(&mut self, old: &Fingerprint, new: &Fingerprint) -> Result<TrustRecord, TrustError> {
+		let old_key = self.key_of(old).ok_or(TrustError::Unknown)?;
+		let new_key = self.seen.get(new).ok_or(TrustError::Unknown)?;
+		let entry = self
+			.store
+			.replace_key(&old_key, new_key.as_bytes())
+			.map_err(|_| TrustError::Full)?;
+		Self::record(&entry).ok_or(TrustError::Unknown)
 	}
 }
 

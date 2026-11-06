@@ -319,6 +319,12 @@ pub(super) enum Command {
 	Release(Fingerprint),
 	/// The stored trust decision was removed; drop the link.
 	Forgotten(Fingerprint),
+	/// The pinned key `old` was replaced by the verified key `new`: dial the new one.
+	Replaced {
+		old: Fingerprint,
+		new: Fingerprint,
+		via: Vec<SocketAddr>,
+	},
 	Dial {
 		addr: SocketAddr,
 		expected: Option<Fingerprint>,
@@ -362,6 +368,7 @@ pub struct PeerHandle {
 	pub(super) snapshot: Arc<ArcSwap<Vec<PeerSnapshot>>>,
 	pub(super) sessions: Arc<std::sync::Mutex<super::sessions::SessionTable>>,
 	pub(super) trust: super::trust::SharedTrust,
+	pub(super) key_changes: super::key_changes::KeyChanges,
 }
 
 impl PeerHandle {
