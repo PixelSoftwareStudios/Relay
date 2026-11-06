@@ -44,7 +44,7 @@ as a snapshot but is only authoritative when regenerated at the release revision
 5. **Build artifacts** from a clean checkout with the pinned toolchain (`rust-toolchain.toml`), using
    `cargo build --release --locked -p relay-daemon -p relay-cli` (and `-p relay-desktop` for the GUI). Artifacts are `relayd`, `relay` and `relay-desktop`, installed side by side (`docs/packaging.md`). Each target is
    built on its native runner; there is no cross-compiled artifact unless it is separately qualified.
-6. **Notices and SBOM.** Generate `THIRD_PARTY_LICENSES` and the CycloneDX files from the tagged revision. Translations are embedded from `localizations/` (nothing to ship beside the binary); a language is released only after its native-speaker review (`docs/i18n.md`, `docs/gates.md`). Also ship `assets/font/OFL-*.txt` (the bundled Noto fonts are OFL 1.1 and are not crates, so `cargo about` does not list them).
+6. **Notices and SBOM.** Generate `THIRD_PARTY_LICENSES` and the CycloneDX files from the tagged revision. Translations are embedded from `localizations/` (nothing to ship beside the binary); a language is released only after its native-speaker review (`docs/i18n.md`, `docs/gates.md`). Also ship `assets/font/OFL-*.txt` and `assets/font/LICENSE-phosphor.txt` (the bundled Noto fonts are OFL 1.1 and the Phosphor icon font is MIT; neither is a crate, so `cargo about` does not list them).
 7. **Hash and sign** (below), publish, then record the release in `docs/evidence.md` with the commit,
    toolchain, host OS and artifact hashes.
 

@@ -46,7 +46,24 @@ pub const NOTO_SANS_DEVANAGARI: Face = Face {
 	data: include_bytes!("../../../assets/font/NotoSansDevanagari-Regular.ttf"),
 };
 
-/// Every bundled face, in the default fallback order.
+/// Phosphor icons (regular weight), subset to the glyphs `Icon` uses. Lives in
+/// its own family, so icons never fall back through the text fonts.
+pub const PHOSPHOR_ICONS: Face = Face {
+	name: "Phosphor-Icons",
+	data: include_bytes!("../../../assets/font/Phosphor-Icons.ttf"),
+};
+/// Phosphor icons, fill weight: the filled variants of icons that toggle.
+pub const PHOSPHOR_ICONS_FILL: Face = Face {
+	name: "Phosphor-Icons-Fill",
+	data: include_bytes!("../../../assets/font/Phosphor-Icons-Fill.ttf"),
+};
+
+/// Name of the egui family that holds only [`PHOSPHOR_ICONS`].
+pub const ICON_FAMILY: &str = "icons";
+/// Name of the egui family that holds only [`PHOSPHOR_ICONS_FILL`].
+pub const ICON_FILL_FAMILY: &str = "icons-fill";
+
+/// Every bundled text face, in the default fallback order.
 pub const FACES: [Face; 5] = [
 	NOTO_SANS,
 	NOTO_SANS_JP,
@@ -91,6 +108,17 @@ pub fn definitions(language: Language) -> FontDefinitions {
 	}
 	let monospace = defs.families.entry(FontFamily::Monospace).or_default();
 	monospace.extend(faces.iter().map(|face| face.name.to_owned()));
+	for (family, face) in [
+		(ICON_FAMILY, PHOSPHOR_ICONS),
+		(ICON_FILL_FAMILY, PHOSPHOR_ICONS_FILL),
+	] {
+		defs.font_data.insert(
+			face.name.to_owned(),
+			Arc::new(FontData::from_static(face.data)),
+		);
+		defs.families
+			.insert(FontFamily::Name(family.into()), vec![face.name.to_owned()]);
+	}
 	defs
 }
 

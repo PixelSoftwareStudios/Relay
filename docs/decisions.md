@@ -128,3 +128,17 @@ Options compared (versions as pinned or documented at the time of writing):
 - CameraX 1.4.2 plus ML Kit `barcode-scanning` 17.3.0 (bundled model): works offline and without Play services (the bundled variant carries the model in the APK; the unbundled variant is the one that needs Play services), both libraries are actively maintained by Google, and the decoder is the same one Code Scanner uses. Cost: about 6 MB uncompressed per ABI in the APK (`libbarhopper_v3.so` 4.9 MB plus about 0.9 MB of models, measured in the arm64 debug APK), the `CAMERA` permission (asked on the first tap of Scan, never at startup) and about 160 lines of our own scanner screen (`ScanActivity.kt`).
 
 Decision: CameraX plus bundled ML Kit. The cost is modest, so no Play-services fallback path is kept. The camera permission has its own `PermissionGate` (separate from the microphone's); a refusal that the system will repeat is "denied" (tap Scan again), a permanent one is "blocked" and the UI offers Open system settings. The shared UI sees only the platform-neutral `Shell::can_scan_qr` / `scan_qr` / `open_camera_settings`.
+
+## Icons are the Phosphor font, embedded and subset, with our own codepoint table
+
+Need: the UI had plain-text buttons for universal actions (copy, send, close, more, star). Icons must render on every platform the same, scale with the text, take the theme colours, work with egui 0.37 and cost almost nothing in size.
+
+Options compared:
+- `egui-phosphor` 0.14.0 (MIT or Apache-2.0, Phosphor Icons MIT): the best-kept egui wrapper and the glyph set we want, but it depends on egui 0.36, so it would pull a second egui into the tree (its releases trail egui by a few weeks), it ships five full 450-530 KB fonts, and registers them into the Proportional family where glyphs fall through text fonts.
+- `egui_material_icons` (Material Symbols, Apache-2.0): same wrapper idea, a variable font of about 3 MB without subsetting, and its glyphs are rounder and heavier than the rest of the UI.
+- Lucide font (ISC): fine licence, but it lacks filled variants, which a favourite star needs.
+- Phosphor font bytes embedded by us (chosen): MIT, 1,500 icons in six weights with matching codepoints, a regular and a fill weight with the same codepoints. `assets/font/subset-icons.py` keeps only the glyphs listed in `assets/font/icon-glyphs.txt`: 16.7 KB regular plus 1.3 KB fill. Codepoints are a `match` in `crates/relay-ui/src/icons.rs`, checked against the font by `tests/icons.rs`. Each face has its own egui family (`icons`, `icons-fill`), so an icon never falls back to a text font and a text glyph never lands in the icon font.
+
+The glyph source for the subset is the `res/` folder of the egui-phosphor 0.14.0 crate (the unmodified upstream Phosphor TTFs); nothing from that crate is linked. Licence: MIT, text shipped as `assets/font/LICENSE-phosphor.txt` next to the OFL files (`docs/release.md`); it is not a crate, so `cargo deny` does not see it and `deny.toml` needs no change.
+
+Rules: an icon stands alone only where its meaning is universal (mute, send, close, back, search, copy, more, star); every icon-only control has a tooltip that is also its accessible name; actions whose meaning is not universal (Call, Hang up, Trust this device) keep a visible label beside the icon. Icon buttons are 44 points with touch style and 32 with a pointer.

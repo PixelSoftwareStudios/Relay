@@ -1,5 +1,7 @@
 # Fonts
 
+The icon font is described in the last section. The rest of this file is the Noto text fonts.
+
 Noto Sans subsets for the egui UI (`crates/relay-ui/src/fonts.rs`, embedded with `include_bytes!`).
 Regular weight only: egui does not synthesise bold or italic, and the UI uses one face per size.
 
@@ -51,3 +53,13 @@ Layout features: `kern,ccmp,locl,mark,mkmk` for Noto Sans, all for Devanagari (e
 
 - Devanagari is shaped by egui's own harfrust layout (conjuncts, matras, reph; tests in `crates/relay-ui/tests/shaping_*.rs`). Not yet confirmed on screen by a person, which is why Hindi keeps its experimental label.
 - egui has no per-locale font choice: Han characters shared by Japanese and Chinese resolve to the first face that has them (JP, then KR, then SC), so Chinese text may show Japanese glyph forms for shared characters. Characters outside GB2312, JIS level 1/Joyo and KS X 1001 show as missing glyphs.
+
+## Icons
+
+`Phosphor-Icons.ttf` (regular, 16,752 B) and `Phosphor-Icons-Fill.ttf` (fill, 1,344 B) are subsets of Phosphor Icons (https://phosphoricons.com, MIT, Copyright 2020 Phosphor Icons; text in `LICENSE-phosphor.txt`). Each has its own egui family (`icons`, `icons-fill`, `crates/relay-ui/src/fonts.rs`), so icons never fall back through text fonts. `icon-glyphs.txt` lists the kept glyphs (name, codepoint, weight); the codepoints used by the UI are in `crates/relay-ui/src/icons.rs` and `crates/relay-ui/tests/icons.rs` checks each one exists. When an icon is added, add its line to `icon-glyphs.txt`, rebuild, and add the variant to `Icon`.
+
+Source: `res/Phosphor.ttf` and `res/Phosphor-Fill.ttf` of the egui-phosphor 0.14.0 crate (unmodified upstream fonts), or the same files from `@phosphor-icons/web`.
+
+```sh
+PATH=$PWD/venv/bin:$PATH python3 -I assets/font/subset-icons.py PHOSPHOR_RES_DIR assets/font
+```

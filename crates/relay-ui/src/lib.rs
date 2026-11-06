@@ -22,6 +22,7 @@ pub mod history_view;
 pub mod host_options;
 pub mod hotkey_settings;
 pub mod hub;
+pub mod icons;
 pub mod i18n;
 pub mod imaging;
 pub mod inbox;
