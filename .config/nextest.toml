@@ -1,0 +1,26 @@
+# cargo-nextest settings. `just test` runs the whole workspace through it; doctests
+# are not supported by nextest and run with `cargo test --doc` (also in `just test`).
+#
+# Retries stay off: a test that needs one is a bug to fix, not to hide.
+
+[profile.default]
+retries = 0
+fail-fast = false
+# A test that has run for 30 s is reported as slow; at four periods it is killed.
+slow-timeout = { period = "30s", terminate-after = 4 }
+
+# Tests that start real relayd processes and wait on the real clock. With ten test
+# processes running at once they have been seen to miss their deadlines, so at most
+# two of them run at the same time. Nothing else is throttled: throttling the engine
+# tests cost 40 percent of the run time and did not remove their (real, not
+# load-related) races. See docs/build-performance.md.
+[test-groups]
+real-clock = { max-threads = 2 }
+
+[[profile.default.overrides]]
+filter = 'package(=relay-cli) & (binary(=autostart) | binary(=daemon_cmd) | binary(=daemon_admin) | binary(=real_engine) | binary(=real_chat) | binary(=startup_wait))'
+test-group = 'real-clock'
+
+[[profile.default.overrides]]
+filter = 'package(=relay-client) & (binary(=daemon) | binary(=ensure) | binary(=startup_wait))'
+test-group = 'real-clock'

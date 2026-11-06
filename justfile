@@ -37,3 +37,22 @@ android-apk abis="arm64-v8a":
 android-install abis="arm64-v8a": (android-apk abis)
 	adb install -r "dist/android/relay-v{{version}}.apk"
 	adb shell am start -n dev.relay.app/.MainActivity
+
+# One-time: cargo install cargo-nextest --locked. The real-clock tests are throttled in .config/nextest.toml.
+# Run every test with nextest (one process per test), then the doctests it does not run.
+test:
+	cargo nextest run --workspace --no-fail-fast
+	cargo test --workspace --doc
+
+# Never removes anything but the dev incremental cache and target/android* dirs older than two weeks.
+# Free disk without a full rebuild.
+clean-cache:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	root="$PWD/target"
+	[ -d "$root" ] || { echo "no target directory"; exit 0; }
+	before=$(du -sk "$root" | cut -f1)
+	rm -rf "${root:?}/debug/incremental"
+	find "${root:?}" -mindepth 1 -maxdepth 1 -type d -name 'android*' -mtime +14 -exec rm -rf {} +
+	after=$(du -sk "$root" | cut -f1)
+	echo "freed $(( (before - after) / 1024 )) MB"
