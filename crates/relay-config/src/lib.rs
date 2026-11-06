@@ -11,6 +11,7 @@ pub mod db;
 pub mod diagnostics;
 pub mod error;
 pub mod identity;
+pub mod keychain;
 pub mod notice;
 pub mod paths;
 pub mod prefs;

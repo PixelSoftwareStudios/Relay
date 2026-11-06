@@ -64,6 +64,11 @@ impl Paths {
 		self.data_dir.join("channel-secrets")
 	}
 
+	/// Serialises read-modify-write of the single credential-store item across processes.
+	pub fn keychain_lock_file(&self) -> PathBuf {
+		self.config_dir.join("keychain.lock")
+	}
+
 	pub fn writer_lock_file(&self) -> PathBuf {
 		self.config_dir.join("writer.lock")
 	}

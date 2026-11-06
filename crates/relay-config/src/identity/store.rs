@@ -1,17 +1,15 @@
 //! Identity secret storage behind a trait: OS credential store, explicit file, memory.
 
 use std::path::{Path, PathBuf};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use relay_io::fs::{AtomicWrite, backup_path, read_if_exists, remove_if_exists};
 
 use super::secret::StoredIdentity;
 use crate::error::{ConfigError, Result};
+use crate::keychain::Keychain;
 use crate::paths::Paths;
 use crate::prefs::{KeyStorage, Preferences};
-
-const KEYRING_SERVICE: &str = "relay-voice";
-const KEYRING_ACCOUNT: &str = "local-identity";
 
 /// Persistence for the one local identity.
 pub trait IdentityStore: Send + Sync {
@@ -39,7 +37,9 @@ pub fn load_or_create(
 /// a failing OS credential store surfaces its error to the user.
 pub fn open_store(prefs: &Preferences, paths: &Paths) -> Result<Box<dyn IdentityStore>> {
 	match prefs.identity.key_storage {
-		KeyStorage::OsCredentialStore => Ok(Box::new(KeyringStore::new())),
+		KeyStorage::OsCredentialStore => Ok(Box::new(KeyringStore::new(Keychain::os(
+			&paths.keychain_lock_file(),
+		)))),
 		KeyStorage::InsecureFile => Ok(Box::new(InsecureFileStore::new(
 			paths.identity_file(),
 			prefs.identity.key_storage,
@@ -47,18 +47,16 @@ pub fn open_store(prefs: &Preferences, paths: &Paths) -> Result<Box<dyn Identity
 	}
 }
 
-/// OS credential store (Keychain, Credential Manager, Secret Service).
-#[derive(Debug, Default)]
-pub struct KeyringStore;
+/// OS credential store (Keychain, Credential Manager, Secret Service), sharing the one
+/// per-user secret item with the channel vault.
+#[derive(Debug)]
+pub struct KeyringStore {
+	keychain: Arc<Keychain>,
+}
 
 impl KeyringStore {
-	pub fn new() -> Self {
-		Self
-	}
-
-	fn entry() -> Result<keyring::Entry> {
-		keyring::Entry::new(KEYRING_SERVICE, KEYRING_ACCOUNT)
-			.map_err(|e| ConfigError::CredentialStore(e.to_string()))
+	pub fn new(keychain: Arc<Keychain>) -> Self {
+		Self { keychain }
 	}
 }
 
@@ -68,27 +66,18 @@ impl IdentityStore for KeyringStore {
 	}
 
 	fn load(&self) -> Result<Option<StoredIdentity>> {
-		match Self::entry()?.get_secret() {
-			Ok(bytes) => {
-				let bytes = zeroize::Zeroizing::new(bytes);
-				StoredIdentity::decode(&bytes).map(Some)
-			}
-			Err(keyring::Error::NoEntry) => Ok(None),
-			Err(e) => Err(ConfigError::CredentialStore(e.to_string())),
+		match self.keychain.identity()? {
+			Some(bytes) => StoredIdentity::decode(&bytes).map(Some),
+			None => Ok(None),
 		}
 	}
 
 	fn save(&self, identity: &StoredIdentity) -> Result<()> {
-		Self::entry()?
-			.set_secret(&identity.encode())
-			.map_err(|e| ConfigError::CredentialStore(e.to_string()))
+		self.keychain.set_identity(&identity.encode())
 	}
 
 	fn delete(&self) -> Result<()> {
-		match Self::entry()?.delete_credential() {
-			Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-			Err(e) => Err(ConfigError::CredentialStore(e.to_string())),
-		}
+		self.keychain.delete_identity()
 	}
 }
 

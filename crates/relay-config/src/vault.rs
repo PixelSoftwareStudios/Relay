@@ -16,10 +16,10 @@ use relay_io::fs::{
 use zeroize::Zeroizing;
 
 use crate::error::{ConfigError, Result};
+use crate::keychain::Keychain;
 use crate::paths::Paths;
 use crate::prefs::{KeyStorage, Preferences};
 
-const KEYRING_SERVICE: &str = "relay-voice";
 const SLOT_MAX_CHARS: usize = 64;
 
 /// Checks that a slot name is short and filename-safe (`a-z 0-9 . _ -`).
@@ -51,7 +51,9 @@ pub trait SecretVault: Send + Sync {
 /// Opens the vault the preferences ask for; there is no automatic fallback.
 pub fn open_vault(prefs: &Preferences, paths: &Paths) -> Result<Arc<dyn SecretVault>> {
 	match prefs.identity.key_storage {
-		KeyStorage::OsCredentialStore => Ok(Arc::new(KeyringVault)),
+		KeyStorage::OsCredentialStore => Ok(Arc::new(KeyringVault::new(Keychain::os(
+			&paths.keychain_lock_file(),
+		)))),
 		KeyStorage::InsecureFile => Ok(Arc::new(FileVault::new(
 			paths.channel_secrets_dir(),
 			prefs.identity.key_storage,
@@ -59,16 +61,21 @@ pub fn open_vault(prefs: &Preferences, paths: &Paths) -> Result<Arc<dyn SecretVa
 	}
 }
 
-/// OS credential store (Keychain, Credential Manager, Secret Service).
-#[derive(Debug, Default)]
-pub struct KeyringVault;
+/// OS credential store (Keychain, Credential Manager, Secret Service), sharing the one
+/// per-user secret item with the identity key.
+#[derive(Debug)]
+pub struct KeyringVault {
+	keychain: Arc<Keychain>,
+}
 
 impl KeyringVault {
-	fn entry(channel: &[u8; 16], slot: &str) -> Result<keyring::Entry> {
+	pub fn new(keychain: Arc<Keychain>) -> Self {
+		Self { keychain }
+	}
+
+	fn key(channel: &[u8; 16], slot: &str) -> Result<String> {
 		validate_slot(slot)?;
-		let account = format!("channel/{}/{slot}", hex::encode(channel));
-		keyring::Entry::new(KEYRING_SERVICE, &account)
-			.map_err(|e| ConfigError::CredentialStore(e.to_string()))
+		Ok(format!("{}/{slot}", hex::encode(channel)))
 	}
 }
 
@@ -78,24 +85,17 @@ impl SecretVault for KeyringVault {
 	}
 
 	fn get(&self, channel: &[u8; 16], slot: &str) -> Result<Option<Zeroizing<Vec<u8>>>> {
-		match Self::entry(channel, slot)?.get_secret() {
-			Ok(bytes) => Ok(Some(Zeroizing::new(bytes))),
-			Err(keyring::Error::NoEntry) => Ok(None),
-			Err(e) => Err(ConfigError::CredentialStore(e.to_string())),
-		}
+		self.keychain.channel_secret(&Self::key(channel, slot)?)
 	}
 
 	fn put(&self, channel: &[u8; 16], slot: &str, secret: &[u8]) -> Result<()> {
-		Self::entry(channel, slot)?
-			.set_secret(secret)
-			.map_err(|e| ConfigError::CredentialStore(e.to_string()))
+		self.keychain
+			.set_channel_secret(Self::key(channel, slot)?, secret)
 	}
 
 	fn delete(&self, channel: &[u8; 16], slot: &str) -> Result<()> {
-		match Self::entry(channel, slot)?.delete_credential() {
-			Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
-			Err(e) => Err(ConfigError::CredentialStore(e.to_string())),
-		}
+		self.keychain
+			.delete_channel_secret(&Self::key(channel, slot)?)
 	}
 }
 

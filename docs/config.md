@@ -13,6 +13,7 @@ All persistent settings are in **one SQLite database per OS user**. Secrets are 
 | `relay.db.corrupt` | data | A damaged database, kept for inspection after recovery |
 | `avatars.db` | data | Disposable avatar cache (bytes only); no backup, wiped and recreated if damaged |
 | `writer.lock` | config | OS advisory lock; one writer process at a time |
+| `keychain.lock` | config | OS advisory lock serialising read-modify-write of the credential-store item |
 | `identity.insecure.key` | data | Identity key, only if the user chose `identity.key_storage = "insecure_file"` |
 
 The directories come from `directories::ProjectDirs`, which resolve inside the current OS user's
@@ -23,6 +24,18 @@ profile. `Paths::new`/`Paths::under` override them (tests, portable installs).
 `identity.insecure.key` file (0600, described as INSECURE by `describe()`). The database holds no
 keys, tokens or passwords; only public peer keys and display names. The diagnostics bundle never
 includes keys, trust entries or the database path (see below).
+
+**One credential-store item.** Everything secret goes into a single item per OS user, service
+`relay-voice`, account `vault` (`keychain::Keychain`). Its value is one versioned JSON object
+`{"version":1,"identity":<hex>,"channels":{"<channel hex>/<slot>":<hex>}}` held in zeroizing,
+redacted-`Debug` buffers. `KeyringStore` (identity) and `KeyringVault` (channel secrets) are views
+of it, so the OS asks for permission once, not once per secret. Every change is a read-modify-write
+under an in-process mutex plus an advisory `ProcessLock` on `keychain.lock`, so two processes of one
+user never lose each other's updates; reads are a single atomic item read. An unchanged bundle is not
+written back and an emptied one deletes the item. An unknown bundle version is refused with an
+error, not guessed at. There is no per-secret item layout and nothing reads one. The INSECURE file
+stores (`identity.insecure.key`, `channel-secrets/`) are unchanged and still only exist on explicit
+user choice.
 
 ## Per-user isolation
 
@@ -70,7 +83,7 @@ blobs, policy flags and roles are small integers the caller defines.
 
 **Secrets are never in SQLite.** The owner signing key, the password-derived credential and the
 invite credentials go to a `vault::SecretVault` keyed by `(channel id, slot)`: the OS credential
-store by default (`KeyringVault`), or 0600 files in `channel-secrets/` only when
+store by default (`KeyringVault`, one shared item, see above), or 0600 files in `channel-secrets/` only when
 `identity.key_storage = "insecure_file"` (`FileVault`, same explicit opt-in as the identity key);
 `MemoryVault` is for tests. `vault::open_vault(&prefs, &paths)` picks the right one.
 
