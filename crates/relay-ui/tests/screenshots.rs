@@ -586,3 +586,56 @@ async fn calls_screenshots() {
 		}
 	}
 }
+
+/// The notices strip with one, three and five notices, on desktop and phone.
+#[tokio::test]
+async fn notices_screenshots() {
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	let problem = |code: &str, message: &str, recovery: &str| relay_ui::model::Problem {
+		code: code.into(),
+		message: message.into(),
+		retryable: false,
+		recovery_action: recovery.into(),
+	};
+	let all = [
+		problem(
+			"PEER_KEY_CHANGED",
+			"`Dantes-Laptop.local` presented key 59F1-AAAA-BBBB instead of the pinned 1A10-CCCC-DDDD; the link was refused",
+			"verify_out_of_band",
+		),
+		problem("MEDIA_WORKER_FAILED", "x", "restarted_render"),
+		problem("OUTPUT_DEVICE_LOST", "gone", "select_output_device"),
+		problem("AVATAR_REJECTED", "avatar refused", ""),
+		problem("MEDIA_WORKER_FAILED", "y", "restart_daemon"),
+	];
+	for (name, desktop, w, h) in [
+		("desktop", true, 720.0, 800.0),
+		("phone", false, 360.0, 800.0),
+	] {
+		for count in [1, 3, 5] {
+			let mut phone = if desktop {
+				Phone::desktop(w, h, Language::En)
+			} else {
+				Phone::new(w, h, Language::En)
+			};
+			if desktop {
+				phone.ctx.set_pixels_per_point(1.5);
+			}
+			let mut state = phone::busy_state();
+			state.mock = false;
+			state.warnings = all[..count].to_vec();
+			phone.show_state(&state);
+			phone.app.set_page(Page::Calls);
+			let mut textures = Textures::default();
+			shoot(
+				&mut phone,
+				&mut textures,
+				&dir.join(format!("notices-{name}-{count}.png")),
+			);
+		}
+	}
+}

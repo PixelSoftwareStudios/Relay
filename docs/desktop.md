@@ -120,4 +120,4 @@ The language is a desktop-only preference stored with the notification switch in
 
 Found nearby: the daemon dials discovered devices while the app is attached and the device is discoverable, so a device on the same network appears on Connect under Nearby (with its local address) until the user trusts it, and then under Contacts after comparing fingerprints (`docs/ui.md`, `docs/engine.md`). A Private device does not dial out.
 
-Navigation, contact cards, chat controls and banners use Phosphor icons with tooltips; see the Icons section of `docs/ui.md`.
+Navigation, contact cards, chat controls and banners use Phosphor icons with tooltips; see the Icons section of `docs/ui.md`. Warnings and notes are dismissible cards with plain wording (Notices, `docs/ui.md`); nothing about them is stored.

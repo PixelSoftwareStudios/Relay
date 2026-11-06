@@ -145,7 +145,7 @@ async fn other_warnings_still_show() {
 	});
 	phone.show_state(&state);
 	let drawn = phone.page(Page::Calls);
-	assert!(has(&drawn.labels, "A device changed its key"));
+	assert!(has(&drawn.labels, "A device's security key changed"));
 }
 
 #[tokio::test]

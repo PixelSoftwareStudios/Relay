@@ -1,5 +1,5 @@
-//! Status banners above every page: daemon link, warnings, the last failed
-//! action (with a way to dismiss it) and notices.
+//! Status banners above every page: the daemon link, the last failed action and
+//! the notices strip (`notice_strip`), each with a way to dismiss it.
 
 use std::sync::atomic::Ordering;
 
@@ -9,30 +9,26 @@ use crate::actions::Actions;
 use crate::format::link_label;
 use crate::model::{AppState, Link};
 
-use super::kit;
-use super::widgets::{banner, notice};
-use crate::icons::{Icon, icon_label, icon_label_enabled};
+use super::notice_strip::{self, Outcome};
+use super::widgets::banner;
+use crate::icons::{Icon, icon_label_enabled};
+use crate::notice_words::Severity;
+use crate::notices::Notice;
 use crate::tr;
 
-/// The engine's code for a device that connected and waits for a trust decision.
-/// Never shown: trust is decided in Connect, under "Found nearby", or by a scan.
-const TRUST_REQUIRED: &str = "TRUST_REQUIRED";
-
-/// The warnings worth showing.
-fn shown(state: &AppState) -> impl Iterator<Item = &crate::model::Problem> {
-	state.warnings.iter().filter(|w| w.code != TRUST_REQUIRED)
+/// Whether any strip would be drawn.
+pub fn any(state: &AppState, error: Option<&str>, notices: &[Notice]) -> bool {
+	state.mock || state.link != Link::Connected || error.is_some() || !notices.is_empty()
 }
 
-/// Whether any notice would be drawn.
-pub fn any(state: &AppState, error: Option<&str>) -> bool {
-	state.mock
-		|| state.link != Link::Connected
-		|| shown(state).next().is_some()
-		|| error.is_some()
-		|| state.notice.is_some()
-}
-
-pub fn show(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Actions) {
+pub fn show(
+	ui: &mut Ui,
+	state: &AppState,
+	error: Option<&str>,
+	notices: &[Notice],
+	expanded: bool,
+	actions: &Actions,
+) -> Outcome {
 	if state.mock {
 		banner(ui, tr!("banner-mock"), false);
 	} else if state.link != Link::Connected {
@@ -55,19 +51,21 @@ pub fn show(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Action
 			start_daemon_button(ui, actions);
 		}
 	}
-	for w in shown(state) {
-		banner(ui, &w.message, false);
-	}
 	if let Some(e) = error {
-		banner(ui, e, true);
-		kit::help(ui, tr!("error-next"));
-		if icon_label(ui, Icon::Close, tr!("action-dismiss")).clicked() {
+		let failed = Notice {
+			id: 0,
+			ids: Vec::new(),
+			severity: Severity::Error,
+			title: e.to_owned(),
+			next_step: Some(tr!("error-next").to_owned()),
+			details: None,
+			count: 1,
+		};
+		if notice_strip::card(ui, &failed).0 {
 			actions.shared.clear_error();
 		}
 	}
-	if let Some(n) = &state.notice {
-		notice(ui, Icon::Info, super::icon_style::info_color(ui), n);
-	}
+	notice_strip::show(ui, notices, expanded)
 }
 
 pub(super) fn start_daemon_button(ui: &mut Ui, actions: &Actions) {

@@ -30,6 +30,8 @@ mod microphone;
 mod nav;
 mod nearby;
 mod outdated;
+mod notice_strip;
+mod outdated;
 mod settings;
 mod sidebar;
 mod textures;
@@ -337,18 +339,33 @@ impl RelayApp {
 		}
 		// Settings is a calm page: no strips above it. A ringing call still
 		// shows on the Calls entry of the sidebar or the tabs.
-		let notices = banners::any(&state, error.as_deref());
-		if (notices || ringing) && self.page != Page::Settings {
+		let now = cx.actions.shell.now_unix_ms();
+		cx.local
+			.notices
+			.sync(&state, now, self.page != Page::Settings);
+		let notices = cx.local.notices.visible(&state);
+		let strips = banners::any(&state, error.as_deref(), &notices);
+		let mut outcome = notice_strip::Outcome::default();
+		if (strips || ringing) && self.page != Page::Settings {
 			egui::Panel::top("relay-top")
 				.frame(top_frame(ui, class))
 				.show(ui, |ui| {
 					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
-					banners::show(ui, &state, error.as_deref(), cx.actions);
+					let expanded = cx.local.notices.expanded;
+					outcome =
+						banners::show(ui, &state, error.as_deref(), &notices, expanded, cx.actions);
 					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
 					incoming::show(ui, &incoming, &mut cx);
 				});
 		}
+			let shown =
+				&notices[..notice_strip::shown_count(notices.len(), cx.local.notices.expanded)];
+			if let Some(ms) = cx.local.notices.next_fade_ms(shown, now) {
+				ui.ctx()
+					.request_repaint_after(std::time::Duration::from_millis(ms.max(1)));
+			}
 		let frame = if class.is_compact() {
+		notice_strip::apply(&mut cx, &notices, outcome);
 			egui::Frame::central_panel(ui.style())
 		} else {
 			egui::Frame::central_panel(ui.style()).inner_margin(theme::SPACE_L)
