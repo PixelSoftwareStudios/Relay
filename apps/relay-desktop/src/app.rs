@@ -6,12 +6,15 @@ use std::sync::atomic::Ordering;
 use relay_ui::actions::Actions;
 use relay_ui::ui::RelayApp;
 
+use crate::hotkey::HotkeyHost;
 use crate::tray::Tray;
 
 pub struct DesktopApp {
 	app: RelayApp,
 	actions: Actions,
 	tray: Option<Tray>,
+	/// The global push-to-talk key; dropped before the runtime so a held key is released.
+	hotkeys: HotkeyHost,
 	/// Keeps the tokio runtime alive for the life of the window.
 	_runtime: tokio::runtime::Runtime,
 }
@@ -21,12 +24,14 @@ impl DesktopApp {
 		app: RelayApp,
 		actions: Actions,
 		tray: Option<Tray>,
+		hotkeys: HotkeyHost,
 		runtime: tokio::runtime::Runtime,
 	) -> Self {
 		Self {
 			app,
 			actions,
 			tray,
+			hotkeys,
 			_runtime: runtime,
 		}
 	}
@@ -47,6 +52,12 @@ impl DesktopApp {
 impl eframe::App for DesktopApp {
 	fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		self.handle_close(ctx);
+		// On the main thread, where the OS hotkey is registered.
+		let ptt_enabled = self
+			.actions
+			.hub
+			.read(|s| s.settings.as_ref().is_some_and(|s| s.ptt_enabled));
+		self.hotkeys.sync(ptt_enabled);
 		if let (Some(tray), Some(summary)) = (&mut self.tray, self.actions.shared.take_tray()) {
 			tray.apply(&summary);
 		}

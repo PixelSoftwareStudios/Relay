@@ -2,10 +2,12 @@ use std::sync::Arc;
 
 use relay_desktop::app::DesktopApp;
 use relay_desktop::host::DesktopShell;
+use relay_desktop::hotkey::{self, HotkeyHost, HotkeyShared};
 use relay_desktop::login::LoginItem;
 use relay_desktop::notify::{Dispatcher, NotifySink, SystemNotifier};
 use relay_desktop::options::DesktopOptions;
 use relay_desktop::prefs::DesktopPrefs;
+use relay_desktop::ptt::PttControl;
 use relay_desktop::tray;
 use relay_ui::actions::{Actions, Shared, ShellSink};
 use relay_ui::controller::{Controller, SessionSlot};
@@ -70,11 +72,20 @@ fn main() -> eframe::Result {
 			));
 			// Before the tray and the first frame, so everything starts in the right language.
 			relay_ui::i18n::set_active(options.language());
-			let host = Arc::new(DesktopShell::new(ctx.clone(), options.clone()));
+			let hub = Arc::new(Hub::default());
+			let ptt = Arc::new(PttControl::new(
+				hub.clone(),
+				runtime.handle().clone(),
+				Box::new(|| resolve_endpoint().map_err(|e| e.to_string())),
+			));
+			let hotkey_state = Arc::new(HotkeyShared::default());
+			let host = Arc::new(
+				DesktopShell::new(ctx.clone(), options.clone())
+					.with_push_to_talk(ptt.clone(), hotkey_state.clone()),
+			);
 			// The system prompt appears now, not at the first call.
 			host.start_microphone();
 			let shell: Arc<dyn Shell> = host.clone();
-			let hub = Arc::new(Hub::default());
 			let slot = Arc::new(SessionSlot::default());
 			let shared = Arc::new(Shared::default());
 			let controller = Arc::new(Controller::new(hub.clone(), slot.clone()));
@@ -110,6 +121,11 @@ fn main() -> eframe::Result {
 					shared.messages.clone(),
 					actions.shell.clone(),
 				));
+				runtime.spawn(hotkey::follow_settings(
+					hub.clone(),
+					actions.controller.clone(),
+					actions.shell.clone(),
+				));
 				let engine = Arc::new(RelayLink::new(resolve_endpoint));
 				let (shell, autostart, shared) =
 					(actions.shell.clone(), shared.autostart.clone(), shared);
@@ -141,7 +157,16 @@ fn main() -> eframe::Result {
 			let tray = tray::build(&actions);
 			host.set_tray(tray.is_some());
 			let app = RelayApp::new(actions.clone(), &ctx);
-			Ok(Box::new(DesktopApp::new(app, actions, tray, runtime)))
+			// Created here, on the main thread, where the OS key must be registered.
+			let hotkeys = HotkeyHost::new(
+				relay_platform::detect_app_backend(),
+				hotkey_state,
+				ptt,
+				runtime.handle().clone(),
+			);
+			Ok(Box::new(DesktopApp::new(
+				app, actions, tray, hotkeys, runtime,
+			)))
 		}),
 	)
 }

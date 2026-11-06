@@ -8,13 +8,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use relay_ui::daemon_control;
 use relay_ui::format::avatar_problem;
 use relay_ui::host_options::HostOptions;
+use relay_ui::hotkey_settings::HotkeyState;
 use relay_ui::imaging::avatar_check;
 use relay_ui::microphone::MicrophoneAccess;
 use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 
+use crate::hotkey::HotkeyShared;
 use crate::microphone::{MicrophoneGate, System};
 use crate::options::DesktopOptions;
+use crate::ptt::PttControl;
 use relay_ui::tr;
 
 pub struct DesktopShell {
@@ -26,6 +29,9 @@ pub struct DesktopShell {
 	microphone: MicrophoneGate,
 	/// The window had the keyboard focus on the last frame.
 	focused: AtomicBool,
+	/// Push-to-talk presses; without it the hold button and the key are not offered.
+	ptt: Option<Arc<PttControl>>,
+	hotkey: Arc<HotkeyShared>,
 }
 
 impl DesktopShell {
@@ -41,7 +47,17 @@ impl DesktopShell {
 				Box::new(move || repaint.request_repaint()),
 			),
 			focused: AtomicBool::new(false),
+			ptt: None,
+			hotkey: Arc::default(),
 		}
+	}
+
+	/// Offer push-to-talk: the hold button presses through `ptt` and the
+	/// settings show what became of the key kept in `hotkey`.
+	pub fn with_push_to_talk(mut self, ptt: Arc<PttControl>, hotkey: Arc<HotkeyShared>) -> Self {
+		self.ptt = Some(ptt);
+		self.hotkey = hotkey;
+		self
 	}
 
 	/// Read the microphone permission and, if the user was never asked, show the
@@ -194,6 +210,35 @@ impl Shell for DesktopShell {
 
 	fn can_manage_daemon(&self) -> bool {
 		true
+	}
+
+	fn has_global_hotkey(&self) -> bool {
+		self.ptt.is_some()
+	}
+
+	fn has_talk_button(&self) -> bool {
+		self.ptt.is_some()
+	}
+
+	fn push_to_talk(&self, call_id: &str, pressed: bool) {
+		let Some(ptt) = &self.ptt else {
+			return;
+		};
+		if pressed {
+			ptt.press(call_id);
+		} else {
+			ptt.release();
+		}
+	}
+
+	fn hotkey_state(&self) -> HotkeyState {
+		self.hotkey.state()
+	}
+
+	fn hotkey_accelerator(&self, accelerator: &str) {
+		if self.hotkey.set_accelerator(accelerator) {
+			self.ctx.request_repaint();
+		}
 	}
 
 	fn host_options(&self) -> Option<&dyn HostOptions> {

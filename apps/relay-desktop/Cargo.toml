@@ -18,6 +18,8 @@ path = "src/main.rs"
 [dependencies]
 relay-ui.workspace = true
 relay-io.workspace = true
+relay-api.workspace = true
+relay-client.workspace = true
 relay-platform.workspace = true
 eframe.workspace = true
 egui.workspace = true
@@ -38,6 +40,11 @@ toml.workspace = true
 tray-icon = { workspace = true, features = ["ksni"] }
 
 [dev-dependencies]
+relay-engine.workspace = true
+relay-core.workspace = true
+relay-config.workspace = true
+hex.workspace = true
+tonic.workspace = true
 image.workspace = true
 tempfile.workspace = true
 tokio = { workspace = true, features = ["test-util"] }
