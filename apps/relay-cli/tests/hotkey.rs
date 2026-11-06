@@ -294,3 +294,27 @@ fn labels_are_plain_words() {
 	assert!(ptt_label(&PttState::Gated).contains("not transmitting"));
 	assert!(ptt_label(&PttState::Rejected { code: "X".into() }).contains("X"));
 }
+
+#[tokio::test]
+async fn with_push_to_talk_off_the_key_has_no_target_and_sends_nothing() {
+	let mut control = FakeControl::new();
+	control.snapshot.settings.as_mut().unwrap().ptt_enabled = false;
+	let run = start(control);
+	until("the off status", || {
+		run.updates
+			.lock()
+			.unwrap()
+			.iter()
+			.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::PttOff)))
+	})
+	.await;
+	tokio::time::sleep(Duration::from_millis(50)).await;
+	run.keyboard.send(HotkeyEvent::Pressed);
+	tokio::time::sleep(Duration::from_millis(100)).await;
+	assert!(
+		run.sink.seen().is_empty(),
+		"nothing reaches the engine while push-to-talk is off"
+	);
+	let _ = run.stop.send(());
+	run.task.await.unwrap().1.unwrap();
+}
