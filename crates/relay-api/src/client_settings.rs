@@ -38,6 +38,15 @@ impl RelayClient {
 		Ok(dump.values.into_iter().collect())
 	}
 
+	/// Bytes in use next to the limit that bounds them, keyed by the limit's preference key
+	/// (`limits.avatar_cache_mib`, `limits.messages_retained_mib`,
+	/// `limits.messages_session_mib`). A limit whose usage the engine does not know has no entry.
+	pub async fn get_limit_usage(&mut self) -> Result<BTreeMap<String, u64>, ApiError> {
+		let context = self.require_context()?;
+		let dump = self.inner.get_settings(context).await?.into_inner();
+		Ok(dump.usage.into_iter().collect())
+	}
+
 	/// Change preferences while the daemon runs. The answer lists one result per key
 	/// (applied live, saved for the next start, or rejected with a reason). A security
 	/// sensitive key makes the whole call `PERMISSION_DENIED`.

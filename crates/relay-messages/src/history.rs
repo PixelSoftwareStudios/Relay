@@ -90,6 +90,31 @@ impl HistoryManager {
 		self.ended.retain(|e| *e != id);
 	}
 
+	/// Changes the retained budget and evicts the oldest ended transcripts that no longer fit.
+	/// Returns the evicted ids.
+	pub fn set_budget(&mut self, budget: u64) -> Vec<SessionId> {
+		self.budget = budget;
+		self.enforce()
+	}
+
+	/// Changes the per-session budget of every transcript, live or ended. Nothing is deleted;
+	/// a transcript over its new budget accepts nothing new until it shrinks.
+	pub fn set_session_limit(&mut self, limit: u64) {
+		for session in self.sessions.values_mut() {
+			session.set_limit_bytes(limit);
+		}
+	}
+
+	/// The largest transcript of a session that has not ended, in bytes.
+	pub fn largest_live_bytes(&self) -> u64 {
+		self.sessions
+			.values()
+			.filter(|s| !s.is_ended())
+			.map(SessionStore::used_bytes)
+			.max()
+			.unwrap_or(0)
+	}
+
 	/// Bytes held by ended transcripts.
 	pub fn retained_bytes(&self) -> u64 {
 		self.ended

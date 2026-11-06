@@ -141,6 +141,12 @@ impl SessionStore {
 		self.limit
 	}
 
+	/// Changes the budget. Messages already stored stay; new ones are refused with
+	/// `BudgetExceeded` while the transcript is over the new budget.
+	pub fn set_limit_bytes(&mut self, limit: u64) {
+		self.limit = limit;
+	}
+
 	/// True after [`Self::end`].
 	pub fn is_ended(&self) -> bool {
 		self.ended_at_ms.is_some()

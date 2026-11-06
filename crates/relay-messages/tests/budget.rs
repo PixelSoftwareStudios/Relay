@@ -247,3 +247,47 @@ fn offer_count_is_limited() {
 	}
 	assert_eq!(n, relay_messages::limits::MAX_OFFERS_PER_SESSION as u64 + 1);
 }
+
+#[test]
+fn a_new_session_limit_applies_to_new_data_and_never_deletes() {
+	let (mut s, _) = store_with(10_000);
+	s.compose_text("hello").unwrap();
+	let used = s.used_bytes();
+	s.set_limit_bytes(used);
+	assert_eq!(s.limit_bytes(), used);
+	assert!(matches!(
+		s.compose_text("more"),
+		Err(StoreError::BudgetExceeded { .. })
+	));
+	assert_eq!(s.messages().len(), 1, "stored messages stay");
+	s.set_limit_bytes(10_000);
+	s.compose_text("more").unwrap();
+}
+
+#[test]
+fn a_new_retained_budget_evicts_oldest_ended_at_once() {
+	let clock = TestClock::new();
+	let per = 1000 + MESSAGE_OVERHEAD_BYTES;
+	let mut h = HistoryManager::with_budget(clock, per * 4);
+	for n in 1..=3u8 {
+		h.start_session(info(n, n), Permissions::default());
+		h.get_mut(SessionId([n; 16]))
+			.unwrap()
+			.compose_text(&"a".repeat(1000))
+			.unwrap();
+		assert!(h.end_session(SessionId([n; 16])).is_empty());
+	}
+	assert_eq!(h.largest_live_bytes(), 0);
+	let evicted = h.set_budget(per * 2);
+	assert_eq!(evicted, vec![SessionId([1; 16])]);
+	assert!(h.retained_bytes() <= per * 2);
+	h.start_session(info(9, 9), Permissions::default());
+	h.get_mut(SessionId([9; 16]))
+		.unwrap()
+		.compose_text("hi")
+		.unwrap();
+	assert_eq!(h.largest_live_bytes(), 2 + MESSAGE_OVERHEAD_BYTES);
+	h.set_session_limit(1);
+	assert_eq!(h.get(SessionId([9; 16])).unwrap().limit_bytes(), 1);
+	assert_eq!(h.get(SessionId([2; 16])).unwrap().limit_bytes(), 1);
+}

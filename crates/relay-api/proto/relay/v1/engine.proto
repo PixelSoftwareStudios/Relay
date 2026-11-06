@@ -386,7 +386,13 @@ message CallHistoryPage {
   bool more = 2;                      // older entries exist
   uint64 revision = 3;                // Settings.history_revision at read time
 }
-message SettingsDump { map<string, string> values = 1; }
+message SettingsDump {
+  map<string, string> values = 1;
+  // Bytes in use next to the limit that bounds them, keyed by that limit's preference key
+  // (limits.avatar_cache_mib, limits.messages_retained_mib, limits.messages_session_mib).
+  // A limit whose usage the engine does not know cheaply has no entry.
+  map<string, uint64> usage = 2;
+}
 message SetSettingsRequest {
   MutationContext context = 1;
   map<string, string> values = 2; // flat key -> text, parsed like `relay config set`
