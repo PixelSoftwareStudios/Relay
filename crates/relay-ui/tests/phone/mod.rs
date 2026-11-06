@@ -50,6 +50,8 @@ pub struct PhoneShell {
 	/// `can_manage_daemon`, and what the UI asked of the daemon ("stop", "start").
 	pub manage_daemon: AtomicBool,
 	pub daemon_log: Mutex<Vec<&'static str>>,
+	/// A shell with a system-wide push-to-talk key, and what became of it.
+	pub hotkey: Mutex<Option<relay_ui::hotkey_settings::HotkeyState>>,
 }
 
 impl FilePicker for PhoneShell {
@@ -93,7 +95,10 @@ impl Shell for PhoneShell {
 		f32::from_bits(self.keyboard.load(Ordering::SeqCst))
 	}
 	fn has_global_hotkey(&self) -> bool {
-		false
+		self.hotkey.lock().unwrap().is_some()
+	}
+	fn hotkey_state(&self) -> relay_ui::hotkey_settings::HotkeyState {
+		self.hotkey.lock().unwrap().clone().unwrap_or_default()
 	}
 	fn has_talk_button(&self) -> bool {
 		!self.desktop.load(Ordering::SeqCst)

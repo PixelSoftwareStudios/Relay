@@ -146,3 +146,14 @@ setting-saved-restart = Gespeichert. Es wirkt nach einem Neustart.
 setting-saved-restart-why = Gespeichert. Es wirkt nach einem Neustart ({ $reason }).
 setting-rejected = Das konnte nicht gespeichert werden. Versuche es erneut.
 setting-rejected-why = Das konnte nicht gespeichert werden: { $reason }. Versuche es erneut.
+
+hotkey-note-both = Halte die Tastenkombination irgendwo gedrückt oder den Sprechen-Knopf im Anruf, um zu sprechen, solange ein Anruf im Push-to-Talk-Modus ist.
+hotkey-state-off = Die Tastenkombination ist aus. Du kannst weiterhin den Sprechen-Knopf im Anruf halten.
+hotkey-state-on = Die Tastenkombination { $key } ist bereit.
+hotkey-state-failed = Die Tastenkombination konnte nicht angemeldet werden: { $reason }. Du kannst weiterhin den Knopf auf dem Bildschirm halten.
+hotkey-applied-here = Push-to-Talk-Tastenkombination: gespeichert und jetzt aktiv
+hotkey-reason-invalid = { $key } ist keine gültige Tastenkombination
+hotkey-reason-taken = sie ließ sich nicht reservieren, vielleicht nutzt ein anderes Programm sie schon
+hotkey-reason-unsupported = diese Sitzung erlaubt keine globalen Tastenkombinationen
+hotkey-reason-permission = das System hat es noch nicht erlaubt
+hotkey-reason-other = { $detail }

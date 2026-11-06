@@ -147,3 +147,14 @@ setting-saved-restart = Guardado. Se aplicará tras reiniciar.
 setting-saved-restart-why = Guardado. Se aplicará tras reiniciar ({ $reason }).
 setting-rejected = No se pudo guardar. Inténtalo de nuevo.
 setting-rejected-why = No se pudo guardar: { $reason }. Inténtalo de nuevo.
+
+hotkey-note-both = Mantén pulsado el atajo en cualquier lugar, o el botón Hablar de la llamada, para hablar mientras una llamada está en modo pulsar para hablar.
+hotkey-state-off = El atajo está desactivado. Aún puedes mantener pulsado el botón Hablar de la llamada.
+hotkey-state-on = El atajo { $key } está listo.
+hotkey-state-failed = No se pudo registrar el atajo: { $reason }. Aún puedes mantener pulsado el botón de la pantalla.
+hotkey-applied-here = Atajo de pulsar para hablar: guardado y aplicado ahora
+hotkey-reason-invalid = { $key } no es una combinación de teclas válida
+hotkey-reason-taken = no se pudo reservar, quizá otro programa ya la usa
+hotkey-reason-unsupported = esta sesión no permite atajos globales
+hotkey-reason-permission = el sistema todavía no lo ha permitido
+hotkey-reason-other = { $detail }

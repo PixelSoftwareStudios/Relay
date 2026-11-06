@@ -145,3 +145,14 @@ setting-saved-restart = 已保存。重启后生效。
 setting-saved-restart-why = 已保存。重启后生效（{ $reason }）。
 setting-rejected = 无法保存。请重试。
 setting-rejected-why = 无法保存：{ $reason }。请重试。
+
+hotkey-note-both = 通话处于按键说话模式时，在任何地方按住快捷键，或按住通话中的“说话”按钮即可说话。
+hotkey-state-off = 快捷键已关闭。你仍然可以按住通话中的“说话”按钮。
+hotkey-state-on = 快捷键 { $key } 已就绪。
+hotkey-state-failed = 无法注册快捷键：{ $reason }。你仍然可以按住屏幕上的按钮。
+hotkey-applied-here = 按键说话快捷键：已保存并立即生效
+hotkey-reason-invalid = { $key } 不是有效的按键组合
+hotkey-reason-taken = 无法占用，可能其他程序已在使用
+hotkey-reason-unsupported = 此会话不允许全局快捷键
+hotkey-reason-permission = 系统尚未允许
+hotkey-reason-other = { $detail }

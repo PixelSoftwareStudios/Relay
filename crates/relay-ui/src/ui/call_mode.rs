@@ -30,7 +30,11 @@ pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 		ui.add_space(theme::SPACE_S);
 		talk_button(ui, card, cx.actions, cx.local);
 		let caps = Capabilities::of(&*cx.actions.shell);
-		if caps.global_hotkey {
+		let registered = matches!(
+			cx.actions.shell.hotkey_state(),
+			crate::hotkey_settings::HotkeyState::Registered(_)
+		);
+		if caps.global_hotkey && registered {
 			kit::help(ui, tr!("hotkey-note-global"));
 		}
 	}

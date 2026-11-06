@@ -147,3 +147,14 @@ setting-saved-restart = Salvo. Vale após reiniciar.
 setting-saved-restart-why = Salvo. Vale após reiniciar ({ $reason }).
 setting-rejected = Não foi possível salvar. Tente de novo.
 setting-rejected-why = Não foi possível salvar: { $reason }. Tente de novo.
+
+hotkey-note-both = Mantenha a tecla de atalho pressionada em qualquer lugar, ou o botão Falar da chamada, para falar enquanto uma chamada está no modo apertar para falar.
+hotkey-state-off = A tecla de atalho está desligada. Você ainda pode manter pressionado o botão Falar da chamada.
+hotkey-state-on = A tecla de atalho { $key } está pronta.
+hotkey-state-failed = Não foi possível registrar o atalho: { $reason }. Você ainda pode manter pressionado o botão da tela.
+hotkey-applied-here = Tecla de atalho de apertar para falar: salva e aplicada agora
+hotkey-reason-invalid = { $key } não é uma combinação de teclas válida
+hotkey-reason-taken = não foi possível reservá-la, talvez outro programa já a use
+hotkey-reason-unsupported = esta sessão não permite atalhos globais
+hotkey-reason-permission = o sistema ainda não permitiu
+hotkey-reason-other = { $detail }

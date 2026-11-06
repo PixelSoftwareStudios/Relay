@@ -122,7 +122,8 @@ pub struct TransmitStatus {
 /// daemon, an on-screen button, or (neither) only an outside input source.
 pub fn hotkey_note(has_global_hotkey: bool, has_talk_button: bool) -> &'static str {
 	match (has_global_hotkey, has_talk_button) {
-		(true, _) => tr!("hotkey-note-global"),
+		(true, true) => tr!("hotkey-note-both"),
+		(true, false) => tr!("hotkey-note-global"),
 		(false, true) => tr!("hotkey-note-button"),
 		(false, false) => tr!("hotkey-note"),
 	}

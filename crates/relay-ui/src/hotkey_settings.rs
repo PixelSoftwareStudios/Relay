@@ -17,6 +17,20 @@ pub const KEY_RELEASE_DELAY: &str = "ptt.release_delay_ms";
 /// Longest accelerator text the daemon accepts.
 pub const ACCELERATOR_MAX_CHARS: usize = 64;
 
+/// What became of the key a shell registers system-wide.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub enum HotkeyState {
+	/// This shell registers no system-wide key.
+	#[default]
+	Unsupported,
+	/// Not registered on purpose: push-to-talk is off or no key is set.
+	Off,
+	/// Registered, with this accelerator.
+	Registered(String),
+	/// The system refused it; the text says why.
+	Failed(String),
+}
+
 /// What the panel edits.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct HotkeyValues {

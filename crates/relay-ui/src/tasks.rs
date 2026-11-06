@@ -123,6 +123,9 @@ impl Actions {
 				.hotkey_settings()
 				.await
 				.map_err(|e| e.to_string());
+			if let Ok(values) = &result {
+				shell.hotkey_accelerator(&values.accelerator);
+			}
 			shared.inbox.set_hotkey_loaded(result);
 			shell.request_repaint();
 		});
@@ -144,6 +147,9 @@ impl Actions {
 			shared.inbox.set_hotkey_saved(result);
 			if sent {
 				let reread = controller.hotkey_settings().await;
+				if let Ok(values) = &reread {
+					shell.hotkey_accelerator(&values.accelerator);
+				}
 				shared
 					.inbox
 					.set_hotkey_loaded(reread.map_err(|e| e.to_string()));

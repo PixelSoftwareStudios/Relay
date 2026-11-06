@@ -32,6 +32,7 @@ pub mod messaging;
 pub mod microphone;
 pub mod mock;
 pub mod model;
+pub mod ptt_target;
 pub mod qr;
 pub mod qr_scan;
 pub mod relay_link;

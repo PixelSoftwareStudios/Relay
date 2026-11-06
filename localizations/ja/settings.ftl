@@ -143,3 +143,14 @@ setting-saved-restart = 保存しました。再起動後に反映されます�
 setting-saved-restart-why = 保存しました。再起動後に反映されます({ $reason })。
 setting-rejected = 保存できませんでした。もう一度お試しください。
 setting-rejected-why = 保存できませんでした: { $reason }。もう一度お試しください。
+
+hotkey-note-both = 通話がプッシュトゥトークのときは、ホットキーをどこでも押し続けるか、通話の「話す」ボタンを押し続けると話せます。
+hotkey-state-off = ホットキーはオフです。通話の「話す」ボタンは引き続き押し続けられます。
+hotkey-state-on = ホットキー { $key } を使えます。
+hotkey-state-failed = ショートカットを登録できませんでした: { $reason }。画面のボタンは引き続き押し続けられます。
+hotkey-applied-here = プッシュトゥトークのホットキー: 保存して今すぐ反映しました
+hotkey-reason-invalid = { $key } は正しいキーの組み合わせではありません
+hotkey-reason-taken = 確保できませんでした。ほかのプログラムがすでに使っているかもしれません
+hotkey-reason-unsupported = このセッションではグローバルショートカットを使えません
+hotkey-reason-permission = システムがまだ許可していません
+hotkey-reason-other = { $detail }

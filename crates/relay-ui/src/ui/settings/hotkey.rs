@@ -7,7 +7,7 @@ use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
 use crate::engine::{SettingOutcome, SettingResult};
-use crate::hotkey_settings::{ACCELERATOR_MAX_CHARS, outcome_text};
+use crate::hotkey_settings::{ACCELERATOR_MAX_CHARS, HotkeyState, KEY_ACCELERATOR, outcome_text};
 use crate::theme;
 
 use super::super::kit;
@@ -38,6 +38,8 @@ pub fn show(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	};
 	kit::card_title(ui, tr!("hotkey-heading"));
 	kit::help(ui, tr!("hotkey-intro"));
+	let state = actions.shell.hotkey_state();
+	state_row(ui, &state);
 	ui.horizontal_wrapped(|ui| {
 		ui.label(tr!("hotkey-field"));
 		ui.add(
@@ -75,15 +77,46 @@ pub fn show(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			ui.label(RichText::new(tr!("hotkey-nothing")).weak());
 		}
 		Some(Ok(results)) => {
+			let live = state != HotkeyState::Unsupported;
 			for result in results {
-				outcome_row(ui, result);
+				outcome_row(ui, result, live);
 			}
 		}
 	}
 }
 
-fn outcome_row(ui: &mut Ui, result: &SettingResult) {
-	let text = RichText::new(outcome_text(result));
+/// What became of the key this app registers: working, off or refused.
+fn state_row(ui: &mut Ui, state: &HotkeyState) {
+	match state {
+		HotkeyState::Unsupported => {}
+		HotkeyState::Off => kit::help(ui, tr!("hotkey-state-off")),
+		HotkeyState::Registered(key) => {
+			ui.label(RichText::new(tr!("hotkey-state-on", key = key.as_str())).color(theme::LIVE));
+		}
+		HotkeyState::Failed(reason) => {
+			banner(
+				ui,
+				&tr!("hotkey-state-failed", reason = reason.as_str()),
+				true,
+			);
+		}
+	}
+}
+
+/// `live`: this app follows the stored key itself, so a saved key needs no restart.
+fn outcome_row(ui: &mut Ui, result: &SettingResult, live: bool) {
+	let followed = live
+		&& result.key == KEY_ACCELERATOR
+		&& result.outcome == SettingOutcome::SavedNeedsRestart;
+	let text = if followed {
+		RichText::new(tr!("hotkey-applied-here"))
+	} else {
+		RichText::new(outcome_text(result))
+	};
+	if followed {
+		ui.label(text.color(theme::LIVE));
+		return;
+	}
 	ui.label(match result.outcome {
 		SettingOutcome::AppliedLive => text.color(theme::LIVE),
 		SettingOutcome::SavedNeedsRestart => text,

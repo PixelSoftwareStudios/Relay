@@ -148,6 +148,14 @@ pub trait Shell: FilePicker {
 	/// the call `call_id` (hex). The shell forwards it to the engine's
 	/// push-to-talk input; the default ignores it.
 	fn push_to_talk(&self, _call_id: &str, _pressed: bool) {}
+	/// What became of the system-wide push-to-talk key this shell registers.
+	/// Shells without one keep the default.
+	fn hotkey_state(&self) -> crate::hotkey_settings::HotkeyState {
+		crate::hotkey_settings::HotkeyState::Unsupported
+	}
+	/// The stored push-to-talk accelerator was read or saved (empty turns the
+	/// key off). A shell that registers the key follows it at once.
+	fn hotkey_accelerator(&self, _accelerator: &str) {}
 	/// Whether the app may use the microphone, as the OS says. Called per
 	/// frame, so it must be cheap. The default needs no permission.
 	fn microphone_access(&self) -> crate::microphone::MicrophoneAccess {

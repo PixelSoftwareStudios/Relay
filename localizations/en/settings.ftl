@@ -148,3 +148,14 @@ setting-saved-restart = Saved. It takes effect after a restart.
 setting-saved-restart-why = Saved. It takes effect after a restart ({ $reason }).
 setting-rejected = Could not save this. Try again.
 setting-rejected-why = Could not save this: { $reason }. Try again.
+
+hotkey-note-both = Hold the hotkey anywhere, or the Talk button on the call, to talk while a call is in push-to-talk mode.
+hotkey-state-off = The hotkey is off. You can still hold the Talk button on the call.
+hotkey-state-on = The hotkey { $key } is ready.
+hotkey-state-failed = The shortcut could not be registered: { $reason }. You can still hold the on-screen button.
+hotkey-applied-here = Push-to-talk hotkey: saved and applied now
+hotkey-reason-invalid = { $key } is not a valid key combination
+hotkey-reason-taken = it could not be reserved, perhaps another program already uses it
+hotkey-reason-unsupported = this session does not allow global shortcuts
+hotkey-reason-permission = the system has not allowed it yet
+hotkey-reason-other = { $detail }

@@ -145,3 +145,14 @@ setting-saved-restart = 저장했습니다. 다시 시작하면 적용됩니다.
 setting-saved-restart-why = 저장했습니다. 다시 시작하면 적용됩니다 ({ $reason }).
 setting-rejected = 저장하지 못했습니다. 다시 시도하세요.
 setting-rejected-why = 저장하지 못했습니다: { $reason }. 다시 시도하세요.
+
+hotkey-note-both = 통화가 푸시투토크 모드일 때는 단축키를 어디서든 누르고 있거나 통화의 말하기 버튼을 누르고 있으면 말할 수 있습니다.
+hotkey-state-off = 단축키가 꺼져 있습니다. 통화의 말하기 버튼은 계속 누르고 있을 수 있습니다.
+hotkey-state-on = 단축키 { $key }을(를) 사용할 수 있습니다.
+hotkey-state-failed = 단축키를 등록하지 못했습니다: { $reason }. 화면의 버튼은 계속 누르고 있을 수 있습니다.
+hotkey-applied-here = 푸시투토크 단축키: 저장하고 지금 적용했습니다
+hotkey-reason-invalid = { $key }은(는) 올바른 키 조합이 아닙니다
+hotkey-reason-taken = 확보하지 못했습니다. 다른 프로그램이 이미 사용 중일 수 있습니다
+hotkey-reason-unsupported = 이 세션에서는 전역 단축키를 쓸 수 없습니다
+hotkey-reason-permission = 시스템이 아직 허용하지 않았습니다
+hotkey-reason-other = { $detail }

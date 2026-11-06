@@ -146,3 +146,14 @@ setting-saved-restart = सहेजा गया। रीस्टार्ट
 setting-saved-restart-why = सहेजा गया। रीस्टार्ट के बाद लागू होगा ({ $reason })।
 setting-rejected = इसे सहेजा नहीं जा सका। फिर कोशिश करें।
 setting-rejected-why = इसे सहेजा नहीं जा सका: { $reason }। फिर कोशिश करें।
+
+hotkey-note-both = जब कॉल पुश-टू-टॉक मोड में हो, तब बोलने के लिए हॉटकी को कहीं भी दबाए रखें, या कॉल पर बोलें बटन को दबाए रखें।
+hotkey-state-off = हॉटकी बंद है। आप अब भी कॉल पर बोलें बटन को दबाए रख सकते हैं।
+hotkey-state-on = हॉटकी { $key } तैयार है।
+hotkey-state-failed = शॉर्टकट दर्ज नहीं हो सका: { $reason }। आप अब भी स्क्रीन के बटन को दबाए रख सकते हैं।
+hotkey-applied-here = पुश-टू-टॉक हॉटकी: सहेज ली गई और अभी लागू है
+hotkey-reason-invalid = { $key } मान्य कुंजी संयोजन नहीं है
+hotkey-reason-taken = इसे सुरक्षित नहीं किया जा सका, शायद कोई दूसरा प्रोग्राम इसे पहले से इस्तेमाल कर रहा है
+hotkey-reason-unsupported = यह सत्र वैश्विक शॉर्टकट की अनुमति नहीं देता
+hotkey-reason-permission = सिस्टम ने अभी इसकी अनुमति नहीं दी है
+hotkey-reason-other = { $detail }
