@@ -105,9 +105,10 @@ A hardware or review gate is never marked met by a test that uses fakes.
 | Gate | Status | Evidence / what is needed |
 |---|---|---|
 | Terminal-only install calls without WebView or GUI dependencies | met-by-test | Structural: `relay-cli` and `relay-daemon` do not depend on `relay-ui`; the CI `headless` job fails if `cargo tree -p relay-cli -p relay-daemon` lists eframe, egui or winit (not yet run). Exercised by relay-cli `engine_e2e`. |
-| PTT press, release, focus, game and lock behaviour on the supported matrix | unmet-needs-hardware | Fake-backend logic is tested (relay-platform `ptt::lock_releases_and_requires_repress`, `focus_loss_and_target_change_release`, `backend_stop_releases`). Real key delivery on macOS, Windows, X11 and Wayland portals is a manual gate in `docs/platform.md`. |
+| PTT press, release, focus, game and lock behaviour on the supported matrix | unmet-needs-hardware | Press, renewal, release and stream-close logic is tested once, in the shared worker (relay-client `tests/ptt.rs`), plus the CLI (`apps/relay-cli/tests/hotkey.rs`) and the desktop (`apps/relay-desktop/tests/ptt_engine.rs`, real in-process engine, fake hotkey backend). Real key delivery on macOS, Windows, X11 and Wayland portals is a manual gate in `docs/platform.md`. |
 | An unsupported portal reports honestly, never false success | met-by-test | relay-platform `hotkey::unavailable_backends_refuse_to_start`, `detected_backend_probe_is_never_a_false_success`. |
 | TUI push-to-talk against a real engine `InputControl` handler | unmet-needs-hardware | Engine-side stream semantics listed as open in `docs/cli.md` and `docs/platform.md`; a real-engine run is missing. |
+| Desktop global push-to-talk key delivered by the OS to the running app | unmet-needs-hardware | The registration logic, rebinding, `ptt.enabled`, hidden-window delivery path and all release paths are tested with a fake backend against a real engine (`docs/desktop.md`). Not observed: macOS Carbon hotkey events through eframe/winit (window shown, hidden to the tray, another app in front), Windows, X11, the Wayland portal (not enabled in the desktop build), the key held past 60 s, and a real microphone transmitting. |
 
 ### WP-09 Preferences, identity, avatars, supportability
 

@@ -94,7 +94,7 @@ Total Kotlin: roughly 700-900 lines for the above, excluding Gradle setup and te
 
 ## Push-to-talk
 
-Hold-to-talk uses the engine's real lease path, the same one `relay-cli` and the desktop hotkey use, not a mode switch. `AndroidShell::push_to_talk` (the large on-screen button) calls `Host`, which sends press and release to one worker (`apps/relay-android/src/host/ptt.rs`). The worker holds an `InputControl` stream and sends `PRESS` with a 400 ms lease, renews it every 150 ms while the button is down and sends `RELEASE` on button up. The engine opens the transmit gate only while a lease is alive. The mode, which is the consent, is set by the UI (`set_transmit`), and the press is refused unless the UI client controls a non-terminal push-to-talk call.
+Hold-to-talk uses the engine's real lease path, the same one `relay-cli` and the desktop hotkey use, not a mode switch. `AndroidShell::push_to_talk` (the large on-screen button) calls `Host`, which sends press and release to the shared `relay_client::ptt::PttWorker` (`docs/client.md`; the Android copy of the worker is gone). The worker holds an `InputControl` stream and sends `PRESS` with a 400 ms lease, renews it every 150 ms while the button is down and sends `RELEASE` on button up. The engine opens the transmit gate only while a lease is alive. The mode, which is the consent, is set by the UI (`set_transmit`), and the press is refused unless the UI client controls a non-terminal push-to-talk call.
 
 Shell capabilities: `has_global_hotkey() = false`, `has_talk_button() = true`, `runs_in_background() = true` (the microphone foreground service keeps a call alive without the activity), `hides_to_tray() = false`.
 
@@ -108,9 +108,10 @@ Shell capabilities: `has_global_hotkey() = false`, `has_talk_button() = true`, `
 | Button no longer drawn | relay-ui reports `push_to_talk(.., false)` |
 | `onPause`, window focus lost, `surfaceDestroyed`, `onStop` | Kotlin `MainActivity` -> `RelayEngine.cancelTalk` -> the stream is closed (immediate release) |
 | Process sent to the background | `Host::set_foreground(false)` cancels, even when a call keeps the client attached |
-| Client detach (`Host::detach`), call end, engine stop | `Ptt::reset`: the stream is closed, which the engine treats as an immediate release of everything the source held (no release delay) |
-| Call no longer push-to-talk, not controlled, or terminal | checked every renewal; the worker releases |
+| Client detach (`Host::detach`), call end, engine stop | `PttWorker::cancel`: the stream is closed, which the engine treats as an immediate release of everything the source held (no release delay) |
+| Call no longer push-to-talk, not controlled, or terminal | checked every renewal (`relay_ui::ptt_target`); the worker closes the stream |
 | Engine refuses a renewal | the worker stops renewing |
+| Press held for 60 s without a key-up | the worker closes the stream (stuck-key limit) |
 | This process dies or stalls | the lease lapses within 400 ms |
 
 Tests: Rust `host::ptt_tests` (in-process engine on a Unix socket, UI client attached the way the app attaches it, fake media and peers; the engine's published gate is the assertion): button hold across several lease periods and release, no press without a push-to-talk route, cancel (stream closed), background, detach, closing the stream while attached releases without the release delay, a normal key-up keeps the tail for the release delay, and call end. Engine-side guarantees they build on: relay-engine `service_gate` (`a_held_press_opens_the_gate_and_closing_the_stream_closes_it`, `takeover_drops_the_previous_holders_press`).

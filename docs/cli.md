@@ -8,7 +8,7 @@ Living notes for `apps/relay-cli` (binary `relay`). Terminal only: no WebView de
 |---|---|
 | `src/main.rs` | Calls `relay_cli::main_exit()`; nothing else |
 | `src/host.rs` | Process setup: plain tokio runtime, or (for `hotkey`/`tui`) main thread that starts the hotkey backend and services the platform loop while tokio runs on a worker thread |
-| `src/hotkey/` | `start_with` (probe and register), `HotkeyReport` (honest state), `supervise` (keeps a `PttDriver` on the right call) |
+| `src/hotkey/` | `start_with` (probe and register), `HotkeyReport` (honest state), `supervise` (keeps the shared `relay_client::ptt::PttWorker` on the right call) |
 | `src/secret.rs` | `Secret` (redacted `Debug`, zeroed on drop), hidden-prompt and stdin sources |
 | `src/cli/` | clap definitions (`args`), `CliError`, `exit` codes, endpoint resolution |
 | `src/client/` | `Control` (request/response), `Manage` (channels, privacy, avatar, connection info) and `Subscribe` (streams) traits; `RealClient` over `relay_api::RelayClient`; resyncing feeds |
@@ -169,7 +169,7 @@ Browse keys (the compose box and prompts take every key while open, so tab switc
 The Settings tab lists the microphone and playback gain, mute, deafen and the **PTT release delay** (how long the gate stays open after the key is released, 0 to 2000 ms; `relay config set ptt.release_delay_ms 300` does the same). While the delay runs the call shows the engine's `releasing` state; nothing is assumed locally.
 
 Push-to-talk in the TUI has two paths:
-- **Global hotkey** (`hotkeys.push_to_talk`, default `Ctrl+Alt+Space`): `relay tui` starts the platform backend on the main thread and drives a `PttDriver` over its own `InputControl` stream, exactly like `relay hotkey`. The header's third line says what is true: `active via <backend>` plus `ptt: idle|transmitting|held, engine not transmitting|blocked...|rejected|lease expired|failed` and the controlled call, or `needs Input Monitoring: ...`, `unsupported: <reason>`, `failed: <reason>`, `off (...)`. Nothing is claimed when the backend refused.
+- **Global hotkey** (`hotkeys.push_to_talk`, default `Ctrl+Alt+Space`): `relay tui` starts the platform backend on the main thread and presses the shared `PttWorker` (`docs/client.md`) with its edges, exactly like `relay hotkey`; the worker opens its own `InputControl` stream as this client. The header's third line says what is true: `active via <backend>` plus `ptt: idle|transmitting|held, engine not transmitting|blocked: no controlled call|rejected|failed` and the controlled call, or `needs Input Monitoring: ...`, `unsupported: <reason>`, `failed: <reason>`, `off (...)`. Nothing is claimed when the backend refused.
 - **Terminal key**: terminals do not report key release, so `space` latches (press, renew every 100 ms tick, release on the next `space`). It needs the call already in push-to-talk mode with consent. The engine's effective state is what is displayed.
 
 ## Global hotkey (`relay hotkey`)

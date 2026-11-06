@@ -1,6 +1,6 @@
 # Shared client crate
 
-Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps/relay-desktop` genuinely share over `relay-api`, and nothing toolkit-specific (no clap, ratatui, egui or tray). It depends only on `relay-api`, so it builds and tests without the engine.
+Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps/relay-desktop` genuinely share over `relay-api`, and nothing toolkit-specific (no clap, ratatui, egui or tray). It depends only on `relay-api` (and `relay-io`), so it builds and tests without the engine.
 
 | Module | Role |
 |---|---|
@@ -23,3 +23,12 @@ Living notes for `crates/relay-client`. It holds what `apps/relay-cli` and `apps
 
 ## Tests
 `crates/relay-client/tests/`: `wire.rs` runs each command against an in-process engine on a Unix socket, `settle.rs` covers polling and timeout with a fake source, `endpoint.rs` and `meter.rs` the pure helpers, `refresh.rs` the replacement decision (idle stale, matching, busy, stop timeout, start failure, held lock), `revision.rs` the revision read from a connection, `daemon.rs` the launcher against a stand-in `fake-relayd` binary (start, already running, missing binary, early exit with log tail, timeout, slow start, own process group, lookup order). Each app keeps tests for its own UI, CLI and supervisor logic.
+
+## Push-to-talk worker
+
+`relay_client::ptt::PttWorker` is the one implementation of hold-to-talk. The CLI's global key, the desktop hotkey and hold button and Android's hold button all use it. API: `PttWorker::spawn(handle, endpoint, resolve)`, then `press(call_hex)`, `release()`, `cancel()` (all cheap, from any thread, nothing blocks) and `states()` (a `watch` of `PttState`: `Idle`, `Transmitting`, `Gated`, `NoTarget`, `Rejected{code}`, `Failed(reason)`, taken from the engine's acks). `resolve` is a plain function `Fn(&str) -> Option<PttTarget>` that the caller supplies; `relay_ui::ptt_target::resolver(hub)` is the UI's (a live push-to-talk call that the UI client controls and an attached link) and the CLI supplies the call it bound.
+
+- The worker opens its own connection and adopts the controlling client's registered context (`RelayClient::adopt_context`), because the engine accepts a press only from the controller. Taking the lease over would reset the call's transmit route.
+- `press` sends `InputControl` `PRESS` with a 400 ms lease, renews every 150 ms and `release` sends `RELEASE` (the engine's release delay applies). A press for a call `resolve` does not accept sends nothing (`NoTarget`) and never changes the mode.
+- `cancel`, dropping the worker, a call that is no longer a controlled push-to-talk call (ended, left push-to-talk, new controller generation, detached client; checked on every renewal) and the stuck-key limit (a press held for 60 s without a key-up) close the stream. The engine treats that as an immediate release without the release delay. A refused renewal ends the press. If the process dies the lease lapses within 400 ms.
+- Tests: `tests/ptt.rs` against a scripted engine on a socket (renewal and sequences, no target, cancel, drop, call change, generation change, refusal, gated, stuck key with paused time). End to end with a real engine and fake media: `apps/relay-android` `host::ptt_tests` and `apps/relay-desktop/tests/ptt_engine.rs`.
