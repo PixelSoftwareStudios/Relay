@@ -64,6 +64,7 @@ async fn run_stops_gracefully_when_asked_and_removes_the_endpoint() {
 	eventually!(socket.exists().then_some(()));
 
 	let endpoint = relay_api::Endpoint::Unix(socket.clone());
+	wait_ready(&endpoint).await;
 	let mut watcher = RelayClient::connect(&endpoint).await.expect("connect");
 	watcher
 		.register("desktop", "test", &["observe"])

@@ -212,6 +212,7 @@ async fn an_attached_client_keeps_the_engine_alive_until_it_leaves() {
 	let socket = home.path().join("e.sock");
 	let mut host = tokio::spawn(relay_engine::daemon::run(idle_options(home.path())));
 	eventually!(socket.exists().then_some(()));
+	wait_ready(&Endpoint::Unix(socket.clone())).await;
 	let mut cli = RelayClient::connect(&Endpoint::Unix(socket.clone()))
 		.await
 		.expect("connect");

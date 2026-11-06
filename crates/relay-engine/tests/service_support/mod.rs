@@ -131,6 +131,20 @@ macro_rules! eventually {
 	}};
 }
 
+/// Waits until the daemon on `endpoint` has finished starting. The socket is served before
+/// the identity is loaded, so its file existing does not mean registering is allowed yet.
+pub async fn wait_ready(endpoint: &Endpoint) {
+	for _ in 0..600 {
+		if let Ok(client) = RelayClient::connect(endpoint).await
+			&& client.startup().state() == relay_api::pb::StartupState::Ready
+		{
+			return;
+		}
+		tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+	}
+	panic!("the daemon did not finish starting in time");
+}
+
 pub async fn call_in(client: &mut RelayClient, call: &[u8]) -> Option<Call> {
 	let snapshot: Snapshot = client.snapshot().await.expect("snapshot");
 	snapshot.calls.into_iter().find(|c| c.call_id == call)
