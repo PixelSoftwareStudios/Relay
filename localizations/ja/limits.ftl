@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, ja, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = ストレージと上限
+settings-limits-sub = キャッシュの大きさと保存期間
+limits-intro = この上限で、この端末がどれだけ保存するかを決めます。すべてこの端末にだけ残ります。既定値はほとんどの人に合います。変更はすぐに反映され、使用中のものが途中で切られることはありません。
+limits-group-pictures = 画像
+limits-group-chats = チャットとファイル
+limits-group-history = 通話履歴
+limits-unit-mib = MiB
+limits-unit-entries = 件
+limits-unit-days = 日
+limits-unit-transfers = 件の転送
+limits-avatar-label = 画像キャッシュ
+limits-avatar-help = 通話相手の画像をここに保存し、すばやく表示します。キャッシュがいっぱいになると、最も長く使われていない画像から削除されます。自分の画像は削除されません。上限を下げると、画像はすぐに削除されます。
+limits-avatar-used = 使用中：{ $used } MiB
+limits-session-label = 進行中のチャット1件のメモリ
+limits-session-help = 進行中の通話のチャットが使えるメモリの最大量です。いっぱいになると、そのチャットの新しいメッセージとファイルは拒否されます。すでにチャットにあるものは削除されません。
+limits-session-used = 最大の進行中チャット：{ $used } MiB
+limits-retained-label = 終了したチャットのメモリ
+limits-retained-help = 終了した通話のチャットは、Relay を閉じるまで読めます。これを超えると、古い終了済みチャットから削除されます。
+limits-retained-used = 終了したチャットの使用量：{ $used } MiB
+limits-entries-label = 履歴に残す通話数
+limits-entries-help = 通話履歴に残す通話の最大数です。超えると古いものから削除されます。0 なら残しません。
+limits-age-label = 通話を残す期間
+limits-age-help = これより古い通話は履歴から削除されます。
+limits-transfers-label = 同時に扱うファイル数
+limits-transfers-help = 1回の通話で同時に送受信できるファイルの数です。それ以上のファイルは、どれかが終わるまで拒否されます。
+limits-check-range = { $label }は { $min } から { $max } { $unit }の範囲にしてください
+limits-check-pair = 終了したチャットのメモリは、進行中のチャット1件のメモリより小さくできません。
+limits-reset = 既定値に戻す
+limits-nothing = 変更はありません。
+limits-applied = { $label }：すぐに適用しました
+limits-saved = { $label }：保存しました。再起動後に有効になります
+limits-saved-reason = { $label }：保存しました。再起動後に有効になります（{ $reason }）
+limits-rejected = { $label }：拒否されました
+limits-rejected-reason = { $label }：拒否されました（{ $reason }）

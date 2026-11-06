@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, ko, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = 저장 공간 및 한도
+settings-limits-sub = 캐시 크기와 보관 기간
+limits-intro = 이 한도는 이 기기가 얼마나 보관할지 정합니다. 모든 내용은 이 기기에만 남습니다. 기본값은 대부분의 사용자에게 적합합니다. 변경은 즉시 적용되며, 사용 중인 내용이 잘리지 않습니다.
+limits-group-pictures = 이미지
+limits-group-chats = 채팅 및 파일
+limits-group-history = 통화 기록
+limits-unit-mib = MiB
+limits-unit-entries = 개
+limits-unit-days = 일
+limits-unit-transfers = 건의 전송
+limits-avatar-label = 이미지 캐시
+limits-avatar-help = 대화 상대의 이미지를 여기에 보관해 빠르게 표시합니다. 캐시가 가득 차면 가장 오래 사용하지 않은 이미지부터 삭제되며, 내 이미지는 삭제되지 않습니다. 한도를 낮추면 이미지가 즉시 삭제됩니다.
+limits-avatar-used = 사용 중: { $used } MiB
+limits-session-label = 진행 중인 채팅 1개의 메모리
+limits-session-help = 진행 중인 통화의 채팅이 사용할 수 있는 최대 메모리입니다. 가득 차면 해당 채팅의 새 메시지와 파일이 거부되며, 이미 있는 내용은 삭제되지 않습니다.
+limits-session-used = 가장 큰 진행 중 채팅: { $used } MiB
+limits-retained-label = 종료된 채팅의 메모리
+limits-retained-help = 종료된 통화의 채팅은 Relay를 닫을 때까지 읽을 수 있습니다. 이 값을 넘으면 가장 오래된 종료된 채팅부터 삭제됩니다.
+limits-retained-used = 종료된 채팅 사용량: { $used } MiB
+limits-entries-label = 기록에 남길 통화 수
+limits-entries-help = 통화 기록에 보관하는 최대 통화 수입니다. 넘으면 가장 오래된 것부터 삭제됩니다. 0이면 보관하지 않습니다.
+limits-age-label = 통화 보관 기간
+limits-age-help = 이보다 오래된 통화는 기록에서 삭제됩니다.
+limits-transfers-label = 동시에 처리할 파일 수
+limits-transfers-help = 한 통화에서 동시에 보내거나 받을 수 있는 파일 수입니다. 그 이상의 파일은 하나가 끝날 때까지 거부됩니다.
+limits-check-range = { $label }은(는) { $min }에서 { $max } { $unit } 사이여야 합니다
+limits-check-pair = 종료된 채팅의 메모리는 진행 중인 채팅 1개의 메모리보다 작을 수 없습니다.
+limits-reset = 기본값으로 되돌리기
+limits-nothing = 변경할 내용이 없습니다.
+limits-applied = { $label }: 바로 적용됨
+limits-saved = { $label }: 저장됨, 다시 시작하면 적용됩니다
+limits-saved-reason = { $label }: 저장됨, 다시 시작하면 적용됩니다 ({ $reason })
+limits-rejected = { $label }: 거부됨
+limits-rejected-reason = { $label }: 거부됨 ({ $reason })

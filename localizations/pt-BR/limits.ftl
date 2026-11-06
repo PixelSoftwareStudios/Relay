@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, pt-BR, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = Armazenamento e limites
+settings-limits-sub = Tamanho dos caches e por quanto tempo tudo é guardado
+limits-intro = Estes limites decidem quanto este dispositivo guarda. Tudo fica neste dispositivo. Os valores padrão servem para a maioria. Uma mudança vale na hora e nada que está em uso é cortado.
+limits-group-pictures = Imagens
+limits-group-chats = Chats e arquivos
+limits-group-history = Histórico de chamadas
+limits-unit-mib = MiB
+limits-unit-entries = entradas
+limits-unit-days = dias
+limits-unit-transfers = transferências
+limits-avatar-label = Cache de imagens
+limits-avatar-help = As imagens das pessoas com quem você fala ficam aqui para aparecerem rápido. Quando o cache enche, as imagens usadas há mais tempo são removidas primeiro; a sua própria imagem nunca é removida. Diminuir o limite remove imagens na hora.
+limits-avatar-used = Em uso: { $used } MiB
+limits-session-label = Memória de um chat em andamento
+limits-session-help = O máximo de memória que o chat de uma chamada em andamento pode usar. Quando enche, novas mensagens e arquivos nesse chat são recusados; nada que já está no chat é apagado.
+limits-session-used = Maior chat em andamento: { $used } MiB
+limits-retained-label = Memória de chats encerrados
+limits-retained-help = Os chats de chamadas encerradas continuam legíveis até o Relay fechar. Se usarem mais do que isto, os chats encerrados mais antigos são removidos primeiro.
+limits-retained-used = Chats encerrados usam { $used } MiB
+limits-entries-label = Chamadas no histórico
+limits-entries-help = O máximo de chamadas que o histórico guarda. Se houver mais, as mais antigas são removidas. 0 não guarda nenhuma.
+limits-age-label = Guardar chamadas por
+limits-age-help = Chamadas mais antigas que isto são removidas do histórico.
+limits-transfers-label = Arquivos ao mesmo tempo
+limits-transfers-help = Quantos arquivos podem ser enviados ou recebidos ao mesmo tempo em uma chamada. Um arquivo a mais é recusado até que outro termine.
+limits-check-range = { $label } deve estar entre { $min } e { $max } { $unit }
+limits-check-pair = A memória de chats encerrados não pode ser menor que a de um chat em andamento.
+limits-reset = Restaurar padrões
+limits-nothing = Nada a alterar.
+limits-applied = { $label }: aplicado agora
+limits-saved = { $label }: salvo, vale após reiniciar
+limits-saved-reason = { $label }: salvo, vale após reiniciar ({ $reason })
+limits-rejected = { $label }: recusado
+limits-rejected-reason = { $label }: recusado ({ $reason })

@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, de, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = Speicher und Grenzen
+settings-limits-sub = Cache-Größen und wie lange etwas aufbewahrt wird
+limits-intro = Diese Grenzen legen fest, wie viel dieses Gerät aufbewahrt. Alles bleibt auf diesem Gerät. Die Standardwerte passen für die meisten. Eine Änderung gilt sofort, und nichts, was gerade genutzt wird, wird abgeschnitten.
+limits-group-pictures = Bilder
+limits-group-chats = Chats und Dateien
+limits-group-history = Anrufverlauf
+limits-unit-mib = MiB
+limits-unit-entries = Einträge
+limits-unit-days = Tage
+limits-unit-transfers = Übertragungen
+limits-avatar-label = Bilder-Cache
+limits-avatar-help = Bilder der Personen, mit denen du sprichst, werden hier aufbewahrt, damit sie schnell erscheinen. Ist der Cache voll, werden zuerst die am längsten nicht benutzten Bilder entfernt; dein eigenes Bild wird nie entfernt. Eine kleinere Grenze entfernt Bilder sofort.
+limits-avatar-used = Belegt: { $used } MiB
+limits-session-label = Speicher für einen laufenden Chat
+limits-session-help = So viel Speicher darf der Chat eines laufenden Anrufs höchstens belegen. Ist er voll, werden neue Nachrichten und Dateien in diesem Chat abgelehnt; nichts, was schon im Chat ist, wird gelöscht.
+limits-session-used = Größter laufender Chat: { $used } MiB
+limits-retained-label = Speicher für beendete Chats
+limits-retained-help = Chats beendeter Anrufe bleiben lesbar, bis Relay beendet wird. Belegen sie mehr als das, werden die ältesten beendeten Chats zuerst entfernt.
+limits-retained-used = Beendete Chats belegen { $used } MiB
+limits-entries-label = Anrufe im Verlauf
+limits-entries-help = So viele Anrufe behält der Anrufverlauf höchstens. Gibt es mehr, werden die ältesten entfernt. 0 behält keinen.
+limits-age-label = Anrufe aufbewahren für
+limits-age-help = Ältere Anrufe werden aus dem Verlauf entfernt.
+limits-transfers-label = Dateien gleichzeitig
+limits-transfers-help = Wie viele Dateien in einem Anruf gleichzeitig gesendet oder empfangen werden können. Jede weitere Datei wird abgelehnt, bis eine fertig ist.
+limits-check-range = { $label } muss zwischen { $min } und { $max } { $unit } liegen
+limits-check-pair = Der Speicher für beendete Chats darf nicht kleiner sein als der für einen laufenden Chat.
+limits-reset = Auf Standard zurücksetzen
+limits-nothing = Nichts zu ändern.
+limits-applied = { $label }: sofort übernommen
+limits-saved = { $label }: gespeichert, gilt nach einem Neustart
+limits-saved-reason = { $label }: gespeichert, gilt nach einem Neustart ({ $reason })
+limits-rejected = { $label }: abgelehnt
+limits-rejected-reason = { $label }: abgelehnt ({ $reason })

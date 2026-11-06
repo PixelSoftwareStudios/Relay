@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, zh-CN, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = 存储与限制
+settings-limits-sub = 缓存大小和保留时长
+limits-intro = 这些限制决定本设备保留多少内容。所有内容都只保存在本设备上。默认值适合大多数人。更改会立即生效，正在使用的内容不会被截断。
+limits-group-pictures = 图片
+limits-group-chats = 聊天和文件
+limits-group-history = 通话记录
+limits-unit-mib = MiB
+limits-unit-entries = 条
+limits-unit-days = 天
+limits-unit-transfers = 个传输
+limits-avatar-label = 图片缓存
+limits-avatar-help = 与你通话的人的图片保存在这里，以便快速显示。缓存已满时，最久未使用的图片会先被删除；你自己的图片永远不会被删除。调低限制会立即删除图片。
+limits-avatar-used = 已用：{ $used } MiB
+limits-session-label = 单个进行中聊天的内存
+limits-session-help = 一个进行中通话的聊天最多可使用的内存。用满后，该聊天中的新消息和文件会被拒绝；聊天中已有的内容不会被删除。
+limits-session-used = 最大的进行中聊天：{ $used } MiB
+limits-retained-label = 已结束聊天的内存
+limits-retained-help = 已结束通话的聊天在 Relay 关闭前保持可读。如果占用超过此值，最旧的已结束聊天会先被删除。
+limits-retained-used = 已结束聊天占用 { $used } MiB
+limits-entries-label = 通话记录条数
+limits-entries-help = 通话记录最多保留的通话数。超过时，最旧的会被删除。0 表示不保留。
+limits-age-label = 通话保留时长
+limits-age-help = 早于此时长的通话会从记录中删除。
+limits-transfers-label = 同时传输的文件数
+limits-transfers-help = 一次通话中可以同时发送或接收的文件数。多出的文件会被拒绝，直到有一个传输完成。
+limits-check-range = { $label }必须在 { $min } 到 { $max } { $unit }之间
+limits-check-pair = 已结束聊天的内存不能小于单个进行中聊天的内存。
+limits-reset = 恢复默认值
+limits-nothing = 没有需要更改的内容。
+limits-applied = { $label }：已立即生效
+limits-saved = { $label }：已保存，重启后生效
+limits-saved-reason = { $label }：已保存，重启后生效（{ $reason }）
+limits-rejected = { $label }：已拒绝
+limits-rejected-reason = { $label }：已拒绝（{ $reason }）

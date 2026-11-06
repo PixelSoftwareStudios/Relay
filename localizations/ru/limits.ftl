@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, ru, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = Хранилище и лимиты
+settings-limits-sub = Размеры кэшей и сроки хранения
+limits-intro = Эти лимиты определяют, сколько данных хранит это устройство. Всё остаётся на этом устройстве. Значения по умолчанию подходят большинству. Изменение действует сразу, и ничего из используемого не обрезается.
+limits-group-pictures = Картинки
+limits-group-chats = Чаты и файлы
+limits-group-history = История звонков
+limits-unit-mib = МиБ
+limits-unit-entries = записей
+limits-unit-days = дней
+limits-unit-transfers = передач
+limits-avatar-label = Кэш картинок
+limits-avatar-help = Картинки людей, с которыми вы говорите, хранятся здесь, чтобы показываться быстро. Когда кэш заполнен, сначала удаляются картинки, которыми дольше всего не пользовались; ваша собственная картинка не удаляется никогда. Если уменьшить лимит, картинки удаляются сразу.
+limits-avatar-used = Занято: { $used } МиБ
+limits-session-label = Память одного идущего чата
+limits-session-help = Сколько памяти может занять чат одного идущего звонка. Когда она заполнена, новые сообщения и файлы в этом чате отклоняются; ничего из того, что уже есть в чате, не удаляется.
+limits-session-used = Самый большой идущий чат: { $used } МиБ
+limits-retained-label = Память завершённых чатов
+limits-retained-help = Чаты завершённых звонков остаются доступными, пока Relay не закроется. Если они занимают больше этого, сначала удаляются самые старые завершённые чаты.
+limits-retained-used = Завершённые чаты занимают { $used } МиБ
+limits-entries-label = Звонков в истории
+limits-entries-help = Сколько звонков хранит история. Если их больше, самые старые удаляются. 0 не хранит ничего.
+limits-age-label = Хранить звонки
+limits-age-help = Звонки старше этого срока удаляются из истории.
+limits-transfers-label = Файлов одновременно
+limits-transfers-help = Сколько файлов можно отправлять или получать одновременно в одном звонке. Лишний файл отклоняется, пока не завершится другой.
+limits-check-range = { $label }: допустимо от { $min } до { $max } ({ $unit })
+limits-check-pair = Память завершённых чатов не может быть меньше памяти одного идущего чата.
+limits-reset = Сбросить к значениям по умолчанию
+limits-nothing = Нечего менять.
+limits-applied = { $label }: применено сразу
+limits-saved = { $label }: сохранено, вступит в силу после перезапуска
+limits-saved-reason = { $label }: сохранено, вступит в силу после перезапуска ({ $reason })
+limits-rejected = { $label }: отклонено
+limits-rejected-reason = { $label }: отклонено ({ $reason })

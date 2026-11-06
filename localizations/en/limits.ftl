@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, en, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = Storage and limits
+settings-limits-sub = Cache sizes and how long things are kept
+limits-intro = These limits decide how much this device keeps. Everything stays on this device. The defaults suit most people. A change applies right away, and nothing that is in use is cut off.
+limits-group-pictures = Pictures
+limits-group-chats = Chats and files
+limits-group-history = Call history
+limits-unit-mib = MiB
+limits-unit-entries = entries
+limits-unit-days = days
+limits-unit-transfers = transfers
+limits-avatar-label = Picture cache
+limits-avatar-help = Pictures of the people you talk to are kept here so they show quickly. When the cache is full, the pictures used least recently are removed first; your own picture is never removed. Lowering the limit removes pictures at once.
+limits-avatar-used = In use: { $used } MiB
+limits-session-label = Memory for one running chat
+limits-session-help = The most memory the chat of one running call may use. When it is full, new messages and files in that chat are refused; nothing already in the chat is deleted.
+limits-session-used = Largest running chat: { $used } MiB
+limits-retained-label = Memory for ended chats
+limits-retained-help = Chats of calls that have ended stay readable until Relay stops. When they use more than this, the oldest ended chats are removed first.
+limits-retained-used = Ended chats use { $used } MiB
+limits-entries-label = Calls kept in history
+limits-entries-help = The most calls the call history keeps. When there are more, the oldest are removed. 0 keeps none.
+limits-age-label = Keep calls for
+limits-age-help = Calls older than this are removed from the history.
+limits-transfers-label = Files at the same time
+limits-transfers-help = How many files can be sent or received at once in one call. A further file is refused until one has finished.
+limits-check-range = { $label } must be between { $min } and { $max } { $unit }
+limits-check-pair = The memory for ended chats must not be smaller than the memory for one running chat.
+limits-reset = Reset to defaults
+limits-nothing = Nothing to change.
+limits-applied = { $label }: applied now
+limits-saved = { $label }: saved, takes effect after a restart
+limits-saved-reason = { $label }: saved, takes effect after a restart ({ $reason })
+limits-rejected = { $label }: rejected
+limits-rejected-reason = { $label }: rejected ({ $reason })

@@ -1,0 +1,36 @@
+# Relay desktop UI catalog, hi, section: Storage and limits (limits.* settings). Same ids and $variables as localizations/en/limits.ftl. See docs/i18n.md.
+
+settings-limits = स्टोरेज और सीमाएँ
+settings-limits-sub = कैश का आकार और चीज़ें कितने समय रखी जाती हैं
+limits-intro = ये सीमाएँ तय करती हैं कि यह डिवाइस कितना रखे। सब कुछ इसी डिवाइस पर रहता है। डिफ़ॉल्ट मान ज़्यादातर लोगों के लिए ठीक हैं। बदलाव तुरंत लागू होता है और जो चीज़ उपयोग में है वह बीच में नहीं कटती।
+limits-group-pictures = तस्वीरें
+limits-group-chats = चैट और फ़ाइलें
+limits-group-history = कॉल इतिहास
+limits-unit-mib = MiB
+limits-unit-entries = प्रविष्टियाँ
+limits-unit-days = दिन
+limits-unit-transfers = ट्रांसफ़र
+limits-avatar-label = तस्वीर कैश
+limits-avatar-help = जिन लोगों से आप बात करते हैं उनकी तस्वीरें यहाँ रखी जाती हैं ताकि वे जल्दी दिखें। कैश भर जाने पर सबसे लंबे समय से इस्तेमाल न हुई तस्वीरें पहले हटती हैं; आपकी अपनी तस्वीर कभी नहीं हटती। सीमा घटाने पर तस्वीरें तुरंत हट जाती हैं।
+limits-avatar-used = उपयोग में: { $used } MiB
+limits-session-label = एक चालू चैट की मेमोरी
+limits-session-help = एक चालू कॉल की चैट अधिकतम कितनी मेमोरी ले सकती है। भर जाने पर उस चैट में नए संदेश और फ़ाइलें अस्वीकार हो जाती हैं; चैट में पहले से मौजूद कुछ भी नहीं हटता।
+limits-session-used = सबसे बड़ी चालू चैट: { $used } MiB
+limits-retained-label = समाप्त चैट की मेमोरी
+limits-retained-help = समाप्त कॉल की चैट Relay बंद होने तक पढ़ी जा सकती हैं। ये इससे ज़्यादा लें तो सबसे पुरानी समाप्त चैट पहले हटती हैं।
+limits-retained-used = समाप्त चैट ले रही हैं: { $used } MiB
+limits-entries-label = इतिहास में कॉल
+limits-entries-help = कॉल इतिहास अधिकतम कितनी कॉल रखता है। इससे ज़्यादा होने पर सबसे पुरानी हट जाती हैं। 0 का मतलब कोई नहीं रखना।
+limits-age-label = कॉल कितने समय रखें
+limits-age-help = इससे पुरानी कॉल इतिहास से हटा दी जाती हैं।
+limits-transfers-label = एक साथ फ़ाइलें
+limits-transfers-help = एक कॉल में एक साथ कितनी फ़ाइलें भेजी या पाई जा सकती हैं। इससे ज़्यादा फ़ाइल तब तक अस्वीकार रहती है जब तक कोई एक पूरी न हो जाए।
+limits-check-range = { $label } { $min } और { $max } { $unit } के बीच होना चाहिए
+limits-check-pair = समाप्त चैट की मेमोरी एक चालू चैट की मेमोरी से कम नहीं हो सकती।
+limits-reset = डिफ़ॉल्ट पर लौटाएँ
+limits-nothing = बदलने के लिए कुछ नहीं है।
+limits-applied = { $label }: तुरंत लागू हुआ
+limits-saved = { $label }: सहेजा गया, रीस्टार्ट के बाद लागू होगा
+limits-saved-reason = { $label }: सहेजा गया, रीस्टार्ट के बाद लागू होगा ({ $reason })
+limits-rejected = { $label }: अस्वीकार
+limits-rejected-reason = { $label }: अस्वीकार ({ $reason })
