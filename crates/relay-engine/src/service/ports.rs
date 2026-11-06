@@ -320,6 +320,16 @@ pub trait PeerControl: Send + Sync {
 	/// Turns a manual `ip:port` into a peer identity. May block on a
 	/// handshake: the service calls it from a blocking thread, never the actor.
 	fn resolve_address(&self, address: &str) -> Result<PeerId, PortError>;
+	/// Dials a scanned `relay://host:port#fingerprint` string with that key pinned: the
+	/// handshake refuses any other device before our key is revealed. Only when the
+	/// authenticated key matches is the peer pinned as verified (out of band); any failure
+	/// stores nothing.
+	/// May block: the service calls it from a blocking thread, never the actor.
+	fn connect_pinned(&self, _text: &str) -> Result<PeerId, super::ConnectFailure> {
+		Err(super::ConnectFailure::Unreachable(
+			"dialling is not available".to_owned(),
+		))
+	}
 	/// Currently known peers.
 	fn peers(&self) -> Vec<PeerInfo>;
 	/// Applies a trust decision; the adapter owns the trust store.

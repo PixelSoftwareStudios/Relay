@@ -205,9 +205,10 @@ impl Engine for EngineService {
 
 	async fn connect_and_trust(
 		&self,
-		_: Request<relay_api::pb::ConnectAndTrustRequest>,
+		request: Request<relay_api::pb::ConnectAndTrustRequest>,
 	) -> Result<Response<Operation>, Status> {
-		Err(Status::unimplemented("connect_and_trust"))
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		connect_trust::connect(self, &mutation, &body).await
 	}
 
 	type WatchCallStatsStream = Stream<relay_api::pb::CallStats>;

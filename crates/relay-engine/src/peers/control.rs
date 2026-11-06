@@ -10,11 +10,15 @@ use tokio::sync::watch;
 
 use super::handle::AdvertSpec;
 use super::{LocalProfile, PeerHandle, PeerSnapshot, peer_id};
+use crate::service::ConnectFailure;
 use crate::service::ports::{
 	ConnectionDetails, ForgottenPeer, LocalProfile as PortProfile, PeerControl, PeerInfo,
 	PeerSelector, PeerTrust, PortError, TrustRequest,
 };
 use relay_net::connect::ConnectionString;
+
+/// How long a scanned string may take to answer before it counts as unreachable.
+const CONNECT_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(20);
 
 /// Adapts a [`PeerHandle`] to the service's [`PeerControl`] port.
 pub struct PeerAdapter {
@@ -140,6 +144,39 @@ impl PeerControl for PeerAdapter {
 			}
 		});
 		Err(PortError::Unavailable("dialling; retry shortly".to_owned()))
+	}
+
+	fn connect_pinned(&self, text: &str) -> Result<PeerId, ConnectFailure> {
+		let target = ConnectionString::parse(text, &self.policy)
+			.map_err(|e| ConnectFailure::InvalidString(e.to_string()))?;
+		let peer = peer_id(&target.expected);
+		let handle = self.handle.clone();
+		let dial = async move {
+			let found =
+				tokio::time::timeout(CONNECT_TIMEOUT, handle.dial(target.addr, Some(peer))).await;
+			match found {
+				Ok(Ok(found)) if found == peer => {
+					// The handshake proved the key; the scanned code is the out-of-band
+					// check, so the peer is verified (the same pin as DecidePeerTrust).
+					handle
+						.pin(peer, TrustState::Verified)
+						.await
+						.map_err(|e| ConnectFailure::Unreachable(e.to_string()))?;
+					Ok(peer)
+				}
+				Ok(Ok(_)) => Err(ConnectFailure::Mismatch),
+				Ok(Err(error)) => {
+					let reason = error.to_string();
+					Err(if reason.contains("expected fingerprint") {
+						ConnectFailure::Mismatch
+					} else {
+						ConnectFailure::Unreachable(reason)
+					})
+				}
+				Err(_) => Err(ConnectFailure::Unreachable("timed out".to_owned())),
+			}
+		};
+		self.runtime.block_on(dial)
 	}
 
 	fn peers(&self) -> Vec<PeerInfo> {
