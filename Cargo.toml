@@ -210,6 +210,11 @@ unsafe_op_in_unsafe_fn = "deny"
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
 
+# Line tables keep backtraces readable but cut debug builds (and the many test
+# binaries) several times in size; full debuginfo filled the disk repeatedly.
+[profile.dev]
+debug = "line-tables-only"
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
