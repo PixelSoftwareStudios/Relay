@@ -28,7 +28,7 @@ fn every_documented_command_parses() {
 		&["mute", "off", "--call", "x"],
 		&["deafen", "on"],
 		&["gain", "playback", "0.8"],
-		&["talk", "ptt", "--consent"],
+		&["talk", "ptt"],
 		&["devices", "list"],
 		&["devices", "select", "--input", "usb", "--output", "hdmi"],
 		&["ns", "set", "off"],

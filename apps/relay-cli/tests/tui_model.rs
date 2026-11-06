@@ -9,7 +9,7 @@ use relay_api::pb::*;
 use relay_cli::client::{CallAction, ConnectionState, PttAction, Update};
 use relay_cli::hotkey::{HotkeyReport, HotkeyUpdate, TargetStatus};
 use relay_cli::tui::keys::{TuiCommand, handle_key, on_tick};
-use relay_cli::tui::{Model, Prompt, Tab};
+use relay_cli::tui::{Model, Tab};
 use relay_platform::ptt::PttState;
 
 fn key(c: char) -> KeyEvent {
@@ -73,7 +73,7 @@ fn snapshot_then_events_update_the_cache() {
 fn ended_calls_leave_the_live_list_and_selection_stays_in_range() {
 	let mut m = model();
 	m.tab = Tab::Calls;
-	let mut ended = fixtures::call(CallState::Ended, TransmitMode::ReceiveOnly);
+	let mut ended = fixtures::call(CallState::Ended, TransmitMode::Muted);
 	ended.revision = 20;
 	m.apply(event(11, state_event::Event::Call(ended)));
 	assert!(m.live_calls().is_empty());
@@ -157,29 +157,22 @@ fn enter_on_a_peer_calls_it_and_on_a_device_selects_it() {
 }
 
 #[test]
-fn opening_the_microphone_asks_for_consent_first() {
+fn choosing_a_mode_is_the_consent_and_needs_no_question() {
 	let mut m = model();
-	// receive-only -> push-to-talk needs a yes
-	assert_eq!(handle_key(&mut m, key('t')), None);
+	// muted -> push-to-talk applies at once
 	assert_eq!(
-		m.prompt,
-		Some(Prompt::Consent {
-			call_id: CALL.to_vec(),
-			mode: TransmitMode::PushToTalk
-		})
-	);
-	let denied = handle_key(&mut m, key('n'));
-	assert_eq!(denied, None);
-	assert!(m.prompt.is_none());
-
-	handle_key(&mut m, key('t'));
-	let allowed = handle_key(&mut m, key('y'));
-	assert_eq!(
-		allowed,
+		handle_key(&mut m, key('t')),
 		Some(TuiCommand::Route {
 			call_id: CALL.to_vec(),
 			mode: TransmitMode::PushToTalk,
-			consent: true
+		})
+	);
+	m.snapshot.calls[0].transmit.as_mut().unwrap().mode = TransmitMode::PushToTalk as i32;
+	assert_eq!(
+		handle_key(&mut m, key('t')),
+		Some(TuiCommand::Route {
+			call_id: CALL.to_vec(),
+			mode: TransmitMode::Unmuted,
 		})
 	);
 }
@@ -187,15 +180,14 @@ fn opening_the_microphone_asks_for_consent_first() {
 #[test]
 fn closing_the_microphone_needs_no_prompt_and_drops_a_held_ptt() {
 	let mut m = model();
-	m.snapshot.calls[0].transmit.as_mut().unwrap().mode = TransmitMode::OpenMic as i32;
+	m.snapshot.calls[0].transmit.as_mut().unwrap().mode = TransmitMode::Unmuted as i32;
 	m.ptt_latched = Some(CALL.to_vec());
 	let cmd = handle_key(&mut m, key('t'));
 	assert_eq!(
 		cmd,
 		Some(TuiCommand::Route {
 			call_id: CALL.to_vec(),
-			mode: TransmitMode::ReceiveOnly,
-			consent: false
+			mode: TransmitMode::Muted,
 		})
 	);
 	assert!(m.ptt_latched.is_none());

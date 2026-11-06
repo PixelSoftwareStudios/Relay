@@ -9,7 +9,7 @@ use ratatui::widgets::{Block, Borders, Paragraph, Tabs};
 use super::meter;
 use crate::client::ConnectionState;
 use crate::hotkey::ptt_label;
-use crate::tui::model::{Model, Prompt, Tab};
+use crate::tui::model::{Model, Tab};
 
 pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 	let (link, color) = match &model.connection {
@@ -73,10 +73,7 @@ pub fn tabs(frame: &mut Frame, area: Rect, model: &Model) {
 }
 
 pub fn footer(frame: &mut Frame, area: Rect, model: &Model) {
-	let text = if let Some(Prompt::Consent { mode, .. }) = &model.prompt {
-		let mode = crate::commands::names::transmit_mode(*mode as i32);
-		format!("Allow the microphone on this call ({mode})? y = allow, any other key = no")
-	} else if !model.status.is_empty() {
+	let text = if !model.status.is_empty() {
 		model.status.clone()
 	} else if model.tab == Tab::Messages {
 		crate::tui::messages::view::hints(&model.messages).to_owned()

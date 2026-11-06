@@ -12,11 +12,7 @@ pub async fn execute<C: Control>(client: &mut C, command: TuiCommand) -> Result<
 	let op = match command {
 		TuiCommand::StartCall(peer) => client.start_call(CallTarget::Peer(peer)).await?,
 		TuiCommand::CallAction(action, call_id) => client.call_action(action, &call_id).await?,
-		TuiCommand::Route {
-			call_id,
-			mode,
-			consent,
-		} => client.set_route(&call_id, mode, consent).await?,
+		TuiCommand::Route { call_id, mode } => client.set_transmit_mode(&call_id, mode).await?,
 		TuiCommand::SetMuted(on) => {
 			let controls = GlobalControls {
 				muted: Some(on),

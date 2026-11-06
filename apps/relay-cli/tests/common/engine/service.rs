@@ -22,6 +22,8 @@ impl Engine for FakeEngine {
 			api_minor: 0,
 			capabilities: vec!["observe".into(), "call-control".into()],
 			limits: None,
+			build_revision: "test".into(),
+			api_revision: 0,
 		}))
 	}
 
@@ -47,6 +49,8 @@ impl Engine for FakeEngine {
 				.into(),
 			],
 			revision: 10,
+			daemon_build_revision: "test".into(),
+			daemon_api_revision: 0,
 		}))
 	}
 
@@ -143,15 +147,26 @@ impl Engine for FakeEngine {
 	async fn release_controller(&self, _: Request<ReleaseControllerRequest>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_transmit_route(&self, r: Request<SetTransmitRouteRequest>) -> Resp<Operation> {
+	async fn set_transmit_mode(&self, r: Request<SetTransmitModeRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(
 			r.context.as_ref(),
-			format!(
-				"route mode={} consent={}",
-				r.mode, r.explicit_microphone_consent
-			),
+			format!("route mode={}", r.mode),
 		)
+	}
+	async fn connect_and_trust(&self, r: Request<ConnectAndTrustRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("connect_and_trust {}", r.connection_string),
+		)
+	}
+	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
+	async fn watch_call_stats(
+		&self,
+		_: Request<WatchCallStatsRequest>,
+	) -> Resp<Self::WatchCallStatsStream> {
+		unsupported()
 	}
 	async fn set_call_controls(&self, r: Request<SetCallControlsRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
@@ -474,6 +489,8 @@ impl Engine for FakeEngine {
 			values: values.into_iter().collect(),
 			// A scripted cache of 3 MiB so `relay limits` has something to show.
 			usage: [("limits.avatar_cache_mib".to_owned(), 3 * 1024 * 1024)].into(),
+			build_revision: "test".into(),
+			api_revision: 0,
 		}))
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {

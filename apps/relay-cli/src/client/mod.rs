@@ -69,12 +69,11 @@ pub trait Control {
 		action: CallAction,
 		call_id: &[u8],
 	) -> Result<Operation, ApiError>;
-	/// Set the transmit route of a call.
-	async fn set_route(
+	/// Set a call's transmit mode; unmuted and push-to-talk are the consent.
+	async fn set_transmit_mode(
 		&mut self,
 		call_id: &[u8],
 		mode: relay_api::pb::TransmitMode,
-		consent: bool,
 	) -> Result<Operation, ApiError>;
 	/// Mute, deafen or set the receive gain of one call.
 	async fn set_call_controls(

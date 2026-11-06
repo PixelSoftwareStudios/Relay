@@ -72,7 +72,7 @@ pub enum Command {
 	Deafen(SwitchArgs),
 	/// Set a gain (linear multiplier).
 	Gain(GainArgs),
-	/// Choose how a call transmits (needs explicit consent to send audio).
+	/// Choose a call's microphone mode: muted, unmuted or ptt. Unmuted and ptt are the consent.
 	Talk(TalkArgs),
 	/// List or select audio devices.
 	#[command(subcommand)]
@@ -438,14 +438,14 @@ pub struct GainArgs {
 	pub call: Option<String>,
 }
 
-/// Transmit behavior.
+/// A call's microphone mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 pub enum TalkMode {
-	/// Open microphone.
-	On,
-	/// Receive only; the microphone stays closed.
-	Off,
-	/// Push-to-talk.
+	/// Open microphone. Choosing it is the consent to send the microphone to this call.
+	Unmuted,
+	/// The microphone is never sent; withdraws consent.
+	Muted,
+	/// Sent only while the talk key is held. Choosing it is the consent too.
 	Ptt,
 }
 
@@ -458,9 +458,6 @@ pub struct TalkArgs {
 	/// Call id prefix or peer name.
 	#[arg(long, value_name = "CALL")]
 	pub call: Option<String>,
-	/// Explicitly allow this call to use the microphone (required for on/ptt).
-	#[arg(long)]
-	pub consent: bool,
 }
 
 /// `relay devices ...`

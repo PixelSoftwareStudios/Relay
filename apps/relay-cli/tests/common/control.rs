@@ -102,16 +102,12 @@ impl Control for FakeControl {
 	) -> Result<Operation, ApiError> {
 		self.record(format!("{action:?} {}", hex::encode(call_id)))
 	}
-	async fn set_route(
+	async fn set_transmit_mode(
 		&mut self,
 		call_id: &[u8],
 		mode: TransmitMode,
-		consent: bool,
 	) -> Result<Operation, ApiError> {
-		self.record(format!(
-			"route {} {mode:?} consent={consent}",
-			hex::encode(call_id)
-		))
+		self.record(format!("route {} {mode:?}", hex::encode(call_id)))
 	}
 	async fn set_call_controls(
 		&mut self,

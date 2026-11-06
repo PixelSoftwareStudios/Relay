@@ -32,9 +32,9 @@ pub fn call_is_live(raw: i32) -> bool {
 pub fn transmit_mode(raw: i32) -> &'static str {
 	match TransmitMode::try_from(raw).unwrap_or(TransmitMode::Unspecified) {
 		TransmitMode::Unspecified => "unknown",
-		TransmitMode::ReceiveOnly => "receive-only",
+		TransmitMode::Muted => "muted",
 		TransmitMode::PushToTalk => "push-to-talk",
-		TransmitMode::OpenMic => "open-mic",
+		TransmitMode::Unmuted => "unmuted",
 	}
 }
 

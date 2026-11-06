@@ -96,11 +96,9 @@ async fn a_call_by_name_is_listed_and_can_be_ended() {
 }
 
 #[tokio::test]
-async fn talk_needs_consent_and_a_mute_applies_engine_wide() {
+async fn talk_sets_a_mode_and_a_mute_applies_engine_wide() {
 	let engine = Real::start().await;
 	engine.run(&["call", "kitchen"]).await.unwrap();
-	let refused = engine.run(&["talk", "on"]).await;
-	assert!(refused.is_err(), "talk without --consent must be refused");
 	engine.run(&["mute", "on"]).await.unwrap();
 	let status: serde_json::Value =
 		serde_json::from_str(&engine.run(&["--json", "status"]).await.unwrap()).unwrap();

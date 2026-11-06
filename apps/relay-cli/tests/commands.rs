@@ -5,7 +5,7 @@ mod common;
 use common::fixtures::{ALICE, CALL};
 use common::{FakeControl, run_with};
 use relay_api::pb::{OperationState, Problem};
-use relay_cli::cli::{CliError, exit};
+use relay_cli::cli::exit;
 
 fn call_hex() -> String {
 	hex::encode(CALL)
@@ -67,19 +67,21 @@ async fn lifecycle_uses_the_only_live_call() {
 }
 
 #[tokio::test]
-async fn talk_requires_explicit_consent_before_any_request() {
+async fn talk_sets_the_mode_which_is_the_consent_in_one_request() {
 	let mut c = FakeControl::new();
-	let err = run_with(&mut c, &["talk", "on"], false).await.unwrap_err();
-	assert!(matches!(err, CliError::Usage(_)));
-	assert_eq!(err.exit_code(), exit::USAGE);
-	assert!(c.log.is_empty(), "no engine request without consent");
-
-	run_with(&mut c, &["talk", "ptt", "--consent"], false)
-		.await
-		.unwrap();
-	run_with(&mut c, &["talk", "off"], false).await.unwrap();
-	assert!(c.log[0].contains("PushToTalk") && c.log[0].contains("consent=true"));
-	assert!(c.log[1].contains("ReceiveOnly") && c.log[1].contains("consent=false"));
+	run_with(&mut c, &["talk", "ptt"], false).await.unwrap();
+	run_with(&mut c, &["talk", "unmuted"], false).await.unwrap();
+	run_with(&mut c, &["talk", "muted"], false).await.unwrap();
+	assert_eq!(c.log.len(), 3, "one request per choice: {:?}", c.log);
+	assert!(c.log[0].contains("PushToTalk"));
+	assert!(c.log[1].contains("Unmuted"));
+	assert!(c.log[2].contains("Muted"));
+	assert!(
+		run_with(&mut c, &["talk", "ptt", "--consent"], false)
+			.await
+			.is_err(),
+		"the consent flag is gone"
+	);
 }
 
 #[tokio::test]

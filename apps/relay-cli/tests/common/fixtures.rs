@@ -33,6 +33,7 @@ pub fn peer(id: [u8; 32], name: &str, reachable: bool, trust: TrustState) -> Pee
 		avatar_sha256: Vec::new(),
 		fingerprint_short: String::new(),
 		shared_channel_ids: Vec::new(),
+		..Peer::default()
 	}
 }
 
@@ -72,7 +73,7 @@ pub fn snapshot() -> Snapshot {
 			peer(ALICE, "Alice", true, TrustState::Verified),
 			peer(BOB, "Bob", false, TrustState::TofuUnverified),
 		],
-		calls: vec![call(CallState::Connected, TransmitMode::ReceiveOnly)],
+		calls: vec![call(CallState::Connected, TransmitMode::Muted)],
 		devices: vec![
 			device("mic1", "Built-in Mic", DeviceDirection::Input),
 			device("mic2", "USB Mic", DeviceDirection::Input),

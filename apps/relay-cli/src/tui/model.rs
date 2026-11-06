@@ -48,16 +48,6 @@ impl Tab {
 	}
 }
 
-/// A pending yes/no question.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum Prompt {
-	/// Allow the microphone on this call in this mode.
-	Consent {
-		call_id: Vec<u8>,
-		mode: relay_api::pb::TransmitMode,
-	},
-}
-
 /// Everything the screens render.
 #[derive(Debug)]
 pub struct Model {
@@ -76,7 +66,6 @@ pub struct Model {
 	pub messages: MessagesState,
 	pub telemetry: Option<TelemetrySnapshot>,
 	pub status: String,
-	pub prompt: Option<Prompt>,
 	/// Call whose push-to-talk is latched on from this terminal.
 	pub ptt_latched: Option<Vec<u8>>,
 	pub quit: bool,
@@ -103,7 +92,6 @@ impl Model {
 			messages: MessagesState::default(),
 			telemetry: None,
 			status: String::new(),
-			prompt: None,
 			ptt_latched: None,
 			quit: false,
 		}

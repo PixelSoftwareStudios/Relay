@@ -4,7 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 use relay_api::pb::{DeviceDirection, TransmitMode};
 
 use super::messages::{Handled, MsgCommand};
-use super::model::{Model, Prompt, Tab};
+use super::model::{Model, Tab};
 use crate::client::{CallAction, PttAction, PttRequest};
 
 /// Gain change per keypress.
@@ -23,7 +23,6 @@ pub enum TuiCommand {
 	Route {
 		call_id: Vec<u8>,
 		mode: TransmitMode,
-		consent: bool,
 	},
 	SetMuted(bool),
 	SetDeafened(bool),
@@ -43,9 +42,6 @@ pub enum TuiCommand {
 pub fn handle_key(model: &mut Model, key: KeyEvent) -> Option<TuiCommand> {
 	if key.kind == KeyEventKind::Release {
 		return None;
-	}
-	if let Some(prompt) = model.prompt.take() {
-		return answer_prompt(model, prompt, key);
 	}
 	if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
 		model.quit = true;
@@ -131,21 +127,6 @@ fn route_generation(model: &Model, call_id: &[u8]) -> u64 {
 		.map_or(0, |t| t.generation)
 }
 
-fn answer_prompt(model: &mut Model, prompt: Prompt, key: KeyEvent) -> Option<TuiCommand> {
-	let Prompt::Consent { call_id, mode } = prompt;
-	if matches!(key.code, KeyCode::Char('y' | 'Y')) {
-		model.status = "microphone allowed for this call".into();
-		Some(TuiCommand::Route {
-			call_id,
-			mode,
-			consent: true,
-		})
-	} else {
-		model.status = "microphone stays closed".into();
-		None
-	}
-}
-
 fn call_selected_peer(model: &mut Model) -> Option<TuiCommand> {
 	if model.tab != Tab::Peers {
 		return None;
@@ -171,23 +152,19 @@ fn cycle_route(model: &mut Model) -> Option<TuiCommand> {
 	let call_id = call.call_id.clone();
 	let current = call.transmit.as_ref().map_or(0, |t| t.mode);
 	let next = match TransmitMode::try_from(current) {
-		Ok(TransmitMode::ReceiveOnly) => TransmitMode::PushToTalk,
-		Ok(TransmitMode::PushToTalk) => TransmitMode::OpenMic,
-		_ => TransmitMode::ReceiveOnly,
+		Ok(TransmitMode::Muted) => TransmitMode::PushToTalk,
+		Ok(TransmitMode::PushToTalk) => TransmitMode::Unmuted,
+		_ => TransmitMode::Muted,
 	};
-	if next == TransmitMode::ReceiveOnly {
+	if next != TransmitMode::PushToTalk {
 		model.ptt_latched = None;
-		return Some(TuiCommand::Route {
-			call_id,
-			mode: next,
-			consent: false,
-		});
 	}
-	model.prompt = Some(Prompt::Consent {
+	// The mode is the consent: unmuted and push-to-talk apply at once.
+	model.status = format!("mic: {}", crate::commands::names::transmit_mode(next as i32));
+	Some(TuiCommand::Route {
 		call_id,
 		mode: next,
-	});
-	None
+	})
 }
 
 fn toggle_ptt(model: &mut Model) -> Option<TuiCommand> {

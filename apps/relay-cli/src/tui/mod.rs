@@ -13,4 +13,4 @@ pub mod view;
 
 pub use app::{MessagesPort, drive, drive_with, run};
 pub use keys::TuiCommand;
-pub use model::{Model, Prompt, Tab};
+pub use model::{Model, Tab};

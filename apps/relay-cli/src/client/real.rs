@@ -177,18 +177,16 @@ impl Control for RealClient {
 		.await
 	}
 
-	async fn set_route(
+	async fn set_transmit_mode(
 		&mut self,
 		call_id: &[u8],
 		mode: TransmitMode,
-		consent: bool,
 	) -> Result<Operation, ApiError> {
 		let generation = self.controller_generation(call_id).await?;
 		self.run_command(Command::SetTransmit {
 			call_id: call_id.to_vec(),
 			generation,
 			mode,
-			consent,
 		})
 		.await
 	}

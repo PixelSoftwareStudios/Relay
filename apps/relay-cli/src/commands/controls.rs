@@ -109,27 +109,22 @@ pub async fn gain<C: Control>(
 	report(&op, out)
 }
 
-/// Set the transmit route. Opening the microphone needs explicit `--consent`.
+/// Set the call's microphone mode. `unmuted` and `ptt` are the consent; there is no flag.
 pub async fn talk<C: Control>(
 	client: &mut C,
 	args: &TalkArgs,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	let (mode, transmits) = match args.mode {
-		TalkMode::On => (TransmitMode::OpenMic, true),
-		TalkMode::Ptt => (TransmitMode::PushToTalk, true),
-		TalkMode::Off => (TransmitMode::ReceiveOnly, false),
+	let mode = match args.mode {
+		TalkMode::Unmuted => TransmitMode::Unmuted,
+		TalkMode::Ptt => TransmitMode::PushToTalk,
+		TalkMode::Muted => TransmitMode::Muted,
 	};
-	if transmits && !args.consent {
-		return Err(CliError::Usage(
-			"this lets the call use your microphone; pass --consent to allow it".into(),
-		));
-	}
 	let snapshot = client.snapshot().await?;
 	let id = resolve_call(&snapshot, args.call.as_deref())?
 		.call_id
 		.clone();
-	let op = client.set_route(&id, mode, transmits).await?;
+	let op = client.set_transmit_mode(&id, mode).await?;
 	report(&op, out)
 }
 

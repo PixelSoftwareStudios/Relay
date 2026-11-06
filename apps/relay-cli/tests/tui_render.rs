@@ -153,7 +153,7 @@ fn call_card_shows_route_effective_ptt_meter_and_speaking() {
 	let text = screen(&m, 90, 14);
 	assert!(text.contains("Alice connected (speaking)"), "{text}");
 	assert!(
-		text.contains("route: push-to-talk  consent: yes  TRANSMITTING"),
+		text.contains("mode: push-to-talk  TRANSMITTING"),
 		"{text}"
 	);
 	assert!(text.contains("rtt 2.5ms"));
@@ -179,21 +179,6 @@ fn blocked_transmit_reason_and_closed_mic_are_visible() {
 	let text = screen(&m, 90, 14);
 	assert!(text.contains("mic closed"), "{text}");
 	assert!(text.contains("blocked: no input device"));
-}
-
-#[test]
-fn consent_prompt_replaces_the_footer() {
-	let mut m = model();
-	m.tab = Tab::Calls;
-	relay_cli::tui::keys::handle_key(
-		&mut m,
-		KeyEvent::new(KeyCode::Char('t'), KeyModifiers::NONE),
-	);
-	let text = screen(&m, 100, 12);
-	assert!(
-		text.contains("Allow the microphone on this call (push-to-talk)? y = allow"),
-		"{text}"
-	);
 }
 
 #[test]

@@ -75,9 +75,8 @@ fn card(frame: &mut Frame, area: Rect, model: &Model, call: &relay_api::pb::Call
 	};
 	let mut route = vec![
 		Span::raw(format!(
-			"route: {}  consent: {}  ",
-			names::transmit_mode(transmit.mode),
-			yes_no(transmit.consent_granted)
+			"mode: {}  ",
+			names::transmit_mode(transmit.mode)
 		)),
 		tx,
 	];

@@ -45,19 +45,13 @@ async fn call_mutations_acquire_a_lease_and_use_its_generation() {
 }
 
 #[tokio::test]
-async fn talk_on_sends_consent_over_the_wire() {
+async fn talk_sends_the_mode_over_the_wire() {
 	let h = EngineHarness::start().await;
-	h.run(&["talk", "on", "--consent"]).await.unwrap();
-	h.run(&["talk", "off"]).await.unwrap();
+	h.run(&["talk", "unmuted"]).await.unwrap();
+	h.run(&["talk", "muted"]).await.unwrap();
 	let log = h.log();
-	assert!(
-		log.contains(&"route mode=3 consent=true".to_owned()),
-		"{log:?}"
-	);
-	assert!(
-		log.contains(&"route mode=1 consent=false".to_owned()),
-		"{log:?}"
-	);
+	assert!(log.contains(&"route mode=3".to_owned()), "{log:?}");
+	assert!(log.contains(&"route mode=1".to_owned()), "{log:?}");
 }
 
 #[tokio::test]
