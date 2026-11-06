@@ -175,6 +175,49 @@ impl TrustStore {
 		Ok(true)
 	}
 
+	/// Replaces the pinned key `old` by `new` as one transaction: the new entry is verified
+	/// and keeps the old name and first-seen time, the favorite (and its place in the list)
+	/// moves to the new key, and the old entry goes. Nothing changes when `old` is not pinned
+	/// or `new` already is. Returns the entry that was written.
+	pub fn replace_key(&mut self, old: &[u8; 32], new: &[u8; 32]) -> Result<TrustEntry> {
+		let (old_hex, new_hex) = (key_hex(old), key_hex(new));
+		let Some(previous) = self
+			.entries
+			.iter()
+			.find(|e| e.public_key == old_hex)
+			.cloned()
+		else {
+			return Err(ConfigError::InvalidPreference(
+				"no pinned key to replace".to_owned(),
+			));
+		};
+		if old_hex == new_hex || self.entries.iter().any(|e| e.public_key == new_hex) {
+			return Err(ConfigError::InvalidPreference(
+				"that key is already pinned".to_owned(),
+			));
+		}
+		let entry = TrustEntry {
+			public_key: new_hex.clone(),
+			level: TrustLevel::Verified,
+			..previous
+		};
+		self.db.with(|c| {
+			let tx = c.transaction()?;
+			insert_entry(&tx, &entry)?;
+			tx.execute(
+				"UPDATE favorites SET public_key = ?1 WHERE public_key = ?2",
+				[&new_hex, &old_hex],
+			)?;
+			tx.execute("DELETE FROM trust WHERE public_key = ?1", [&old_hex])?;
+			tx.commit()?;
+			Ok(())
+		})?;
+		self.entries.retain(|e| e.public_key != old_hex);
+		self.entries.push(entry.clone());
+		self.db.refresh_backup(true);
+		Ok(entry)
+	}
+
 	/// Removes a peer. Returns whether an entry existed.
 	pub fn remove(&mut self, key: &[u8; 32]) -> Result<bool> {
 		let hex = key_hex(key);

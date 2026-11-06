@@ -95,3 +95,35 @@ fn removing_trust_removes_the_favorite_and_keeps_the_order() {
 	assert!(trust.remove(&key(4)).unwrap());
 	assert_eq!(favorites.list().unwrap(), vec![key(1), key(3)]);
 }
+
+#[test]
+fn replacing_a_pinned_key_moves_the_favorite_and_keeps_the_place() {
+	let dir = tempfile::tempdir().unwrap();
+	let (s, mut trust) = trusted(dir.path(), 3);
+	let favorites = Favorites::open(&s.database);
+	favorites.set(&[key(1), key(2), key(3)]).unwrap();
+	let written = trust.replace_key(&key(2), &key(9)).unwrap();
+	assert_eq!(written.display_name, "Peer 2");
+	assert_eq!(written.first_seen, 2);
+	assert_eq!(written.level, relay_config::identity::TrustLevel::Verified);
+	assert_eq!(favorites.list().unwrap(), vec![key(1), key(9), key(3)]);
+	assert!(matches!(
+		trust.lookup(&key(2)),
+		relay_config::identity::TrustDecision::Unknown
+	));
+	let reopened = TrustStore::open(&s.database).unwrap();
+	assert_eq!(reopened.entries().len(), 3);
+}
+
+#[test]
+fn a_refused_replace_changes_nothing() {
+	let dir = tempfile::tempdir().unwrap();
+	let (s, mut trust) = trusted(dir.path(), 2);
+	let favorites = Favorites::open(&s.database);
+	favorites.set(&[key(1)]).unwrap();
+	assert!(trust.replace_key(&key(7), &key(9)).is_err());
+	assert!(trust.replace_key(&key(1), &key(2)).is_err());
+	assert!(trust.replace_key(&key(1), &key(1)).is_err());
+	assert_eq!(favorites.list().unwrap(), vec![key(1)]);
+	assert_eq!(trust.entries().len(), 2);
+}
