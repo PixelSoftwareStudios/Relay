@@ -5,6 +5,7 @@
 pub mod app;
 pub mod host;
 pub mod login;
+pub mod microphone;
 pub mod notify;
 pub mod options;
 pub mod prefs;

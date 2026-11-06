@@ -9,9 +9,11 @@ use relay_ui::daemon_control;
 use relay_ui::format::avatar_problem;
 use relay_ui::host_options::HostOptions;
 use relay_ui::imaging::avatar_check;
+use relay_ui::microphone::MicrophoneAccess;
 use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 
+use crate::microphone::{MicrophoneGate, System};
 use crate::options::DesktopOptions;
 use relay_ui::tr;
 
@@ -21,16 +23,31 @@ pub struct DesktopShell {
 	/// Set by [`Shell::hide_window`], cleared by [`Shell::show_window`].
 	hidden: AtomicBool,
 	options: Arc<DesktopOptions>,
+	microphone: MicrophoneGate,
+	/// The window had the keyboard focus on the last frame.
+	focused: AtomicBool,
 }
 
 impl DesktopShell {
 	pub fn new(ctx: egui::Context, options: Arc<DesktopOptions>) -> Self {
+		let repaint = ctx.clone();
 		Self {
 			ctx,
 			tray: AtomicBool::new(false),
 			hidden: AtomicBool::new(false),
 			options,
+			microphone: MicrophoneGate::new(
+				Arc::new(System),
+				Box::new(move || repaint.request_repaint()),
+			),
+			focused: AtomicBool::new(false),
 		}
+	}
+
+	/// Read the microphone permission and, if the user was never asked, show the
+	/// system prompt now (called once at launch).
+	pub fn start_microphone(&self) {
+		self.microphone.start();
 	}
 
 	/// The window is on screen, not minimized and has the keyboard focus: the user can see an
@@ -154,6 +171,27 @@ impl Shell for DesktopShell {
 		self.tray.load(Ordering::Acquire)
 	}
 
+	/// Re-read the permission each time the window gains focus: the user may have
+	/// turned it on in System Settings while the app ran.
+	fn microphone_access(&self) -> MicrophoneAccess {
+		let focused = self.ctx.input(|i| i.viewport().focused.unwrap_or(false));
+		if focused && !self.focused.swap(true, Ordering::AcqRel) {
+			self.microphone.refresh();
+		} else if !focused {
+			self.focused.store(false, Ordering::Release);
+		}
+		self.microphone.access()
+	}
+
+	fn request_microphone(&self) {
+		self.microphone.ask();
+	}
+
+	/// The Privacy pane for the microphone (the OS has no per-app deep link).
+	fn open_microphone_settings(&self) {
+		open_microphone_settings();
+	}
+
 	fn can_manage_daemon(&self) -> bool {
 		true
 	}
@@ -178,3 +216,15 @@ impl Shell for DesktopShell {
 		})
 	}
 }
+
+/// The system page where the microphone permission lives.
+#[cfg(target_os = "macos")]
+fn open_microphone_settings() {
+	const PANE: &str = "x-apple.systempreferences:com.apple.preference.security?Privacy_Microphone";
+	if let Err(e) = std::process::Command::new("open").arg(PANE).spawn() {
+		tracing::warn!(error = %e, "could not open System Settings");
+	}
+}
+
+#[cfg(not(target_os = "macos"))]
+fn open_microphone_settings() {}

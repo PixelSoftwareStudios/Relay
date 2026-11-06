@@ -6,6 +6,7 @@
 //! `InputControl` messages with renewable leases and fails closed on any error.
 
 pub mod hotkey;
+pub mod microphone;
 pub mod ptt;
 pub mod session;
 pub mod testing;

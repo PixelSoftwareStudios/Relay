@@ -70,6 +70,8 @@ fn main() -> eframe::Result {
 			// Before the tray and the first frame, so everything starts in the right language.
 			relay_ui::i18n::set_active(options.language());
 			let host = Arc::new(DesktopShell::new(ctx.clone(), options.clone()));
+			// The system prompt appears now, not at the first call.
+			host.start_microphone();
 			let shell: Arc<dyn Shell> = host.clone();
 			let hub = Arc::new(Hub::default());
 			let slot = Arc::new(SessionSlot::default());
