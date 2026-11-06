@@ -48,3 +48,5 @@ err-read-file = 파일을 읽을 수 없습니다: { $error }
 err-fingerprint-mismatch = 이 기기의 새 키 지문이 아닙니다.
 err-trust-full = 저장된 기기 한도({ $limit }대)에 도달했습니다. 연락처에서 일부를 삭제하세요.
 err-save-failed = Relay가 이 변경을 저장하지 못했습니다. 다시 시도하거나 앱을 다시 시작하세요.
+err-trust-unreachable = 신뢰하기 위해 해당 기기에 연결하지 못했습니다. 같은 네트워크에서 Relay가 열려 있는지 확인한 뒤 다시 시도하세요.
+err-trust-mismatch = 해당 기기는 표시된 키를 가지고 있지 않아 신뢰하지 않았습니다. 아무것도 저장되지 않았습니다.

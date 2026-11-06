@@ -48,3 +48,5 @@ err-read-file = 无法读取文件：{ $error }
 err-fingerprint-mismatch = 这不是该设备新密钥的指纹。
 err-trust-full = 已达到 { $limit } 台已保存设备的上限。请在联系人中移除一些。
 err-save-failed = Relay 无法保存此更改。请重试，或重新启动应用。
+err-trust-unreachable = Relay 无法连接到该设备以信任它。请确认它在同一网络且已打开 Relay，然后重试。
+err-trust-mismatch = 该设备没有向你显示的密钥，因此未被信任。没有保存任何内容。

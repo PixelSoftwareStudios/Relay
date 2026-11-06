@@ -23,6 +23,8 @@ pub type WatchMsg = Result<Option<WatchItem>, EngineError>;
 pub struct FakeOps {
 	pub commands: Mutex<Vec<Command>>,
 	pub fail_with: Mutex<Option<String>>,
+	/// The engine problem code of a `fail_with` failure (default `FAKE`).
+	pub fail_code: Mutex<Option<String>>,
 	pub lease_generation: u64,
 	pub png: Vec<u8>,
 	/// What `call_history` answers.
@@ -78,7 +80,12 @@ impl Operations for FakeOps {
 		self.commands.lock().unwrap().push(command.clone());
 		if let Some(message) = self.fail_with.lock().unwrap().clone() {
 			return Err(EngineError::Rejected {
-				code: "FAKE".into(),
+				code: self
+					.fail_code
+					.lock()
+					.unwrap()
+					.clone()
+					.unwrap_or_else(|| "FAKE".into()),
 				message,
 			});
 		}

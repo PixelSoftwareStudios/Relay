@@ -46,3 +46,5 @@ err-read-file = Não foi possível ler o arquivo: { $error }
 err-fingerprint-mismatch = Essa não é a impressão digital da chave nova deste dispositivo.
 err-trust-full = Você atingiu o limite de { $limit } dispositivos salvos. Remova alguns em Contatos.
 err-save-failed = O Relay não conseguiu salvar esta alteração. Tente de novo ou reinicie o app.
+err-trust-unreachable = O Relay não conseguiu alcançar esse dispositivo para confiar nele. Confira se ele está na mesma rede com o Relay aberto e tente de novo.
+err-trust-mismatch = Esse dispositivo não tem a chave que foi mostrada a você, então não foi confiável. Nada foi salvo.

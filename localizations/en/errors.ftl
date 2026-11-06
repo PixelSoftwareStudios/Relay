@@ -49,3 +49,5 @@ err-read-file = Cannot read the file: { $error }
 err-fingerprint-mismatch = That is not the fingerprint of this device's new key.
 err-trust-full = You have reached the limit of { $limit } saved devices. Remove some from Contacts.
 err-save-failed = Relay could not save this change. Try again, or restart the app.
+err-trust-unreachable = Relay could not reach that device to trust it. Make sure it is on the same network with Relay open, then try again.
+err-trust-mismatch = That device does not have the key you were shown, so it was not trusted. Nothing was saved.

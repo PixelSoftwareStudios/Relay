@@ -51,6 +51,20 @@ impl From<EngineError> for ControlError {
 	}
 }
 
+/// Words for why the engine could not store a trust decision; any other failure keeps
+/// the engine's own text.
+fn trust_error(error: EngineError) -> ControlError {
+	match &error {
+		EngineError::Rejected { code, .. } if code == "TRUST_KEY_MISMATCH" => {
+			ControlError::Engine(tr!("err-trust-mismatch").to_owned())
+		}
+		EngineError::Rejected { code, .. } if code == "UNAVAILABLE" => {
+			ControlError::Engine(tr!("err-trust-unreachable").to_owned())
+		}
+		_ => error.into(),
+	}
+}
+
 impl Serialize for ControlError {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
 		serializer.collect_str(self)
@@ -469,7 +483,13 @@ impl Controller {
 		{
 			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
 		}
-		self.run(Command::TrustPeer { peer_id: id }).await.map(drop)
+		let session = self.slot.get().ok_or(ControlError::NotConnected)?;
+		session
+			.ops
+			.run(Command::TrustPeer { peer_id: id })
+			.await
+			.map(drop)
+			.map_err(trust_error)
 	}
 
 	/// Remove the stored avatar (idempotent in the engine).
