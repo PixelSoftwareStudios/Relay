@@ -8,4 +8,6 @@ pub use secret::{Secret32, StoredIdentity};
 pub use store::{
 	IdentityStore, InsecureFileStore, KeyringStore, MemoryStore, load_or_create, open_store,
 };
-pub use trust::{TrustDecision, TrustEntry, TrustLevel, TrustStore};
+pub use trust::{
+	MAX_ENTRIES as TRUST_ENTRIES_MAX, TrustDecision, TrustEntry, TrustLevel, TrustStore,
+};

@@ -6,7 +6,8 @@ use serde::{Deserialize, Serialize};
 use crate::db::Database;
 use crate::error::{ConfigError, Result};
 
-const MAX_ENTRIES: usize = 4096;
+/// Most devices the trust table holds.
+pub const MAX_ENTRIES: usize = 4096;
 const MAX_NAME_CHARS: usize = 64;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -136,9 +137,7 @@ impl TrustStore {
 			return Ok(());
 		}
 		if self.entries.len() >= MAX_ENTRIES {
-			return Err(ConfigError::InvalidPreference(
-				"trust store is full".to_owned(),
-			));
+			return Err(ConfigError::TrustFull(MAX_ENTRIES));
 		}
 		let name: String = display_name
 			.chars()
@@ -187,14 +186,10 @@ impl TrustStore {
 			.find(|e| e.public_key == old_hex)
 			.cloned()
 		else {
-			return Err(ConfigError::InvalidPreference(
-				"no pinned key to replace".to_owned(),
-			));
+			return Err(ConfigError::KeyNotPinned);
 		};
 		if old_hex == new_hex || self.entries.iter().any(|e| e.public_key == new_hex) {
-			return Err(ConfigError::InvalidPreference(
-				"that key is already pinned".to_owned(),
-			));
+			return Err(ConfigError::KeyPinned);
 		}
 		let entry = TrustEntry {
 			public_key: new_hex.clone(),

@@ -34,6 +34,12 @@ pub enum ConfigError {
 	UnsupportedVersion { found: i64, supported: u32 },
 	#[error("invalid config version value")]
 	BadVersion,
+	#[error("the trust store holds its limit of {0} devices")]
+	TrustFull(usize),
+	#[error("that key is already pinned")]
+	KeyPinned,
+	#[error("no pinned key to replace")]
+	KeyNotPinned,
 	#[error("invalid preference value: {0}")]
 	InvalidPreference(String),
 	#[error("credential store error: {0}")]
@@ -48,6 +54,8 @@ pub enum ConfigError {
 	InsecureStorageNotEnabled,
 	#[error("{0}")]
 	Favorites(String),
+	#[error("the database lacks the {0} table")]
+	MissingTable(String),
 	#[error("avatar rejected: {0}")]
 	Avatar(#[from] AvatarError),
 }

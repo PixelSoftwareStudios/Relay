@@ -9,7 +9,7 @@ use relay_io::fs::{
 };
 use rusqlite::{Connection, ErrorCode};
 
-use super::migrate;
+use super::schema;
 use crate::error::{ConfigError, Result};
 use crate::notice::Notice;
 use crate::prefs::sql as prefs_sql;
@@ -63,10 +63,10 @@ fn try_open(path: &Path, strict_empty: bool) -> std::result::Result<Connection, 
 	restrict_file(path).map_err(ConfigError::from)?;
 	let mut conn = Connection::open(path)?;
 	let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
-	if version > i64::from(migrate::SCHEMA_VERSION) {
+	if version > i64::from(schema::SCHEMA_VERSION) {
 		return Err(ConfigError::UnsupportedVersion {
 			found: version,
-			supported: migrate::SCHEMA_VERSION,
+			supported: schema::SCHEMA_VERSION,
 		}
 		.into());
 	}
@@ -79,7 +79,7 @@ fn try_open(path: &Path, strict_empty: bool) -> std::result::Result<Connection, 
 	conn.pragma_update(None, "synchronous", "FULL")?;
 	conn.pragma_update(None, "foreign_keys", "ON")?;
 	conn.pragma_update(None, "trusted_schema", "OFF")?;
-	migrate::run(&mut conn, version as u32)?;
+	schema::ensure(&mut conn)?;
 	Ok(conn)
 }
 

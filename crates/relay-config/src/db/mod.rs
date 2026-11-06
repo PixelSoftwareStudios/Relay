@@ -1,11 +1,11 @@
-//! The per-user SQLite database: open, recover, migrate, back up.
+//! The per-user SQLite database: open, recover, set up the schema, back up.
 //!
 //! One connection behind a mutex, WAL journal, `synchronous=FULL`, foreign keys on.
 //! Holding a [`Database`] holds the process-wide [`WriterLock`].
 
 mod backup;
-mod migrate;
 mod open;
+mod schema;
 
 use relay_io::LockExt;
 use std::path::{Path, PathBuf};
@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 
 use rusqlite::Connection;
 
-pub use migrate::SCHEMA_VERSION;
+pub use schema::SCHEMA_VERSION;
 
 use crate::error::Result;
 use crate::notice::Notice;
