@@ -136,7 +136,7 @@ async fn a_row_per_outcome_with_its_marker_time_and_length() {
 	let times = drawn
 		.labels
 		.iter()
-		.filter(|l| l.starts_with("5 min ago"))
+		.filter(|l| l.starts_with("11:55 AM"))
 		.count();
 	assert_eq!(times, 6, "{:?}", drawn.labels);
 	// Only the two calls that connected show a length.

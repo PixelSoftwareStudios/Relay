@@ -7,9 +7,13 @@
 //! repaint is requested except to settle row heights after they were
 //! measured.
 
+mod back;
+mod bubble;
 mod compose;
 mod dialogs;
+mod image;
 mod markdown;
+mod menu;
 mod offer;
 mod panels;
 mod transcript;
@@ -42,6 +46,8 @@ pub struct MessagesUi {
 	drafts: HashMap<SessionKey, String>,
 	search: String,
 	pinned_only: bool,
+	search_open: bool,
+	search_started: bool,
 	lists: HashMap<SessionKey, transcript::ListCache>,
 	gate: LinkGate,
 	clip: ClipFlow,
@@ -49,6 +55,8 @@ pub struct MessagesUi {
 	textures: TextureCache<TextureHandle>,
 	/// Time zone for the clock in each row.
 	zone: LocalZone,
+	/// The shell's clock at the start of this frame, for "Today" and "Yesterday".
+	now_ms: u64,
 }
 
 impl MessagesUi {
@@ -56,10 +64,13 @@ impl MessagesUi {
 	pub fn new(zone: LocalZone) -> Self {
 		Self {
 			zone,
+			now_ms: 0,
 			seen: HashMap::new(),
 			drafts: HashMap::new(),
 			search: String::new(),
 			pinned_only: false,
+			search_open: false,
+			search_started: false,
 			lists: HashMap::new(),
 			gate: LinkGate::default(),
 			clip: ClipFlow::default(),
@@ -91,6 +102,7 @@ impl MessagesUi {
 	/// daemon no longer keeps it.
 	pub fn show(&mut self, ui: &mut Ui, actions: &Actions, call_id: &str, over: bool) {
 		actions.shared.messages.open_default();
+		self.now_ms = actions.shell.now_unix_ms();
 		self.drain(ui.ctx(), actions);
 		if matches!(self.clip, ClipFlow::Awaiting)
 			&& let Some(text) = dialogs::take_paste(ui)
@@ -100,6 +112,33 @@ impl MessagesUi {
 		let hub = actions.shared.messages.clone();
 		let mut intents = Vec::new();
 		hub.read(|state| self.draw(ui, state, call_id, over, &mut intents));
+		for intent in intents {
+			actions.dispatch(intent);
+		}
+	}
+
+	/// The "Chat options" button for the header of the chat of `call_id`,
+	/// with its menu: search, pinned filter, permissions, export and clear.
+	pub fn options_button(&mut self, ui: &mut Ui, actions: &Actions, call_id: &str) {
+		let hub = actions.shared.messages.clone();
+		let mut intents = Vec::new();
+		hub.read(|state| {
+			let Some(session) = session_of_call(&state.sessions, call_id) else {
+				return;
+			};
+			let side = menu::side(ui);
+			let (rect, _) = ui.allocate_exact_size(egui::vec2(side, side), egui::Sense::hover());
+			let id = ui.make_persistent_id(("relay-msg-options", &session.key));
+			let button = menu::dots_button(ui, id, rect, true, tr!("msg-chat-options"));
+			let ctl = panels::Options {
+				search_open: &mut self.search_open,
+				pinned_only: &mut self.pinned_only,
+				confirm_clear: &mut self.confirm_clear,
+			};
+			menu::options(&button, |ui| {
+				panels::options(ui, session, ctl, &mut intents)
+			});
+		});
 		for intent in intents {
 			actions.dispatch(intent);
 		}
@@ -166,21 +205,9 @@ impl MessagesUi {
 			return;
 		};
 		let key = session.key.clone();
-		panels::permissions(ui, session, intents);
-		ui.horizontal_wrapped(|ui| {
-			ui.add(
-				egui::TextEdit::singleline(&mut self.search)
-					.hint_text(tr!("msg-search-hint"))
-					.desired_width(ui.available_width().min(180.0)),
-			);
-			ui.checkbox(&mut self.pinned_only, tr!("msg-pinned-filter"));
-			if ui.button(tr!("msg-export")).clicked() {
-				intents.push(compose::export_intent(session));
-			}
-			if ui.button(tr!("msg-clear")).clicked() {
-				self.confirm_clear = Some(key.clone());
-			}
-		});
+		if self.search_open {
+			self.search_bar(ui);
+		}
 
 		let block = compose_blocked(
 			&state.feed,
@@ -188,11 +215,16 @@ impl MessagesUi {
 			session,
 		);
 		let draft = self.drafts.entry(key.clone()).or_default();
+		let mut sent = false;
+		let frame = egui::Frame::new()
+			.fill(ui.visuals().panel_fill)
+			.inner_margin(theme::SPACE_M);
 		egui::Panel::bottom("relay-msg-compose-panel")
-			.show_separator_line(false)
+			.show_separator_line(true)
+			.frame(frame)
 			.show(ui, |ui| match &block {
 				Some(why) => compose::blocked(ui, why, session, intents, &mut self.confirm_clear),
-				None => compose::editor(ui, draft, session, &mut self.clip, intents),
+				None => sent = compose::editor(ui, draft, session, &mut self.clip, intents),
 			});
 		let Some(t) = state.transcript(&key) else {
 			ui.label(RichText::new(tr!("msg-loading")).weak());
@@ -203,12 +235,16 @@ impl MessagesUi {
 		}
 		let needle = self.search.trim().to_lowercase();
 		let cache = self.lists.entry(key).or_default();
+		if sent {
+			cache.follow_own();
+		}
 		let mut rcx = transcript::RowCx {
 			session,
 			settings: state.settings,
 			textures: &mut self.textures,
 			gate: &mut self.gate,
 			zone: &self.zone,
+			now_ms: self.now_ms,
 			intents,
 		};
 		egui::CentralPanel::default()
@@ -216,5 +252,33 @@ impl MessagesUi {
 			.show(ui, |ui| {
 				transcript::show(ui, cache, t, &needle, self.pinned_only, &mut rcx)
 			});
+	}
+}
+
+impl MessagesUi {
+	/// The search box, shown from the options menu until closed.
+	fn search_bar(&mut self, ui: &mut Ui) {
+		ui.horizontal(|ui| {
+			let side = menu::side(ui);
+			let width = (ui.available_width() - side - ui.spacing().item_spacing.x).max(80.0);
+			let edit = ui.add(
+				egui::TextEdit::singleline(&mut self.search)
+					.hint_text(tr!("msg-search-hint"))
+					.desired_width(width),
+			);
+			if !self.search_started {
+				edit.request_focus();
+				self.search_started = true;
+			}
+			if ui
+				.add_sized([side, side], egui::Button::new("×"))
+				.on_hover_text(tr!("action-close"))
+				.clicked()
+			{
+				self.search_open = false;
+				self.search_started = false;
+				self.search.clear();
+			}
+		});
 	}
 }

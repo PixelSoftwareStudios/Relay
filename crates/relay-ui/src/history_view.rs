@@ -1,5 +1,5 @@
 //! The call history as the Calls page shows it: one row per past call with its marker word,
-//! relative time, duration and whether it can be called back now. Window-less, so it tests
+//! time, duration and whether it can be called back now. Window-less, so it tests
 //! without drawing.
 
 use relay_io::localtime::LocalZone;
@@ -36,6 +36,8 @@ pub struct HistoryRow {
 	/// A call the user did not answer; drawn with emphasis.
 	pub missed: bool,
 	pub when: Relative,
+	/// The full local date and time with the UTC clock, for hover text.
+	pub when_hover: String,
 	/// `m:ss` / `h:mm:ss`, only for a call that connected.
 	pub duration: Option<String>,
 	/// `None` when Call back works.
@@ -72,6 +74,7 @@ pub fn rows(state: &AppState, shown: usize, now_ms: u64, zone: &LocalZone) -> Ve
 				marker: marker(e),
 				missed: e.outcome == HistoryOutcome::Missed,
 				when: history_time::relative(now_ms, e.started_at_ms, zone),
+				when_hover: zone.hover(e.started_at_ms),
 				duration: (e.outcome == HistoryOutcome::Completed)
 					.then(|| history_time::duration(e.duration_ms)),
 				blocked: match peer {

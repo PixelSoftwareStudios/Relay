@@ -73,7 +73,7 @@ Settings, Storage and limits is shared UI (`docs/ui.md`, `docs/limits.md`) and t
 
 ## Message times
 
-Message rows show local time (`HH:MM:SS`). `DesktopShell` does not override `Shell::time_zone`, so the system zone is used (read when the Messages panel is created; a zone change while the app runs shows after a restart). The hover text shows the full local date and offset plus the UTC clock.
+Message and history times use the app-wide formats (`1:54 AM`, `Yesterday at 6:51 PM`, `11/04/26, 3:33 PM` in English; `relay-ui` `timefmt`). `DesktopShell` does not override `Shell::time_zone`, so the system zone is used (read when the Messages panel is created; a zone change while the app runs shows after a restart). The hover text shows the full local date and offset plus the UTC clock.
 
 ## Push-to-talk and hotkeys (honest state)
 A call is shown as transmitting only when the engine reports `effective_transmitting`. Push-to-talk shows "armed" until then, with the engine's blocked reason. This app registers no global hotkey (the daemon side owns input so PTT works with the window closed) and has no on-screen talk button. The hotkey itself is edited in Settings, "Push-to-talk hotkey" (`docs/ui.md`): it is saved through `SetSettings` and takes effect after a restart of whatever registers it. Wayland note for any future in-app hotkey: compositors generally refuse global key grabs from ordinary clients; it would need the XDG GlobalShortcuts portal.

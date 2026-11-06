@@ -7,6 +7,7 @@ use relay_messages::limits::{FREE_MARGIN_PERCENT, MAX_TEXT_BYTES, MIN_FREE_MARGI
 
 use super::model::{EntryView, OfferStatus, OfferView, SessionView};
 use super::state::{Feed, MessagesState};
+use crate::timefmt;
 use crate::tr;
 
 /// An inline image the daemon accepts: its control record is 16 KiB.
@@ -40,19 +41,20 @@ pub fn hash_short(hash: &[u8]) -> String {
 	format!("{}…", &hex[..hex.len().min(8)])
 }
 
-/// The clock of a message row and the text shown on hover.
+/// The time of a message and the text shown on hover.
 #[derive(Debug, PartialEq, Eq)]
 pub struct RowTimes {
-	/// `HH:MM:SS` in the viewer's zone, when this device received or sent it.
+	/// In the app-wide form of [`timefmt`](crate::timefmt): `1:54 AM`,
+	/// `Yesterday at 6:51 PM` or `11/04/26, 3:33 PM`.
 	pub label: String,
 	pub hover: String,
 }
 
-/// Row times: the label is local time; the hover gives the full local date and
+/// Row times at `now_ms`: the label is local time; the hover gives the full local date and
 /// offset with the UTC clock, then the sender's own claim in the same form.
-pub fn row_times(zone: &LocalZone, received_ms: u64, sent_ms: u64) -> RowTimes {
+pub fn row_times(zone: &LocalZone, now_ms: u64, received_ms: u64, sent_ms: u64) -> RowTimes {
 	RowTimes {
-		label: zone.clock(received_ms),
+		label: timefmt::format(zone, now_ms, received_ms),
 		hover: tr!(
 			"row-time-hover",
 			local = zone.hover(received_ms),

@@ -69,7 +69,8 @@ fn every_outcome_has_its_marker_word() {
 		lengths,
 		[Some("1:01"), Some("0:05"), None, None, None, None]
 	);
-	assert_eq!(rows[0].when, Relative::MinutesAgo(5));
+	assert_eq!(rows[0].when, Relative::At("11:55 AM".into()));
+	assert!(rows[0].when_hover.starts_with("2026-11-05 11:55:00 +00:00"));
 	assert_eq!(rows[0].name, "Name 1");
 	assert_eq!(marker(&state.history[2]), "Missed");
 }

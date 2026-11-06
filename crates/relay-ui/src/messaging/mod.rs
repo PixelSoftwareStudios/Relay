@@ -6,6 +6,7 @@ pub mod actions;
 pub mod convert;
 pub mod engine;
 pub mod gates;
+pub mod grouping;
 pub mod hub;
 pub mod image;
 pub mod link;

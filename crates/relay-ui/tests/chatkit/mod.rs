@@ -118,3 +118,132 @@ pub fn history_state() -> AppState {
 	];
 	state
 }
+
+/// The fixed clock of the chat tests: twenty minutes after the first seeded message.
+pub const NOW_MS: u64 = 1_760_000_000_000 + 20 * 60_000;
+
+/// Move the pointer to `pos`, press and release.
+pub fn click_at(phone: &mut Phone, pos: egui::Pos2) {
+	let button = |pressed| egui::Event::PointerButton {
+		pos,
+		button: egui::PointerButton::Primary,
+		pressed,
+		modifiers: Default::default(),
+	};
+	phone.frame_with(vec![egui::Event::PointerMoved(pos)]);
+	phone.frame_with(vec![button(true)]);
+	phone.frame_with(vec![button(false)]);
+}
+
+/// Tappable rectangles that are `side` points square: the three-dot buttons.
+pub fn squares(drawn: &crate::phone::Drawn, side: f32) -> Vec<egui::Rect> {
+	let mut found: Vec<egui::Rect> = drawn
+		.tappable
+		.iter()
+		.copied()
+		.filter(|r| (r.width() - side).abs() < 0.6 && (r.height() - side).abs() < 0.6)
+		.collect();
+	found.sort_by(|a, b| a.min.y.total_cmp(&b.min.y));
+	found
+}
+
+/// A phone or desktop rig with the Ada chat open on the seeded messages and a fixed clock.
+pub fn open_chat(phone: &mut Phone) -> crate::phone::Drawn {
+	phone.show_state(&state(false));
+	live_messages(phone);
+	phone
+		.shell
+		.now_ms
+		.store(NOW_MS, std::sync::atomic::Ordering::SeqCst);
+	phone.app.open_chat(&ada_call());
+	phone.settle()
+}
+
+/// Replace the Ada transcript by a short conversation that ends in text: a
+/// two-day-old greeting, yesterday's answer, then today's exchange with a
+/// failed and a sending message of our own.
+pub fn talk(phone: &Phone) {
+	use relay_api::pb::DeliveryState;
+	let day = 86_400_000;
+	let at = |e: &mut pb::TranscriptEntry, ms: u64| {
+		e.sent_at_unix_ms = ms;
+		e.received_at_unix_ms = ms;
+	};
+	let msg = |n: u64, own: bool, text: &str, ms: u64, d: DeliveryState| {
+		let mut e = pb::TranscriptEntry {
+			ordinal: n,
+			outgoing: own,
+			seq: n,
+			delivery: d as i32,
+			body: Some(transcript_entry::Body::Text(text.into())),
+			..Default::default()
+		};
+		at(&mut e, ms);
+		e
+	};
+	let now = NOW_MS;
+	let mut entries = vec![
+		msg(
+			1,
+			false,
+			"Hi! Are we still on for the demo?",
+			now - 2 * day,
+			DeliveryState::Delivered,
+		),
+		msg(
+			2,
+			true,
+			"Yes, see you at 10.",
+			now - day,
+			DeliveryState::Delivered,
+		),
+		msg(
+			3,
+			false,
+			"Great. Here is the **link** to the notes: https://relay.example/notes",
+			now - 600_000,
+			DeliveryState::Delivered,
+		),
+		msg(
+			4,
+			false,
+			"Can you also send the build?",
+			now - 590_000,
+			DeliveryState::Delivered,
+		),
+		msg(
+			5,
+			true,
+			"Sure, give me a minute.",
+			now - 400_000,
+			DeliveryState::Delivered,
+		),
+		msg(
+			6,
+			true,
+			"Sending it over now",
+			now - 380_000,
+			DeliveryState::Delivered,
+		),
+		msg(7, false, "Thanks!", now - 120_000, DeliveryState::Delivered),
+		msg(
+			8,
+			true,
+			"Did that arrive?",
+			now - 60_000,
+			DeliveryState::Failed,
+		),
+		msg(
+			9,
+			true,
+			"Retrying in a moment.",
+			now - 30_000,
+			DeliveryState::Sending,
+		),
+	];
+	entries[7].failure = "timeout".into();
+	entries[2].pinned = true;
+	phone.actions.shared.messages.update(|s| {
+		s.set_transcript(&hex::encode([ADA_CALL; 16]), &entries);
+	});
+}

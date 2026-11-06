@@ -12,6 +12,7 @@ pub(super) const GRACE_CALL: u8 = 101;
 /// The seeded call that has ended, with a long retained history.
 pub const ALAN_CALL: u8 = 90;
 pub(super) const NOW_MS: u64 = 1_760_000_000_000;
+const DAY_MS: u64 = 86_400_000;
 pub(super) const BIG_HISTORY: u64 = 3_000;
 
 pub(super) fn sid(n: u8) -> Vec<u8> {
@@ -113,7 +114,7 @@ pub(super) fn ada_entries() -> Vec<pb::TranscriptEntry> {
 	sending.delivery = pb::DeliveryState::Sending as i32;
 	let mut pinned = text(2, true, "Server is `build-07`; use **port 8443**.");
 	pinned.pinned = true;
-	vec![
+	let mut entries = vec![
 		text(
 			1,
 			false,
@@ -173,7 +174,17 @@ pub(super) fn ada_entries() -> Vec<pb::TranscriptEntry> {
 				false,
 			)),
 		),
-	]
+	];
+	// The first two messages are older, so the transcript shows the day
+	// separators and the three time formats.
+	for (n, days) in [(1, 2), (2, 1)] {
+		let at = NOW_MS - days * DAY_MS;
+		if let Some(e) = entries.iter_mut().find(|e| e.ordinal == n) {
+			e.sent_at_unix_ms = at;
+			e.received_at_unix_ms = at + 40;
+		}
+	}
+	entries
 }
 
 pub(super) fn long_entries() -> Vec<pb::TranscriptEntry> {

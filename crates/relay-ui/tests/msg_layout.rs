@@ -188,10 +188,9 @@ async fn live_transcript_shows_markdown_offers_and_compose() {
 		r.actions.shared.messages.update(|s| s.feed = Feed::Live);
 		let text = r.settle(width);
 		assert!(text.contains("Ada Lovelace"), "{text}");
-		assert!(text.contains("Permissions for this call"));
-		assert!(text.contains("Send clipboard to call"));
-		assert!(text.contains("Offer file"));
-		assert!(text.contains("0 / 4096 bytes"));
+		assert!(text.contains("\nSend\n"), "the Send button: {text}");
+		assert!(text.contains("Message"), "the composer hint: {text}");
+		assert!(!text.contains("Permissions for this call"), "in the menu");
 		// Newest rows are at the bottom: the sending message and the offers are drawn.
 		assert!(
 			text.contains("Retrying in a moment")
@@ -241,7 +240,7 @@ async fn permissions_off_disables_compose_with_an_explanation() {
 			text.contains("Messages are turned off for this call"),
 			"{text}"
 		);
-		assert!(!text.contains("0 / 4096 bytes"));
+		assert!(!text.contains("\nSend\n"), "no composer: {text}");
 	}
 }
 

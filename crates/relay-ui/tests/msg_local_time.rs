@@ -1,4 +1,4 @@
-//! Message row times: local clock for the label, UTC kept in the hover text.
+//! Message row times: the app-wide format for the label, UTC kept in the hover text.
 
 use relay_io::localtime::LocalZone;
 use relay_ui::messaging::rules::row_times;
@@ -7,12 +7,13 @@ use relay_ui::messaging::rules::row_times;
 const RECEIVED: u64 = 1_768_480_496_000;
 /// The sender's clock is two minutes behind.
 const SENT: u64 = RECEIVED - 120_000;
+const HOUR: u64 = 3_600_000;
 
 #[test]
 fn label_is_local_and_hover_keeps_utc() {
 	let zone = LocalZone::fixed(2 * 3600).unwrap();
-	let times = row_times(&zone, RECEIVED, SENT);
-	assert_eq!(times.label, "14:34:56");
+	let times = row_times(&zone, RECEIVED + HOUR, RECEIVED, SENT);
+	assert_eq!(times.label, "2:34 PM");
 	assert!(
 		times
 			.hover
@@ -26,16 +27,29 @@ fn label_is_local_and_hover_keeps_utc() {
 }
 
 #[test]
-fn utc_zone_gives_the_same_clock_as_before() {
-	let times = row_times(&LocalZone::utc(), RECEIVED, SENT);
-	assert_eq!(times.label, "12:34:56");
+fn older_and_yesterday_messages_say_so() {
+	let utc = LocalZone::utc();
+	let day = 24 * HOUR;
+	assert_eq!(
+		row_times(&utc, RECEIVED + HOUR, RECEIVED, SENT).label,
+		"12:34 PM"
+	);
+	assert_eq!(
+		row_times(&utc, RECEIVED + day, RECEIVED, SENT).label,
+		"Yesterday at 12:34 PM"
+	);
+	assert_eq!(
+		row_times(&utc, RECEIVED + 3 * day, RECEIVED, SENT).label,
+		"01/15/26, 12:34 PM"
+	);
 }
 
 #[test]
 fn the_local_date_can_differ_from_the_utc_date() {
 	let zone = LocalZone::fixed(-5 * 3600).unwrap();
-	let times = row_times(&zone, RECEIVED - 10 * 3600 * 1000, SENT);
-	assert_eq!(times.label, "21:34:56");
+	let received = RECEIVED - 10 * HOUR;
+	let times = row_times(&zone, received + HOUR, received, SENT);
+	assert_eq!(times.label, "9:34 PM");
 	assert!(
 		times
 			.hover

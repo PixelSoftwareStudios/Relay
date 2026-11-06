@@ -14,7 +14,7 @@ use super::kit::{self, Cx};
 use super::widgets::button_row;
 use crate::tr;
 
-/// How often relative times such as "5 min ago" are refreshed while they can change.
+/// How often "Just now" is refreshed while it can change.
 const REFRESH: Duration = Duration::from_secs(30);
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
@@ -80,7 +80,8 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 					if let Some(length) = &row.duration {
 						detail = format!("{detail} · {length}");
 					}
-					ui.label(RichText::new(detail).weak());
+					ui.label(RichText::new(detail).weak())
+						.on_hover_text(&row.when_hover);
 				});
 			});
 		});

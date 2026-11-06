@@ -12,7 +12,7 @@ use super::kit::Cx;
 use super::local::{ChatTarget, Local};
 
 /// Height of the chat panel below a card (points).
-const HEIGHT: f32 = 420.0;
+const HEIGHT: f32 = 520.0;
 
 /// The chat opened from a card or a history row, if it is the one of `call_id`.
 pub fn is_open(local: &Local, call_id: &str) -> bool {
@@ -69,16 +69,7 @@ fn panel(ui: &mut Ui, cx: &mut Cx, boxed: bool) {
 	};
 	let mut close = false;
 	ui.horizontal(|ui| {
-		if boxed {
-			ui.label(
-				RichText::new(&target.name)
-					.size(theme::TEXT_HEADING)
-					.strong(),
-			);
-			ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-				close = ui.button(tr!("action-close")).clicked();
-			});
-		} else {
+		if !boxed {
 			let back = if target.over {
 				tr!("action-back")
 			} else {
@@ -86,13 +77,18 @@ fn panel(ui: &mut Ui, cx: &mut Cx, boxed: bool) {
 			};
 			close = ui.button(format!("\u{2039} {back}")).clicked();
 		}
+		if boxed {
+			name(ui, &target.name);
+		}
+		ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+			if boxed {
+				close = ui.button(tr!("action-close")).clicked();
+			}
+			cx.messages.options_button(ui, cx.actions, &target.call_id);
+		});
 	});
 	if !boxed {
-		ui.label(
-			RichText::new(&target.name)
-				.size(theme::TEXT_HEADING)
-				.strong(),
-		);
+		name(ui, &target.name);
 	}
 	if close {
 		cx.local.chat = None;
@@ -103,4 +99,8 @@ fn panel(ui: &mut Ui, cx: &mut Cx, boxed: bool) {
 	}
 	cx.messages
 		.show(ui, cx.actions, &target.call_id, target.over);
+}
+
+fn name(ui: &mut Ui, name: &str) {
+	ui.add(egui::Label::new(RichText::new(name).size(theme::TEXT_HEADING).strong()).truncate());
 }
