@@ -191,11 +191,27 @@ saves once. Then the live keys are applied: display name, privacy and ring keys,
 microphone gain in the actor (the microphone gain falls back to `SAVED_NEEDS_RESTART` when the
 media path refuses it); `audio.playback_gain` and `ptt.release_delay_ms` as a domain
 `SetGlobalControls` (under an operation id derived from the request, so the caller's own id never
-collides with it); `messages.*` through the messaging actor. A follow-up that fails turns its
+collides with it); `messages.*` and the messaging half of `limits.*` through the messaging actor. A follow-up that fails turns its
 keys into `SAVED_NEEDS_RESTART`. Everything else (devices, noise backend, `network.*`,
 `hotkeys.*`, `diagnostics.*`, the other `privacy.*`) is saved and read at the next start.
 `SetSettings` is not tracked by operation id: repeating a request just saves the same values
 again.
+
+**Limits** (`limits.*`, `docs/limits.md`). `FileSettings::apply` uses `flat::set_many` and, when
+a limit changed, puts it into force itself: `AvatarCache::set_limit` evicts at once and
+`CallHistory::set_limits` prunes at once (both are shared with the other clones the daemon holds).
+The messaging half (`limits.messages_session_mib`, `limits.messages_retained_mib`,
+`limits.transfer_concurrency`) goes to the messaging actor as `Hub::set_limits(MessagingLimits)`
+(`messaging/storage.rs`): every transcript, running or ended, takes the new per-session budget
+(nothing is deleted; a chat over its budget refuses new data until it is under), ended
+transcripts over a smaller retained budget are removed oldest first with `HistoryEvicted`, and
+the transfer count applies from the next offer or accept. At start the saved values are read
+(`MessagingLimits::from_prefs`; `MessagingOptions.limits` overrides them for tests that need a
+budget below the allowed minimum). If the messaging actor is not running the keys are
+`SAVED_NEEDS_RESTART`. `GetSettings` also fills `SettingsDump.usage`: avatar cache bytes
+(`SettingsStore::avatar_cache_bytes`), bytes of ended chats and of the largest running chat
+(`Hub::usage`); a limit whose usage is not cheap to know has no entry. Tests:
+`tests/service_limits.rs`, `tests/limits_defaults.rs`.
 
 ## Call history
 
@@ -292,7 +308,7 @@ deadlines (`SessionStore::next_deadline`, `poll`), the "engine tick" for messagi
 - **Sessions follow calls.** After every domain revision change the control actor reports
   `CallFact`s (`Actor::sync_messaging`). A session starts when a call is `Connecting`, `Active` or
   `Interrupted` and ends when the call is over or gone. It is a `relay_messages::SessionStore`
-  inside one `HistoryManager` (256 MiB retained budget, oldest ended first; a new call with the
+  inside one `HistoryManager` (256 MiB retained budget by default, `limits.messages_retained_mib`, oldest ended first; a new call with the
   same peer replaces the old transcript). **At most one session per peer**: no call id travels
   on the session lane, so a message is routed by the *authenticated link's peer* to that peer's
   one session. A message for session S can only come from S's peer; a peer with no session gets
@@ -329,7 +345,7 @@ deadlines (`SessionStore::next_deadline`, `poll`), the "engine tick" for messagi
   256 KiB) and results. The sink is `relay_io::sink::DirSink` (temp file in the destination,
   fsync, verify, rename without replacing); `RunOptions::messaging.sinks` replaces it (tests:
   full or failing disk). Free space is checked by `Receiver::accept`
-  (`NO_SPACE`, the offer stays open). Two transfers per session, never auto-accepted, never
+  (`NO_SPACE`, the offer stays open). Two transfers per session by default (`limits.transfer_concurrency`, 1 to 8), never auto-accepted, never
   auto-opened, no resume; names are sanitized by both sides. The sender re-checks the source
   before the first chunk and before finishing (`source_changed`). Pacing is
   `messages.transfer_rate_limit_mbps` per link, applied live to running transfers. A failure the

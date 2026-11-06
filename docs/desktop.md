@@ -61,6 +61,10 @@ The channel list comes from `Snapshot.channels` and `StateEvent.channel`/`Remove
 
 The desktop app shows the daemon's call history on the Calls page and has the Keep call history switch in Settings, Privacy and trust (both in `relay-ui`, `docs/ui.md`); it adds nothing platform-specific. The list lives in the daemon's database, is read through `ListCallHistory`, and the app refreshes it when the daemon says it changed (the call ended, or the list was cleared from another client such as `relay history clear`). Relative times use the system time zone (`Shell::time_zone`, as message times do). The history never leaves this device (`docs/config.md`, "Call history").
 
+## Storage and limits
+
+Settings, Storage and limits is shared UI (`docs/ui.md`, `docs/limits.md`) and the desktop adds nothing to it. The avatar cache, the chat memory budgets, the call history bounds and the number of parallel file transfers are the daemon's; the app only reads and writes the `limits.*` preferences through the daemon, which applies them without a restart. The app's own memory (the 64 avatar textures, the 48 image textures, the 5000 transcript rows it holds per chat) is fixed for now and listed in `docs/limits.md`.
+
 ## Message times
 
 Message rows show local time (`HH:MM:SS`). `DesktopShell` does not override `Shell::time_zone`, so the system zone is used (read when the Messages panel is created; a zone change while the app runs shows after a restart). The hover text shows the full local date and offset plus the UTC clock.
