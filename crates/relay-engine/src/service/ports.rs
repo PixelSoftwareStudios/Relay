@@ -372,6 +372,10 @@ pub trait SettingsStore: Send + Sync {
 	fn clear_call_history(&self) -> Result<(), PortError> {
 		Err(PortError::Unsupported("call history"))
 	}
+	/// Bytes the avatar cache holds now, when the store knows (shown next to its limit).
+	fn avatar_cache_bytes(&self) -> Option<u64> {
+		None
+	}
 	/// Removes the local avatar (it is no longer pinned in the cache).
 	fn clear_avatar(&self) -> Result<(), PortError>;
 	/// The canonical PNG stored under `hash` (local or received), if cached.

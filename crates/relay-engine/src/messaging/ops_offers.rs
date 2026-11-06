@@ -83,10 +83,10 @@ impl Hub {
 			.transfers
 			.clone()
 			.ok_or_else(|| Refusal::new("FILE_REFUSED", "file transfers are not available"))?;
-		if self.active_transfers(sid) >= relay_messages::limits::MAX_CONCURRENT_TRANSFERS {
+		if self.active_transfers(sid) >= self.env.limits.transfers {
 			return Err(Refusal::new(
 				"TOO_MANY_TRANSFERS",
-				"two transfers are already running",
+				"the limit of transfers running at once is reached",
 			));
 		}
 		let dir = std::path::PathBuf::from(dir);

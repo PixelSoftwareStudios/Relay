@@ -185,7 +185,10 @@ async fn a_new_call_with_the_same_peer_replaces_the_old_transcript() {
 async fn the_retained_budget_evicts_the_oldest_ended_transcript_first() {
 	// Two ended transcripts of two messages each do not fit in 2.5 KB.
 	let mut a = support_channels::side_tuned(440.0, None, true, |o| {
-		o.messaging.limits.retained_bytes = 2_500;
+		o.messaging.limits = Some(relay_engine::messaging::MessagingLimits {
+			retained_bytes: 2_500,
+			..Default::default()
+		});
 	})
 	.await;
 	let mut b = side(1_700.0).await;

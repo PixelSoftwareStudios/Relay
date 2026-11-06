@@ -351,7 +351,16 @@ async fn images_are_validated_bounded_and_stored_as_sent() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_full_history_rejects_new_messages_and_keeps_the_old() {
 	// The receiver's session budget holds two small messages (1 KiB overhead each).
-	let mut chat = chatting_tuned(|_| {}, |o| o.messaging.limits.session_bytes = 2_500).await;
+	let mut chat = chatting_tuned(
+		|_| {},
+		|o| {
+			o.messaging.limits = Some(relay_engine::messaging::MessagingLimits {
+				session_bytes: 2_500,
+				..Default::default()
+			});
+		},
+	)
+	.await;
 	for n in 0..4 {
 		assert_ok(
 			&chat

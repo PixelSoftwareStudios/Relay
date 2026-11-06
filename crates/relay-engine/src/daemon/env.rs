@@ -123,11 +123,21 @@ pub(super) fn load(
 		&storage.database,
 		vault,
 	)?));
-	let avatars = Arc::new(AvatarCache::new(&storage.database));
+	let limits = preferences.limits;
+	let avatar_cache =
+		AvatarCache::with_database_limit(&storage.database, limits.avatar_cache_bytes());
+	let avatars = Arc::new(avatar_cache.clone());
+	let history = CallHistory::with_limits(
+		&storage.database,
+		relay_config::history::Limits {
+			max_entries: limits.history_max_entries as usize,
+			max_age_ms: limits.history_max_age_ms(),
+		},
+	);
 	let settings = Arc::new(FileSettings::new(
 		prefs_store,
-		AvatarCache::new(&storage.database),
-		CallHistory::open(&storage.database),
+		avatar_cache,
+		history,
 		preferences.clone(),
 	));
 	Ok(Loaded {

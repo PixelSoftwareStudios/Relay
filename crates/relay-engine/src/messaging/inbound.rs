@@ -175,7 +175,7 @@ impl Hub {
 			self.fail_offer(sid, id, OfferStatus::Cancelled, "disabled");
 			return;
 		}
-		if self.active_transfers(sid) >= relay_messages::limits::MAX_CONCURRENT_TRANSFERS {
+		if self.active_transfers(sid) >= self.env.limits.transfers {
 			self.send(peer, wire::cancel(id, CancelReason::CancelError));
 			self.fail_offer(sid, id, OfferStatus::Cancelled, "too_many_transfers");
 			return;

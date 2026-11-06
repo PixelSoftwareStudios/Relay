@@ -13,21 +13,31 @@ pub fn directory_sinks() -> SinkFactory {
 	Arc::new(|dir| Ok(Box::new(relay_io::sink::DirSink::new(dir))))
 }
 
-/// Bounds on transcript memory. The defaults are the design's; tests shrink them.
+/// The storage limits the messaging actor enforces, from `limits.*`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct MessagingLimits {
 	/// Budget of one live session's transcript.
 	pub session_bytes: u64,
 	/// Budget of all ended transcripts together.
 	pub retained_bytes: u64,
+	/// File transfers running at once in one session.
+	pub transfers: usize,
+}
+
+impl MessagingLimits {
+	/// The limits stored in the preferences.
+	pub fn from_prefs(limits: &relay_config::prefs::Limits) -> Self {
+		Self {
+			session_bytes: limits.session_bytes(),
+			retained_bytes: limits.retained_bytes(),
+			transfers: limits.transfer_concurrency as usize,
+		}
+	}
 }
 
 impl Default for MessagingLimits {
 	fn default() -> Self {
-		Self {
-			session_bytes: relay_messages::limits::SESSION_BUDGET_BYTES,
-			retained_bytes: relay_messages::limits::GLOBAL_RETAINED_BYTES,
-		}
+		Self::from_prefs(&relay_config::prefs::Limits::default())
 	}
 }
 
@@ -36,15 +46,15 @@ impl Default for MessagingLimits {
 pub struct MessagingOptions {
 	/// Where received files are written.
 	pub sinks: SinkFactory,
-	/// Transcript budgets.
-	pub limits: MessagingLimits,
+	/// Replaces the `limits.*` preferences (tests need budgets below the allowed minimum).
+	pub limits: Option<MessagingLimits>,
 }
 
 impl Default for MessagingOptions {
 	fn default() -> Self {
 		Self {
 			sinks: directory_sinks(),
-			limits: MessagingLimits::default(),
+			limits: None,
 		}
 	}
 }

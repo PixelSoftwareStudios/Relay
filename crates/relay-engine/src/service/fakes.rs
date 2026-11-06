@@ -330,15 +330,11 @@ impl SettingsStore for MemorySettings {
 	}
 	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
 		let mut prefs = lock(&self.prefs);
-		let mut answers = Vec::with_capacity(entries.len());
-		for (key, text) in entries {
-			match relay_config::prefs::flat::set(&prefs, key, text) {
-				Ok(next) => {
-					*prefs = next;
-					mirror(&mut lock(&self.stored), &prefs, key);
-					answers.push(None);
-				}
-				Err(error) => answers.push(Some(error.to_string())),
+		let (next, answers) = relay_config::prefs::flat::set_many(&prefs, entries);
+		*prefs = next;
+		for ((key, _), answer) in entries.iter().zip(&answers) {
+			if answer.is_none() {
+				mirror(&mut lock(&self.stored), &prefs, key);
 			}
 		}
 		Ok(answers)

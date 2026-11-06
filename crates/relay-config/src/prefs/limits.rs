@@ -126,6 +126,26 @@ impl Limits {
 		]
 	}
 
+	/// Reads the limits out of a flat `key -> text` map (`GetSettings`); a missing or
+	/// unparsable entry keeps its default.
+	pub fn from_map(map: &std::collections::BTreeMap<String, String>) -> Self {
+		let mut values = Self::default().values();
+		for (slot, spec) in values.iter_mut().zip(&SPECS) {
+			if let Some(value) = map.get(spec.key).and_then(|v| v.parse().ok()) {
+				*slot = value;
+			}
+		}
+		let [avatar, session, retained, entries, days, transfers] = values;
+		Self {
+			avatar_cache_mib: avatar,
+			messages_session_mib: session,
+			messages_retained_mib: retained,
+			history_max_entries: entries,
+			history_max_age_days: days,
+			transfer_concurrency: transfers,
+		}
+	}
+
 	/// The first problem with the values, naming the key, or `None`.
 	pub fn check(&self) -> Option<String> {
 		for (spec, value) in SPECS.iter().zip(self.values()) {

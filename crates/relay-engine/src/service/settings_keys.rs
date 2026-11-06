@@ -10,7 +10,7 @@ const SENSITIVE_KEYS: [&str; 3] = [
 ];
 
 /// Keys the running daemon applies at once (the rest are saved and read at the next start).
-const LIVE_KEYS: [&str; 15] = [
+const LIVE_KEYS: [&str; 21] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
@@ -26,6 +26,12 @@ const LIVE_KEYS: [&str; 15] = [
 	"messages.max_offer_size_mib",
 	"messages.transfer_rate_limit_mbps",
 	"history.enabled",
+	"limits.avatar_cache_mib",
+	"limits.messages_session_mib",
+	"limits.messages_retained_mib",
+	"limits.history_max_entries",
+	"limits.history_max_age_days",
+	"limits.transfer_concurrency",
 ];
 
 /// True for a key a client may not change over the API.
@@ -36,6 +42,17 @@ pub fn is_sensitive(key: &str) -> bool {
 /// True for a key a running daemon applies without a restart.
 pub fn is_live(key: &str) -> bool {
 	LIVE_KEYS.contains(&key)
+}
+
+/// True for the `limits.*` keys the messaging actor enforces (transcript budgets and the
+/// transfer concurrency). The avatar cache and the call history are enforced by the store.
+pub fn is_messaging_limit(key: &str) -> bool {
+	matches!(
+		key,
+		"limits.messages_session_mib"
+			| "limits.messages_retained_mib"
+			| "limits.transfer_concurrency"
+	)
 }
 
 /// True for the `messages.*` keys the messaging actor owns.

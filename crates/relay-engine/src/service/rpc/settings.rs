@@ -13,10 +13,13 @@ use tonic::{Request, Response, Status};
 
 use super::EngineService;
 use super::commands::gain;
-use crate::messaging::Caller;
+use crate::messaging::{Caller, MessagingLimits};
 use crate::service::convert::Mutation;
 use crate::service::error::ServiceError;
-use crate::service::settings_keys::{KeyOutcome, KeyResult, is_messaging, is_sensitive};
+use crate::service::settings_keys::{
+	KeyOutcome, KeyResult, is_messaging, is_messaging_limit, is_sensitive,
+};
+use relay_config::prefs::Limits;
 
 const MAX_ENTRIES: usize = 64;
 const MAX_KEY_BYTES: usize = 128;
@@ -42,7 +45,34 @@ pub(super) async fn get(
 	service.observer(&request, |body| Some(body))?;
 	Ok(Response::new(SettingsDump {
 		values: all(service).await?.into_iter().collect(),
+		usage: usage(service).await,
 	}))
+}
+
+/// Bytes in use next to the limit that bounds them, keyed by that limit's preference key.
+/// Only what is cheap to know is reported: the avatar cache size, the ended transcripts and
+/// the largest live transcript. Anything unknown is left out.
+async fn usage(service: &EngineService) -> std::collections::HashMap<String, u64> {
+	let mut out = std::collections::HashMap::new();
+	let settings = service.shared.settings.clone();
+	if let Ok(Some(bytes)) =
+		tokio::task::spawn_blocking(move || settings.avatar_cache_bytes()).await
+	{
+		out.insert("limits.avatar_cache_mib".to_owned(), bytes);
+	}
+	if let Some(hub) = service.shared.messaging.clone()
+		&& let Ok(used) = hub.ask(|h| h.usage()).await
+	{
+		out.insert(
+			"limits.messages_retained_mib".to_owned(),
+			used.retained_bytes,
+		);
+		out.insert(
+			"limits.messages_session_mib".to_owned(),
+			used.largest_live_bytes,
+		);
+	}
+	out
 }
 
 /// Refuses a malformed request, and any security-sensitive key whose value would change.
@@ -199,6 +229,36 @@ async fn messaging(
 	}
 }
 
+/// The messaging actor enforces the transcript budgets and the transfer concurrency.
+async fn storage_limits(
+	service: &EngineService,
+	current: &BTreeMap<String, String>,
+	results: &mut [KeyResult],
+) {
+	if !results
+		.iter()
+		.any(|r| is_messaging_limit(&r.key) && r.outcome == KeyOutcome::AppliedLive)
+	{
+		return;
+	}
+	let Some(hub) = service.shared.messaging.clone() else {
+		downgrade(
+			results,
+			is_messaging_limit,
+			"session messaging is not running; restart to apply",
+		);
+		return;
+	};
+	let limits = MessagingLimits::from_prefs(&Limits::from_map(current));
+	if hub.ask(move |h| h.set_limits(limits)).await.is_err() {
+		downgrade(
+			results,
+			is_messaging_limit,
+			"the messaging actor did not accept it; restart to apply",
+		);
+	}
+}
+
 fn answer(operation: Operation, results: Vec<KeyResult>) -> SetSettingsResponse {
 	let results = results
 		.into_iter()
@@ -238,6 +298,7 @@ pub(super) async fn set(
 	};
 	domain(service, &mutation, &print, &current, &mut results).await;
 	messaging(service, &mutation, &print, &current, &mut results).await;
+	storage_limits(service, &current, &mut results).await;
 	let operation = Operation {
 		operation_id: mutation.operation.to_bytes().to_vec(),
 		state: OperationState::Applied as i32,

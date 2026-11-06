@@ -78,6 +78,33 @@ impl FileSettings {
 	}
 }
 
+impl FileSettings {
+	/// Puts changed `limits.*` into force: the avatar cache and the call history shrink at
+	/// once. (The messaging budgets are applied by the messaging actor.) The new bounds are
+	/// stored before anything is deleted, so a failed cleanup still limits every later write.
+	fn enforce_limits(&self, before: prefs::Limits, now: prefs::Limits) {
+		if before.avatar_cache_mib != now.avatar_cache_mib
+			&& let Err(error) = self.avatars.set_limit(now.avatar_cache_bytes())
+		{
+			tracing::warn!(%error, "the avatar cache could not be trimmed to its new limit");
+		}
+		if (before.history_max_entries, before.history_max_age_days)
+			!= (now.history_max_entries, now.history_max_age_days)
+		{
+			let limits = relay_config::history::Limits {
+				max_entries: now.history_max_entries as usize,
+				max_age_ms: now.history_max_age_ms(),
+			};
+			if let Err(error) = self
+				.history
+				.set_limits(limits, relay_io::clock::unix_millis())
+			{
+				tracing::warn!(%error, "the call history could not be trimmed to its new limit");
+			}
+		}
+	}
+}
+
 impl SettingsStore for FileSettings {
 	fn load(&self) -> StoredSettings {
 		let prefs = lock(&self.current);
@@ -175,22 +202,14 @@ impl SettingsStore for FileSettings {
 
 	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
 		let mut current = lock(&self.current);
-		let mut next = current.clone();
-		let mut answers = Vec::with_capacity(entries.len());
-		for (key, text) in entries {
-			match prefs::flat::set(&next, key, text) {
-				Ok(updated) => {
-					next = updated;
-					answers.push(None);
-				}
-				Err(error) => answers.push(Some(error.to_string())),
-			}
-		}
+		let (next, answers) = prefs::flat::set_many(&current, entries);
 		if answers.iter().any(Option::is_none) {
 			self.store
 				.save(&next)
 				.map_err(|e| PortError::Unavailable(e.to_string()))?;
+			let before = current.limits;
 			*current = next;
+			self.enforce_limits(before, current.limits);
 		}
 		Ok(answers)
 	}
@@ -221,6 +240,10 @@ impl SettingsStore for FileSettings {
 			.clear()
 			.map(drop)
 			.map_err(|e| PortError::Unavailable(e.to_string()))
+	}
+
+	fn avatar_cache_bytes(&self) -> Option<u64> {
+		self.avatars.size().ok()
 	}
 
 	fn clear_avatar(&self) -> Result<(), PortError> {

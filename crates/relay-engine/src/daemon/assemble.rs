@@ -15,7 +15,8 @@ use super::{Environment, glue};
 use crate::channels::{ChannelHub, Clock, HubParts};
 use crate::media::{MediaConfig, MediaSystem, Selection};
 use crate::messaging::{
-	self, HubParts as MessagingParts, MessagingConfig, MessagingHandle, MessagingOptions,
+	self, HubParts as MessagingParts, MessagingConfig, MessagingHandle, MessagingLimits,
+	MessagingOptions,
 };
 use crate::peers::{AdvertSpec, PeerAdapter, PeerConfig, PeerHandle, spawn};
 use crate::service::Ports;
@@ -188,7 +189,9 @@ async fn start_messaging(
 		config: Arc::new(arc_swap::ArcSwap::from_pointee(config)),
 		store: env.settings.clone(),
 		sinks: options.sinks,
-		limits: options.limits,
+		limits: options
+			.limits
+			.unwrap_or_else(|| MessagingLimits::from_prefs(&env.preferences.limits)),
 	})
 }
 
