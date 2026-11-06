@@ -19,7 +19,11 @@ fn failed_open() -> Fixture {
 #[test]
 fn a_grant_during_the_call_reopens_capture() {
 	let mut f = failed_open();
-	assert_eq!(f.node.device.opened.len(), 1, "no retry loop inside the call");
+	assert_eq!(
+		f.node.device.opened.len(),
+		1,
+		"no retry loop inside the call"
+	);
 	f.node.feed(Input::System(SystemEvent::InputAccessChanged));
 	assert_eq!(f.node.device.opened.len(), 2);
 	f.node.complete_capture();

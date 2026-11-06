@@ -7,8 +7,8 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use relay_audio::device::{
-	AudioBackend, CaptureStream, DeviceHandle, Direction, Enumeration, FakeBackend,
-	FakeDeviceSpec, PlaybackStream, StreamRequest,
+	AudioBackend, CaptureStream, DeviceHandle, Direction, Enumeration, FakeBackend, FakeDeviceSpec,
+	PlaybackStream, StreamRequest,
 };
 use relay_core::{AudioGeneration, SystemEvent};
 use relay_engine::media::{

@@ -45,6 +45,8 @@ impl HostBridge for FakeBridge {
 	fn call_changed(&self, summary: CallSummary) {
 		self.calls.lock().unwrap().push(summary);
 	}
+	fn request_microphone(&self) {}
+	fn open_app_settings(&self) {}
 	fn quit_app(&self) {}
 }
 

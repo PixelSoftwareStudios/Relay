@@ -2,7 +2,9 @@
 
 use std::sync::Arc;
 
-use crate::bridge::{EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome};
+use crate::bridge::{
+	EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome,
+};
 use crate::host::{Host, host};
 
 /// Handle to the in-process engine. The state lives in a process-wide host so
