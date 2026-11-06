@@ -184,3 +184,34 @@ fn the_test_ring_lasts_two_seconds() {
 	);
 	assert!(d.deadline().is_none());
 }
+
+#[test]
+fn an_outgoing_call_warms_the_output_once_before_its_ringback() {
+	let prefs = RingPrefs::default();
+	let mut d = ToneDriver::default();
+	let preparing = [(CALL, Direction::Outgoing, CallState::Preparing)];
+	assert_eq!(
+		d.sync(&input(&preparing, true, false, prefs)),
+		[ToneCommand::Prewarm]
+	);
+	assert!(d.sync(&input(&preparing, true, false, prefs)).is_empty());
+	let ringing = [(CALL, Direction::Outgoing, CallState::OutgoingRinging)];
+	let started = d.sync(&input(&ringing, true, false, prefs));
+	assert!(matches!(
+		started.as_slice(),
+		[ToneCommand::Start {
+			sound: Sound::Ringback,
+			..
+		}]
+	));
+	// No warm-up when the user switched ringback off or deafened.
+	let quiet = RingPrefs {
+		ringback_enabled: false,
+		..prefs
+	};
+	assert!(
+		ToneDriver::default()
+			.sync(&input(&preparing, true, false, quiet))
+			.is_empty()
+	);
+}

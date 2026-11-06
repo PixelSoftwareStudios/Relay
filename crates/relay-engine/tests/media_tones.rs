@@ -27,6 +27,7 @@ fn a_ring_tone_is_rendered_with_no_call_and_wakes_an_idle_worker() {
 	let stream = backend
 		.open_playback(handle, &StreamRequest::default())
 		.unwrap();
+	stream.handle.play().unwrap();
 	let mut driver = backend.take_playback_driver().unwrap();
 	driver.enable_recording(48_000 * 4);
 

@@ -91,6 +91,8 @@ struct Worker {
 	/// The call being rendered when a step panics.
 	current: Option<CallId>,
 	tones: Option<Box<TonePlayer>>,
+	/// The backend-reported output latency of the attached stream was logged.
+	latency_logged: bool,
 }
 
 /// Starts the render worker thread under `supervision`.
@@ -117,6 +119,7 @@ pub fn spawn(
 		monitor,
 		current: None,
 		tones: None,
+		latency_logged: false,
 	};
 	thread::Builder::new()
 		.name("relay-render".to_owned())
@@ -228,6 +231,7 @@ impl Worker {
 			monitor,
 			current,
 			tones,
+			latency_logged,
 			..
 		} = self;
 		let Some(output) = output.as_mut() else {
@@ -256,6 +260,11 @@ impl Worker {
 		meters
 			.render_underruns
 			.store(output.shared.underrun_frames(), Ordering::Relaxed);
+		let latency_us = output.shared.reported_latency_us();
+		if latency_us > 0 && !*latency_logged {
+			*latency_logged = true;
+			tracing::info!(latency_us, "output latency reported by the audio backend");
+		}
 		self.load
 			.record(u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX));
 	}
@@ -315,6 +324,7 @@ impl Worker {
 				RenderCmd::Mix(mix) => self.apply_mix(mix),
 				RenderCmd::Attach(output) => {
 					self.output = Some(output);
+					self.latency_logged = false;
 					self.next_tick = Instant::now();
 				}
 				RenderCmd::Detach => self.output = None,

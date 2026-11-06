@@ -253,21 +253,32 @@ impl Thread {
 		let selection = self.setup.selection.output.clone();
 		let device = self.resolve(Direction::Output, &selection)?;
 		let stream = self.backend.open_playback(device, &self.setup.request)?;
-		let sink = RenderSink::new(
+		tracing::info!(
+			rate = stream.config.sample_rate,
+			buffer_frames = ?stream.config.buffer_frames,
+			callback_frames = ?stream.config.callback_frames,
+			"playback opened"
+		);
+		let mut sink = RenderSink::new(
 			stream.writer,
 			stream.config.sample_rate,
 			self.setup.playout_target_ms,
 		)?
-		.track_callbacks(Arc::clone(&stream.shared));
-		stream.handle.play()?;
+		.track_callbacks(Arc::clone(&stream.shared))
+		.with_callback_hint(stream.config.callback_frames);
+		// Fill the FIFO with silence and hand the worker its output before the
+		// device starts pulling: the first callbacks then have data and the
+		// first tone sample is never late.
+		sink.prefill();
 		let output = Box::new(RenderOutput {
 			sink,
 			health: stream.health,
-			shared: stream.shared,
+			shared: Arc::clone(&stream.shared),
 		});
 		self.render
 			.push(RenderCmd::Attach(output))
 			.map_err(|_| AudioError::InvalidArgument("render worker queue is full"))?;
+		stream.handle.play()?;
 		self.open_playback = Some(stream.handle);
 		Ok(())
 	}

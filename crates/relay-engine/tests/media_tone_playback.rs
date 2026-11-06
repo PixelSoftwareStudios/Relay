@@ -124,3 +124,31 @@ async fn a_ring_with_consent_withheld_sends_zero_packets() {
 	assert!(rms(&tail(&a, 500)) < 1e-4, "A hears silence");
 	assert!(peak(&tail(&b, 2_000)) > 0.02, "B hears its ring");
 }
+
+/// The ring must not stutter while the output device wakes up: the first 500 ms
+/// after the output opens play with no buffer underrun, and the tone is audible.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn a_ring_on_a_slow_to_open_output_has_no_underruns_at_the_start() {
+	let mut node = Node::with_slow_output(1, 440.0, Duration::from_millis(250)).await;
+	MediaControl::tone(&node.media, ring());
+	let started = std::time::Instant::now();
+	// Wait for the first audible sample, then watch half a second.
+	while started.elapsed() < Duration::from_secs(3) && peak(&node.sim.heard()) < 0.01 {
+		node.poll();
+		tokio::time::sleep(Duration::from_millis(2)).await;
+	}
+	let first = started.elapsed();
+	println!("first ring sound {first:?} after the request, output open delay 250 ms");
+	assert!(
+		first < Duration::from_millis(250 + 150),
+		"the ring starts soon after the output opens: {first:?}"
+	);
+	idle(&mut node, Duration::from_millis(500)).await;
+	let heard = node.sim.heard();
+	assert!(peak(&heard) > 0.02, "the ring is audible");
+	let underruns = node.media.telemetry().render_underruns;
+	assert_eq!(
+		underruns, 0,
+		"no underrun in the first 500 ms (first sound after {first:?})"
+	);
+}

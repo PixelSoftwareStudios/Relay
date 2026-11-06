@@ -31,6 +31,10 @@ pub enum ToneCommand {
 		/// Volume, `0.0..=1.0`.
 		volume: f32,
 	},
+	/// Open the output and hold it briefly with nothing playing, so a ring that
+	/// starts next finds a running stream. Sent when an outgoing call starts
+	/// preparing, before its ringback.
+	Prewarm,
 	/// Fade out whatever plays.
 	Stop,
 	/// Change the volume of what plays.
@@ -123,6 +127,8 @@ pub struct ToneDriver {
 	muted: bool,
 	/// Calls that reached `Active`, so their end is announced once.
 	connected: BTreeMap<CallId, bool>,
+	/// The output was already warmed for the outgoing call now preparing.
+	prewarmed: bool,
 	preview_until: Option<Instant>,
 }
 
@@ -151,6 +157,14 @@ impl ToneDriver {
 			self.muted = input.deafened;
 			out.push(ToneCommand::Muted(input.deafened));
 		}
+		let preparing = input
+			.calls
+			.iter()
+			.any(|(_, d, s)| *d == Direction::Outgoing && *s == CallState::Preparing);
+		if preparing && !self.prewarmed && !input.deafened && input.prefs.ringback_enabled {
+			out.push(ToneCommand::Prewarm);
+		}
+		self.prewarmed = preparing;
 		if input.deafened {
 			self.preview_until = None;
 			return self.stop(out);

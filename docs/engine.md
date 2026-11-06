@@ -269,7 +269,13 @@ The actor stops any tone at shutdown. Tests: `tone_driver`, `service_tones` (fak
 media records tone commands: no ring unattended, ring with a client, stop on
 remote cancel, deafen, live volume and disable, ringback, preview),
 `media_tone_playback` (fake audio backend: tone only while ringing, no call
-needed, deafen, zero packets, peer hears silence).
+needed, deafen, zero packets, peer hears silence, no underrun in the first 500 ms
+on an output that takes 250 ms to open).
+
+The ring does not start on a cold stream: an outgoing call sends
+`ToneCommand::Prewarm` while it prepares (the output opens and is held 3 s), and the
+device thread prefills the playout FIFO with silence and attaches the output to the
+render worker before it starts the stream (`docs/audio.md`, "Start-up of a ring").
 
 ## Channels
 

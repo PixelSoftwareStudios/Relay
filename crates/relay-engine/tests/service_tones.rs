@@ -158,7 +158,8 @@ async fn ringback_plays_while_an_outgoing_call_rings_and_stops_on_accept() {
 		looping: true,
 		volume: 0.7,
 	};
-	eventually!((tones(&rig) == [back]).then_some(()));
+	// The output is warmed while the call prepares, then the ringback starts.
+	eventually!((tones(&rig) == [ToneCommand::Prewarm, back]).then_some(()));
 	let session = eventually!(
 		rig.fakes
 			.peers

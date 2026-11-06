@@ -94,6 +94,11 @@ impl Sim {
 						driver.render(480);
 					}
 					next += Duration::from_millis(10);
+					// Hardware does not replay the time it was stalled (a slow
+					// device open holds the backend lock): resume at real time.
+					if next + Duration::from_millis(50) < Instant::now() {
+						next = Instant::now();
+					}
 					thread::sleep(next.saturating_duration_since(Instant::now()));
 				}
 			})
@@ -159,6 +164,20 @@ impl Node {
 	}
 
 	pub async fn with(byte: u8, tone_hz: f32, tweak: impl FnOnce(&mut MediaConfig)) -> Self {
+		Self::build(byte, tone_hz, Duration::ZERO, tweak).await
+	}
+
+	/// A node whose speaker takes `delay` to open, like a device that must wake up.
+	pub async fn with_slow_output(byte: u8, tone_hz: f32, delay: Duration) -> Self {
+		Self::build(byte, tone_hz, delay, |_| {}).await
+	}
+
+	async fn build(
+		byte: u8,
+		tone_hz: f32,
+		output_delay: Duration,
+		tweak: impl FnOnce(&mut MediaConfig),
+	) -> Self {
 		let identity = Arc::new(Identity::generate().unwrap());
 		let id = peer_id(&identity.fingerprint());
 		let mut config = fast_config(&format!("node{byte}"));
@@ -172,7 +191,9 @@ impl Node {
 		mic.is_default = true;
 		let mut spk = FakeDeviceSpec::new("spk", Direction::Output);
 		spk.is_default = true;
-		let backend = SharedBackend(Arc::new(Mutex::new(FakeBackend::new(vec![mic, spk]))));
+		let mut fake = FakeBackend::new(vec![mic, spk]);
+		fake.set_playback_open_delay(output_delay);
+		let backend = SharedBackend(Arc::new(Mutex::new(fake)));
 		let sim = Sim::start(
 			backend.clone(),
 			Signal::Sine {

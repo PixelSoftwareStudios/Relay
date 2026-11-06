@@ -10,7 +10,7 @@ use std::time::{Duration, Instant};
 
 use relay_audio::FRAME_SAMPLES;
 use relay_audio::codec::EncoderConfig;
-use relay_audio::device::{DeviceDescriptor, StreamRequest};
+use relay_audio::device::{DeviceDescriptor, LOW_LATENCY_BUFFER_FRAMES, StreamRequest};
 use relay_audio::dsp::{DspLimits, NoiseSuppressor, OffSuppressor};
 use relay_core::{AudioGeneration, CallId, PeerId, ReceiveMix, SessionId, SystemEvent};
 use relay_net::AddressPolicy;
@@ -73,7 +73,10 @@ impl MediaConfig {
 	pub fn new(selection: Selection) -> Self {
 		Self {
 			selection,
-			request: StreamRequest::default(),
+			request: StreamRequest {
+				buffer_frames: Some(LOW_LATENCY_BUFFER_FRAMES),
+				..StreamRequest::default()
+			},
 			encoder: EncoderConfig::default(),
 			jitter: JitterConfig::BALANCED,
 			limits: AdmissionLimits::default(),

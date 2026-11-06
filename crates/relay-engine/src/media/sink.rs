@@ -35,6 +35,8 @@ pub struct RenderSink {
 	/// The target currently steered toward, in device samples.
 	target: usize,
 	callbacks: Option<Arc<PlaybackShared>>,
+	/// The callback size the backend expects, known before the first callback.
+	callback_hint: usize,
 	excess_ticks: u32,
 	shed: u64,
 }
@@ -54,6 +56,7 @@ impl RenderSink {
 			base_target: target,
 			target,
 			callbacks: None,
+			callback_hint: 0,
 			excess_ticks: 0,
 			shed: 0,
 		})
@@ -64,6 +67,32 @@ impl RenderSink {
 	pub fn track_callbacks(mut self, shared: Arc<PlaybackShared>) -> Self {
 		self.callbacks = Some(shared);
 		self
+	}
+
+	/// Plans for the callback size the backend announced at open, so the target
+	/// fits it from the first write instead of after the first drift period.
+	#[must_use]
+	pub fn with_callback_hint(mut self, frames: Option<u32>) -> Self {
+		self.callback_hint = frames.map_or(0, |f| f as usize);
+		self.retarget();
+		self
+	}
+
+	/// Queues silence up to the target fill. Call before the stream starts, so
+	/// the device's first callbacks find data instead of underrunning while the
+	/// worker is still waking up.
+	pub fn prefill(&mut self) {
+		let missing = self.target.saturating_sub(self.writer.occupancy());
+		const CHUNK: [f32; 256] = [0.0; 256];
+		let mut left = missing;
+		while left > 0 {
+			let n = left.min(CHUNK.len());
+			let written = self.writer.write(&CHUNK[..n]);
+			if written == 0 {
+				break;
+			}
+			left -= written;
+		}
 	}
 
 	/// Resamples one mixed frame into the FIFO and, periodically, updates
@@ -89,9 +118,11 @@ impl RenderSink {
 	}
 
 	fn callback_frames(&self) -> usize {
-		self.callbacks
+		let seen = self
+			.callbacks
 			.as_ref()
-			.map_or(0, |s| s.max_callback_frames() as usize)
+			.map_or(0, |s| s.max_callback_frames() as usize);
+		seen.max(self.callback_hint)
 	}
 
 	fn should_shed(&mut self) -> bool {

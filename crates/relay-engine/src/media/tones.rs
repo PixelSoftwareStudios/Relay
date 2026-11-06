@@ -5,6 +5,13 @@
 //! gains. Nothing here touches capture, encoders or send gates, so a tone
 //! cannot reach a peer. The playback stream stays open while a tone plays and
 //! for a short hold afterwards, then closes if no call or test needs it.
+//!
+//! A ring never starts on a cold stream. The output is opened when an outgoing
+//! call starts preparing (`Prewarm`) or when the tone is requested; the device
+//! thread fills the FIFO with silence and gives the render worker its output
+//! before the device is started, and the tone begins on the worker's first
+//! tick with a 10 ms fade-in. A looping tone stays inside the player, so there
+//! is no stream restart between ring cycles.
 
 use relay_io::LockExt;
 use std::sync::Mutex;
@@ -20,6 +27,8 @@ use crate::service::ToneCommand;
 
 /// How long the output stays open after a one-shot starts (longer than any).
 const ONE_SHOT_HOLD: Duration = Duration::from_millis(1500);
+/// How long a warmed-up output waits for the ring that should follow.
+const PREWARM_HOLD: Duration = Duration::from_secs(3);
 /// How long the output stays open after a stop (the fade-out plus a margin).
 const STOP_HOLD: Duration = Duration::from_millis(200);
 
@@ -57,6 +66,7 @@ impl MediaSystem {
 					looping,
 					volume,
 				} => control.start(sound, looping, volume),
+				ToneCommand::Prewarm => Ok(()),
 				ToneCommand::Stop => control.stop(),
 				ToneCommand::Volume(volume) => control.set_volume(volume),
 				ToneCommand::Muted(muted) => control.set_muted(muted),
@@ -79,6 +89,17 @@ impl MediaSystem {
 				if !looping {
 					self.release_later(epoch, ONE_SHOT_HOLD);
 				}
+			}
+			ToneCommand::Prewarm => {
+				let epoch = tones.epoch.fetch_add(1, Ordering::AcqRel) + 1;
+				tones.wanted.store(true, Ordering::Release);
+				let system = self.clone();
+				self.inner.runtime.spawn(async move {
+					if let Err(error) = system.open_playback().await {
+						tracing::warn!(%error, "output could not be warmed up");
+					}
+				});
+				self.release_later(epoch, PREWARM_HOLD);
 			}
 			ToneCommand::Stop => {
 				let epoch = tones.epoch.fetch_add(1, Ordering::AcqRel) + 1;
