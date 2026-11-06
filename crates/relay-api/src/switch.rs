@@ -19,9 +19,9 @@ use tonic::codegen::http::{Request, Response};
 use tonic::server::NamedService;
 use tower::Service;
 
-use crate::pb::engine_server::{Engine, EngineServer};
 use crate::pb::{Empty, EngineInfo};
 use crate::registry::ClientValidator;
+use crate::server::EngineService;
 
 const GET_INFO: &str = "/relay.v1.Engine/GetInfo";
 const RETRY: &str = "/relay.v1.Engine/RetryKeychain";
@@ -69,28 +69,28 @@ impl ClientValidator for LateValidator {
 }
 
 /// Where the real engine is put once it is ready.
-pub struct EngineSlot<E>(Arc<OnceLock<EngineServer<E>>>);
+pub struct EngineSlot<S>(Arc<OnceLock<S>>);
 
-impl<E> Clone for EngineSlot<E> {
+impl<S> Clone for EngineSlot<S> {
 	fn clone(&self) -> Self {
 		Self(Arc::clone(&self.0))
 	}
 }
 
-impl<E: Engine> EngineSlot<E> {
+impl<S> EngineSlot<S> {
 	/// From now on every call except the start-up ones goes to `server`.
-	pub fn install(&self, server: EngineServer<E>) {
+	pub fn install(&self, server: S) {
 		let _ = self.0.set(server);
 	}
 }
 
 /// The `relay.v1.Engine` service before and after the engine exists.
-pub struct EngineSwitch<E> {
+pub struct EngineSwitch<S> {
 	control: Arc<dyn StartupControl>,
-	real: Arc<OnceLock<EngineServer<E>>>,
+	real: Arc<OnceLock<S>>,
 }
 
-impl<E> Clone for EngineSwitch<E> {
+impl<S> Clone for EngineSwitch<S> {
 	fn clone(&self) -> Self {
 		Self {
 			control: Arc::clone(&self.control),
@@ -99,9 +99,9 @@ impl<E> Clone for EngineSwitch<E> {
 	}
 }
 
-impl<E: Engine> EngineSwitch<E> {
+impl<S> EngineSwitch<S> {
 	/// A switch with no engine yet, and the slot to install it into.
-	pub fn new(control: Arc<dyn StartupControl>) -> (Self, EngineSlot<E>) {
+	pub fn new(control: Arc<dyn StartupControl>) -> (Self, EngineSlot<S>) {
 		let real = Arc::new(OnceLock::new());
 		(
 			Self {
@@ -113,7 +113,7 @@ impl<E: Engine> EngineSwitch<E> {
 	}
 }
 
-impl<E> NamedService for EngineSwitch<E> {
+impl<S> NamedService for EngineSwitch<S> {
 	const NAME: &'static str = "relay.v1.Engine";
 }
 
@@ -145,7 +145,7 @@ fn answer(
 	})
 }
 
-impl<E: Engine> Service<Request<Body>> for EngineSwitch<E> {
+impl<S: EngineService> Service<Request<Body>> for EngineSwitch<S> {
 	type Response = Response<Body>;
 	type Error = Infallible;
 	type Future = BoxFuture<Result<Response<Body>, Infallible>>;
@@ -170,7 +170,7 @@ impl<E: Engine> Service<Request<Body>> for EngineSwitch<E> {
 			_ => match self.real.get() {
 				Some(server) => {
 					let mut server = server.clone();
-					Box::pin(async move { server.call(request).await })
+					Box::pin(server.call(request))
 				}
 				None if path == GET_INFO => {
 					answer(request, Box::pin(async move { Ok(control.info()) }))

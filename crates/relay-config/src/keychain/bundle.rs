@@ -104,9 +104,8 @@ impl Bundle {
 	}
 
 	pub(super) fn decode(bytes: &[u8]) -> Result<Self> {
-		let bundle: Self = serde_json::from_slice(bytes).map_err(|e| {
-			ConfigError::BundleUnreadable(format!("malformed: {e}"))
-		})?;
+		let bundle: Self = serde_json::from_slice(bytes)
+			.map_err(|e| ConfigError::BundleUnreadable(format!("malformed: {e}")))?;
 		if bundle.version != BUNDLE_VERSION {
 			return Err(ConfigError::BundleUnreadable(format!(
 				"version {} is not supported (expected {BUNDLE_VERSION})",

@@ -6,8 +6,10 @@ use relay_config::WriterLock;
 use relay_config::avatar::AvatarCache;
 use relay_config::channels::ChannelStorage;
 use relay_config::history::CallHistory;
-use relay_config::identity::{IdentityStore, Secret32, StoredIdentity, TrustStore, open_store};
-use relay_config::prefs::{PreferenceStore, Preferences};
+use relay_config::identity::{
+	IdentityStore, Secret32, StoredIdentity, TrustStore, load_or_create, open_store,
+};
+use relay_config::prefs::{KeyStorage, PreferenceStore, Preferences};
 use relay_config::vault::{SecretVault, open_vault};
 use relay_config::{Notice, Paths, Storage};
 use relay_core::DeviceKeyId;
@@ -71,40 +73,86 @@ pub(super) struct Loaded {
 	pub channels: Arc<dyn ChannelStore>,
 }
 
-fn generate_identity() -> Result<StoredIdentity, DaemonError> {
-	let identity = Identity::generate().map_err(|e| DaemonError::Identity(e.to_string()))?;
+fn generate_identity() -> relay_config::Result<StoredIdentity> {
+	let identity = Identity::generate()
+		.map_err(|e| relay_config::ConfigError::IdentityMalformed(e.to_string()))?;
 	Ok(StoredIdentity {
 		secret: Secret32::new(*identity.secret_bytes()),
 		public: *identity.public().as_bytes(),
 	})
 }
 
-pub(super) fn load(
-	paths: Paths,
-	identity_store: Option<Box<dyn IdentityStore>>,
-	channel_vault: Option<Arc<dyn SecretVault>>,
-	default_display_name: Option<String>,
-) -> Result<Loaded, DaemonError> {
+/// Reads the identity from `store`, or creates one only when the store says none exists.
+/// This is where the system may ask the user for a password: it blocks, so the daemon runs it
+/// on a blocking thread, one at a time. A failing store creates nothing and writes nothing.
+pub(super) fn load_identity(store: &dyn IdentityStore) -> relay_config::Result<StoredIdentity> {
+	let (identity, created) = load_or_create(store, generate_identity)?;
+	if created {
+		let fingerprint = PublicKey::from_bytes(identity.public).fingerprint();
+		tracing::info!(%fingerprint, store = store.describe(), "created a new identity");
+	}
+	Ok(identity)
+}
+
+/// What is read before the secure storage is touched: the database, the lock and the settings.
+pub(super) struct Opened {
+	pub paths: Paths,
+	pub storage: Storage,
+	pub prefs_store: PreferenceStore,
+	pub preferences: Preferences,
+	pub notices: Vec<Notice>,
+}
+
+pub(super) fn open(paths: Paths) -> Result<Opened, DaemonError> {
 	let storage = Storage::open(&paths)?;
-	let lock = Arc::clone(&storage.lock);
 	let prefs_store = PreferenceStore::open(&storage.database)?;
 	let loaded = prefs_store.load()?;
 	let mut notices = storage.notices.clone();
 	notices.extend(loaded.notices);
-	let preferences = loaded.preferences;
+	Ok(Opened {
+		paths,
+		storage,
+		prefs_store,
+		preferences: loaded.preferences,
+		notices,
+	})
+}
 
-	let store = match identity_store {
-		Some(store) => store,
-		None => open_store(&preferences, &paths)?,
-	};
-	let identity = match store.load()? {
-		Some(existing) => existing,
-		None => {
-			let fresh = generate_identity()?;
-			store.save(&fresh)?;
-			fresh
-		}
-	};
+impl Opened {
+	/// The identity store the settings ask for. Opening it reads nothing.
+	pub(super) fn identity_store(&self) -> Result<Arc<dyn IdentityStore>, DaemonError> {
+		Ok(Arc::from(open_store(&self.preferences, &self.paths)?))
+	}
+
+	/// Saves the file-backed store as the choice for identity and channel secrets.
+	pub(super) fn choose_file_store(&mut self) -> Result<(), DaemonError> {
+		self.preferences = self
+			.prefs_store
+			.set("identity.key_storage", "insecure_file")?;
+		debug_assert_eq!(
+			self.preferences.identity.key_storage,
+			KeyStorage::InsecureFile
+		);
+		Ok(())
+	}
+}
+
+/// The rest of the disk state, once the identity is known.
+pub(super) fn finish(
+	opened: Opened,
+	store: &dyn IdentityStore,
+	identity: StoredIdentity,
+	channel_vault: Option<Arc<dyn SecretVault>>,
+	default_display_name: Option<String>,
+) -> Result<Loaded, DaemonError> {
+	let Opened {
+		paths,
+		storage,
+		prefs_store,
+		preferences,
+		notices,
+	} = opened;
+	let lock = Arc::clone(&storage.lock);
 	let local = DeviceKeyId::from_bytes(
 		*PublicKey::from_bytes(identity.public)
 			.fingerprint()

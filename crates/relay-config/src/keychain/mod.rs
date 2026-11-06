@@ -174,8 +174,21 @@ impl Keychain {
 		})
 	}
 
+	/// Removes the identity. A stored bundle that cannot be read at all (corrupt, or from a
+	/// newer version) is removed whole: this is the deliberate reset, the only way out.
 	pub(crate) fn delete_identity(&self) -> Result<()> {
-		self.update(|b| (b.identity.take().is_some(), ()))
+		match self.update(|b| (b.identity.take().is_some(), ())) {
+			Err(ConfigError::BundleUnreadable(_)) => {
+				let _local = self.local.lock_unpoisoned();
+				let _file = self.acquire()?;
+				self.backend.delete()?;
+				if let Some(cache) = &self.cache {
+					*cache.lock_unpoisoned() = None;
+				}
+				Ok(())
+			}
+			other => other,
+		}
 	}
 
 	pub(crate) fn channel_secret(&self, key: &str) -> Result<Option<Zeroizing<Vec<u8>>>> {

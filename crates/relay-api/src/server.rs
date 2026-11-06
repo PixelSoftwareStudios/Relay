@@ -62,7 +62,6 @@ pub async fn serve_unix_service<S>(
 ) -> Result<(), ApiError>
 where
 	S: EngineService,
-	S::Future: Send + 'static,
 {
 	Server::builder()
 		.layer(guard(validator, &limits, None))
@@ -78,6 +77,7 @@ pub trait EngineService:
 		tonic::codegen::http::Request<tonic::body::Body>,
 		Response = tonic::codegen::http::Response<tonic::body::Body>,
 		Error = std::convert::Infallible,
+		Future: Send + 'static,
 	> + tonic::server::NamedService
 	+ Clone
 	+ Send
@@ -91,6 +91,7 @@ impl<S> EngineService for S where
 			tonic::codegen::http::Request<tonic::body::Body>,
 			Response = tonic::codegen::http::Response<tonic::body::Body>,
 			Error = std::convert::Infallible,
+			Future: Send + 'static,
 		> + tonic::server::NamedService
 		+ Clone
 		+ Send
@@ -130,7 +131,6 @@ pub async fn serve_tcp_service<S>(
 ) -> Result<(), ApiError>
 where
 	S: EngineService,
-	S::Future: Send + 'static,
 {
 	Server::builder()
 		.layer(guard(validator, &limits, Some(profile)))

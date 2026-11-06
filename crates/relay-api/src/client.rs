@@ -148,20 +148,17 @@ impl RelayClient {
 
 	/// Read the secure storage again after a failure; answers the fresh info.
 	pub async fn retry_keychain(&mut self) -> Result<EngineInfo, ApiError> {
-		self.info = self.inner.retry_keychain(Empty {}).await?.into_inner();
-		Ok(self.info.clone())
+		Ok(self.inner.retry_keychain(Empty {}).await?.into_inner())
 	}
 
 	/// Choose the file-backed (less secure) store for secrets and retry.
 	pub async fn use_file_store(&mut self) -> Result<EngineInfo, ApiError> {
-		self.info = self.inner.use_file_store(Empty {}).await?.into_inner();
-		Ok(self.info.clone())
+		Ok(self.inner.use_file_store(Empty {}).await?.into_inner())
 	}
 
 	/// Delete the stored identity; the service stops. Ask the user first.
 	pub async fn reset_identity(&mut self) -> Result<EngineInfo, ApiError> {
-		self.info = self.inner.reset_identity(Empty {}).await?.into_inner();
-		Ok(self.info.clone())
+		Ok(self.inner.reset_identity(Empty {}).await?.into_inner())
 	}
 
 	/// Register this client. The id is an identifier, not authentication. A service that is

@@ -5,14 +5,13 @@ use std::sync::Arc;
 
 use relay_api::{
 	ApiError, ApiLimits, ClientValidator, Endpoint, TcpProfile, bind_loopback, profile_path,
-	serve_tcp,
+	serve_tcp_service,
 };
 use tokio::net::TcpListener;
 use tokio::task::JoinHandle;
 
 use super::Transport;
 use super::error::DaemonError;
-use crate::service::EngineService;
 
 /// A bound listener and the files that must go away with it.
 pub(super) enum Bound {
@@ -95,18 +94,18 @@ impl Bound {
 
 	pub(super) fn serve(
 		self,
-		service: EngineService,
+		service: impl relay_api::EngineService,
 		validator: Arc<dyn ClientValidator>,
 		limits: ApiLimits,
 		signal: impl Future<Output = ()> + Send + 'static,
 	) -> JoinHandle<Result<(), ApiError>> {
 		match self {
 			#[cfg(unix)]
-			Self::Unix(listener, _) => tokio::spawn(relay_api::serve_unix(
+			Self::Unix(listener, _) => tokio::spawn(relay_api::serve_unix_service(
 				service, listener, validator, limits, signal,
 			)),
 			Self::Tcp(listener, profile, _) => tokio::spawn(async move {
-				serve_tcp(service, listener, &profile, validator, limits, signal).await
+				serve_tcp_service(service, listener, &profile, validator, limits, signal).await
 			}),
 		}
 	}
