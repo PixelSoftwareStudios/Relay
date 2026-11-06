@@ -112,11 +112,17 @@ RAM only, per daemon process.
   Active sessions are never evicted and do not count against this budget (each is bounded by its
   own 64 MiB; with N concurrent calls the worst case is N x 64 MiB plus 256 MiB, which the engine
   caps by its call limit).
+- **Call count: the last 3 ended calls** (`limits.messages_retained_calls`, 0 to 20, default 3).
+  Besides the byte budget the daemon keeps at most this many ended transcripts: when a call ends
+  and there are more, the **oldest ended** one is evicted (`HistoryEvicted`). Whichever of the
+  count and the byte budget is stricter evicts first. 0 keeps nothing once a call ends. Lowering
+  the setting evicts at once. Transcripts stay memory-only: nothing is written to disk and all of
+  them are gone when the daemon exits, whatever the count.
 - An ended transcript lives until: a **replacement session with the same peer fingerprint
   starts** (decision: the older transcript for that peer is dropped then, so at most one ended
   transcript per peer exists; the client shows "previous transcript will be discarded, export
-  first" in the new session's start flow), or the user clears it, or the global budget evicts it,
-  or the daemon exits.
+  first" in the new session's start flow), or the user clears it, or the global budget or the
+  call count evicts it, or the daemon exits.
 - Pins are local to each side and not synced in v1; a pin is a flag on the stored message.
 - Search is in-session, case-insensitive substring over text, code and file names, returning at
   most 100 hits.
