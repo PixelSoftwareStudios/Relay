@@ -32,8 +32,14 @@ pub trait HostOptions: Send + Sync {
 	/// the supported list when none was chosen. Called per frame; the shell
 	/// resolves it once and answers from memory.
 	fn language(&self) -> Language;
-	/// Store the language the user picked; the UI applies it on the next frame.
-	fn set_language(&self, language: Language);
+	/// The language the user pinned; `None` while the system language is followed.
+	fn language_choice(&self) -> Option<Language>;
+	/// The system language matched to the supported list (English where none
+	/// matches), as last detected.
+	fn system_language(&self) -> Language;
+	/// Store the user's pick (`None` = follow the system, detected afresh);
+	/// the UI applies it on the next frame.
+	fn set_language_choice(&self, choice: Option<Language>);
 	/// The login item as last read from the OS.
 	fn login_status(&self) -> LoginStatus;
 	/// Register or remove the login item. `Err` carries the OS's reason.

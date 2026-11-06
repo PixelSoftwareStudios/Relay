@@ -86,6 +86,7 @@ login-bad-path = 프로그램 경로가 올바른 텍스트가 아닙니다
 login-set-unavailable = 사용할 수 없음: { $reason }
 options-save-failed = 선택을 저장하지 못했습니다: { $error }
 language-label = 언어
+language-system = 시스템 ({ $language })
 language-experimental = 이 언어는 실험적입니다. 텍스트 렌더러가 데바나가리 글자를 연결하지 못해 일부 단어가 인쇄된 모양과 다르게 보입니다.
 link-offline-manual = 데몬을 시작하세요. 이 창은 자동으로 다시 연결됩니다.
 hotkey-applied = { $label }: 지금 적용됨

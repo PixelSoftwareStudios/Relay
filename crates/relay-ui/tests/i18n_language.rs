@@ -5,10 +5,23 @@ use relay_ui::i18n::{Language, picker};
 
 #[test]
 fn the_picker_lists_english_first_then_the_others_by_english_name() {
-	let codes: Vec<_> = picker::entries().map(|(l, _)| l.code()).collect();
+	let codes: Vec<_> = picker::entries(Language::En)
+		.map(|(l, _)| l.map(Language::code))
+		.collect();
 	assert_eq!(
 		codes,
-		["en", "de", "hi", "ja", "ko", "pt-BR", "ru", "es", "zh-CN"]
+		[
+			None,
+			Some("en"),
+			Some("de"),
+			Some("hi"),
+			Some("ja"),
+			Some("ko"),
+			Some("pt-BR"),
+			Some("ru"),
+			Some("es"),
+			Some("zh-CN")
+		]
 	);
 	assert_eq!(Language::ALL[0], Language::En);
 	assert_eq!(Language::FALLBACK, Language::En);
@@ -31,9 +44,18 @@ fn each_language_is_shown_by_its_own_name() {
 			"简体中文"
 		]
 	);
-	for (language, label) in picker::entries() {
-		assert!(label.starts_with(language.native_name()));
+	for (language, label) in picker::entries(Language::En).skip(1) {
+		assert!(label.starts_with(language.unwrap().native_name()));
 	}
+}
+
+#[test]
+fn the_first_entry_is_system_with_the_detected_language_by_native_name() {
+	let first = |detected| picker::entries(detected).next().unwrap();
+	assert_eq!(first(Language::De), (None, "System (Deutsch)".to_owned()));
+	// No supported match means English was detected.
+	assert_eq!(first(Language::En).1, "System (English)");
+	assert_eq!(first(Language::ZhCn).1, "System (简体中文)");
 }
 
 #[test]

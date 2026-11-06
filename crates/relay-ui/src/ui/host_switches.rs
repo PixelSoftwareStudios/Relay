@@ -37,23 +37,25 @@ pub fn draw(ui: &mut Ui, actions: &Actions) {
 	ui.label(RichText::new(login_text(&status)).weak());
 }
 
-/// The language picker: every language by its own native name, English first.
-/// The shell stores the choice; the next frame applies it.
+/// The language picker: "System (<detected>)" first, then every language by
+/// its own native name, English first. The shell stores the choice (`System`
+/// stores none); the next frame applies it.
 fn language_picker(ui: &mut Ui, options: &dyn HostOptions) {
-	let current = options.language();
+	let choice = options.language_choice();
+	let detected = options.system_language();
 	ui.horizontal(|ui| {
 		ui.label(tr!("language-label"));
 		egui::ComboBox::from_id_salt("ui-language")
-			.selected_text(picker::label(current))
+			.selected_text(picker::choice_label(choice, detected))
 			.show_ui(ui, |ui| {
-				for (language, label) in picker::entries() {
-					if ui.selectable_label(language == current, label).clicked() {
-						options.set_language(language);
+				for (entry, label) in picker::entries(detected) {
+					if ui.selectable_label(entry == choice, label).clicked() {
+						options.set_language_choice(entry);
 					}
 				}
 			});
 	});
-	if picker::EXPERIMENTAL.contains(&current) {
+	if picker::EXPERIMENTAL.contains(&options.language()) {
 		ui.label(RichText::new(tr!("language-experimental")).weak());
 	}
 }

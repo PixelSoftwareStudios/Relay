@@ -84,6 +84,7 @@ login-bad-path = プログラムのパスが有効なテキストではありま
 login-set-unavailable = 利用できません: { $reason }
 options-save-failed = 選択を保存できませんでした: { $error }
 language-label = 言語
+language-system = システム ({ $language })
 language-experimental = この言語は試験的です。テキストレンダラーがデーヴァナーガリー文字を連結できないため、一部の語が印刷された字形と異なって見えます。
 link-offline-manual = デーモンを起動してください。このウィンドウは自動的に再接続します。
 hotkey-applied = { $label }: 適用しました

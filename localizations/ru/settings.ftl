@@ -90,6 +90,7 @@ login-bad-path = путь к программе не является допус
 login-set-unavailable = недоступно: { $reason }
 options-save-failed = не удалось сохранить выбор: { $error }
 language-label = Язык
+language-system = Системный ({ $language })
 language-experimental = Этот язык экспериментальный: средство отображения текста не умеет соединять буквы деванагари, поэтому некоторые слова выглядят иначе, чем в печати.
 link-offline-manual = Запустите демон; это окно переподключится само.
 hotkey-applied = { $label }: применено

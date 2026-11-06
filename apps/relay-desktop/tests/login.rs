@@ -99,7 +99,7 @@ fn the_notification_switch_defaults_on_and_is_stored() {
 		Some(path.clone()),
 		dispatcher.clone(),
 		item(&Arc::default()),
-		&[],
+		Box::new(Vec::new),
 	);
 	assert!(options.notify_incoming(), "on by default");
 	options.set_notify_incoming(false);
@@ -108,7 +108,7 @@ fn the_notification_switch_defaults_on_and_is_stored() {
 		Some(path.clone()),
 		dispatcher.clone(),
 		item(&Arc::default()),
-		&[],
+		Box::new(Vec::new),
 	);
 	assert!(!again.notify_incoming(), "remembered");
 

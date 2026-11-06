@@ -37,8 +37,14 @@ impl HostOptions for FakeShell {
 	fn language(&self) -> Language {
 		*self.language.lock().unwrap()
 	}
-	fn set_language(&self, language: Language) {
-		*self.language.lock().unwrap() = language;
+	fn language_choice(&self) -> Option<Language> {
+		Some(*self.language.lock().unwrap())
+	}
+	fn system_language(&self) -> Language {
+		Language::En
+	}
+	fn set_language_choice(&self, choice: Option<Language>) {
+		*self.language.lock().unwrap() = choice.unwrap_or(Language::En);
 	}
 	fn login_status(&self) -> LoginStatus {
 		LoginStatus::Off
@@ -134,7 +140,7 @@ async fn changing_the_language_redraws_in_it_with_per_key_fallback() {
 	assert_eq!(i18n::active(), Language::En);
 
 	// What the picker does: the shell stores the choice; the next frame applies it.
-	shell.set_language(Language::De);
+	shell.set_language_choice(Some(Language::De));
 	let german = frame(&mut app);
 	assert_eq!(i18n::active(), Language::De);
 	assert!(german.contains("Anrufe"), "{german}");
@@ -142,7 +148,7 @@ async fn changing_the_language_redraws_in_it_with_per_key_fallback() {
 	// A message German lacks is English, key by key.
 	assert!(german.contains("Nearby peers"), "{german}");
 
-	shell.set_language(Language::En);
+	shell.set_language_choice(Some(Language::En));
 	let back = frame(&mut app);
 	assert!(back.contains("Calls") && !back.contains("Anrufe"));
 }

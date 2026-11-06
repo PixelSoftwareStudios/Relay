@@ -87,6 +87,7 @@ login-bad-path = der Programmpfad ist kein gültiger Text
 login-set-unavailable = nicht verfügbar: { $reason }
 options-save-failed = die Auswahl konnte nicht gespeichert werden: { $error }
 language-label = Sprache
+language-system = System ({ $language })
 language-experimental = Diese Sprache ist experimentell: Der Textrenderer kann Devanagari-Buchstaben nicht verbinden, daher sehen manche Wörter anders aus als im Druck.
 link-offline-manual = Starte den Daemon; dieses Fenster verbindet sich selbst wieder.
 hotkey-applied = { $label }: jetzt übernommen

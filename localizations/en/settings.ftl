@@ -89,6 +89,7 @@ login-bad-path = the program path is not valid text
 login-set-unavailable = not available: { $reason }
 options-save-failed = the choice could not be saved: { $error }
 language-label = Language
+language-system = System ({ $language })
 language-experimental = This language is experimental: the text renderer cannot join Devanagari letters, so some words look different from print.
 link-offline-manual = Start the daemon; this window reconnects by itself.
 hotkey-applied = { $label }: applied now

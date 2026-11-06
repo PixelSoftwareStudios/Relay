@@ -88,6 +88,7 @@ login-bad-path = o caminho do programa não é texto válido
 login-set-unavailable = indisponível: { $reason }
 options-save-failed = não foi possível salvar a escolha: { $error }
 language-label = Idioma
+language-system = Sistema ({ $language })
 language-experimental = Este idioma é experimental: o renderizador de texto não consegue unir as letras devanágari, então algumas palavras ficam diferentes da escrita impressa.
 link-offline-manual = Inicie o daemon; esta janela se reconecta sozinha.
 hotkey-applied = { $label }: aplicado agora

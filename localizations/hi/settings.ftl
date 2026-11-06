@@ -87,6 +87,7 @@ login-bad-path = प्रोग्राम का पथ मान्य ट�
 login-set-unavailable = उपलब्ध नहीं: { $reason }
 options-save-failed = चुनाव सहेजा नहीं जा सका: { $error }
 language-label = भाषा
+language-system = सिस्टम ({ $language })
 language-experimental = यह भाषा प्रायोगिक है: टेक्स्ट रेंडरर देवनागरी अक्षरों को जोड़ नहीं पाता, इसलिए कुछ शब्द छपाई से अलग दिखते हैं।
 link-offline-manual = डेमन शुरू करें; यह विंडो अपने-आप फिर जुड़ जाएगी।
 hotkey-applied = { $label }: अभी लागू हुआ

@@ -60,7 +60,7 @@ fn main() -> eframe::Result {
 				DesktopPrefs::default_path(),
 				dispatcher.clone(),
 				LoginItem::system(),
-				&sys_locale::get_locales().collect::<Vec<_>>(),
+				Box::new(|| sys_locale::get_locales().collect()),
 			));
 			// Before the tray and the first frame, so everything starts in the right language.
 			relay_ui::i18n::set_active(options.language());

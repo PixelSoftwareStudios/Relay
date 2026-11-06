@@ -14,12 +14,17 @@ use crate::login::LoginItem;
 use crate::notify::Dispatcher;
 use crate::prefs::DesktopPrefs;
 
+/// Reads the system's preferred languages, most wanted first; called at start
+/// and whenever the user picks "System", so a changed system language is seen.
+pub type SystemLocales = Box<dyn Fn() -> Vec<String> + Send + Sync>;
+
 pub struct DesktopOptions {
 	notify: AtomicBool,
 	/// The language the user picked; `None` while the system language is followed.
 	chosen: Mutex<Option<Language>>,
-	/// The language in use: the choice, else the system language matched to the supported list.
-	language: AtomicUsize,
+	/// The system language matched to the supported list, as last detected.
+	system: AtomicUsize,
+	locales: SystemLocales,
 	path: Option<PathBuf>,
 	dispatcher: Arc<Dispatcher>,
 	login: LoginItem,
@@ -28,27 +33,35 @@ pub struct DesktopOptions {
 }
 
 impl DesktopOptions {
-	/// `system_locales` are the system's preferred languages, most wanted first.
+	/// `locales` reads the system's preferred languages.
 	pub fn new(
 		path: Option<PathBuf>,
 		dispatcher: Arc<Dispatcher>,
 		login: LoginItem,
-		system_locales: &[String],
+		locales: SystemLocales,
 	) -> Self {
 		let prefs = path.as_deref().map(DesktopPrefs::load).unwrap_or_default();
 		let chosen = prefs.language.as_deref().and_then(Language::from_code);
-		let language =
-			chosen.unwrap_or_else(|| locale::resolve(system_locales.iter().map(String::as_str)));
+		let system = detect(&locales);
 		Self {
 			notify: AtomicBool::new(prefs.notify_incoming),
 			chosen: Mutex::new(chosen),
-			language: AtomicUsize::new(language.index()),
+			system: AtomicUsize::new(system.index()),
+			locales,
 			path,
 			dispatcher,
 			login,
 			save_failure: Mutex::new(None),
 		}
 	}
+}
+
+fn detect(locales: &SystemLocales) -> Language {
+	locale::resolve(locales().iter().map(String::as_str))
+}
+
+fn language_at(index: usize) -> Language {
+	Language::ALL[index.min(Language::ALL.len() - 1)]
 }
 
 impl DesktopOptions {
@@ -84,15 +97,24 @@ impl HostOptions for DesktopOptions {
 	}
 
 	fn language(&self) -> Language {
-		Language::ALL[self
-			.language
-			.load(Ordering::Acquire)
-			.min(Language::ALL.len() - 1)]
+		self.language_choice()
+			.unwrap_or_else(|| self.system_language())
 	}
 
-	fn set_language(&self, language: Language) {
-		*self.chosen.lock_unpoisoned() = Some(language);
-		self.language.store(language.index(), Ordering::Release);
+	fn language_choice(&self) -> Option<Language> {
+		*self.chosen.lock_unpoisoned()
+	}
+
+	fn system_language(&self) -> Language {
+		language_at(self.system.load(Ordering::Acquire))
+	}
+
+	fn set_language_choice(&self, choice: Option<Language>) {
+		if choice.is_none() {
+			self.system
+				.store(detect(&self.locales).index(), Ordering::Release);
+		}
+		*self.chosen.lock_unpoisoned() = choice;
 		self.save();
 	}
 

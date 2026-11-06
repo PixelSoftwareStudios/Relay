@@ -86,6 +86,7 @@ login-bad-path = 程序路径不是有效文本
 login-set-unavailable = 不可用：{ $reason }
 options-save-failed = 无法保存该选择：{ $error }
 language-label = 语言
+language-system = 系统 ({ $language })
 language-experimental = 此语言为实验性支持：文本渲染器无法连写天城文字母，因此部分单词与印刷体不同。
 link-offline-manual = 请启动守护进程，此窗口会自动重新连接。
 hotkey-applied = { $label }：已生效

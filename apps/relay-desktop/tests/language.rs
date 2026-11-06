@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use relay_desktop::login::{LoginBackend, LoginItem};
 use relay_desktop::notify::{Dispatcher, Notifier};
-use relay_desktop::options::DesktopOptions;
+use relay_desktop::options::{DesktopOptions, SystemLocales};
 use relay_desktop::prefs::DesktopPrefs;
 use relay_ui::host_options::HostOptions;
 use relay_ui::i18n::Language;
@@ -34,12 +34,16 @@ impl LoginBackend for NoLogin {
 
 fn options(path: Option<std::path::PathBuf>, locales: &[&str]) -> DesktopOptions {
 	let locales: Vec<String> = locales.iter().map(|l| (*l).to_owned()).collect();
+	options_with(path, Box::new(move || locales.clone()))
+}
+
+fn options_with(path: Option<std::path::PathBuf>, locales: SystemLocales) -> DesktopOptions {
 	let backend: Arc<dyn LoginBackend> = Arc::new(NoLogin);
 	DesktopOptions::new(
 		path,
 		Arc::new(Dispatcher::new(Arc::new(Silent))),
 		LoginItem::new(Ok(backend)),
-		&locales,
+		locales,
 	)
 }
 
@@ -60,7 +64,7 @@ fn a_choice_is_stored_with_the_other_preferences_and_beats_the_system() {
 	let path = dir.path().join("cfg").join("desktop.toml");
 	let first = options(Some(path.clone()), &["de"]);
 	assert_eq!(first.language(), Language::De);
-	first.set_language(Language::Ja);
+	first.set_language_choice(Some(Language::Ja));
 	assert_eq!(first.language(), Language::Ja);
 	assert_eq!(DesktopPrefs::load(&path).language.as_deref(), Some("ja"));
 	assert!(DesktopPrefs::load(&path).notify_incoming);
@@ -81,4 +85,26 @@ fn an_unknown_stored_code_follows_the_system_language() {
 	let path = dir.path().join("desktop.toml");
 	std::fs::write(&path, "language = \"tlh\"\n").unwrap();
 	assert_eq!(options(Some(path), &["es"]).language(), Language::Es);
+}
+
+#[test]
+fn picking_system_stores_no_language_and_detects_again() {
+	let dir = tempfile::tempdir().unwrap();
+	let path = dir.path().join("desktop.toml");
+	let locale = Arc::new(std::sync::Mutex::new("de".to_owned()));
+	let source = locale.clone();
+	let o = options_with(
+		Some(path.clone()),
+		Box::new(move || vec![source.lock().unwrap().clone()]),
+	);
+	o.set_language_choice(Some(Language::Ja));
+	assert_eq!(o.language_choice(), Some(Language::Ja));
+	assert_eq!(o.system_language(), Language::De);
+
+	*locale.lock().unwrap() = "ko_KR".to_owned();
+	o.set_language_choice(None);
+	assert_eq!(o.language_choice(), None);
+	assert_eq!(o.system_language(), Language::Ko, "detected again");
+	assert_eq!(o.language(), Language::Ko);
+	assert_eq!(DesktopPrefs::load(&path).language, None);
 }
