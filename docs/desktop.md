@@ -57,6 +57,10 @@ Peer and own avatars are fetched lazily with `GetAvatar` the first time a hash i
 ## Channels and privacy
 The channel list comes from `Snapshot.channels` and `StateEvent.channel`/`Removed(kind=channel)`. The UI can create (name, listed, password, invite only), join (invite token, or channel id plus password), leave (two-step), mint invites (owner/admin; lifetime and uses from fixed choices; the token is shown until dismissed with a Copy button), and revoke a proven member (two-step; the peer id is used as the member fingerprint). Peers show badges for channels with proven shared membership. Privacy: inbound policy (anyone / only members of my channels) and network visibility (visible / hidden). Passwords and invite tokens are `relay_client::Secret` values: `Debug` prints `Secret(<redacted>)`, they live in form fields only until submitted, and the view model and logs never contain them. The channel security review gate in `docs/channels.md` stays open.
 
+## Call history
+
+The desktop app shows the daemon's call history on the Calls page and has the Keep call history switch in Settings, Privacy and trust (both in `relay-ui`, `docs/ui.md`); it adds nothing platform-specific. The list lives in the daemon's database, is read through `ListCallHistory`, and the app refreshes it when the daemon says it changed (the call ended, or the list was cleared from another client such as `relay history clear`). Relative times use the system time zone (`Shell::time_zone`, as message times do). The history never leaves this device (`docs/config.md`, "Call history").
+
 ## Message times
 
 Message rows show local time (`HH:MM:SS`). `DesktopShell` does not override `Shell::time_zone`, so the system zone is used (read when the Messages panel is created; a zone change while the app runs shows after a restart). The hover text shows the full local date and offset plus the UTC clock.

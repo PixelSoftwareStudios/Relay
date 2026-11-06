@@ -65,6 +65,7 @@ left untouched.
 | `trust(public_key, display_name, level, first_seen)` | TOFU / Verified peers; `CHECK` on key length and level |
 | `state(key, value)` | Small internal flags: local avatar hash (the pinned entry of the avatar cache) |
 | `channels`, `channel_*` | Channel metadata (see below) |
+| `call_history(id, peer_name, peer_fingerprint, peer_fingerprint_short, direction, outcome, started_at, duration_ms, call_id)` | Past calls (see "Call history" below) |
 
 `Preferences::config_version` (currently 1) is the data-model version stored in `prefs`; it is
 separate from the SQL schema version.
@@ -101,6 +102,16 @@ leaves a secret without a record and never loses a committed one. `update` runs 
 closure once with the connection held, as one read-modify-write, so single-use invites cannot be
 spent twice. The engine adapter is `daemon::SqliteChannelStore`, implementing
 `relay_net::channel::ChannelStore` (this crate does not depend on `relay-net`).
+
+### Call history
+
+`history::CallHistory` (`crates/relay-config/src/history/`) keeps one row per call the user saw end, in the `call_history` table of the same per-user database (schema version 1, no migration: the product is unreleased). A row holds exactly: the peer's display name as seen at the time, the peer's full fingerprint (64 hex digits, the peer id) and the short hint (`Fingerprint::short()`, as `Peer.fingerprint_short`), the direction (`incoming`/`outgoing`), the outcome (`completed`, `missed`, `declined`, `failed` for an outgoing call that did not reach the peer, `cancelled`), `started_at` (unix ms), `duration_ms` (connected time, 0 when it never connected) and the call id (16 bytes, which names the call's chat session). Nothing else is stored: no audio, no message content, no addresses.
+
+Bounds, enforced inside the insert transaction ("pruned on write"): the 200 newest rows and nothing older than 90 days (against the caller's clock). Every limit (`MAX_ENTRIES`, `MAX_AGE_MS`, the page sizes `MAX_LIST`/`DEFAULT_LIST`, the name and hint lengths) is a named constant in `history/limits.rs`; `CallHistory::with_limits(Limits)` takes other values, so they can later come from settings. `list(limit, before)` returns newest first and pages by row id (`before` = the last id of the previous page); `clear()` deletes everything. The preference `history.enabled` (default `true`) decides whether the engine records; turning it off keeps the entries until they are cleared. The store itself does not look at the preference (the engine does), so `clear` and `list` always work. The history is never part of a diagnostics bundle, an export of the settings or anything sent to a peer.
+
+#### Privacy
+
+Call history is local only. It is written by the daemon on this device, read over the local API by this user's clients, and never sent to the other person or anywhere else. To stop it recording, turn off "Keep call history" in Settings, Privacy and trust (or `relay config set history.enabled false`); existing entries then stay until cleared. To delete it, use "Clear history" on the Calls page or `relay history clear`. Entries also leave by themselves after 90 days or when more than 200 are stored. The peer's name is stored as it was shown then, so it keeps an old name after a rename and stays readable after the device is forgotten.
 
 ## Rules
 
