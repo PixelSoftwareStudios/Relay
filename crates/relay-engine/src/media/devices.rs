@@ -79,6 +79,8 @@ pub struct DeviceSetup {
 	pub selection: Selection,
 	/// FIFO fill the drift loop steers toward, in milliseconds.
 	pub playout_target_ms: u32,
+	/// Where the open streams' buffer sizes are published for diagnostics.
+	pub buffers: Arc<super::diag::DeviceBuffers>,
 }
 
 struct Thread {
@@ -215,6 +217,14 @@ impl Thread {
 		let selection = self.setup.selection.input.clone();
 		let device = self.resolve(Direction::Input, &selection)?;
 		let stream = self.backend.open_capture(device, &self.setup.request)?;
+		self.setup.buffers.set_capture(
+			stream
+				.config
+				.callback_frames
+				.or(stream.config.buffer_frames)
+				.unwrap_or(0),
+			stream.config.sample_rate,
+		);
 		let chain = CaptureChain::new(stream.reader, stream.config.sample_rate)?;
 		stream.handle.play()?;
 		let input = Box::new(CaptureInput {
@@ -258,6 +268,14 @@ impl Thread {
 			buffer_frames = ?stream.config.buffer_frames,
 			callback_frames = ?stream.config.callback_frames,
 			"playback opened"
+		);
+		self.setup.buffers.set_playback(
+			stream
+				.config
+				.callback_frames
+				.or(stream.config.buffer_frames)
+				.unwrap_or(0),
+			stream.config.sample_rate,
 		);
 		let mut sink = RenderSink::new(
 			stream.writer,

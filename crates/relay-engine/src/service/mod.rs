@@ -17,6 +17,8 @@ mod ids;
 mod ledger;
 pub mod ports;
 pub mod presence;
+mod connect_trust;
+pub mod call_stats;
 mod recorder;
 mod rpc;
 mod runtime;
@@ -36,6 +38,8 @@ pub use ports::{
 	PeerInfo, PeerSelector, PeerTrust, PortError, Ports, SettingsChange, SettingsStore,
 	StoredSettings, TrustRequest,
 };
+pub use connect_trust::ConnectFailure;
+pub use call_stats::{CallRaw, PathKind, StatsWindow, Windowed, mouth_to_ear_ms};
 pub use recorder::WallClock;
 pub use rpc::EngineService;
 pub use runtime::{Service, ServiceBuilder, ServiceConfig};

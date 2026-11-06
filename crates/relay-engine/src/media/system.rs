@@ -27,6 +27,7 @@ use super::inbox::Inbox;
 use super::live::{MicTest, filter_events};
 use super::load::{AdmissionLimits, LoadMeter, LoadSnapshot, Refusal};
 use super::meters::{Meters, monitor_pair};
+use super::diag::{DeviceBuffers, PathStatus};
 use super::net::{EndpointSink, PeerSocket};
 
 use super::render_worker::{self, RenderCmd};
@@ -113,6 +114,8 @@ pub(super) struct Inner {
 	pub(super) devices: DeviceThread,
 	pub(super) meters: Arc<Meters>,
 	pub(super) mic_test: Arc<MicTest>,
+	/// Buffer sizes of the open streams, for diagnostics.
+	pub(super) buffers: Arc<DeviceBuffers>,
 	/// A domain-owned capture generation is open or requested.
 	pub(super) domain_capture: AtomicBool,
 	capture_load: Arc<LoadMeter>,
@@ -224,12 +227,14 @@ impl MediaSystem {
 			Duration::from_secs(1),
 			HANG_AFTER,
 		));
+		let buffers = Arc::new(DeviceBuffers::default());
 		let devices = DeviceThread::spawn(
 			backend,
 			DeviceSetup {
 				request: config.request,
 				selection: config.selection.clone(),
 				playout_target_ms: config.playout_target_ms,
+				buffers: Arc::clone(&buffers),
 			},
 			capture.clone(),
 			render.clone(),
@@ -251,6 +256,7 @@ impl MediaSystem {
 				devices,
 				meters,
 				mic_test,
+				buffers,
 				domain_capture: AtomicBool::new(false),
 				capture_load,
 				render_load,
@@ -394,6 +400,7 @@ impl MediaSystem {
 					sender: None,
 					send_stats: None,
 					recv_stats: None,
+					path: PathStatus::waiting("preparing media"),
 				},
 			);
 		}
@@ -515,6 +522,7 @@ impl MediaSystem {
 					socket,
 					epoch,
 					remote_candidates: None,
+					overlay: link.overlay_peer.is_some(),
 				},
 			);
 			state.early_offers.remove(&peer)

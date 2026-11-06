@@ -288,6 +288,11 @@ pub trait MediaControl: Send + Sync {
 	fn set_microphone_gain(&self, _gain: f32) -> Result<(), PortError> {
 		Err(PortError::Unsupported("microphone gain"))
 	}
+	/// Live diagnostics of one call: path, packet counters, latency figures. Reads atomics
+	/// only. `None` when the call has no media.
+	fn call_stats(&self, _call: CallId) -> Option<super::call_stats::CallRaw> {
+		None
+	}
 	/// A snapshot of levels and counters. Reads atomics only.
 	fn telemetry(&self) -> MediaTelemetry {
 		MediaTelemetry::default()

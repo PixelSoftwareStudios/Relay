@@ -89,6 +89,10 @@ impl MediaControl for MediaSystem {
 		MediaSystem::telemetry(self)
 	}
 
+	fn call_stats(&self, call: CallId) -> Option<crate::service::call_stats::CallRaw> {
+		MediaSystem::call_raw(self, call)
+	}
+
 	fn tone(&self, command: ToneCommand) {
 		MediaSystem::tone(self, command);
 	}

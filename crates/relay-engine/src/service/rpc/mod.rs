@@ -1,8 +1,10 @@
 //! The local API: `relay.v1.Engine` implemented over the control actor.
 
 mod avatar;
+mod call_stats;
 mod channels;
 mod commands;
+mod connect_trust;
 mod connection;
 mod favorites;
 mod forget;
@@ -212,9 +214,10 @@ impl Engine for EngineService {
 
 	async fn watch_call_stats(
 		&self,
-		_: Request<relay_api::pb::WatchCallStatsRequest>,
+		request: Request<relay_api::pb::WatchCallStatsRequest>,
 	) -> Result<Response<Self::WatchCallStatsStream>, Status> {
-		Err(Status::unimplemented("watch_call_stats"))
+		let caller = self.observer(&request, |body| body.client.as_ref())?;
+		call_stats::open(self, caller, request.into_inner())
 	}
 
 	type WatchTelemetryStream = Stream<TelemetrySnapshot>;

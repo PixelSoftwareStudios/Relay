@@ -132,6 +132,7 @@ fn start(selection: Selection) -> Rig {
 			request: StreamRequest::default(),
 			selection,
 			playout_target_ms: 20,
+			buffers: Default::default(),
 		},
 		capture,
 		render,

@@ -34,6 +34,10 @@ pub struct SendStats {
 	pub send_dropped: AtomicU64,
 	/// Encode or send failures.
 	pub failed: AtomicU64,
+	/// [`super::diag::now_ms`] when the last packet was sent; 0 before the first.
+	pub last_sent_ms: AtomicU64,
+	/// Size of the last sealed datagram in bytes.
+	pub packet_bytes: AtomicU64,
 }
 
 /// Why a frame produced (or did not produce) a packet.
@@ -211,7 +215,17 @@ impl CallSender {
 		}
 		self.sequence = self.sequence.wrapping_add(1);
 		self.in_spurt = true;
-		self.stats.sent.fetch_add(1, Ordering::Relaxed);
+		if self.stats.sent.fetch_add(1, Ordering::Relaxed) == 0 {
+			tracing::info!(call = %self.identity.call, "first media packet sent");
+		}
+		self.stats
+			.last_sent_ms
+			.store(super::diag::now_ms().max(1), Ordering::Relaxed);
+		// Call id (16) and generation (4) travel inside the sealed body next to the RTP packet.
+		self.stats.packet_bytes.store(
+			relay_net::record::sealed_len(20 + total) as u64,
+			Ordering::Relaxed,
+		);
 		Emit::Sent
 	}
 

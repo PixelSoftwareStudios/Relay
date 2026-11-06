@@ -82,6 +82,7 @@ fn capture_opens_once_the_permission_is_granted_without_a_restart() {
 			request: StreamRequest::default(),
 			selection: Selection::default(),
 			playout_target_ms: 20,
+			buffers: Default::default(),
 		},
 		capture,
 		render,

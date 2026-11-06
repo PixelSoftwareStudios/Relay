@@ -3,7 +3,7 @@
 //! The audio workers store into these without locking or allocating; the
 //! control side reads them at its own pace.
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicI64, AtomicU32, AtomicU64, Ordering};
 
 use relay_audio::FRAME_SAMPLES;
 use rtrb::{Consumer, Producer};
@@ -71,6 +71,12 @@ pub struct Meters {
 	pub suppressor_errors: AtomicU64,
 	/// The microphone test wants capture mixed into the local output.
 	pub monitor: AtomicBool,
+	/// Clock-drift correction applied to playback, in thousandths of a ppm.
+	pub drift_ppm_milli: AtomicI64,
+	/// Audio waiting in the playback FIFO, in microseconds.
+	pub playout_fifo_us: AtomicU64,
+	/// Output latency the audio backend reports, in microseconds (0 when it reports none).
+	pub output_latency_us: AtomicU64,
 }
 
 /// One 10 ms frame of monitored microphone audio.

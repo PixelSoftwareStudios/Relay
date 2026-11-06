@@ -1,7 +1,7 @@
 //! The per-call receive path: validate, schedule, decode and conceal.
 
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 
 use relay_audio::FRAME_SAMPLES;
 use relay_audio::codec::CallDecoder;
@@ -9,6 +9,7 @@ use relay_core::CallId;
 use relay_protocol::jitter::{JitterBuffer, JitterConfig, PacketMeta, Playout};
 use relay_protocol::rtp::RtpProfile;
 
+use super::diag::now_ms;
 use super::meters::{Level, SPEAKING_DBFS, SPEAKING_HOLD_FRAMES, level_dbfs};
 use super::packet::{Ingress, PacketBuf};
 
@@ -37,6 +38,17 @@ pub struct RecvStats {
 	pub concealed: AtomicU64,
 	/// Frames rendered as silence.
 	pub silent: AtomicU64,
+	/// Packets the sender's sequence numbers say it sent, from the first one seen to the
+	/// highest (wrap-extended). Together with the packets received it gives the loss.
+	pub expected: AtomicU64,
+	/// [`now_ms`] when the last bound packet arrived; 0 before the first.
+	pub last_packet_ms: AtomicU64,
+	/// RFC 3550 interarrival jitter in microseconds.
+	pub jitter_us: AtomicU64,
+	/// Audio queued in the jitter buffer, in samples at 48 kHz.
+	pub buffered_samples: AtomicU32,
+	/// Playout margin the controller wants, in 10 ms frames.
+	pub target_margin_frames: AtomicU32,
 }
 
 /// What one render tick produced for a call.
@@ -71,6 +83,8 @@ pub struct CallReceiver {
 	stats: Arc<RecvStats>,
 	needs_reset: bool,
 	hold: u8,
+	/// First sequence number seen and the wrap-extended highest.
+	seq: Option<(u64, u64)>,
 }
 
 impl CallReceiver {
@@ -86,6 +100,7 @@ impl CallReceiver {
 			stats: Arc::new(RecvStats::default()),
 			needs_reset: false,
 			hold: 0,
+			seq: None,
 		})
 	}
 
@@ -135,15 +150,43 @@ impl CallReceiver {
 			timestamp: rtp.header.timestamp,
 			arrival_us: packet.arrival_us,
 		};
+		self.note_arrival(rtp.header.sequence);
 		let counter = match self.jitter.insert(meta, payload) {
 			relay_protocol::jitter::InsertOutcome::Stored => &self.stats.accepted,
 			_ => &self.stats.refused,
 		};
-		counter.fetch_add(1, Ordering::Relaxed);
+		if counter.fetch_add(1, Ordering::Relaxed) == 0
+			&& self.stats.accepted.load(Ordering::Relaxed)
+				+ self.stats.refused.load(Ordering::Relaxed)
+				== 1
+		{
+			tracing::info!(call = %self.remote.call, "first media packet received");
+		}
+		let jitter_us = u64::from(self.jitter.jitter_samples()) * 1000 / 48;
+		self.stats.jitter_us.store(jitter_us, Ordering::Relaxed);
+	}
+
+	/// Tracks the sequence range (for loss) and the arrival time (for "receiving").
+	fn note_arrival(&mut self, sequence: u16) {
+		let (first, high) = self.seq.get_or_insert((u64::from(sequence), u64::from(sequence)));
+		// Distance forward in 16-bit space; a small backwards step is a reordered packet.
+		let step = sequence.wrapping_sub((*high & 0xffff) as u16) as i16;
+		if step > 0 {
+			*high += u64::from(step.unsigned_abs());
+		}
+		let expected = *high - *first + 1;
+		self.stats.expected.store(expected, Ordering::Relaxed);
+		self.stats.last_packet_ms.store(now_ms().max(1), Ordering::Relaxed);
 	}
 
 	/// Produces exactly one 10 ms frame into `out`.
 	pub fn render(&mut self, out: &mut [f32; FRAME_SAMPLES]) -> Rendered {
+		self.stats
+			.buffered_samples
+			.store(self.jitter.occupancy_samples(), Ordering::Relaxed);
+		self.stats
+			.target_margin_frames
+			.store(self.jitter.target_margin_frames(), Ordering::Relaxed);
 		match self.jitter.poll() {
 			Playout::Play(played) => {
 				if std::mem::take(&mut self.needs_reset) {

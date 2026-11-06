@@ -8,6 +8,7 @@ use relay_core::{CallId, PeerEvent, PeerId, SessionId, SystemEvent};
 
 use super::capture_worker::CaptureCmd;
 use super::devices::DeviceCmd;
+use super::diag::{PathState, PathStatus};
 use super::events::MediaEvent;
 use super::recv::{CallReceiver, RemoteStream};
 use super::render_worker::RenderCmd;
@@ -127,6 +128,7 @@ impl MediaSystem {
 		};
 		if !endpoint.bind_stream(call.to_bytes(), remote.generation) {
 			tracing::warn!(%call, "stream binding refused");
+			self.set_path(call, failed_path("media stream binding refused"));
 			return;
 		}
 		let receiver = match CallReceiver::new(
@@ -141,6 +143,7 @@ impl MediaSystem {
 			Ok(receiver) => receiver,
 			Err(error) => {
 				tracing::warn!(%error, %call, "receiver creation failed");
+				self.set_path(call, failed_path("the receiver could not be created"));
 				return;
 			}
 		};
@@ -158,18 +161,51 @@ impl MediaSystem {
 			.is_ok();
 		if !installed {
 			tracing::warn!(%call, "worker queue full; call not activated");
+			self.set_path(call, failed_path("the media workers are busy"));
 			return;
 		}
+		let local = endpoint.local_addr().ok();
+		let mut last_error = String::from("no candidate address");
 		for candidate in candidates {
-			if endpoint.validate_path(candidate).await.is_ok() {
-				if let Some(media) = self.state().calls.get_mut(&call) {
-					media.phase = Phase::Active;
+			self.set_path(
+				call,
+				PathStatus {
+					state: PathState::Waiting,
+					reason: format!("waiting for {candidate} to answer the path challenge"),
+					local,
+					remote: Some(candidate),
+				},
+			);
+			match endpoint.validate_path(candidate).await {
+				Ok(()) => {
+					if let Some(media) = self.state().calls.get_mut(&call) {
+						media.phase = Phase::Active;
+					}
+					tracing::info!(%call, ?local, remote = %candidate, "media path validated");
+					self.set_path(
+						call,
+						PathStatus {
+							state: PathState::Connected,
+							reason: String::new(),
+							local,
+							remote: Some(candidate),
+						},
+					);
+					self.emit(MediaEvent::Peer(PeerEvent::PathValidated { call, session }));
+					return;
 				}
-				self.emit(MediaEvent::Peer(PeerEvent::PathValidated { call, session }));
-				return;
+				Err(error) => last_error = format!("{candidate}: {error}"),
 			}
 		}
-		tracing::warn!(%call, "no media path could be validated");
+		tracing::warn!(%call, reason = %last_error, "no media path could be validated");
+		self.set_path(call, failed_path(&format!("no media path validated ({last_error})")));
+	}
+
+	/// Records the call's media path for diagnostics.
+	pub(super) fn set_path(&self, call: CallId, path: PathStatus) {
+		if let Some(media) = self.state().calls.get_mut(&call) {
+			media.path = path;
+		}
 	}
 
 	/// Retires a call's media and reports `MediaStopped`. Idempotent.
@@ -222,5 +258,14 @@ impl MediaSystem {
 		if none_left {
 			let _ = self.inner.devices.commands.send(DeviceCmd::ClosePlayback);
 		}
+	}
+}
+
+fn failed_path(reason: &str) -> PathStatus {
+	PathStatus {
+		state: PathState::Failed,
+		reason: reason.to_owned(),
+		local: None,
+		remote: None,
 	}
 }

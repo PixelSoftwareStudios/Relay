@@ -189,6 +189,11 @@ impl RenderSink {
 		self.shed
 	}
 
+	/// FIFO fill as time, in microseconds.
+	pub fn occupancy_micros(&self) -> u64 {
+		self.writer.occupancy() as u64 * 1_000_000 / u64::from(self.device_rate.max(1))
+	}
+
 	/// The drift correction currently applied, in ppm of the resampler ratio.
 	pub fn drift_ppm(&self) -> f64 {
 		-self.drift.snapshot().ratio_ppm

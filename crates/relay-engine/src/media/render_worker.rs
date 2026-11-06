@@ -261,6 +261,13 @@ impl Worker {
 			.render_underruns
 			.store(output.shared.underrun_frames(), Ordering::Relaxed);
 		let latency_us = output.shared.reported_latency_us();
+		meters.output_latency_us.store(latency_us, Ordering::Relaxed);
+		meters
+			.playout_fifo_us
+			.store(output.sink.occupancy_micros(), Ordering::Relaxed);
+		meters
+			.drift_ppm_milli
+			.store((output.sink.drift_ppm() * 1000.0) as i64, Ordering::Relaxed);
 		if latency_us > 0 && !*latency_logged {
 			*latency_logged = true;
 			tracing::info!(latency_us, "output latency reported by the audio backend");

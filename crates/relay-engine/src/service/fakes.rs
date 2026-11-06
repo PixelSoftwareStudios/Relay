@@ -45,9 +45,15 @@ pub enum MediaCall {
 pub struct FakeMedia {
 	calls: Mutex<Vec<MediaCall>>,
 	telemetry: Mutex<MediaTelemetry>,
+	stats: Mutex<Option<super::call_stats::CallRaw>>,
 }
 
 impl FakeMedia {
+	/// Sets what `call_stats()` reports for every call.
+	pub fn set_call_stats(&self, raw: Option<super::call_stats::CallRaw>) {
+		*lock(&self.stats) = raw;
+	}
+
 	/// Sets what `telemetry()` reports.
 	pub fn set_telemetry(&self, telemetry: MediaTelemetry) {
 		*lock(&self.telemetry) = telemetry;
@@ -91,6 +97,9 @@ impl MediaControl for FakeMedia {
 	}
 	fn telemetry(&self) -> MediaTelemetry {
 		lock(&self.telemetry).clone()
+	}
+	fn call_stats(&self, _call: relay_core::CallId) -> Option<super::call_stats::CallRaw> {
+		lock(&self.stats).clone()
 	}
 	fn stop_mic_test(&self) -> Result<(), PortError> {
 		self.push(MediaCall::MicTestStop);

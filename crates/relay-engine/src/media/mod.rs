@@ -3,6 +3,7 @@
 mod capture_worker;
 mod control;
 mod devices;
+mod diag;
 mod early;
 mod events;
 mod gate;
@@ -18,6 +19,7 @@ mod render_worker;
 mod send;
 mod sink;
 mod state;
+mod stats;
 mod supervise;
 mod system;
 mod system_calls;
@@ -27,6 +29,7 @@ use thiserror::Error;
 
 pub use capture_worker::{CaptureCmd, CaptureInput, spawn as spawn_capture_worker};
 pub use control::device_id;
+pub use diag::{DeviceBuffers, PathState, PathStatus, now_ms};
 pub use devices::{BackendFactory, DeviceCmd, DeviceSetup, DeviceThread, Selection};
 pub use early::{EARLY_PER_PEER, EARLY_TOTAL, EARLY_TTL, EarlyReady};
 pub use events::{EventSink, MediaEvent};

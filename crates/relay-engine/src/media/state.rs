@@ -6,6 +6,7 @@ use std::sync::Arc;
 
 use relay_core::{CallId, PeerId, SessionId};
 
+use super::diag::PathStatus;
 use super::net::PeerSocket;
 use super::recv::RecvStats;
 use super::send::{CallSender, SendStats};
@@ -42,6 +43,8 @@ pub struct CallMedia {
 	pub sender: Option<Box<CallSender>>,
 	pub send_stats: Option<Arc<SendStats>>,
 	pub recv_stats: Option<Arc<RecvStats>>,
+	/// The UDP path: what it waits for, what it validated, or why it failed.
+	pub path: PathStatus,
 }
 
 /// Everything the control side keeps for one peer.
@@ -49,6 +52,8 @@ pub struct PeerMedia {
 	pub socket: PeerSocket,
 	pub epoch: [u8; 16],
 	pub remote_candidates: Option<Vec<SocketAddr>>,
+	/// The link runs over an overlay network (Tailscale and similar), not the LAN.
+	pub overlay: bool,
 }
 
 /// Mutable state of the media system, behind one lock.
