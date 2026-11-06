@@ -65,6 +65,7 @@ impl Actions {
 				}
 			};
 			match result {
+				Ok(note) if note.is_empty() => {}
 				Ok(note) => hub.update(|s| s.notice = Some(note)),
 				Err(message) => shared.set_error(message),
 			}

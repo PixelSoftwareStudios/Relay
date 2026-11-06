@@ -119,8 +119,21 @@ fn main() -> eframe::Result {
 					if shell.can_manage_daemon()
 						&& let Ok(endpoint) = resolve_endpoint()
 					{
-						daemon_control::restart_idle_at_launch(&endpoint, &autostart, &hub, &shared)
-							.await;
+						let first = daemon_control::restart_idle_at_launch(
+							&endpoint, &autostart, &hub, &shared,
+						)
+						.await;
+						if first == daemon_control::LaunchRefresh::KeptBusy {
+							// A call was active: replace the daemon as soon as it ends.
+							let (hub, autostart, shared) =
+								(hub.clone(), autostart.clone(), shared.clone());
+							tokio::spawn(async move {
+								daemon_control::restart_when_idle(
+									&endpoint, &autostart, &hub, &shared,
+								)
+								.await;
+							});
+						}
 					}
 					supervisor::supervise(engine, hub, slot, shell, autostart).await;
 				});

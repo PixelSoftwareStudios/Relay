@@ -112,3 +112,62 @@ async fn the_start_lock_held_by_a_cli_makes_the_launch_refresh_do_nothing() {
 	.await;
 	assert_eq!(launch_result(result), LaunchRefresh::Nothing);
 }
+
+#[cfg(unix)]
+#[tokio::test(start_paused = true)]
+async fn a_kept_daemon_is_replaced_by_itself_when_the_call_ends() {
+	use relay_ui::daemon_control::restart_when_idle;
+	use relay_ui::model::Phase;
+	use std::sync::Arc;
+	use std::time::Duration;
+
+	let dir = tempfile::tempdir().unwrap();
+	let endpoint = relay_api::Endpoint::Unix(dir.path().join("e.sock"));
+	let (hub, shared) = (Arc::new(Hub::default()), Arc::new(Shared::default()));
+	hub.update(|s| *s = relay_ui::mock::seed());
+	assert!(hub.state().calls.iter().any(|c| !c.phase.is_terminal()));
+	let task = {
+		let (hub, shared) = (hub.clone(), shared.clone());
+		tokio::spawn(async move {
+			let autostart = AutoStart::new(false);
+			restart_when_idle(&endpoint, &autostart, &hub, &shared).await
+		})
+	};
+	tokio::time::sleep(Duration::from_secs(20)).await;
+	assert!(
+		!task.is_finished(),
+		"a call is still active: nothing happens"
+	);
+	hub.update(|s| {
+		for call in &mut s.calls {
+			call.phase = Phase::Ended;
+		}
+	});
+	tokio::time::sleep(Duration::from_secs(5)).await;
+	assert_eq!(task.await.unwrap(), LaunchRefresh::Nothing);
+}
+
+#[test]
+fn only_the_api_revision_decides_whether_a_daemon_is_current() {
+	let same_api_other_text = Revision {
+		build: "abcdef123456-dirty".into(),
+		api: Revision::local().api,
+	};
+	assert!(
+		same_api_other_text.is_current(),
+		"build text is display only"
+	);
+	let older = Revision {
+		build: Revision::local().build,
+		api: Revision::local().api - 1,
+	};
+	assert!(!older.is_current());
+	let ancient = Revision {
+		build: String::new(),
+		api: 0,
+	};
+	assert!(
+		!ancient.is_current(),
+		"a daemon that reports nothing is stale"
+	);
+}

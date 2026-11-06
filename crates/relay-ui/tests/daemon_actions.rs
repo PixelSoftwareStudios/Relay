@@ -50,7 +50,7 @@ impl Shell for FakeShell {
 			if self.fail.load(Ordering::SeqCst) {
 				Err("Cannot find the Relay daemon".to_owned())
 			} else {
-				Ok("The Relay daemon started.".to_owned())
+				Ok(String::new())
 			}
 		})
 	}
@@ -97,8 +97,9 @@ async fn starting_runs_once_however_often_it_is_clicked_and_reports_back() {
 	settled(&actions).await;
 	assert_eq!(shell.starts.load(Ordering::SeqCst), 1);
 	assert_eq!(
-		actions.hub.state().notice.as_deref(),
-		Some("The Relay daemon started.")
+		actions.hub.state().notice,
+		None,
+		"starting on the user's behalf is silent"
 	);
 	assert_eq!(shell.quits.load(Ordering::SeqCst), 0, "the app stays open");
 }
@@ -140,8 +141,8 @@ fn start_results_become_plain_messages() {
 		binary: PathBuf::from("relayd"),
 		log: PathBuf::from("relayd.log"),
 	};
-	assert!(start_message(launched).is_ok());
-	assert!(start_message(Started::AlreadyRunning).is_ok());
+	assert_eq!(start_message(launched), Ok(String::new()));
+	assert_eq!(start_message(Started::AlreadyRunning), Ok(String::new()));
 	let missing = start_message(Started::BinaryNotFound { searched: vec![] }).expect_err("error");
 	assert!(
 		missing.contains("relayd") && missing.contains("RELAY_DAEMON_BIN"),
@@ -177,6 +178,7 @@ fn call(id: &str, phase: relay_ui::model::Phase, mine: bool) -> relay_ui::model:
 		problem: None,
 		controlled_by_me: mine,
 		controller_generation: 1,
+		connected_at_unix_ms: 0,
 	}
 }
 

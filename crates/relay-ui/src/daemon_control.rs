@@ -20,8 +20,8 @@ const STOP_WAIT: Duration = Duration::from_secs(10);
 /// The text for a finished start attempt: a note to show, or why it failed.
 pub fn start_message(outcome: Started) -> Result<String, String> {
 	match outcome {
-		Started::Launched { .. } => Ok(tr!("daemon-started").to_owned()),
-		Started::AlreadyRunning => Ok(tr!("daemon-already-running").to_owned()),
+		// Starting on the user's behalf is silent: only failures are shown.
+		Started::Launched { .. } | Started::AlreadyRunning => Ok(String::new()),
 		Started::BinaryNotFound { .. } => Err(tr!(
 			"daemon-not-found",
 			binary = daemon::binary_name(),
@@ -113,14 +113,38 @@ pub async fn restart_idle_at_launch(
 	)
 	.await;
 	let outcome = launch_result(result);
-	match &outcome {
-		LaunchRefresh::Restarted => {
-			hub.update(|s| s.notice = Some(tr!("daemon-started").to_owned()))
-		}
-		LaunchRefresh::Failed(message) => shared.set_error(message.clone()),
-		_ => {}
+	if let LaunchRefresh::Failed(message) = &outcome {
+		shared.set_error(message.clone());
 	}
 	outcome
+}
+
+/// How often [`restart_when_idle`] looks at the calls.
+const IDLE_POLL: Duration = Duration::from_secs(2);
+
+/// The deferred case of [`restart_idle_at_launch`]: a call was active, so the daemon was kept.
+/// When the app is connected and no call is in progress any more, the daemon is replaced
+/// without a click (the app owns the daemon's life cycle). Returns after one attempt that
+/// found the daemon idle; the stale-service card clears when the new daemon reports itself.
+pub async fn restart_when_idle(
+	endpoint: &Endpoint,
+	autostart: &AutoStart,
+	hub: &Hub,
+	shared: &Shared,
+) -> LaunchRefresh {
+	loop {
+		tokio::time::sleep(IDLE_POLL).await;
+		let idle = hub.read(|s| {
+			s.link == Link::Connected && s.calls.iter().all(|call| call.phase.is_terminal())
+		});
+		if !idle {
+			continue;
+		}
+		match restart_idle_at_launch(endpoint, autostart, hub, shared).await {
+			LaunchRefresh::KeptBusy => {}
+			other => return other,
+		}
+	}
 }
 
 /// The stored "Start daemon automatically" choice of a running daemon, if one answers.

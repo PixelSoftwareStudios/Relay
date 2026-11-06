@@ -161,3 +161,16 @@ async fn controller_lease_comes_from_the_real_engine() {
 	assert!(client.controller_generation(&call).await.is_err());
 	engine.daemon.shutdown().await.unwrap();
 }
+
+#[tokio::test]
+async fn a_daemon_of_the_same_build_is_never_reported_out_of_date() {
+	let engine = Real::start().await;
+	let text = engine.run(&["daemon", "status"]).await.unwrap();
+	assert!(!text.contains("out of date"), "{text}");
+	let json: serde_json::Value =
+		serde_json::from_str(&engine.run(&["--json", "daemon", "status"]).await.unwrap()).unwrap();
+	assert!(json.get("out_of_date").is_none(), "{json}");
+	assert_eq!(json["api_revision"], relay_api::API_REVISION);
+	assert_eq!(json["build_revision"], relay_api::BUILD_REVISION);
+	engine.daemon.shutdown().await.unwrap();
+}

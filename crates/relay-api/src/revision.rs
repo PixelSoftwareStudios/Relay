@@ -28,9 +28,11 @@ impl Revision {
 		}
 	}
 
-	/// Whether this is the same build as the running binary, API revision included.
+	/// Whether a daemon with this revision speaks the API of the running binary. Only the API
+	/// revision decides: the build text is for display, because two binaries built from one tree
+	/// at different moments can carry different commit or `-dirty` text.
 	pub fn is_current(&self) -> bool {
-		*self == Self::local()
+		self.api == API_REVISION
 	}
 }
 
