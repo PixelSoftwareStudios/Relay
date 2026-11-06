@@ -141,8 +141,10 @@ async fn a_client_holding_the_start_lock_makes_the_refresh_wait_then_give_way() 
 	let dir = tempfile::tempdir().unwrap();
 	let endpoint = Endpoint::Unix(dir.path().join("e.sock"));
 	let _held = ProcessLock::acquire_beside(&lock_path(&endpoint)).unwrap();
-	let mut options = StartOptions::default();
-	options.lock_timeout = Duration::from_millis(150);
+	let options = StartOptions {
+		lock_timeout: Duration::from_millis(150),
+		..StartOptions::default()
+	};
 	let outcome = relay_client::refresh::refresh_endpoint(
 		&endpoint,
 		&options,

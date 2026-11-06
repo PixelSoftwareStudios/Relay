@@ -98,8 +98,10 @@ async fn the_start_lock_held_by_a_cli_makes_the_launch_refresh_do_nothing() {
 	let dir = tempfile::tempdir().unwrap();
 	let endpoint = relay_api::Endpoint::Unix(dir.path().join("e.sock"));
 	let _cli = ProcessLock::acquire_beside(&lock_path(&endpoint)).unwrap();
-	let mut options = StartOptions::default();
-	options.lock_timeout = Duration::from_millis(100);
+	let options = StartOptions {
+		lock_timeout: Duration::from_millis(100),
+		..StartOptions::default()
+	};
 	let result = refresh_endpoint(
 		&endpoint,
 		&options,

@@ -1,5 +1,6 @@
 #![cfg(unix)]
 
+#[allow(dead_code)]
 mod support;
 
 use relay_api::{RelayClient, Revision};
