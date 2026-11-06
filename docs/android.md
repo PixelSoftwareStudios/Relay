@@ -148,6 +148,14 @@ Ranked by effort, smallest first.
 
 About 9-15 weeks to a trustworthy beta; confidence is low because audio latency/AEC behaviour and Wi-Fi multicast behaviour on real devices are unmeasured. Treat as plus or minus 50%.
 
+## Microphone and notification permission
+
+`MainActivity.onCreate` reads both permissions and, while one was never asked, shows the system dialog at once (`RECORD_AUDIO`, plus `POST_NOTIFICATIONS` on Android 13+). Observed on the `Medium_Phone_API_35` emulator after `pm revoke`/`pm clear`: the dialog appears on a fresh install, each refusal moves `PermissionGate` to `DENIED` and then `BLOCKED`, and the Calls page shows the shared microphone card (`docs/ui.md`): "Relay needs your microphone" with **Allow microphone** while the system will still ask, "Microphone access is turned off" with **Open system settings** (the app's details page) once it will not. The earlier hard-coded red error ("Microphone permission is denied...") is gone: it fired while the dialog was still open and never cleared after a grant.
+
+A grant that arrives later is noticed without a restart: the gate is re-read on every `onResume` (back from Settings), on the dialog result, and every 3 s while the microphone is missing and the app is visible (a permission changed by `adb shell pm grant`, split-screen settings). Observed: `pm grant` while the app was in the foreground and while it was in Settings; the same process kept running and the card disappeared. Granting through `pm grant` does not kill the process; revoking does (Android's rule). `RelayEngine.set_microphone(state)` tells the engine: on `READY` the in-process daemon is told `input_access_changed`, so a capture that failed to open for lack of permission is retried in the running call, and the next call retries it anyway (`relay-core` `capture_retry`). `MICROPHONE_UNAVAILABLE` is withdrawn (a `Removed` event of kind `warning`) when capture opens.
+
+Not observed on the emulator: the capture stream opening after the grant (no peer to call; the AAudio open itself is covered by the fake-backend test `media_permission`).
+
 ## Unmet gates
 
 - Mobile resource gate (CPU, RSS, battery): not measured.

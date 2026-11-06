@@ -30,6 +30,10 @@ A shell supplies a tokio `Handle` and an `Arc<dyn Shell>`:
 
 Wiring (see `apps/relay-desktop/src/main.rs`): build `Hub`, `SessionSlot`, `Controller`, `Shared`, then `Actions { controller, hub, shared, runtime, shell }`; spawn `emitter::run` with a `ShellSink` and either `supervisor::supervise(RelayLink::new(resolve_endpoint), ..)` or `mock::run`. Per frame call `RelayApp::begin_frame(ctx)` then `RelayApp::ui(ui)`.
 
+## Microphone card
+
+`Shell::microphone_access()` (default `Ready`, so platforms with nothing to ask show nothing) returns `MicrophoneAccess`: `Ready`, `NotAsked`, `Denied` (the system will ask again) or `Blocked` (settings only). The top of the Calls page draws a card from it (`microphone::card`): `NotAsked` and `Denied` show "Relay needs your microphone" with **Allow microphone** (`Shell::request_microphone`), `Blocked` shows "Microphone access is turned off" with **Open system settings** (`Shell::open_microphone_settings`). Each card has Dismiss; a dismissal is forgotten when the access state changes, so a later revoke shows the card again. The shell owns the state and prompts by itself where the platform allows (desktop at launch, Android at `onCreate`); the card only reacts. Tests: `tests/microphone.rs` (fake shell, real frames, clicks).
+
 ## Auto-start and quitting
 `autostart::AutoStart` (setting, `RELAY_NO_AUTOSTART`, user quit, 3 starts per 60 s, exponential backoff) is pure and tested without a clock; `supervise` takes the `Shell` and `Arc<AutoStart>` (`Shared.autostart`). `Link::Starting` is the honest "starting" state. `Actions::quit_app` hangs up `format::own_live_calls` (calls with `controlled_by_me`, not ended) for up to 2 s before `Shell::quit`; `format::close_note` and `format::quit_prompt` are the texts and name active calls. `Command::SetAutostart` / `Controller::set_autostart` store the preference.
 

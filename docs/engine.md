@@ -247,7 +247,7 @@ Writing goes through `SettingsStore::record_call` (default `Unsupported`; `FileS
   undetermined, device busy) the daemon raises the warning `MICROPHONE_UNAVAILABLE`
   (`recovery_action = check_microphone_access`) whose message tells the user where to allow access
   (macOS: System Settings > Privacy & Security > Microphone). The first open on macOS triggers the
-  system prompt; a signed bundle with a usage description is still an open gate (`docs/gates.md`).
+  system prompt; a signed bundle with a usage description is still an open gate (`docs/gates.md`). A failed open leaves capture `Lost` for the rest of the call; the next call retries it, and `SystemEvent::InputAccessChanged` (a hosted daemon is told with `DaemonHandle::input_access_changed`, the Android shell does when the permission arrives) retries it inside the running call. `MICROPHONE_UNAVAILABLE` is withdrawn with a `Removed{kind: "warning", id: code}` event when capture opens. A device lost mid-call still waits for an explicit `ResumeCapture`.
 
 ## Tones
 
