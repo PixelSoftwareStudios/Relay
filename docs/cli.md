@@ -70,6 +70,10 @@ Global flags (accepted anywhere): `--json`, `--socket PATH`, `--tcp-profile PATH
 
 Targets: a peer is matched by exact id, exact name (any case), then a unique id/name prefix. An ambiguous prefix is an error listing candidates, never a guess. A call is an id prefix or a peer name; with no argument the only live call is used, and several live calls are an error.
 
+### Calls and diagnostics (`relay calls`, `relay stats`)
+- `relay calls` lists the live calls: id, peer, state, `TIME` (connected time, measured from the call's `connected_at_unix_ms` so both ends agree), mode and microphone. `relay status` shows the same table. With `--json` each call carries `connected_at_unix_ms`, `duration_ms` (null until connected) and, for connected calls, `diagnostics` (the first `CallStats` sample, best effort: path, packet counters, rtt, jitter, loss, buffers, latency estimate).
+- `relay stats [CALL] [--watch]` prints the live statistics of a call (`WatchCallStats`): the path and why it waits or failed, sending and receiving, packets, rtt with min and max, jitter, loss over 5 s and total, jitter buffer, mouth-to-ear estimate, codec, drift and device buffers. `--watch` prints one sample per second; with `--json` one JSON object per line. `call` is the dial command, so statistics live under `stats`. Source `commands/stats.rs`, tests `tests/stats_cmd.rs`.
+
 ### Consent and safety
 - `talk on` and `talk ptt` fail locally (exit 2, no request sent) without `--consent`; the flag becomes `explicit_microphone_consent`. `talk off` is always allowed.
 - `mic-test --accept-feedback` requires `--local-playback`.

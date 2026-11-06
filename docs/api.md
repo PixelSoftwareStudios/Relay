@@ -71,6 +71,18 @@ The refresh signal needs no new stream: `Settings` (snapshot and `StateEvent.set
 
 `CallTelemetry.rtt_ms` is the smoothed round trip to the peer measured with the authenticated keepalives of the control link, with `latency_estimate_method = "control_keepalive_rtt"`; until the first echo (about 5 s after the link comes up) it is unset and the method is `"unmeasured"`. It is an upper estimate of the media path (the probe is TCP and shares the connection with signaling). `rtp_interarrival_jitter_ms` and `estimated_mouth_to_ear_ms` remain unset: nothing measures capture-to-playout latency yet.
 
+## Call statistics
+
+`WatchCallStats(WatchCallStatsRequest{client, call_id})` streams `CallStats` about once per
+second for one call (capability `observe`): media path state and reason, `sending` / `receiving`
+(a packet within 500 ms), packet counters, `mic_level_dbfs`, `rtt_ms` with its 10 s minimum and
+maximum, RFC 3550 `jitter_ms`, loss over 5 s and in total, jitter buffer target and depth,
+playout delay, an estimated `mouth_to_ear_ms`, codec bitrate and packet size, local and remote
+address, `transport` (`lan` or `overlay`), clock drift and the device buffer sizes. The formulas
+are in `docs/engine.md` ("Call statistics"). Open it only while a debug panel is visible. The
+client helper is `relay_client::wire::open_call_stats`; `Call.connected_at_unix_ms` stays on the
+state stream.
+
 ## Client sketch
 ```rust
 let mut c = RelayClient::connect(&Endpoint::Unix(path)).await?;

@@ -256,6 +256,51 @@ Writing goes through `SettingsStore::record_call` (default `Unsupported`; `FileS
   (macOS: System Settings > Privacy & Security > Microphone). The first open on macOS triggers the
   system prompt; a signed bundle with a usage description is still an open gate (`docs/gates.md`). A failed open leaves capture `Lost` for the rest of the call; the next call retries it, and `SystemEvent::InputAccessChanged` (a hosted daemon is told with `DaemonHandle::input_access_changed`, the Android shell does when the permission arrives) retries it inside the running call. `MICROPHONE_UNAVAILABLE` is withdrawn with a `Removed{kind: "warning", id: code}` event when capture opens. A device lost mid-call still waits for an explicit `ResumeCapture`.
 
+## Call statistics (`WatchCallStats`)
+
+A stuck call is diagnosed with `WatchCallStats(call_id)`, a server stream of `CallStats` about
+once a second (capability `observe`, one stream slot each). It is separate from the state stream
+on purpose: the numbers change every second and would flood it, so a client opens it only
+while it shows them. The media layer keeps plain atomics and one path record per call
+(`media/diag.rs`, `media/stats.rs`); the stream task turns a raw reading (`service/call_stats.rs`,
+`CallRaw`) into the wire message and keeps the windows. Nothing is allocated or locked on the
+audio threads.
+
+- **Media path.** `path_state` is `WAITING` (waiting for the remote's candidates, or for a
+  candidate to answer the path challenge; `path_reason` names it), `CONNECTED` (`local_addr`,
+  `remote_addr`, `transport` = `lan` or `overlay`) or `FAILED` (`path_reason` holds the cause:
+  stream binding refused, workers busy, or the last validation error such as a timeout).
+  A call without media yet reports `WAITING` with "media is not prepared".
+- **Activity.** `sending` / `receiving` are true when a packet was sent / arrived within the last
+  500 ms; `packets_sent` and `packets_received` count them (received includes packets the jitter
+  buffer refused as late). `mic_level_dbfs` is the microphone level while capture is open.
+- **Jitter** is RFC 3550 interarrival jitter, `J += (|D| - J) / 16` over the arrival and RTP
+  timestamps, so `jitter_ms` is the mean change of delay between neighbouring packets.
+- **Loss** comes from the sequence numbers: expected = highest wrap-extended sequence minus the
+  first plus one; lost = expected - received. `loss_percent_total` is since the first packet,
+  `loss_percent_5s` over the last five seconds (deltas between two 1 Hz readings). A reordered
+  packet never counts as new, a 16-bit wrap is not loss.
+- **Round trip.** `rtt_ms` is the control link's smoothed keepalive round trip (`peers/rtt.rs`,
+  see Telemetry above); `rtt_min_ms` / `rtt_max_ms` are the extremes of the readings of the last
+  10 s. It is a TCP probe and overstates the UDP path.
+- **Buffers.** `jitter_buffer_depth_ms` is audio queued in the jitter buffer,
+  `jitter_buffer_target_ms` the margin the controller wants, `playout_delay_ms` the playback FIFO
+  fill plus the latency the audio backend reports, `capture_buffer_*` and `playback_buffer_*`
+  the callback or buffer size of the open device streams in frames and milliseconds,
+  `clock_drift_ppm` the drift correction applied to playback.
+- **Codec.** `codec_bitrate_bps` is the encoder setting, `packet_bytes` the size of the last
+  sealed datagram.
+- **Mouth-to-ear** is an estimate, not a measurement: `capture buffer + encode (12.5 ms: one
+  10 ms frame plus about 2.5 ms of lookahead) + rtt/2 + jitter buffer depth + decode (5 ms: half
+  of the 10 ms render tick) + playout delay`. It is unset while there is no round trip, and it
+  assumes the one-way delay is half the control link's round trip.
+- The first packet sent, the first packet received and the outcome of the path validation are
+  logged once per call at `info` (`first media packet sent`, `first media packet received`,
+  `media path validated` or the `warn` `no media path could be validated`).
+
+Tests: `tests/call_stats_sim.rs` (a simulated link with 5 % loss and 20 ms of jitter plus a fake
+clock for the windows) and `tests/call_stats_loopback.rs` (two whole engines).
+
 ## Tones
 
 Ring, ringback and call blips are played by the daemon, so they work for any

@@ -223,6 +223,16 @@ This renders every chosen utterance through `off` and each backend into `benches
 
 `score` reads `key/key.json` (do not open it before you are done), rejects malformed sheets, prints the mean rating, rated count and picks per backend and condition, and writes `summary.csv`. It reports partial sheets as partial. The test is a rating-and-pick protocol rather than a strict ABX identification test, and a handful of trials gives only a rough ordering.
 
+## Call diagnostics
+
+`WatchCallStats` (`docs/engine.md`, "Call statistics") reports what the audio path measures:
+RFC 3550 jitter, loss from sequence gaps, jitter buffer depth and target, playback FIFO fill plus
+the backend's reported output latency, the drift correction in ppm, the callback sizes of the
+open capture and playback streams and an estimated mouth-to-ear latency
+(`capture + 12.5 ms encode + rtt/2 + jitter buffer + 5 ms decode + playout`). The figures are
+published from the workers as atomics (`media/meters.rs`, `RecvStats`, `SendStats`) and read at
+1 Hz; the send and receive paths only add relaxed atomic stores per packet.
+
 ## Known limits
 
 - The loopback pipeline requires a suppressor that yields whole 10 ms frames;
