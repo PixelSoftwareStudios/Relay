@@ -76,8 +76,8 @@ pub fn build_bundle(input: &BundleInput<'_>) -> String {
 	let _ = writeln!(lines, "playback_gain = {}", p.audio.playback_gain);
 	let _ = writeln!(
 		lines,
-		"new_calls_receive_only = {}",
-		p.privacy.new_calls_receive_only
+		"default_transmit_mode = {:?}",
+		p.calls.default_transmit_mode
 	);
 	let _ = writeln!(lines, "allow_wan = {}", p.network.allow_wan);
 	let _ = writeln!(lines, "key_storage = {:?}", p.identity.key_storage);

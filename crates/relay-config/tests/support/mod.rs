@@ -17,6 +17,6 @@ pub fn chosen_mic() -> Preferences {
 	let mut p = Preferences::default();
 	p.audio.input_selection = relay_config::prefs::DeviceSelection::Explicit;
 	p.audio.preferred_input_id = "usb-mic".into();
-	p.privacy.new_calls_receive_only = false;
+	p.calls.default_transmit_mode = relay_config::prefs::TransmitModePref::Unmuted;
 	p
 }

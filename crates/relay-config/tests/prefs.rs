@@ -1,7 +1,8 @@
 mod support;
 
 use relay_config::prefs::{
-	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, export_toml, flat, import_toml,
+	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, TransmitModePref, export_toml, flat,
+	import_toml,
 };
 use relay_config::{ConfigError, Paths};
 use support::{chosen_mic, storage};
@@ -23,7 +24,13 @@ fn first_run_gives_safe_defaults_without_notices() {
 		DeviceSelection::SystemDefault
 	);
 	assert!(loaded.preferences.audio.preferred_input_id.is_empty());
-	assert!(loaded.preferences.privacy.new_calls_receive_only);
+	assert_eq!(
+		loaded.preferences.calls.default_transmit_mode,
+		TransmitModePref::PushToTalk
+	);
+	assert!(loaded.preferences.ptt.enabled);
+	// A fresh profile records call history.
+	assert!(loaded.preferences.history.enabled);
 	assert!(!loaded.preferences.diagnostics.record_raw_audio);
 }
 
@@ -96,22 +103,19 @@ fn get_and_set_are_typed_and_validated() {
 	store.set("audio.microphone_gain", "2.5").unwrap();
 	store.set("audio.noise_backend", "rnnoise").unwrap();
 	store.set("audio.preferred_input_id", "123").unwrap();
-	store
-		.set("privacy.new_calls_receive_only", "false")
-		.unwrap();
+	store.set("calls.default_transmit_mode", "unmuted").unwrap();
+	store.set("ptt.enabled", "false").unwrap();
 	let prefs = store.load().unwrap().preferences;
 	assert_eq!(prefs.audio.microphone_gain, 2.5);
 	assert_eq!(prefs.audio.preferred_input_id, "123");
-	assert!(!prefs.privacy.new_calls_receive_only);
+	assert_eq!(prefs.calls.default_transmit_mode, TransmitModePref::Unmuted);
+	assert!(!prefs.ptt.enabled);
 	assert_eq!(store.get("audio.preferred_input_id").unwrap(), "123");
 
 	assert!(store.set("audio.microphone_gain", "99").is_err());
 	assert!(store.set("audio.microphone_gain", "loud").is_err());
-	assert!(
-		store
-			.set("privacy.new_calls_receive_only", "maybe")
-			.is_err()
-	);
+	assert!(store.set("calls.default_transmit_mode", "loud").is_err());
+	assert!(store.set("ptt.enabled", "maybe").is_err());
 	assert!(store.set("audio.nope", "1").is_err());
 	assert!(store.set("config_version", "9").is_err());
 	assert!(store.get("nope").is_err());

@@ -4,7 +4,7 @@ use std::fs::{self, OpenOptions};
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
-use relay_config::prefs::PreferenceStore;
+use relay_config::prefs::{PreferenceStore, TransmitModePref};
 use relay_config::{ConfigError, Notice, Paths, Storage};
 use rusqlite::Connection;
 use support::{chosen_mic, storage};
@@ -32,7 +32,7 @@ fn assert_mic_cleared(s: &Storage) {
 		.unwrap()
 		.preferences;
 	assert!(prefs.audio.preferred_input_id.is_empty());
-	assert!(prefs.privacy.new_calls_receive_only);
+	assert_eq!(prefs.calls.default_transmit_mode, TransmitModePref::Muted);
 }
 
 #[test]

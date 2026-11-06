@@ -78,7 +78,7 @@ impl Default for Audio {
 	fn default() -> Self {
 		Self {
 			// Audio works out of the box: follow the system default devices.
-			// Transmitting still needs consent (`new_calls_receive_only`).
+			// Transmitting follows `calls.default_transmit_mode`.
 			input_selection: DeviceSelection::SystemDefault,
 			preferred_input_id: String::new(),
 			output_selection: DeviceSelection::SystemDefault,
@@ -97,7 +97,6 @@ impl Default for Audio {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Privacy {
-	pub new_calls_receive_only: bool,
 	pub background_open_mic_requires_consent: bool,
 	pub lock_closes_transmit: bool,
 	/// Who may ring this device.
@@ -131,7 +130,6 @@ pub enum AdvertMode {
 impl Default for Privacy {
 	fn default() -> Self {
 		Self {
-			new_calls_receive_only: true,
 			background_open_mic_requires_consent: true,
 			lock_closes_transmit: true,
 			inbound_policy: InboundPolicy::default(),
@@ -264,10 +262,38 @@ impl Default for Hotkeys {
 	}
 }
 
+/// A call's microphone mode. `unmuted` and `push_to_talk` are the user's explicit consent to
+/// send the microphone; `muted` sends nothing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransmitModePref {
+	/// The microphone is never sent.
+	Muted,
+	/// Open microphone.
+	Unmuted,
+	/// Sent only while the talk key or button is held.
+	#[default]
+	PushToTalk,
+}
+
+/// Call defaults.
+#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Calls {
+	/// The mode a call starts in when it connects (incoming accepted or outgoing). Choosing
+	/// `unmuted` or `push_to_talk` here is advance consent to send the microphone in every
+	/// call; `muted` makes every call start silent. Applies live.
+	pub default_transmit_mode: TransmitModePref,
+}
+
 /// Push-to-talk behaviour.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ptt {
+	/// Push-to-talk may be used: the global hotkey is registered, the talk button is
+	/// offered and `push_to_talk` can be chosen as a transmit mode. Off: a default of
+	/// `push_to_talk` falls back to `muted` and calls in that mode become muted.
+	pub enabled: bool,
 	/// How long the transmit gate stays open after an ordinary key release, so the
 	/// end of a sentence is not clipped. `0` closes at once.
 	pub release_delay_ms: u32,
@@ -279,6 +305,7 @@ pub const MAX_RELEASE_DELAY_MS: u32 = 2000;
 impl Default for Ptt {
 	fn default() -> Self {
 		Self {
+			enabled: true,
 			release_delay_ms: 200,
 		}
 	}
@@ -329,6 +356,7 @@ pub struct Preferences {
 	pub identity: Identity,
 	pub hotkeys: Hotkeys,
 	pub ptt: Ptt,
+	pub calls: Calls,
 	pub clients: Clients,
 	pub messages: Messages,
 	pub history: History,
@@ -347,6 +375,7 @@ impl Default for Preferences {
 			identity: Identity::default(),
 			hotkeys: Hotkeys::default(),
 			ptt: Ptt::default(),
+			calls: Calls::default(),
 			clients: Clients::default(),
 			messages: Messages::default(),
 			history: History::default(),
@@ -406,6 +435,6 @@ impl Preferences {
 	pub(crate) fn clear_microphone(&mut self) {
 		self.audio.input_selection = DeviceSelection::SystemDefault;
 		self.audio.preferred_input_id.clear();
-		self.privacy.new_calls_receive_only = true;
+		self.calls.default_transmit_mode = TransmitModePref::Muted;
 	}
 }
