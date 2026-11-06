@@ -24,6 +24,9 @@ The desktop crate holds only what needs a window or the OS; everything else is i
 - Images used here come from `assets/icon/`: window icon (`relay-mark-256.png`; on macOS `relay-app-512.png`, the same mark inside the macOS icon grid with its transparent margin and shadow, so the Dock icon is not oversized) and tray glyphs `tray-{idle,call,muted}[@2x].png`. The header logo and `default-avatar.png` are embedded by `relay-ui`. Fonts come from `assets/font` (Noto Sans and CJK/Devanagari subsets, about 3.1 MB, OFL 1.1), embedded and installed by `relay-ui` (`fonts::install`, see `docs/ui.md`); the desktop app adds nothing.
 - Tests in `apps/relay-desktop/tests`: tray glyphs and the picker's bounded read. All logic and UI tests live in `crates/relay-ui/tests`.
 
+## Navigation around calls
+The desktop window follows the shared rules in `docs/ui.md`, "Following calls": placing or accepting a call shows the Calls page, and a call that the other device answers brings the window to Calls (also from Settings) unless a dialog is open or a field has focus, once per call. A hidden window (in the tray) applies it when shown again. Closing the window, the tray and Esc/Back behave as before.
+
 ## Threading and repaint
 A tokio runtime (2 worker threads, owned by `main`/`DesktopApp`; `relay-ui` only gets a `Handle`) runs the supervisor, the emitter and every controller call. The UI thread never blocks on the engine: buttons spawn a controller future, and failures land in `Shared` and are shown in a banner. Writers call `Shell::request_repaint` (egui's `request_repaint` on desktop); the UI never requests one itself and has no animations, so an idle app is not redrawn.
 
