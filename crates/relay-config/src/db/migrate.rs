@@ -68,6 +68,19 @@ CREATE TABLE state (
 	key TEXT PRIMARY KEY NOT NULL,
 	value BLOB NOT NULL
 ) WITHOUT ROWID;
+
+-- Past calls: who, which way, how it ended, when and for how long. Nothing else.
+CREATE TABLE call_history (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	peer_name TEXT NOT NULL,
+	peer_fingerprint TEXT NOT NULL CHECK (length(peer_fingerprint) = 64),
+	peer_fingerprint_short TEXT NOT NULL,
+	direction TEXT NOT NULL CHECK (direction IN ('incoming', 'outgoing')),
+	outcome TEXT NOT NULL CHECK (outcome IN ('completed', 'missed', 'declined', 'failed', 'cancelled')),
+	started_at INTEGER NOT NULL,
+	duration_ms INTEGER NOT NULL,
+	call_id BLOB NOT NULL CHECK (length(call_id) = 16)
+);
 ";
 
 const MIGRATIONS: &[&str] = &[V1];

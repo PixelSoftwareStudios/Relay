@@ -300,6 +300,21 @@ impl Default for Clients {
 	}
 }
 
+/// Call history (`docs/config.md`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct History {
+	/// Record finished calls. Off: nothing new is recorded; existing entries stay until
+	/// they are cleared.
+	pub enabled: bool,
+}
+
+impl Default for History {
+	fn default() -> Self {
+		Self { enabled: true }
+	}
+}
+
 /// All user preferences.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -315,6 +330,7 @@ pub struct Preferences {
 	pub ptt: Ptt,
 	pub clients: Clients,
 	pub messages: Messages,
+	pub history: History,
 }
 
 impl Default for Preferences {
@@ -331,6 +347,7 @@ impl Default for Preferences {
 			ptt: Ptt::default(),
 			clients: Clients::default(),
 			messages: Messages::default(),
+			history: History::default(),
 		}
 	}
 }

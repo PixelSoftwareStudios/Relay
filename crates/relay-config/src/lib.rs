@@ -10,6 +10,7 @@ pub mod channels;
 pub mod db;
 pub mod diagnostics;
 pub mod error;
+pub mod history;
 pub mod identity;
 pub mod keychain;
 pub mod notice;
