@@ -25,7 +25,7 @@ android {
         minSdk = minSdkLevel
         targetSdk = 35
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = providers.gradleProperty("relay.version").orElse("0.0.0-dev").get()
         ndk { abiFilters += abis }
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
