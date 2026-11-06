@@ -20,7 +20,7 @@ pub const SPACE_XL: f32 = 24.0;
 /// Corner radius of cards and prompts.
 pub const CARD_RADIUS: u8 = 8;
 /// Width of the regular layout's navigation sidebar.
-pub const SIDEBAR_WIDTH: f32 = 228.0;
+pub const SIDEBAR_WIDTH: f32 = 216.0;
 /// Widest column the pages use; wider windows leave the rest empty.
 pub const CONTENT_MAX_WIDTH: f32 = 720.0;
 /// Width of the Settings category list in the regular layout.
@@ -37,7 +37,7 @@ pub const TEXT_HEADING: f32 = 20.0;
 /// Page titles and the name on an in-call card.
 pub const TEXT_TITLE: f32 = 24.0;
 /// The name in the sidebar's identity block.
-pub const TEXT_SIDEBAR_NAME: f32 = 13.0;
+pub const TEXT_SIDEBAR_NAME: f32 = 14.0;
 /// Helper text under a control.
 pub const TEXT_SMALL: f32 = 12.0;
 

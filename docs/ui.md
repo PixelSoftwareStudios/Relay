@@ -42,7 +42,7 @@ Connect a device (`ui/connect.rs`, top of People, under the discoverability card
 
 Discoverability (`ui/visibility.rs`, `viewmodel::discoverability`): Discoverable (green, advertised so others on the same network can find and call this device), Private (neutral, not advertised; only someone with the address can call) or Not advertising (amber, with the link state as the reason). The engine exposes the stored preference (`Settings.advert`, `privacy.advert_mode`) and who may ring (`Settings.inbound`) but no live "is advertising" flag; the daemon advertises only while a client is attached (`docs/engine.md`, presence), so the state is the preference combined with `Link::Connected`. A chip shows it in the sidebar identity block (full sentence as hover text); the People card repeats it in one line, adds a "who can ring me" line when it is limited to channel members, and has a button (Go private / Make discoverable, disabled until the daemon is connected) that calls `Controller::set_privacy`, the same control as Settings, Privacy. Tests: `tests/discoverability.rs`, `tests/people_fit.rs`.
 
-The sidebar is `theme::SIDEBAR_WIDTH` (228 points) wide; the name in it uses `theme::TEXT_SIDEBAR_NAME` (13) and is cut with an ellipsis (full name on hover). The compact layout has no sidebar.
+The sidebar is `theme::SIDEBAR_WIDTH` (216 points) wide; the name in it uses `theme::TEXT_SIDEBAR_NAME` (14) and is cut with an ellipsis (full name on hover). The compact layout has no sidebar.
 
 Keys: Esc leaves Settings (or the category on a phone) unless a drop-down is open; Ctrl/Cmd+1 to 4 open Calls, People, Channels and Messages; Ctrl/Cmd+, opens Settings. Tests: `tests/nav.rs`.
 

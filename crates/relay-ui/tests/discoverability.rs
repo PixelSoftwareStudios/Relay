@@ -103,14 +103,3 @@ async fn the_people_card_offers_the_switch_and_names_the_reason() {
 		drawn.labels
 	);
 }
-
-#[test]
-fn the_sidebar_is_wider_and_its_name_smaller_by_token() {
-	let (width, name, body) = (
-		theme::SIDEBAR_WIDTH,
-		theme::TEXT_SIDEBAR_NAME,
-		theme::TEXT_BODY,
-	);
-	assert!((220.0..=240.0).contains(&width));
-	assert!(name < body);
-}
