@@ -217,9 +217,24 @@ impl Engine for FakeEngine {
 	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
 	async fn watch_call_stats(
 		&self,
-		_: Request<WatchCallStatsRequest>,
+		r: Request<WatchCallStatsRequest>,
 	) -> Resp<Self::WatchCallStatsStream> {
-		unsupported()
+		let r = r.into_inner();
+		self.log
+			.lock()
+			.unwrap()
+			.push(format!("call_stats {}", hex::encode(&r.call_id)));
+		let (tx, rx) = mpsc::channel(2);
+		tokio::spawn(async move {
+			let _ = tx
+				.send(Ok(CallStats {
+					call_id: r.call_id,
+					sending: true,
+					..CallStats::default()
+				}))
+				.await;
+		});
+		Ok(Response::new(ReceiverStream::new(rx)))
 	}
 	async fn set_call_controls(&self, r: Request<SetCallControlsRequest>) -> Resp<Operation> {
 		let r = r.into_inner();

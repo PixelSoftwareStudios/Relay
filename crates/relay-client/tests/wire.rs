@@ -3,7 +3,9 @@
 mod support;
 
 use relay_api::pb::{OperationState, TransmitMode, TrustState};
-use relay_client::wire::{acquire_generation, connect_registered, open_telemetry, send};
+use relay_client::wire::{
+	acquire_generation, connect_registered, open_call_stats, open_telemetry, send,
+};
 use relay_client::{CallAction, CallTarget, ChannelOptions, Command, Secret};
 use support::Harness;
 
@@ -161,6 +163,16 @@ async fn every_other_command_reaches_its_rpc() {
 			"connect_and_trust relay://10.0.0.3:47800#abcd".into(),
 		]
 	);
+}
+
+#[tokio::test]
+async fn call_stats_open_for_one_call() {
+	let h = Harness::start().await;
+	let mut c = client(&h).await;
+	let mut stream = open_call_stats(&mut c, &[7; 16]).await.unwrap();
+	let sample = stream.message().await.unwrap().unwrap();
+	assert!(sample.sending);
+	assert_eq!(h.log(), [format!("call_stats {}", hex::encode([7u8; 16]))]);
 }
 
 #[tokio::test]
