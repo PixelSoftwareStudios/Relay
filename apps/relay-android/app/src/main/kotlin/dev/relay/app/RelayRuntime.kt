@@ -8,6 +8,7 @@ import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
 import uniffi.relay_android.EngineConfig
+import uniffi.relay_android.MicrophoneState
 import uniffi.relay_android.RelayEngine
 import java.util.concurrent.Executors
 
@@ -41,7 +42,7 @@ object RelayRuntime {
 
     val microphone = PermissionGate { gate ->
         Log.i(TAG, "microphone permission: $gate")
-        whenReady { it.setMicrophoneGranted(gate == Gate.GRANTED) }
+        whenReady { it.setMicrophone(gate.access().toState()) }
         main.post { reevaluate() }
     }
     val notifications = PermissionGate { Log.i(TAG, "notification permission: $it") }
@@ -51,6 +52,13 @@ object RelayRuntime {
         app = application
         locks = NetworkLocks(application)
         worker.execute { startEngine() }
+    }
+
+    private fun Access.toState() = when (this) {
+        Access.READY -> MicrophoneState.READY
+        Access.NOT_ASKED -> MicrophoneState.NOT_ASKED
+        Access.DENIED -> MicrophoneState.DENIED
+        Access.BLOCKED -> MicrophoneState.BLOCKED
     }
 
     private fun startEngine() {
@@ -63,6 +71,8 @@ object RelayRuntime {
                 engine = started
                 pending.toList().also { pending.clear() }
             }
+            // A restarted engine starts with nothing known about the permission.
+            started.setMicrophone(microphone.state.access().toState())
             queued.forEach { it(started) }
             Log.i(TAG, "engine ready")
         } catch (e: Exception) {

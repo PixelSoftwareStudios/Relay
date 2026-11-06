@@ -14,7 +14,7 @@
 //! the app ends it.
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, Weak};
 use std::time::Duration;
 
@@ -69,8 +69,6 @@ pub struct Host {
 	ptt: Ptt,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
-	/// 0 unknown, 1 granted, 2 denied.
-	microphone: AtomicU8,
 }
 
 impl Host {
@@ -168,7 +166,6 @@ impl Host {
 				ptt,
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
-				microphone: AtomicU8::new(0),
 			}
 		});
 		*host.runtime.lock_unpoisoned() = Some(runtime);
@@ -210,15 +207,16 @@ impl Host {
 		}
 	}
 
-	pub fn set_microphone_granted(&self, granted: bool) {
-		self.microphone
-			.store(if granted { 1 } else { 2 }, Ordering::Release);
-		self.shell.request_repaint();
-	}
-
-	/// The user refused the microphone permission; the UI says so.
-	pub fn microphone_denied(&self) -> bool {
-		self.microphone.load(Ordering::Acquire) == 2
+	/// The microphone permission is (or may now be) granted: a capture that
+	/// failed to open while it was missing is tried again, in a running call
+	/// too.
+	pub fn microphone_available(self: &Arc<Self>) {
+		let host = self.clone();
+		self.handle.spawn(async move {
+			if let Some(daemon) = host.daemon.lock().await.as_ref() {
+				daemon.input_access_changed().await;
+			}
+		});
 	}
 
 	fn attach(&self) {

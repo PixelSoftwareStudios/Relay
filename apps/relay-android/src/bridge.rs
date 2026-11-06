@@ -58,6 +58,19 @@ impl CallSummary {
 	}
 }
 
+/// The microphone permission as the UI needs to tell it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum MicrophoneState {
+	/// Granted, or the system dialog is on screen.
+	Ready,
+	/// Not asked yet.
+	NotAsked,
+	/// Refused; the system will show the dialog again.
+	Denied,
+	/// Refused for good: only the app settings can change it.
+	Blocked,
+}
+
 /// What to pick with the system document picker.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
 pub enum PickKind {
@@ -112,6 +125,10 @@ pub trait HostBridge: Send + Sync {
 	/// The call changed. Kotlin starts or stops the foreground service and
 	/// asks for the microphone permission when a call begins without it.
 	fn call_changed(&self, summary: CallSummary);
+	/// Show the system microphone dialog (the UI's "Allow microphone").
+	fn request_microphone(&self);
+	/// Open this app's page in the system settings.
+	fn open_app_settings(&self);
 	/// Close the activity and the app (the UI's quit action).
 	fn quit_app(&self);
 }

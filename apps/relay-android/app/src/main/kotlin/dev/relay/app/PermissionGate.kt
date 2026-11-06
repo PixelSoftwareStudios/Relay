@@ -21,6 +21,23 @@ enum class Gate {
     BLOCKED,
 }
 
+/** What the UI says about a permission: nothing, ask, ask again, or go to the settings. */
+enum class Access {
+    /** Granted, or the system dialog is on screen. */
+    READY,
+    NOT_ASKED,
+    DENIED,
+    BLOCKED,
+}
+
+/** The UI's view of a gate. */
+fun Gate.access(): Access = when (this) {
+    Gate.UNKNOWN, Gate.REQUESTING, Gate.GRANTED -> Access.READY
+    Gate.NEEDS_REQUEST -> Access.NOT_ASKED
+    Gate.DENIED -> Access.DENIED
+    Gate.BLOCKED -> Access.BLOCKED
+}
+
 /**
  * The state machine for one permission, with no Android types so it runs in
  * plain JVM tests. [onChange] is called on every real transition.

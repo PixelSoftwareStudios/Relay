@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::bridge::{EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, PickOutcome};
+use crate::bridge::{EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome};
 use crate::host::{Host, host};
 
 /// Handle to the in-process engine. The state lives in a process-wide host so
@@ -37,8 +37,12 @@ impl RelayEngine {
 		self.host.set_foreground(foreground);
 	}
 
-	pub fn set_microphone_granted(&self, granted: bool) {
-		self.host.set_microphone_granted(granted);
+	/// The microphone permission changed (or was read on start).
+	pub fn set_microphone(&self, state: MicrophoneState) {
+		self.host.shell.set_microphone(state);
+		if state == MicrophoneState::Ready {
+			self.host.microphone_available();
+		}
 	}
 
 	pub fn set_insets(&self, insets: InsetsPx) {

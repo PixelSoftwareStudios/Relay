@@ -5,7 +5,7 @@
 //! UI thread reads it without blocking.
 
 use std::collections::HashMap;
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU32, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use relay_io::LockExt;
@@ -13,7 +13,8 @@ use relay_ui::imaging::avatar_check;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use tokio::sync::oneshot;
 
-use crate::bridge::{HostBridge, InsetsPx, PickKind, PickOutcome};
+use crate::bridge::{HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome};
+use relay_ui::microphone::MicrophoneAccess;
 
 type Pending = HashMap<u64, oneshot::Sender<PickOutcome>>;
 
@@ -40,6 +41,7 @@ pub struct AndroidShell {
 	left: AtomicF32,
 	right: AtomicF32,
 	keyboard: AtomicF32,
+	microphone: AtomicU8,
 	next_pick: AtomicU64,
 	pending: Mutex<Pending>,
 }
@@ -55,6 +57,7 @@ impl AndroidShell {
 			left: AtomicF32::default(),
 			right: AtomicF32::default(),
 			keyboard: AtomicF32::default(),
+			microphone: AtomicU8::new(MicrophoneState::Ready as u8),
 			next_pick: AtomicU64::new(1),
 			pending: Mutex::new(Pending::new()),
 		}
@@ -76,6 +79,11 @@ impl AndroidShell {
 		self.left.set(insets.left);
 		self.right.set(insets.right);
 		self.keyboard.set(insets.keyboard);
+		self.request_repaint();
+	}
+
+	pub fn set_microphone(&self, state: MicrophoneState) {
+		self.microphone.store(state as u8, Ordering::Release);
 		self.request_repaint();
 	}
 
@@ -192,6 +200,23 @@ impl Shell for AndroidShell {
 
 	fn has_talk_button(&self) -> bool {
 		true
+	}
+
+	fn microphone_access(&self) -> MicrophoneAccess {
+		match self.microphone.load(Ordering::Acquire) {
+			x if x == MicrophoneState::NotAsked as u8 => MicrophoneAccess::NotAsked,
+			x if x == MicrophoneState::Denied as u8 => MicrophoneAccess::Denied,
+			x if x == MicrophoneState::Blocked as u8 => MicrophoneAccess::Blocked,
+			_ => MicrophoneAccess::Ready,
+		}
+	}
+
+	fn request_microphone(&self) {
+		self.bridge.request_microphone();
+	}
+
+	fn open_microphone_settings(&self) {
+		self.bridge.open_app_settings();
 	}
 
 	fn push_to_talk(&self, call_id: &str, pressed: bool) {

@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.SurfaceHolder
 import android.view.WindowManager
@@ -42,15 +44,36 @@ class MainActivity : GameActivity() {
         requestMissingPermissions()
     }
 
+    /**
+     * While the microphone is missing and the app is visible (a split-screen
+     * settings panel, a permission granted from a shade or adb) nothing
+     * resumes the activity, so look again every few seconds.
+     */
+    private val recheck = object : Runnable {
+        override fun run() {
+            readPermissions()
+            if (!microphone().granted) handler.postDelayed(this, RECHECK_MS)
+        }
+    }
+    private val handler = Handler(Looper.getMainLooper())
+
     override fun onStart() {
         super.onStart()
+        handler.postDelayed(recheck, RECHECK_MS)
         RelayRuntime.locks.hold(OWNER)
         nsd.start()
         RelayRuntime.whenReady { it.setForeground(true) }
         readPermissions()
     }
 
+    /** Back from the system settings (or any other app): the permission may have changed. */
+    override fun onResume() {
+        super.onResume()
+        readPermissions()
+    }
+
     override fun onStop() {
+        handler.removeCallbacks(recheck)
         releaseTalk()
         RelayRuntime.whenReady { it.setForeground(false) }
         nsd.stop()
@@ -120,6 +143,7 @@ class MainActivity : GameActivity() {
     companion object {
         private const val TAG = "relay"
         private const val OWNER = "activity"
+        private const val RECHECK_MS = 3000L
 
         @Volatile
         var current: MainActivity? = null

@@ -5,6 +5,7 @@ import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.Settings
 import android.util.Log
 import uniffi.relay_android.CallSummary
 import uniffi.relay_android.HostBridge
@@ -60,6 +61,17 @@ class AndroidBridge(private val context: Context) : HostBridge {
 
     override fun callChanged(summary: CallSummary) {
         RelayRuntime.onCallChanged(CallInfo(summary.active, summary.incoming, summary.muted, summary.peer))
+    }
+
+    override fun requestMicrophone() {
+        MainActivity.current?.let { activity -> activity.runOnUiThread { activity.askForMicrophone() } }
+    }
+
+    override fun openAppSettings() {
+        runCatching {
+            val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))
+            context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.onFailure { Log.w(TAG, "open app settings failed", it) }
     }
 
     override fun quitApp() {

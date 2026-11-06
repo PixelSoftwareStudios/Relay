@@ -59,4 +59,46 @@ class PermissionGateTest {
         gate.checked(true)
         assertEquals(listOf(Gate.GRANTED), seen)
     }
+
+    @Test
+    fun grantedInSettingsWhileBackgroundedIsNoticedOnResume() {
+        gate.checked(false)
+        gate.requestStarted()
+        gate.result(granted = false, canAskAgain = false)
+        assertEquals(Gate.BLOCKED, gate.state)
+        // The user turns it on in the system settings and comes back.
+        gate.checked(true)
+        assertTrue(gate.granted)
+        assertEquals(Gate.BLOCKED, seen[seen.size - 2])
+        assertEquals(Gate.GRANTED, seen.last())
+    }
+
+    @Test
+    fun grantedWhileTheCardOffersAskingAgainClearsIt() {
+        gate.checked(false)
+        gate.requestStarted()
+        gate.result(granted = false, canAskAgain = true)
+        assertEquals(Access.DENIED, gate.state.access())
+        gate.checked(true)
+        assertEquals(Access.READY, gate.state.access())
+    }
+
+    @Test
+    fun aDialogOnScreenIsNotReportedAsMissing() {
+        gate.checked(false)
+        assertEquals(Access.NOT_ASKED, gate.state.access())
+        gate.requestStarted()
+        // Resuming under the dialog must not flip the state.
+        gate.checked(false)
+        assertEquals(Gate.REQUESTING, gate.state)
+        assertEquals(Access.READY, gate.state.access())
+    }
+
+    @Test
+    fun blockedIsReportedAsBlocked() {
+        gate.checked(false)
+        gate.requestStarted()
+        gate.result(granted = false, canAskAgain = false)
+        assertEquals(Access.BLOCKED, gate.state.access())
+    }
 }

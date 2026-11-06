@@ -9,8 +9,6 @@ use relay_ui::ui::RelayApp;
 
 use crate::host::{Host, host};
 
-const MIC_DENIED: &str = "Microphone permission is denied, so you cannot be heard. \
-Allow it in Android Settings > Apps > Relay > Permissions.";
 const HOST_WAIT: Duration = Duration::from_secs(30);
 
 struct App {
@@ -20,9 +18,6 @@ struct App {
 
 impl eframe::App for App {
 	fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-		if self.host.microphone_denied() && self.host.shared.error().is_none() {
-			self.host.shared.set_error(MIC_DENIED.to_owned());
-		}
 		self.app.begin_frame(ctx);
 	}
 

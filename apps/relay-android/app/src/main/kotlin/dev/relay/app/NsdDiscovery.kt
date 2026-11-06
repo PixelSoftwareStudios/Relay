@@ -70,7 +70,13 @@ class NsdDiscovery(context: Context, private val engine: () -> RelayEngine?) {
                 override fun onServiceUpdated(info: NsdServiceInfo) {
                     push(info, info.hostAddresses.mapNotNull { it.hostAddress })
                     // One resolution is enough: later changes arrive as new found events.
-                    nsd.unregisterServiceInfoCallback(this)
+                    // A second update can arrive before the first unregister lands, and
+                    // unregistering twice throws on the system's callback thread.
+                    try {
+                        nsd.unregisterServiceInfoCallback(this)
+                    } catch (e: IllegalArgumentException) {
+                        Log.d(TAG, "nsd callback already unregistered")
+                    }
                 }
                 override fun onServiceLost() = Unit
                 override fun onServiceInfoCallbackUnregistered() = Unit
