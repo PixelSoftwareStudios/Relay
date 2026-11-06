@@ -305,8 +305,12 @@ impl Actor {
 				let _ = reply.send(self.feed.revision());
 			}
 			Msg::Devices(devices) => {
+				let before = self.directory.device_use();
 				let events = self.directory.set_devices(devices);
 				self.publish(events);
+				if self.directory.device_use() != before {
+					self.publish_settings();
+				}
 			}
 			Msg::Attention { peer, warning } => {
 				let mut events = peer.map(|p| self.directory.flag(p)).unwrap_or_default();
@@ -423,7 +427,7 @@ impl Actor {
 	/// Announces the current engine-wide settings to watchers.
 	pub(super) fn publish_settings(&mut self) {
 		let global = self.engine.state().snapshot().global;
-		let settings = settings_to_pb(&global, &self.directory.aux);
+		let settings = settings_to_pb(&global, &self.directory);
 		self.publish(vec![StateEvent {
 			event: Some(state_event::Event::Settings(settings)),
 		}]);

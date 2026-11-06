@@ -49,6 +49,20 @@ fn worker_failed_message(failure: &crate::media::WorkerFailure) -> String {
 	format!("The daemon's {part} {what}. {tail}")
 }
 
+/// What to tell the user when the microphone cannot be opened. On macOS the
+/// first open triggers the system prompt; a refused or undetermined choice
+/// shows up here, and only the user can change it.
+fn microphone_unavailable_message(reason: &str) -> String {
+	let hint = if cfg!(target_os = "macos") {
+		"Allow microphone access for Relay in System Settings > Privacy & Security > Microphone, then try again."
+	} else if cfg!(target_os = "android") {
+		"Allow the microphone permission for Relay in the system settings, then try again."
+	} else {
+		"Check that a microphone is connected and not used exclusively by another program."
+	};
+	format!("The microphone could not be opened ({reason}). {hint}")
+}
+
 fn flagged(peer: relay_core::PeerId, name: String, trust: PeerTrust) -> PeerInfo {
 	PeerInfo {
 		display_name: name,
@@ -74,6 +88,14 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 						"OUTPUT_DEVICE_LOST",
 						"The playback device went away; remote audio is paused.".to_owned(),
 						"select_output_device",
+					);
+					handle.attention(None, warning).await
+				}
+				MediaEvent::CaptureUnavailable(reason) => {
+					let warning = problem(
+						"MICROPHONE_UNAVAILABLE",
+						microphone_unavailable_message(&reason),
+						"check_microphone_access",
 					);
 					handle.attention(None, warning).await
 				}

@@ -211,7 +211,7 @@ pub struct MediaTelemetry {
 pub enum SettingsChange {
 	/// New display name.
 	DisplayName(String),
-	/// Explicit device selection; empty strings mean "none selected".
+	/// Device selection; an empty id means "follow the system default".
 	Devices {
 		/// Input device id.
 		input: String,
@@ -240,9 +240,9 @@ pub enum SettingsChange {
 pub struct StoredSettings {
 	/// Display name.
 	pub display_name: String,
-	/// Selected input device id (empty when none).
+	/// Pinned input device id (empty when following the system default).
 	pub input_device: String,
-	/// Selected output device id (empty when system default).
+	/// Pinned output device id (empty when following the system default).
 	pub output_device: String,
 	/// Noise suppression backend id.
 	pub noise_backend: String,

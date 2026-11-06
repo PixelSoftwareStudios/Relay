@@ -217,11 +217,15 @@ again.
 - The microphone test is local only. It meters the capture path and, with
   `local_playback` (which needs `confirmed_feedback_warning`), plays the microphone on the
   user's own output through a one-frame-deep monitor queue. It adds no sender and touches no
-  gate, so it cannot transmit even during a call. It needs a selected microphone (there is no
-  default), ends after 30 s (`RunOptions::mic_test_max`), on `StopMicTest`, when the starting
+  gate, so it cannot transmit even during a call. It uses the selected microphone or the system default, ends after 30 s (`RunOptions::mic_test_max`), on `StopMicTest`, when the starting
   client goes away (idle detach) and at shutdown, and then releases the microphone unless a call
   is using it. The test opens the microphone under a reserved capture generation that the domain
   never sees; if a call opens capture meanwhile the test shares that stream.
+  When the microphone cannot be opened (device missing, macOS permission refused or still
+  undetermined, device busy) the daemon raises the warning `MICROPHONE_UNAVAILABLE`
+  (`recovery_action = check_microphone_access`) whose message tells the user where to allow access
+  (macOS: System Settings > Privacy & Security > Microphone). The first open on macOS triggers the
+  system prompt; a signed bundle with a usage description is still an open gate (`docs/gates.md`).
 
 ## Tones
 
@@ -487,8 +491,18 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   A watchdog reports a worker with no heartbeat for 3 s. Idle workers sleep 500 ms and are woken
   by their command queue. The UDP send is `try_send_to`: a full socket buffer drops the packet
   and counts it (`SendStats::send_dropped`).
-- Devices: selection is explicit; the microphone has no default fallback. A lost device
-  makes the worker drop the stream and send `CaptureLost` (or `OutputLost`); the domain closes
+- Devices: nothing has to be chosen. Both directions start as `FollowDefault` (the OS default
+  input and output, `AAudioBackend` on Android reports its one routed device as default);
+  `SelectDevices` with an empty id returns to it, and a named id pins. The device thread
+  re-scans the hardware every 2 s while idle (and at each open and select), so a new default or
+  a plugged-in device reaches the device list and `WatchState` (`Device` events, plus a
+  `Settings` event when the derived `*_device_name` / `*_pinned_missing` change). A pinned device
+  that is absent when a stream opens is replaced by the default for that open only and
+  `Settings.*_pinned_missing` says so (restoring the saved choice at startup also raises
+  `SAVED_DEVICE_UNAVAILABLE`); no other device is ever picked. Streams already open are never
+  restarted mid-call: a changed default applies at the next open (next call, next test, the
+  playback stream reopens after tones or calls stop). A pinned device unplugged at startup stays on
+  the default until the next `SelectDevices` or restart. A lost open device makes the worker drop the stream and send `CaptureLost` (or `OutputLost`); the domain closes
   the gate, and only `ResumeCapture` opens a device again.
 - Admission: `AdmissionLimits::admit` refuses a call at the call cap or when the projected
   per-frame time of the capture or render worker (measured EWMA plus one more call's worth)

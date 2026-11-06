@@ -3,7 +3,6 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use relay_audio::device::DeviceSelection;
 use relay_net::discovery::sanitize_display_name;
 use relay_net::transfer::{HubConfig, TransferHub};
 use tokio::runtime::Handle;
@@ -105,10 +104,7 @@ pub(super) async fn assemble(
 	let messaging = start_messaging(env, &peers, network.policy, messaging).await;
 	let runtime = Handle::current();
 	let (sink, events) = glue::media_events(env.handle.clone());
-	let mut media_config = MediaConfig::new(Selection {
-		input: None,
-		output: DeviceSelection::FollowDefault,
-	});
+	let mut media_config = MediaConfig::new(Selection::default());
 	media_config.bind_ip = network.media_bind;
 	media_config.policy = network.policy;
 	media_config.gates = Some(env.gates.clone());
@@ -197,7 +193,8 @@ async fn start_messaging(
 }
 
 /// Re-applies the saved device choice once the device thread has listed
-/// hardware. A missing device is reported, never replaced by another.
+/// hardware. A missing pinned device is reported and the system default is
+/// used meanwhile; no other device is ever picked.
 async fn restore_devices(media: &MediaSystem, input: &str, output: &str, env: &Environment) {
 	if input.is_empty() && output.is_empty() {
 		return;
@@ -223,7 +220,9 @@ async fn restore_devices(media: &MediaSystem, input: &str, output: &str, env: &E
 fn saved_device_missing(error: &crate::service::PortError) -> relay_api::pb::Problem {
 	relay_api::pb::Problem {
 		code: "SAVED_DEVICE_UNAVAILABLE".to_owned(),
-		message: format!("the saved audio device could not be restored: {error}"),
+		message: format!(
+			"the saved audio device could not be restored, using the system default: {error}"
+		),
 		retryable: false,
 		recovery_action: "select_devices".to_owned(),
 	}

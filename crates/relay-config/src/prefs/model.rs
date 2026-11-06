@@ -76,8 +76,9 @@ pub struct Audio {
 impl Default for Audio {
 	fn default() -> Self {
 		Self {
-			// Fail closed: no microphone until the user picks one.
-			input_selection: DeviceSelection::Explicit,
+			// Audio works out of the box: follow the system default devices.
+			// Transmitting still needs consent (`new_calls_receive_only`).
+			input_selection: DeviceSelection::SystemDefault,
 			preferred_input_id: String::new(),
 			output_selection: DeviceSelection::SystemDefault,
 			preferred_output_id: String::new(),
@@ -378,9 +379,9 @@ impl Preferences {
 		Ok(())
 	}
 
-	/// Drops any microphone choice and forces receive-only starts.
+	/// Drops any pinned microphone and forces receive-only starts.
 	pub(crate) fn clear_microphone(&mut self) {
-		self.audio.input_selection = DeviceSelection::Explicit;
+		self.audio.input_selection = DeviceSelection::SystemDefault;
 		self.audio.preferred_input_id.clear();
 		self.privacy.new_calls_receive_only = true;
 	}

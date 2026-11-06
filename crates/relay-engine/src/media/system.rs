@@ -112,8 +112,6 @@ pub(super) struct Inner {
 	pub(super) mic_test: Arc<MicTest>,
 	/// A domain-owned capture generation is open or requested.
 	pub(super) domain_capture: AtomicBool,
-	/// A microphone is selected; there is no default fallback.
-	pub(super) input_selected: AtomicBool,
 	capture_load: Arc<LoadMeter>,
 	render_load: Arc<LoadMeter>,
 	pub(super) stop: Arc<AtomicBool>,
@@ -235,7 +233,6 @@ impl MediaSystem {
 			Arc::clone(&events),
 		)?;
 		let (tones, tone_player) = super::tones::Tones::new();
-		let input_selected = config.selection.input.is_some();
 		let board = config
 			.gates
 			.clone()
@@ -252,7 +249,6 @@ impl MediaSystem {
 				meters,
 				mic_test,
 				domain_capture: AtomicBool::new(false),
-				input_selected: AtomicBool::new(input_selected),
 				capture_load,
 				render_load,
 				stop,
@@ -319,9 +315,6 @@ impl MediaSystem {
 
 	/// Applies an explicit device selection.
 	pub fn select_devices(&self, selection: Selection) {
-		self.inner
-			.input_selected
-			.store(selection.input.is_some(), Ordering::Relaxed);
 		let _ = self
 			.inner
 			.devices

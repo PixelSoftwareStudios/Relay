@@ -135,9 +135,8 @@ impl DeviceControl for MediaSystem {
 			.collect()
 	}
 
-	/// An empty input id means no microphone; an empty output id follows the
-	/// system default. A named device that is not listed is an error, never
-	/// replaced by another.
+	/// An empty id follows the system default for that direction. A named
+	/// device that is not listed is an error, never replaced by another.
 	fn select(&self, input: &str, output: &str) -> Result<(), PortError> {
 		let listing = self.device_listing();
 		let find = |id: &str, direction: Direction| {
@@ -147,9 +146,11 @@ impl DeviceControl for MediaSystem {
 				.map(|d| DeviceSelection::Pinned(d.key.clone()))
 				.ok_or_else(|| PortError::NotFound(format!("device {id}")))
 		};
-		let input = (!input.is_empty())
-			.then(|| find(input, Direction::Input))
-			.transpose()?;
+		let input = if input.is_empty() {
+			DeviceSelection::FollowDefault
+		} else {
+			find(input, Direction::Input)?
+		};
 		let output = if output.is_empty() {
 			DeviceSelection::FollowDefault
 		} else {

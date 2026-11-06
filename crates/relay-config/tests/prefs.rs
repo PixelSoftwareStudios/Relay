@@ -20,7 +20,7 @@ fn first_run_gives_safe_defaults_without_notices() {
 	assert!(loaded.notices.is_empty());
 	assert_eq!(
 		loaded.preferences.audio.input_selection,
-		DeviceSelection::Explicit
+		DeviceSelection::SystemDefault
 	);
 	assert!(loaded.preferences.audio.preferred_input_id.is_empty());
 	assert!(loaded.preferences.privacy.new_calls_receive_only);
@@ -68,7 +68,7 @@ fn second_writer_is_refused_until_first_drops() {
 }
 
 #[test]
-fn missing_explicit_mic_never_falls_back() {
+fn missing_explicit_mic_is_reported_not_replaced_and_unset_means_default() {
 	let prefs = chosen_mic();
 	assert_eq!(
 		prefs.audio.resolve_input(&["built-in", "usb-mic"]),
@@ -80,7 +80,7 @@ fn missing_explicit_mic_never_falls_back() {
 	);
 	assert_eq!(
 		Preferences::default().audio.resolve_input(&["built-in"]),
-		DeviceChoice::NotSelected
+		DeviceChoice::SystemDefault
 	);
 	assert_eq!(
 		Preferences::default().audio.resolve_output(&[]),

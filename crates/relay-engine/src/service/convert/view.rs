@@ -9,7 +9,7 @@ use relay_api::pb::{
 use relay_core::{CallState, Event, Gain, GlobalView, RouteMode, Snapshot as CoreSnapshot};
 
 use super::lease_bytes;
-use crate::service::directory::{Aux, Directory};
+use crate::service::directory::Directory;
 use crate::service::ports::{self, DeviceDirection, DeviceInfo, PeerInfo, PeerTrust};
 
 fn state_to_pb(state: CallState) -> PbState {
@@ -159,8 +159,16 @@ pub fn device_to_pb(device: &DeviceInfo) -> Device {
 }
 
 /// Engine-wide settings.
-pub fn settings_to_pb(global: &GlobalView, aux: &Aux) -> Settings {
+pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
+	let aux = &directory.aux;
+	let used = directory.device_use();
 	Settings {
+		input_is_default: used.input.is_default,
+		output_is_default: used.output.is_default,
+		input_device_name: used.input.name,
+		output_device_name: used.output.name,
+		input_pinned_missing: used.input.pinned_missing,
+		output_pinned_missing: used.output.pinned_missing,
 		revision: global.settings.get(),
 		input_device_id: aux.input_device.clone(),
 		output_device_id: aux.output_device.clone(),
@@ -200,7 +208,7 @@ pub fn snapshot_to_pb(
 			.map(|v| call_to_pb(v, revision))
 			.collect(),
 		devices: directory.devices(),
-		settings: Some(settings_to_pb(&core.global, &directory.aux)),
+		settings: Some(settings_to_pb(&core.global, directory)),
 		warnings: directory.warnings(),
 		channels: directory.channels(),
 	}
@@ -214,8 +222,7 @@ pub fn events_of(event: &Event, revision: u64, directory: &mut Directory) -> Vec
 		Event::ClientAttached(_) | Event::ClientDetached(_) => Vec::new(),
 		Event::LinkChanged { peer, up } => directory.link_changed(*peer, *up),
 		Event::GlobalUpdated(view) => single(state_event::Event::Settings(settings_to_pb(
-			view,
-			&directory.aux,
+			view, directory,
 		))),
 		Event::CallUpdated(view) => single(state_event::Event::Call(call_to_pb(view, revision))),
 		Event::CallForgotten(id) => single(state_event::Event::Removed(pb::Removed {

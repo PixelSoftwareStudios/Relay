@@ -97,11 +97,6 @@ impl MediaSystem {
 	/// Starts a local microphone test (see the module notes).
 	pub fn start_mic_test(&self, local_playback: bool) -> Result<(), PortError> {
 		let inner = &self.inner;
-		if !inner.input_selected.load(Ordering::Relaxed) {
-			return Err(PortError::Unavailable(
-				"no microphone is selected".to_owned(),
-			));
-		}
 		let id = inner.mic_test.begin(local_playback)?;
 		inner
 			.meters

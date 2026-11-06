@@ -232,9 +232,7 @@ async fn mic_level(
 #[tokio::test]
 async fn the_mic_test_meters_the_microphone_and_releases_it_when_stopped() {
 	let mut e = engine(|_| {}).await;
-	let refused = start_test(&mut e.cli, 1, false).await;
-	assert_failed(&refused, "UNAVAILABLE");
-
+	// No selection is needed: the system default microphone is used.
 	select_microphone(&mut e.cli, 2).await;
 	let req = request(&e.cli, Vec::new(), 20);
 	let mut stream = e

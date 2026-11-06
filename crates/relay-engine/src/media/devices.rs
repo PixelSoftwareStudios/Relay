@@ -6,8 +6,9 @@
 //! failure the user must resolve, never a reason to pick another.
 
 use std::sync::Arc;
-use std::sync::mpsc::{Receiver, Sender, channel};
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender, channel};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
 use arc_swap::ArcSwap;
 use relay_audio::AudioError;
@@ -28,15 +29,28 @@ use super::sink::RenderSink;
 /// Builds the backend on the device thread.
 pub type BackendFactory = Box<dyn FnOnce() -> Box<dyn AudioBackend> + Send>;
 
-/// The device selection in force. There is no "automatic" input: `None`
-/// means the user has not chosen a microphone yet.
+/// The device selection in force. `FollowDefault` is the starting point for
+/// both directions: nothing has to be chosen for audio to work.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Selection {
 	/// Microphone choice.
-	pub input: Option<DeviceSelection>,
+	pub input: DeviceSelection,
 	/// Output choice.
 	pub output: DeviceSelection,
 }
+
+impl Default for Selection {
+	fn default() -> Self {
+		Self {
+			input: DeviceSelection::FollowDefault,
+			output: DeviceSelection::FollowDefault,
+		}
+	}
+}
+
+/// How often the device thread re-scans the hardware while idle, so a
+/// plugged-in headset or a new system default shows up in the device list.
+const RESCAN_EVERY: Duration = Duration::from_secs(2);
 
 /// Requests to the device thread.
 pub enum DeviceCmd {
@@ -134,7 +148,15 @@ impl Drop for DeviceThread {
 
 impl Thread {
 	fn run(&mut self, requests: &Receiver<DeviceCmd>) {
-		while let Ok(request) = requests.recv() {
+		loop {
+			let request = match requests.recv_timeout(RESCAN_EVERY) {
+				Ok(request) => request,
+				Err(RecvTimeoutError::Timeout) => {
+					self.refresh();
+					continue;
+				}
+				Err(RecvTimeoutError::Disconnected) => break,
+			};
 			match request {
 				DeviceCmd::OpenCapture(generation) => self.open_capture(generation),
 				DeviceCmd::CloseCapture(generation) => self.close_capture(generation),
@@ -162,6 +184,10 @@ impl Thread {
 		}
 	}
 
+	fn events_out(&self, event: MediaEvent) {
+		(self.events)(event);
+	}
+
 	fn emit(&self, event: SystemEvent) {
 		(self.events)(MediaEvent::System(event));
 	}
@@ -175,6 +201,7 @@ impl Thread {
 			}
 			Err(error) => {
 				tracing::warn!(%error, "capture open failed");
+				self.events_out(MediaEvent::CaptureUnavailable(error.to_string()));
 				self.emit(SystemEvent::CaptureFailed { generation });
 			}
 		}
@@ -184,12 +211,7 @@ impl Thread {
 		&mut self,
 		generation: AudioGeneration,
 	) -> Result<Box<dyn StreamHandle>, AudioError> {
-		let selection = self
-			.setup
-			.selection
-			.input
-			.clone()
-			.ok_or(AudioError::DeviceNotFound)?;
+		let selection = self.setup.selection.input.clone();
 		let device = self.resolve(Direction::Input, &selection)?;
 		let stream = self.backend.open_capture(device, &self.setup.request)?;
 		let chain = CaptureChain::new(stream.reader, stream.config.sample_rate)?;
@@ -263,11 +285,23 @@ impl Thread {
 	) -> Result<relay_audio::device::DeviceHandle, AudioError> {
 		let enumeration = self.backend.enumerate()?;
 		let resolved = enumeration.resolve(direction, selection);
+		let fallback = enumeration.resolve(direction, &DeviceSelection::FollowDefault);
 		self.listing.store(Arc::new(enumeration.devices));
 		match resolved {
 			Resolution::Device(handle) => Ok(handle),
 			Resolution::NoDefault => Err(AudioError::DeviceNotFound),
-			Resolution::PinnedMissing => Err(AudioError::SelectedDeviceMissing),
+			Resolution::PinnedMissing => {
+				// The pinned device is gone: use the system default and let the
+				// state say so (`*_pinned_missing`); never pick any other device.
+				tracing::warn!(
+					?direction,
+					"pinned audio device is missing; using the system default"
+				);
+				match fallback {
+					Resolution::Device(handle) => Ok(handle),
+					_ => Err(AudioError::SelectedDeviceMissing),
+				}
+			}
 		}
 	}
 }

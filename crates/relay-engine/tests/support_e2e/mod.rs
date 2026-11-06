@@ -7,9 +7,8 @@ use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime};
 
 use relay_audio::device::{
-	AudioBackend, CaptureStream, DeviceHandle, DeviceSelection, Direction, Enumeration,
-	FakeBackend, FakeCaptureDriver, FakeDeviceSpec, FakePlaybackDriver, PlaybackStream, Signal,
-	StreamRequest,
+	AudioBackend, CaptureStream, DeviceHandle, Direction, Enumeration, FakeBackend,
+	FakeCaptureDriver, FakeDeviceSpec, FakePlaybackDriver, PlaybackStream, Signal, StreamRequest,
 };
 use relay_core::testing::SeqIds;
 use relay_core::*;
@@ -186,10 +185,7 @@ impl Node {
 		let events: relay_engine::media::EventSink = Arc::new(move |event| {
 			let _ = tx.lock().unwrap().send(event);
 		});
-		let mut media_config = MediaConfig::new(Selection {
-			input: Some(DeviceSelection::FollowDefault),
-			output: DeviceSelection::FollowDefault,
-		});
+		let mut media_config = MediaConfig::new(Selection::default());
 		media_config.bind_ip = [127, 0, 0, 1].into();
 		media_config.policy = AddressPolicy::lan_and_loopback();
 		tweak(&mut media_config);
@@ -291,7 +287,9 @@ impl Node {
 			match event {
 				MediaEvent::System(event) => self.feed(Input::System(event)),
 				MediaEvent::Peer(event) => self.feed(Input::Peer(event)),
-				MediaEvent::OutputLost | MediaEvent::WorkerFailed(_) => continue,
+				MediaEvent::OutputLost
+				| MediaEvent::CaptureUnavailable(_)
+				| MediaEvent::WorkerFailed(_) => continue,
 			};
 		}
 		while let Ok(output) = self.peer_out.try_recv() {

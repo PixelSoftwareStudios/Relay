@@ -9,7 +9,7 @@ pub enum DeviceChoice {
 	SystemDefault,
 	/// Open exactly this device.
 	Device(String),
-	/// Nothing chosen yet; do not open any device.
+	/// An explicit selection with no device id recorded; treated as unset.
 	NotSelected,
 	/// The chosen device is not present. The user must choose; there is no fallback.
 	Unavailable(String),

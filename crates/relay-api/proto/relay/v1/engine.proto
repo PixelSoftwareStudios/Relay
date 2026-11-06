@@ -229,6 +229,14 @@ message Settings {
   float ringtone_volume = 16; // 0.0..=1.0
   bool ringback_enabled = 17; // ringback while an outgoing call rings
   bool call_sounds_enabled = 18; // connect and hang-up blips
+  // What the engine uses, derived from the saved ids and the current device list. An empty
+  // input_device_id / output_device_id means "follow the system default".
+  bool input_is_default = 19; // no microphone is pinned
+  bool output_is_default = 20; // no playback device is pinned
+  string input_device_name = 21; // the microphone that is opened (empty when the system has none)
+  string output_device_name = 22; // the playback device that is opened (empty when none)
+  bool input_pinned_missing = 23; // the pinned microphone is absent; the system default is used
+  bool output_pinned_missing = 24; // the pinned playback device is absent; the system default is used
 }
 message Snapshot {
   bytes engine_incarnation = 1;

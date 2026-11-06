@@ -110,8 +110,13 @@ impl SettingsStore for FileSettings {
 		match change {
 			SettingsChange::DisplayName(name) => next.profile.display_name.clone_from(name),
 			SettingsChange::Devices { input, output } => {
-				next.audio.input_selection = DeviceSelection::Explicit;
-				next.audio.preferred_input_id.clone_from(input);
+				if input.is_empty() {
+					next.audio.input_selection = DeviceSelection::SystemDefault;
+					next.audio.preferred_input_id.clear();
+				} else {
+					next.audio.input_selection = DeviceSelection::Explicit;
+					next.audio.preferred_input_id.clone_from(input);
+				}
 				if output.is_empty() {
 					next.audio.output_selection = DeviceSelection::SystemDefault;
 					next.audio.preferred_output_id.clear();

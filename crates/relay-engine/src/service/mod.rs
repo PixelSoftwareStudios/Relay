@@ -21,6 +21,7 @@ mod runtime;
 mod settings_keys;
 pub mod telemetry;
 mod tones;
+pub mod usage;
 
 pub use clients::Capability;
 pub use error::ServiceError;

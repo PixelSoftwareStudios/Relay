@@ -6,7 +6,7 @@ use std::sync::Arc;
 use relay_core::{PeerEvent, SystemEvent};
 
 /// A completion or fault the owner of the domain state must hear about.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MediaEvent {
 	/// Capture, preparation or stop completions and capture loss.
 	System(SystemEvent),
@@ -15,6 +15,10 @@ pub enum MediaEvent {
 	/// The playback device went away. Remote audio is paused until the user
 	/// chooses an output; nothing is redirected automatically.
 	OutputLost,
+	/// The microphone could not be opened (no device, permission refused, in
+	/// use). The domain also gets `CaptureFailed`; this carries the reason so
+	/// the user is told what to do.
+	CaptureUnavailable(String),
 	/// A media thread panicked or stopped responding. Gates are already
 	/// closed and the affected call (if known) is out of the media path; the
 	/// owner should tell the user and end calls that cannot recover.

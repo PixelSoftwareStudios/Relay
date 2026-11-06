@@ -165,6 +165,15 @@ impl Directory {
 		events
 	}
 
+	/// The devices in use for the saved choice and the current list.
+	pub fn device_use(&self) -> super::usage::DeviceUse {
+		super::usage::device_use(
+			&self.devices,
+			&self.aux.input_device,
+			&self.aux.output_device,
+		)
+	}
+
 	/// Every known device.
 	pub fn devices(&self) -> Vec<relay_api::pb::Device> {
 		self.devices.values().map(device_to_pb).collect()

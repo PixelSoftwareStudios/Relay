@@ -232,7 +232,7 @@ async fn connected_pair() -> (Side, Side, Vec<u8>) {
 async fn two_engines_pair_call_and_talk_only_with_consent() {
 	let (mut a, mut b, call) = connected_pair().await;
 
-	// Connected and silent: nobody consented, and no microphone is even selected.
+	// Connected and silent: nobody consented, so nothing is sent.
 	tokio::time::sleep(Duration::from_millis(500)).await;
 	assert!(rms(&tail(&a, 300)) < 1e-4 && rms(&tail(&b, 300)) < 1e-4);
 
@@ -240,10 +240,14 @@ async fn two_engines_pair_call_and_talk_only_with_consent() {
 	select_microphone(&mut a.cli, 7).await;
 	select_microphone(&mut b.cli, 8).await;
 	route(&mut a.cli, 9, &call, TransmitMode::OpenMic).await;
-	let at_b = eventually!({
+	eventually!({
 		let heard = tail(&b, 400);
-		(rms(&heard) > 0.05).then_some(heard)
+		(rms(&heard) > 0.05).then_some(())
 	});
+	// Measure a settled window, not the onset: the microphone is already open
+	// (system default), so the tone starts abruptly and splatters spectrally.
+	tokio::time::sleep(Duration::from_millis(500)).await;
+	let at_b = tail(&b, 300);
 	assert!(power_at(&at_b, TONE_A) > 20.0 * power_at(&at_b, TONE_B));
 	assert!(rms(&tail(&a, 300)) < 1e-4, "B has not consented");
 

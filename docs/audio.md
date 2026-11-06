@@ -63,8 +63,13 @@ reported (`delay_samples`) rather than hidden by shifting timestamps.
 
 ## Devices
 
-Selection is `FollowDefault` or `Pinned(StableDeviceKey)`. A missing pinned
-device resolves to `PinnedMissing`; there is no automatic fallback, and any
+Selection is `FollowDefault` or `Pinned(StableDeviceKey)`; the engine starts both
+directions on `FollowDefault` (cpal default input/output; the Android backend reports its
+routed device as default), so no user choice is needed. A missing pinned
+device resolves to `PinnedMissing` in `Enumeration::resolve`; the engine's device thread then opens
+the default for that stream and reports the pin as missing in state, and never picks any other
+device. Default changes are noticed by the device thread's 2 s re-scan and at every open; an open
+stream is never moved, so a new default applies from the next stream open. Any
 lost or invalidated stream maps to `Recovery::PauseAndPrompt`. Handles are
 scoped to one enumeration and stale ones are rejected. Real enumeration works
 on the development Mac (`cargo test -p relay-audio --test device -- --ignored`).
