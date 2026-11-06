@@ -93,12 +93,12 @@ pub struct Local {
 
 	/// The microphone card was dismissed for the current access state.
 	pub microphone: crate::microphone::Dismissal,
+	/// Dismissed and fading notices of the strip above the pages.
+	pub notices: crate::notices::Board,
 
 	/// The call whose connection details are open, and whether they were drawn this frame
 	/// (a panel that is not drawn closes its statistics stream).
 	pub details_call: Option<String>,
-	/// Dismissed and fading notices of the strip above the pages.
-	pub notices: crate::notices::Board,
 	pub details_drawn: bool,
 	/// The call whose volume popup was asked for from the menu.
 	pub volume_ask: Option<String>,

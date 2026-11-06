@@ -358,15 +358,15 @@ impl RelayApp {
 					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
 					incoming::show(ui, &incoming, &mut cx);
 				});
-		}
 			let shown =
 				&notices[..notice_strip::shown_count(notices.len(), cx.local.notices.expanded)];
 			if let Some(ms) = cx.local.notices.next_fade_ms(shown, now) {
 				ui.ctx()
 					.request_repaint_after(std::time::Duration::from_millis(ms.max(1)));
 			}
-		let frame = if class.is_compact() {
+		}
 		notice_strip::apply(&mut cx, &notices, outcome);
+		let frame = if class.is_compact() {
 			egui::Frame::central_panel(ui.style())
 		} else {
 			egui::Frame::central_panel(ui.style()).inner_margin(theme::SPACE_L)
