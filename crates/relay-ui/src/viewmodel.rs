@@ -36,6 +36,10 @@ pub struct PeerRow {
 	/// Short key digest to tell devices apart (empty when the engine sent none).
 	pub fingerprint: String,
 	pub can_call: bool,
+	/// The device answers on the network now.
+	pub reachable: bool,
+	/// A trust decision is stored for it (so it can be forgotten).
+	pub known: bool,
 	/// Names of channels with proven shared membership.
 	pub badges: Vec<String>,
 	/// Channels (id, name) in which this device may revoke this peer.
@@ -144,6 +148,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			),
 			fingerprint: p.fingerprint_short.clone(),
 			can_call: callable(state, p),
+			reachable: p.reachable,
+			known: p.trust != Trust::Unknown,
 			badges: shared_channels(state, p).map(|c| c.name.clone()).collect(),
 			revocable: shared_channels(state, p)
 				.filter(|c| c.can_admin())

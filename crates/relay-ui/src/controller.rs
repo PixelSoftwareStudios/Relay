@@ -343,6 +343,21 @@ impl Controller {
 		.map(drop)
 	}
 
+	/// Forget a known device: removes its stored trust decision. The device
+	/// is treated as unknown if it calls again.
+	pub async fn forget_peer(&self, peer_id: &str) -> Result<(), ControlError> {
+		let id = decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
+		if !self
+			.hub
+			.read(|s| s.peers.iter().any(|p| p.peer_id == peer_id))
+		{
+			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
+		}
+		self.run(Command::ForgetPeer { peer_id: id })
+			.await
+			.map(drop)
+	}
+
 	/// Remove the stored avatar (idempotent in the engine).
 	pub async fn clear_avatar(&self) -> Result<(), ControlError> {
 		self.run(Command::ClearAvatar).await.map(drop)

@@ -1,31 +1,21 @@
-//! Push-to-talk hotkey panel of the settings page: the global key and the
-//! release delay, read with `GetSettings` and written with `SetSettings`. The
-//! outcome of each key (applied now, saved until restart, rejected with a
-//! reason) is shown exactly as the daemon answered.
+//! Push-to-talk hotkey panel of the settings page: the global key, read with
+//! `GetSettings` and written with `SetSettings`. The outcome of each key
+//! (applied now, saved until restart, rejected with a reason) is shown
+//! exactly as the daemon answered.
 
 use egui::{self, RichText, Ui};
 
 use crate::actions::Actions;
-use crate::controller::RELEASE_DELAY_MAX_MS;
 use crate::engine::{SettingOutcome, SettingResult};
 use crate::hotkey_settings::{ACCELERATOR_MAX_CHARS, outcome_text};
 use crate::theme;
 
-use super::local::Local;
-use super::widgets::{banner, button_row, field_width, hint};
+use super::super::kit;
+use super::super::local::Local;
+use super::super::widgets::{banner, button_row, field_width};
 use crate::tr;
 
-pub fn hotkey(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	let header = egui::CollapsingHeader::new(RichText::new(tr!("hotkey-heading")).heading())
-		.id_salt("hotkey")
-		.default_open(false)
-		.show(ui, |ui| body(ui, actions, local));
-	if header.body_returned.is_none() {
-		local.hotkey.reset();
-	}
-}
-
-fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
+pub fn show(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	let panel = &mut local.hotkey;
 	if !panel.requested {
 		panel.requested = true;
@@ -46,7 +36,8 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 		}
 		Some(Ok(values)) => values.clone(),
 	};
-	ui.label(tr!("hotkey-intro"));
+	kit::card_title(ui, tr!("hotkey-heading"));
+	kit::help(ui, tr!("hotkey-intro"));
 	ui.horizontal_wrapped(|ui| {
 		ui.label(tr!("hotkey-field"));
 		ui.add(
@@ -55,16 +46,6 @@ fn body(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				.char_limit(ACCELERATOR_MAX_CHARS)
 				.hint_text(tr!("hotkey-hint")),
 		);
-	});
-	ui.horizontal_wrapped(|ui| {
-		ui.label(tr!("hotkey-delay"));
-		let drag = ui.add(
-			egui::DragValue::new(&mut panel.draft.release_delay_ms)
-				.range(0..=RELEASE_DELAY_MAX_MS)
-				.speed(10)
-				.suffix(format!(" {}", tr!("unit-ms"))),
-		);
-		hint(ui, drag, tr!("hotkey-delay-hover"));
 	});
 	let problem = panel.draft.check().err();
 	if let Some(text) = problem {

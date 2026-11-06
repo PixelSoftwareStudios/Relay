@@ -1,4 +1,4 @@
-//! Channels (create, join, list, leave, invite) and privacy settings.
+//! The Channels page: what a channel is, the list, join, create and invite.
 
 use std::mem;
 
@@ -6,27 +6,29 @@ use egui::{self, RichText, Ui};
 use relay_client::ChannelOptions;
 
 use crate::actions::Actions;
-use crate::model::{Advert, AppState, Channel, Inbound};
+use crate::model::Channel;
 
+use super::kit::{self, Cx};
 use super::local::{INVITE_USES, Local, invite_ttls};
-use super::widgets::{button_row, combo, field_width};
+use super::widgets::{button_row, field_width};
 use crate::tr;
 
-pub fn channels(ui: &mut Ui, state: &AppState, actions: &Actions, local: &mut Local) {
-	ui.heading(tr!("channels-heading"));
-	ui.label(RichText::new(tr!("channels-note")).weak());
-	if state.channels.is_empty() {
-		ui.label(RichText::new(tr!("channels-none")).weak());
+pub fn show(ui: &mut Ui, cx: &mut Cx) {
+	kit::page_title(ui, tr!("channels-heading"));
+	kit::help(ui, tr!("channels-note"));
+	kit::gap(ui);
+	let (actions, local) = (cx.actions, &mut *cx.local);
+	if cx.state.channels.is_empty() {
+		kit::empty_state(ui, tr!("channels-none"), tr!("channels-none-help"));
 	}
-	for channel in &state.channels {
-		egui::Frame::group(ui.style()).show(ui, |ui| {
-			ui.set_width(ui.available_width());
-			channel_row(ui, channel, actions, local);
-		});
+	for channel in &cx.state.channels {
+		kit::card(ui, |ui| channel_row(ui, channel, actions, local));
+		kit::gap(ui);
 	}
 	invite_box(ui, actions, local);
-	create_form(ui, actions, local);
-	join_form(ui, actions, local);
+	kit::card(ui, |ui| join_form(ui, actions, local));
+	kit::gap(ui);
+	kit::card(ui, |ui| create_form(ui, actions, local));
 }
 
 fn flags(channel: &Channel) -> String {
@@ -69,7 +71,7 @@ fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 
 fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
 	if local.leave_confirm.as_deref() == Some(&channel.channel_id) {
-		if ui.button(tr!("channel-leave-yes")).clicked() {
+		if kit::danger_button(ui, tr!("channel-leave-yes")).clicked() {
 			let id = channel.channel_id.clone();
 			actions.run(|c| async move { c.leave_channel(&id).await });
 			local.leave_confirm = None;
@@ -117,8 +119,7 @@ fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	let Some(invite) = &local.invite else { return };
 	let token = invite.token.expose().to_owned();
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
+	kit::card(ui, |ui| {
 		ui.label(tr!("invite-token-note"));
 		ui.add(
 			egui::Label::new(RichText::new(&token).monospace())
@@ -134,6 +135,7 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			}
 		});
 	});
+	kit::gap(ui);
 }
 
 fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
@@ -203,43 +205,4 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				actions.run(|c| async move { c.join_channel(&target, &password).await });
 			}
 		});
-}
-
-pub fn privacy(ui: &mut Ui, state: &AppState, actions: &Actions) {
-	ui.heading(tr!("privacy-heading"));
-	let Some(settings) = &state.settings else {
-		ui.label(RichText::new(tr!("privacy-none")).weak());
-		return;
-	};
-	egui::Frame::group(ui.style()).show(ui, |ui| {
-		ui.set_width(ui.available_width());
-		let inbound_label = |v: Inbound| match v {
-			Inbound::Anyone => tr!("privacy-inbound-anyone"),
-			Inbound::SharedChannelOnly => tr!("privacy-inbound-shared"),
-		};
-		let mut inbound = settings.inbound;
-		combo(ui, tr!("privacy-who-rings"), inbound_label(inbound)).show_ui(ui, |ui| {
-			for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
-				ui.selectable_value(&mut inbound, v, inbound_label(v));
-			}
-		});
-		if inbound != settings.inbound {
-			actions.run(|c| async move { c.set_privacy(Some(inbound), None).await });
-		}
-		let advert_label = |v: Advert| match v {
-			Advert::Visible => tr!("privacy-advert-visible"),
-			Advert::Hidden => tr!("privacy-advert-hidden"),
-		};
-		let mut advert = settings.advert;
-		combo(ui, tr!("privacy-visibility"), advert_label(advert)).show_ui(ui, |ui| {
-			for v in [Advert::Visible, Advert::Hidden] {
-				ui.selectable_value(&mut advert, v, advert_label(v));
-			}
-		});
-		if advert != settings.advert {
-			actions.run(|c| async move { c.set_privacy(None, Some(advert)).await });
-		}
-		ui.separator();
-		super::messages::privacy_toggle(ui, actions);
-	});
 }

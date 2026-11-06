@@ -15,6 +15,16 @@ pub const ERROR: Color32 = Color32::from_rgb(248, 81, 73);
 pub const SPACE_S: f32 = 4.0;
 pub const SPACE_M: f32 = 8.0;
 pub const SPACE_L: f32 = 16.0;
+pub const SPACE_XL: f32 = 24.0;
+
+/// Corner radius of cards and prompts.
+pub const CARD_RADIUS: u8 = 8;
+/// Width of the regular layout's navigation sidebar.
+pub const SIDEBAR_WIDTH: f32 = 188.0;
+/// Widest column the pages use; wider windows leave the rest empty.
+pub const CONTENT_MAX_WIDTH: f32 = 720.0;
+/// Width of the Settings category list in the regular layout.
+pub const CATEGORY_WIDTH: f32 = 188.0;
 
 /// Avatar sizes (points).
 pub const AVATAR_ROW: f32 = 40.0;
@@ -24,6 +34,10 @@ pub const AVATAR_PROFILE: f32 = 64.0;
 pub const TEXT_BODY: f32 = 14.0;
 pub const TEXT_BODY_COMPACT: f32 = 16.0;
 pub const TEXT_HEADING: f32 = 20.0;
+/// Page titles and the name on an in-call card.
+pub const TEXT_TITLE: f32 = 24.0;
+/// Helper text under a control.
+pub const TEXT_SMALL: f32 = 12.0;
 
 /// Install the light and dark styles; egui then picks one from the OS hint.
 /// Call again when the layout class changes.

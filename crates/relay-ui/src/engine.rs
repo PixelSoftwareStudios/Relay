@@ -111,6 +111,10 @@ pub enum Command {
 	},
 	/// Remove the stored avatar; trusted peers stop showing it.
 	ClearAvatar,
+	/// Remove the stored trust decision for a peer (32 bytes) and cut the link.
+	ForgetPeer {
+		peer_id: Vec<u8>,
+	},
 	/// Call a pasted `relay://` string; the engine validates it.
 	StartCallConnection {
 		text: String,

@@ -1,0 +1,240 @@
+//! Optional screenshots: a small CPU rasteriser draws egui's tessellated
+//! meshes into PNG files so a person can look at the screens. Off unless
+//! `RELAY_SHOTS_DIR` names a directory; no GPU or window is involved.
+//!
+//! `RELAY_SHOTS_DIR=/tmp/shots cargo test -p relay-ui --test screenshots`
+
+mod phone;
+
+use std::collections::HashMap;
+use std::path::PathBuf;
+
+use egui::epaint::{ImageData, Primitive};
+use egui::{Color32, TextureId};
+use phone::Phone;
+use relay_ui::capabilities::SettingsCategory;
+use relay_ui::i18n::Language;
+use relay_ui::layout::Page;
+
+struct Texture {
+	size: [usize; 2],
+	pixels: Vec<Color32>,
+}
+
+#[derive(Default)]
+struct Textures(HashMap<TextureId, Texture>);
+
+impl Textures {
+	fn apply(&mut self, delta: &egui::TexturesDelta) {
+		for (id, patches) in &delta.set {
+			for patch in patches {
+				let ImageData::Color(image) = &patch.image;
+				match patch.pos {
+					None => {
+						self.0.insert(
+							*id,
+							Texture {
+								size: image.size,
+								pixels: image.pixels.clone(),
+							},
+						);
+					}
+					Some([x0, y0]) => {
+						let Some(tex) = self.0.get_mut(id) else {
+							continue;
+						};
+						for row in 0..image.size[1] {
+							let from = row * image.size[0];
+							let to = (y0 + row) * tex.size[0] + x0;
+							tex.pixels[to..to + image.size[0]]
+								.copy_from_slice(&image.pixels[from..from + image.size[0]]);
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+fn edge(a: egui::Pos2, b: egui::Pos2, p: egui::Pos2) -> f32 {
+	(b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x)
+}
+
+/// Draw the primitives over an opaque `background`, premultiplied source-over
+/// in gamma space as egui's own backends do.
+fn rasterise(
+	prims: &[egui::ClippedPrimitive],
+	textures: &Textures,
+	ppp: f32,
+	size: egui::Vec2,
+	background: Color32,
+) -> image::RgbaImage {
+	let (w, h) = ((size.x * ppp) as usize, (size.y * ppp) as usize);
+	let mut buf = vec![
+		[
+			background.r() as f32 / 255.0,
+			background.g() as f32 / 255.0,
+			background.b() as f32 / 255.0,
+		];
+		w * h
+	];
+	for prim in prims {
+		let Primitive::Mesh(mesh) = &prim.primitive else {
+			continue;
+		};
+		let Some(tex) = textures.0.get(&mesh.texture_id) else {
+			continue;
+		};
+		let clip = prim.clip_rect;
+		let (cx0, cy0) = ((clip.min.x * ppp).max(0.0), (clip.min.y * ppp).max(0.0));
+		let (cx1, cy1) = (
+			(clip.max.x * ppp).min(w as f32),
+			(clip.max.y * ppp).min(h as f32),
+		);
+		for tri in mesh.indices.as_chunks::<3>().0.iter() {
+			let v = [
+				mesh.vertices[tri[0] as usize],
+				mesh.vertices[tri[1] as usize],
+				mesh.vertices[tri[2] as usize],
+			];
+			let p = v.map(|v| egui::pos2(v.pos.x * ppp, v.pos.y * ppp));
+			let area = edge(p[0], p[1], p[2]);
+			if area.abs() < 1e-6 {
+				continue;
+			}
+			let x0 = p
+				.iter()
+				.map(|p| p.x)
+				.fold(f32::MAX, f32::min)
+				.max(cx0)
+				.floor();
+			let x1 = p
+				.iter()
+				.map(|p| p.x)
+				.fold(f32::MIN, f32::max)
+				.min(cx1)
+				.ceil();
+			let y0 = p
+				.iter()
+				.map(|p| p.y)
+				.fold(f32::MAX, f32::min)
+				.max(cy0)
+				.floor();
+			let y1 = p
+				.iter()
+				.map(|p| p.y)
+				.fold(f32::MIN, f32::max)
+				.min(cy1)
+				.ceil();
+			let mut y = y0;
+			while y < y1 {
+				let mut x = x0;
+				while x < x1 {
+					let c = egui::pos2(x + 0.5, y + 0.5);
+					let w0 = edge(p[1], p[2], c) / area;
+					let w1 = edge(p[2], p[0], c) / area;
+					let w2 = edge(p[0], p[1], c) / area;
+					if w0 >= -0.001 && w1 >= -0.001 && w2 >= -0.001 {
+						let u = w0 * v[0].uv.x + w1 * v[1].uv.x + w2 * v[2].uv.x;
+						let t = w0 * v[0].uv.y + w1 * v[1].uv.y + w2 * v[2].uv.y;
+						let tx = ((u * tex.size[0] as f32) as usize).min(tex.size[0] - 1);
+						let ty = ((t * tex.size[1] as f32) as usize).min(tex.size[1] - 1);
+						let texel = tex.pixels[ty * tex.size[0] + tx];
+						let col = |i: usize| {
+							let f = |c: Color32| [c.r(), c.g(), c.b(), c.a()][i] as f32 / 255.0;
+							w0 * f(v[0].color) + w1 * f(v[1].color) + w2 * f(v[2].color)
+						};
+						let tx = |i: usize| {
+							[texel.r(), texel.g(), texel.b(), texel.a()][i] as f32 / 255.0
+						};
+						let a = col(3) * tx(3);
+						let dst = &mut buf[y as usize * w + x as usize];
+						for (k, d) in dst.iter_mut().enumerate() {
+							*d = col(k) * tx(k) + *d * (1.0 - a);
+						}
+					}
+					x += 1.0;
+				}
+				y += 1.0;
+			}
+		}
+	}
+	let mut img = image::RgbaImage::new(w as u32, h as u32);
+	for (i, px) in buf.iter().enumerate() {
+		let c = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
+		img.put_pixel(
+			(i % w) as u32,
+			(i / w) as u32,
+			image::Rgba([c(px[0]), c(px[1]), c(px[2]), 255]),
+		);
+	}
+	img
+}
+
+/// Run a few frames, keeping every texture update, and draw the last one.
+fn shoot(phone: &mut Phone, textures: &mut Textures, path: &PathBuf) {
+	let mut last = None;
+	for _ in 0..5 {
+		let input = egui::RawInput {
+			screen_rect: Some(phone.screen()),
+			..Default::default()
+		};
+		let app = &mut phone.app;
+		let mut out = phone.ctx.run_ui(input, |ui| {
+			app.begin_frame(ui.ctx());
+			app.ui(ui);
+		});
+		textures.apply(&out.textures_delta);
+		out.textures_delta.clear();
+		last = Some(out);
+	}
+	let out = last.unwrap();
+	let ppp = out.pixels_per_point;
+	let prims = phone.ctx.tessellate(out.shapes, ppp);
+	let bg = phone.ctx.global_style().visuals.panel_fill;
+	rasterise(&prims, textures, ppp, phone.size, bg)
+		.save(path)
+		.unwrap();
+}
+
+#[tokio::test]
+async fn screenshots() {
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	for (name, desktop, w, h) in [
+		("desktop", true, 720.0, 800.0),
+		("phone", false, 360.0, 800.0),
+	] {
+		for language in [Language::En, Language::De, Language::Ru] {
+			let lang = format!("{language:?}").to_lowercase();
+			let mut phone = if desktop {
+				Phone::desktop(w, h, language)
+			} else {
+				Phone::new(w, h, language)
+			};
+			if desktop {
+				phone.ctx.set_pixels_per_point(1.5);
+			}
+			let mut textures = Textures::default();
+			for page in Page::ALL {
+				phone.app.set_page(page);
+				shoot(
+					&mut phone,
+					&mut textures,
+					&dir.join(format!("{name}-{lang}-{page:?}.png")),
+				);
+			}
+			for category in SettingsCategory::ALL {
+				phone.app.open_settings(Some(category));
+				shoot(
+					&mut phone,
+					&mut textures,
+					&dir.join(format!("{name}-{lang}-settings-{category:?}.png")),
+				);
+			}
+		}
+	}
+}

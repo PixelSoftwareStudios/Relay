@@ -2,6 +2,7 @@
 //! can hold passwords and invite tokens while a form is open.
 
 use std::collections::HashMap;
+use std::time::Instant;
 
 use egui::TextureHandle;
 
@@ -56,6 +57,14 @@ pub struct Local {
 	pub talking: Option<String>,
 	pub talk_drawn: bool,
 	pub open_messages: Option<String>,
+	/// A page asked to go to another page (an empty state's button).
+	pub goto: Option<crate::layout::Page>,
+	/// When this app first saw each call connected (hex call id).
+	pub call_since: HashMap<String, Instant>,
+	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
+	pub forget_confirm: Option<String>,
+	/// "Remove picture" is waiting for confirmation.
+	pub confirm_remove_avatar: bool,
 
 	pub hotkey: HotkeyPanel,
 

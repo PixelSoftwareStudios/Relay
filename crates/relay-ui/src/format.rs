@@ -80,12 +80,23 @@ pub struct TransmitStatus {
 	pub tone: Tone,
 }
 
-/// What this client can and cannot do about push-to-talk.
-pub fn hotkey_note(has_talk_button: bool) -> &'static str {
-	if has_talk_button {
-		tr!("hotkey-note-button")
+/// How push-to-talk is operated on this device: a global key watched by the
+/// daemon, an on-screen button, or (neither) only an outside input source.
+pub fn hotkey_note(has_global_hotkey: bool, has_talk_button: bool) -> &'static str {
+	match (has_global_hotkey, has_talk_button) {
+		(true, _) => tr!("hotkey-note-global"),
+		(false, true) => tr!("hotkey-note-button"),
+		(false, false) => tr!("hotkey-note"),
+	}
+}
+
+/// Time in a call as `m:ss`, or `h:mm:ss` from one hour.
+pub fn call_duration(secs: u64) -> String {
+	let (h, m, s) = (secs / 3600, secs / 60 % 60, secs % 60);
+	if h > 0 {
+		format!("{h}:{m:02}:{s:02}")
 	} else {
-		tr!("hotkey-note")
+		format!("{m}:{s:02}")
 	}
 }
 
@@ -173,22 +184,27 @@ pub fn own_live_calls(calls: &[Call]) -> Vec<String> {
 		.collect()
 }
 
-/// What closing the window does, and what quitting the app does to calls.
+/// What closing the window does, and what quitting the app does to calls. A
+/// shell that stays alive without a window has no quit to explain.
 pub fn close_note(has_tray: bool, runs_in_background: bool, own_calls: usize) -> String {
-	let close = if has_tray {
-		tr!("close-tray")
-	} else if runs_in_background {
-		tr!("close-background")
-	} else {
-		tr!("close-no-tray")
-	};
-	let quit = tr!("quit-note");
 	let live = if own_calls == 0 {
 		String::new()
 	} else {
 		tr!("calls-active", count = own_calls)
 	};
-	format!("{close} {quit} {live}").trim_end().to_owned()
+	if runs_in_background && !has_tray {
+		return format!("{} {live}", tr!("close-background"))
+			.trim_end()
+			.to_owned();
+	}
+	let close = if has_tray {
+		tr!("close-tray")
+	} else {
+		tr!("close-no-tray")
+	};
+	format!("{close} {} {live}", tr!("quit-note"))
+		.trim_end()
+		.to_owned()
 }
 
 /// The confirmation shown before quitting while calls are live.

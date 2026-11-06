@@ -32,6 +32,8 @@ pub struct PhoneShell {
 	pub keyboard: AtomicU32,
 	pub ptt: Mutex<Vec<(String, bool)>>,
 	visible: AtomicBool,
+	/// Behave like a desktop shell: closing hides to a tray, no talk button.
+	pub desktop: AtomicBool,
 }
 
 impl FilePicker for PhoneShell {
@@ -50,7 +52,10 @@ impl Shell for PhoneShell {
 	fn hide_window(&self) {}
 	fn quit(&self) {}
 	fn hides_to_tray(&self) -> bool {
-		false
+		self.desktop.load(Ordering::SeqCst)
+	}
+	fn runs_in_background(&self) -> bool {
+		!self.desktop.load(Ordering::SeqCst)
 	}
 	fn safe_area_insets(&self) -> Insets {
 		*self.insets.lock().unwrap()
@@ -62,7 +67,7 @@ impl Shell for PhoneShell {
 		false
 	}
 	fn has_talk_button(&self) -> bool {
-		true
+		!self.desktop.load(Ordering::SeqCst)
 	}
 	fn push_to_talk(&self, call_id: &str, pressed: bool) {
 		self.ptt.lock().unwrap().push((call_id.to_owned(), pressed));
@@ -93,6 +98,8 @@ pub struct Drawn {
 	pub painted: Vec<egui::Rect>,
 	/// Painted text: its visible bounds and its number of rows.
 	pub texts: Vec<(egui::Rect, usize)>,
+	/// The strings of all painted text.
+	pub labels: Vec<String>,
 }
 
 pub struct Phone {
@@ -146,6 +153,13 @@ impl Phone {
 		.state(state);
 	}
 
+	/// A rig sized like a desktop window, with a desktop shell.
+	pub fn desktop(width: f32, height: f32, language: Language) -> Self {
+		let phone = Self::new(width, height, language);
+		phone.shell.desktop.store(true, Ordering::SeqCst);
+		phone
+	}
+
 	pub fn screen(&self) -> egui::Rect {
 		egui::Rect::from_min_size(egui::Pos2::ZERO, self.size)
 	}
@@ -179,6 +193,14 @@ impl Phone {
 				_ => None,
 			})
 			.collect();
+		let labels = out
+			.shapes
+			.iter()
+			.filter_map(|s| match &s.shape {
+				egui::Shape::Text(t) => Some(t.galley.text().to_owned()),
+				_ => None,
+			})
+			.collect();
 		let mut widgets = Vec::new();
 		let mut tappable = Vec::new();
 		let mut visible = Vec::new();
@@ -200,6 +222,7 @@ impl Phone {
 			visible,
 			painted,
 			texts,
+			labels,
 		}
 	}
 

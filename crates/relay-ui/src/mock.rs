@@ -289,6 +289,10 @@ impl Operations for MockOps {
 				self.hub
 					.update(|s| s.notice = Some("Mock: avatar is not stored.".into()));
 			}
+			Command::ForgetPeer { peer_id } => {
+				let wanted = hex::encode(peer_id);
+				self.hub.update(|s| s.peers.retain(|p| p.peer_id != wanted));
+			}
 			Command::ClearAvatar => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {
 					g.avatar_hash.clear();

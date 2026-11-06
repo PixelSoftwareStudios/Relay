@@ -252,6 +252,10 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			WireCommand::UploadAvatar { bytes, media_type }
 		}
 		Command::ClearAvatar => WireCommand::ClearAvatar,
+		Command::ForgetPeer { peer_id } => WireCommand::ForgetPeer {
+			peer_id,
+			query: String::new(),
+		},
 		Command::StartCallConnection { text } => {
 			WireCommand::StartCall(CallTarget::ConnectionString(text))
 		}

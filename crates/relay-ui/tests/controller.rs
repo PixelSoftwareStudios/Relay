@@ -228,3 +228,18 @@ async fn ring_preferences_are_bounded_and_preview_is_a_command() {
 		]
 	);
 }
+
+#[tokio::test]
+async fn forgetting_a_known_device_sends_its_id_and_refuses_strangers() {
+	let (ctl, _hub, ops) = controller_with(mine(), 0);
+	ctl.forget_peer(&hex::encode(PEER)).await.unwrap();
+	assert_eq!(
+		ops.recorded(),
+		vec![Command::ForgetPeer {
+			peer_id: PEER.to_vec()
+		}]
+	);
+	assert!(ctl.forget_peer(&hex::encode([5u8; 32])).await.is_err());
+	assert!(ctl.forget_peer("zz").await.is_err());
+	assert_eq!(ops.recorded().len(), 1);
+}

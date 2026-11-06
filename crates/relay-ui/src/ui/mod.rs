@@ -1,30 +1,37 @@
 //! egui front end: screen composition. Logic lives in `viewmodel` and
 //! `format`; the platform shell calls [`RelayApp::begin_frame`] then
 //! [`RelayApp::ui`] each frame and supplies services through `Shell`.
+//!
+//! Pages: Calls, People, Channels and Messages, plus Settings (a separate
+//! page with its own category list). The regular layout navigates with a
+//! sidebar, the compact layout with bottom tabs.
 
-mod app_panel;
-mod audio;
+mod banners;
+mod call_card;
 mod channels;
-mod connection;
-mod host_switches;
-mod hotkey;
+mod home;
+mod incoming;
+mod kit;
 mod local;
 pub mod messages;
 mod nav;
-mod profile;
-mod ring;
-mod sections;
+mod people;
+mod settings;
+mod sidebar;
 mod textures;
 mod widgets;
 
+use std::time::Instant;
+
 use crate::actions::Actions;
+use crate::capabilities::{Capabilities, SettingsCategory};
 use crate::imaging::{Decoded, decode_for_texture};
 use crate::layout::{LayoutClass, Page};
 use crate::shell::Insets;
 use crate::theme;
 use crate::viewmodel::{call_cards, peer_rows};
 
-use crate::tr;
+use kit::Cx;
 use local::{Local, PickedImage};
 use messages::MessagesUi;
 use textures::{Textures, upload};
@@ -40,9 +47,11 @@ pub struct RelayApp {
 	/// The layout the installed style was built for; `None` before the first frame.
 	class: Option<LayoutClass>,
 	page: Page,
+	/// The page Settings goes back to (regular layout).
+	back_to: Page,
+	/// The Settings category chosen; `None` is the list in the compact layout.
+	category: Option<SettingsCategory>,
 	messages: MessagesUi,
-	/// The Messages side panel of the regular layout is showing.
-	messages_open: bool,
 	/// Keyboard height and focused field the view was last scrolled for.
 	scrolled_for: Option<(u32, egui::Id)>,
 	/// The language the installed fonts were built for; `None` before the first frame.
@@ -63,8 +72,9 @@ impl RelayApp {
 			local: Local::default(),
 			class: None,
 			page: Page::default(),
+			back_to: Page::default(),
+			category: None,
 			messages: MessagesUi::new(zone),
-			messages_open: false,
 			scrolled_for: None,
 			font_language: None,
 		}
@@ -75,17 +85,12 @@ impl RelayApp {
 		self.class
 	}
 
-	/// Show the Messages panel (the compact page or the side panel), for the
-	/// session of `call_id` (hex) when given.
+	/// Show the Messages page, for the session of `call_id` (hex) when given.
 	pub fn show_messages(&mut self, call_id: Option<String>) {
 		if let Some(call) = call_id {
 			self.messages.focus_call(call);
 		}
-		if self.class.is_some_and(LayoutClass::is_compact) {
-			self.page = Page::Messages;
-		} else {
-			self.messages_open = true;
-		}
+		self.set_page(Page::Messages);
 	}
 
 	/// Start the "send clipboard to a call" flow of the Messages panel: it
@@ -94,13 +99,41 @@ impl RelayApp {
 		self.messages.begin_clipboard();
 	}
 
-	/// The page shown in the compact layout.
+	/// The page shown.
 	pub fn page(&self) -> Page {
 		self.page
 	}
 
+	/// Go to a page. Opening Settings remembers where Back returns to.
 	pub fn set_page(&mut self, page: Page) {
+		if page == Page::Settings && self.page != Page::Settings {
+			self.back_to = self.page;
+		}
 		self.page = page;
+	}
+
+	/// Open Settings, on `category` when given (else the last one).
+	pub fn open_settings(&mut self, category: Option<SettingsCategory>) {
+		if category.is_some() {
+			self.category = category;
+		}
+		self.set_page(Page::Settings);
+	}
+
+	/// Leave Settings: Back in the regular layout.
+	pub fn close_settings(&mut self) {
+		if self.page == Page::Settings {
+			self.page = if self.back_to == Page::Settings {
+				Page::Calls
+			} else {
+				self.back_to
+			};
+		}
+	}
+
+	/// The Settings category chosen (`None` is the compact list).
+	pub fn settings_category(&self) -> Option<SettingsCategory> {
+		self.category
 	}
 
 	/// Per-frame work before drawing: window-visible hint, style for the
@@ -163,150 +196,191 @@ impl RelayApp {
 		}
 	}
 
+	/// Keyboard: Esc leaves Settings (or a category in the compact layout),
+	/// Ctrl/Cmd+1 to 4 switch pages and Ctrl/Cmd+, opens Settings. Esc is left
+	/// to an open drop-down.
+	fn handle_keys(&mut self, ctx: &egui::Context, class: LayoutClass) {
+		use egui::{Key, Modifiers};
+		let (escape, jump) = ctx.input_mut(|i| {
+			let escape = i.consume_key(Modifiers::NONE, Key::Escape);
+			let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4];
+			let jump = keys
+				.iter()
+				.position(|k| i.consume_key(Modifiers::COMMAND, *k))
+				.map(|n| Page::SIDEBAR[n]);
+			let settings = i.consume_key(Modifiers::COMMAND, Key::Comma);
+			(escape, jump.or(settings.then_some(Page::Settings)))
+		});
+		if escape && self.page == Page::Settings && !ctx.any_popup_open() {
+			if class.is_compact() {
+				settings::step_back(&mut self.category);
+			} else {
+				self.close_settings();
+			}
+		}
+		if let Some(page) = jump {
+			if page == Page::Settings && self.page == Page::Settings {
+				return;
+			}
+			self.set_page(page);
+		}
+	}
+
 	/// Draw the whole screen into `ui` (the shell's root ui).
 	pub fn ui(&mut self, ui: &mut egui::Ui) {
 		let class = self.class.unwrap_or(LayoutClass::Regular);
 		let insets = self.actions.shell.safe_area_insets();
 		let keyboard = self.actions.shell.keyboard_height().max(0.0);
+		self.handle_keys(ui.ctx(), class);
 		inset_panels(ui, insets, keyboard);
+		let state = self.actions.shared.state();
+		let meters = self.actions.shared.meters();
+		let error = self.actions.shared.error();
+		let cards = call_cards(&state, &meters);
+		let rows = peer_rows(&state);
+		track_calls(&mut self.local, &cards);
+		let ringing = cards.iter().any(|c| c.incoming);
+		let mut cx = Cx {
+			state: &state,
+			meters: &meters,
+			actions: &self.actions,
+			local: &mut self.local,
+			textures: &mut self.textures,
+		};
 		if class.is_compact() {
 			if keyboard <= 0.0 {
 				egui::Panel::bottom("relay-nav").show(ui, |ui| nav::bottom_bar(ui, &mut self.page));
 			}
-		} else if self.messages_open {
-			egui::Panel::right("relay-messages")
-				.resizable(true)
-				.default_size(380.0)
-				.size_range(300.0..=640.0)
-				.show(ui, |ui| {
-					ui.set_width(ui.available_width());
-					if self.messages.show(ui, &self.actions, true) {
-						self.messages_open = false;
-					}
-				});
-		}
-		egui::CentralPanel::default().show(ui, |ui| {
-			if class.is_compact() && self.page == Page::Messages {
-				self.messages.show(ui, &self.actions, false);
-				return;
-			}
-			// Beside the side panel the narrow column's bar would flip on and
-			// off forever (a repaint per frame); wheel and touch still scroll.
-			let bar = if self.messages_open {
-				egui::scroll_area::ScrollBarVisibility::AlwaysHidden
-			} else {
-				egui::scroll_area::ScrollBarVisibility::VisibleWhenNeeded
-			};
-			egui::ScrollArea::vertical()
-				.scroll_bar_visibility(bar)
-				.show(ui, |ui| {
-					self.header(ui, class);
-					self.pages(ui, class);
-					self.keep_focus_visible(ui, keyboard);
-				});
-		});
-		if let Some(call) = self.local.open_messages.take() {
-			self.messages.focus_call(call);
-			if class.is_compact() {
-				self.page = Page::Messages;
-			} else {
-				self.messages_open = true;
-			}
-		}
-	}
-
-	/// While the soft keyboard is up, scroll the focused field into view once
-	/// per keyboard height or focus change (never fighting a later manual scroll).
-	fn keep_focus_visible(&mut self, ui: &mut egui::Ui, keyboard: f32) {
-		let focused = if keyboard > 0.0 {
-			ui.memory(|m| m.focused())
 		} else {
-			None
+			egui::Panel::left("relay-sidebar")
+				.resizable(false)
+				.exact_size(theme::SIDEBAR_WIDTH)
+				.show(ui, |ui| {
+					let logo = &self.logo;
+					sidebar::show(ui, &mut self.page, logo, &mut cx, ringing);
+				});
+		}
+		let notices = banners::any(&state, error.as_deref());
+		if notices || ringing {
+			egui::Panel::top("relay-top")
+				.frame(top_frame(ui, class))
+				.show(ui, |ui| {
+					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
+					banners::show(ui, &state, error.as_deref(), cx.actions);
+					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
+					incoming::show(ui, &incoming, &mut cx);
+				});
+		}
+		let frame = if class.is_compact() {
+			egui::Frame::central_panel(ui.style())
+		} else {
+			egui::Frame::central_panel(ui.style()).inner_margin(theme::SPACE_L)
 		};
-		let key = focused.map(|id| (keyboard.to_bits(), id));
-		if key == self.scrolled_for {
-			return;
+		let mut back = false;
+		egui::CentralPanel::default().frame(frame).show(ui, |ui| {
+			match (self.page, class.is_compact()) {
+				(Page::Messages, _) => {
+					self.messages.show(ui, cx.actions, false);
+				}
+				(Page::Settings, false) => {
+					back = settings::show_regular(ui, &mut self.category, &mut cx);
+				}
+				_ => scrolling(ui, |ui| match self.page {
+					Page::Calls => home::show(ui, &cards, &rows, &mut cx),
+					Page::People => people::show(ui, &rows, &mut cx),
+					Page::Channels => channels::show(ui, &mut cx),
+					_ => settings::show_compact(ui, &mut self.category, &mut cx),
+				}),
+			}
+			keep_focus_visible(&mut self.scrolled_for, ui, keyboard);
+		});
+		if back {
+			self.close_settings();
 		}
-		self.scrolled_for = key;
-		if let Some(id) = focused
-			&& let Some(response) = ui.ctx().read_response(id)
-		{
-			ui.scroll_to_rect(response.rect.expand(theme::SPACE_M), None);
-		}
+		self.finish_frame(class);
 	}
 
-	/// A held talk button that was not drawn this frame (page switched, call
-	/// ended) counts as released, so the microphone is never left open.
-	fn release_unseen_talk(&mut self) {
+	/// After the pages are drawn: follow what they asked for, let go of a
+	/// held talk button that vanished, and drop state of panels not shown.
+	fn finish_frame(&mut self, class: LayoutClass) {
+		if let Some(call) = self.local.open_messages.take() {
+			self.show_messages(Some(call));
+		}
+		if let Some(page) = self.local.goto.take() {
+			self.set_page(page);
+		}
 		if !self.local.talk_drawn
 			&& let Some(call) = self.local.talking.take()
 		{
 			self.actions.shell.push_to_talk(&call, false);
 		}
 		self.local.talk_drawn = false;
-	}
-
-	fn header(&mut self, ui: &mut egui::Ui, class: LayoutClass) {
-		let state = self.actions.shared.state();
-		ui.horizontal(|ui| {
-			ui.image((self.logo.id(), egui::vec2(32.0, 32.0)));
-			ui.heading("Relay");
-			if let Some(info) = &state.engine {
-				ui.label(
-					egui::RichText::new(tr!("header-engine", version = info.version.as_str()))
-						.weak(),
-				);
-			}
-			if !class.is_compact() {
-				ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-					if ui
-						.selectable_label(self.messages_open, tr!("nav-messages"))
-						.clicked()
-					{
-						self.messages_open = !self.messages_open;
-					}
-				});
-			}
+		let caps = Capabilities::of(&*self.actions.shell);
+		let shown = (self.page == Page::Settings).then(|| match class.is_compact() {
+			true => self.category,
+			false => Some(settings::current(self.category, caps)),
 		});
+		settings::release_unseen(&mut self.local, shown.flatten());
 	}
+}
 
-	fn pages(&mut self, ui: &mut egui::Ui, class: LayoutClass) {
-		let state = self.actions.shared.state();
-		let meters = self.actions.shared.meters();
-		let cards = call_cards(&state, &meters);
-		let rows = peer_rows(&state);
-		let error = self.actions.shared.error();
-		let has_tray = self.actions.shell.hides_to_tray();
-		let (actions, local, textures) = (&self.actions, &mut self.local, &mut self.textures);
-		let show = |page: Page| !class.is_compact() || self.page == page;
+/// A page that scrolls vertically and fills the window.
+fn scrolling(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+	egui::ScrollArea::vertical()
+		.auto_shrink([false, false])
+		.show(ui, |ui| {
+			ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
+			add(ui);
+		});
+}
 
-		if show(Page::Calls) {
-			sections::status(ui, &state, error.as_deref(), actions);
-			sections::calls(ui, &cards, actions, local, textures);
+/// Frame of the strip above the page (notices and the incoming-call prompt).
+fn top_frame(ui: &egui::Ui, class: LayoutClass) -> egui::Frame {
+	let margin = if class.is_compact() {
+		theme::SPACE_M
+	} else {
+		theme::SPACE_L
+	};
+	egui::Frame::side_top_panel(ui.style()).inner_margin(margin)
+}
+
+/// Remember when each call was first seen connected, for its duration, and
+/// forget calls that are gone.
+fn track_calls(local: &mut Local, cards: &[crate::viewmodel::CallCard]) {
+	local
+		.call_since
+		.retain(|id, _| cards.iter().any(|c| &c.call_id == id));
+	for card in cards {
+		if card.phase == crate::model::Phase::Connected {
+			local
+				.call_since
+				.entry(card.call_id.clone())
+				.or_insert_with(Instant::now);
 		}
-		if show(Page::Settings) {
-			connection::connection(ui, actions, local);
-			if actions.shell.has_global_hotkey() {
-				hotkey::hotkey(ui, actions, local);
-			}
-		}
-		if show(Page::People) {
-			sections::peers(ui, &rows, actions, local, textures);
-		}
-		if show(Page::Channels) {
-			channels::channels(ui, &state, actions, local);
-		}
-		if show(Page::Settings) {
-			channels::privacy(ui, &state, actions);
-		}
-		if show(Page::Calls) {
-			audio::audio(ui, &state, &meters, actions, local);
-		}
-		if show(Page::Settings) {
-			profile::profile(ui, &state, actions, local, textures);
-			app_panel::app_panel(ui, &state, actions, local, has_tray);
-		}
-		self.release_unseen_talk();
+	}
+}
+
+/// While the soft keyboard is up, scroll the focused field into view once
+/// per keyboard height or focus change (never fighting a later manual scroll).
+fn keep_focus_visible(
+	scrolled_for: &mut Option<(u32, egui::Id)>,
+	ui: &mut egui::Ui,
+	keyboard: f32,
+) {
+	let focused = if keyboard > 0.0 {
+		ui.memory(|m| m.focused())
+	} else {
+		None
+	};
+	let key = focused.map(|id| (keyboard.to_bits(), id));
+	if key == *scrolled_for {
+		return;
+	}
+	*scrolled_for = key;
+	if let Some(id) = focused
+		&& let Some(response) = ui.ctx().read_response(id)
+	{
+		ui.scroll_to_rect(response.rect.expand(theme::SPACE_M), None);
 	}
 }
 

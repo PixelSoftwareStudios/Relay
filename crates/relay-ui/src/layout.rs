@@ -13,7 +13,7 @@ pub const MIN_TOUCH_TARGET: f32 = 44.0;
 pub enum LayoutClass {
 	/// Phone: one column, bottom navigation, large touch targets.
 	Compact,
-	/// Desktop or tablet: one scrolling column of all sections.
+	/// Desktop or tablet: a sidebar and one page at a time.
 	Regular,
 }
 
@@ -47,7 +47,9 @@ pub fn is_touch(ui: &egui::Ui) -> bool {
 	ui.spacing().interact_size.y >= MIN_TOUCH_TARGET
 }
 
-/// Pages of the compact layout, shown in the bottom navigation.
+/// Pages of the app. The compact layout shows all five as bottom tabs; the
+/// regular layout lists the first four in the sidebar and opens Settings from
+/// the gear button.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Page {
 	#[default]
@@ -66,6 +68,9 @@ impl Page {
 		Page::Messages,
 		Page::Settings,
 	];
+
+	/// The pages of the regular layout's sidebar (Settings has its own button).
+	pub const SIDEBAR: [Page; 4] = [Page::Calls, Page::People, Page::Channels, Page::Messages];
 
 	pub fn label(self) -> &'static str {
 		match self {
