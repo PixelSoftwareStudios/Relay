@@ -1,8 +1,9 @@
-# EXPERIMENTAL feasibility spike. Not a member of the root workspace (own
-# [workspace] table, own Cargo.lock). See docs/android.md.
+# The Android app's Rust library. Not a member of the root workspace (own
+# [workspace] table, own Cargo.lock): it needs the Android targets and NDK.
+# Built by Gradle through cargo-ndk; see docs/android.md.
 [package]
 name = "relay-android"
-version = "0.0.0"
+version = "0.1.0"
 edition = "2024"
 publish = false
 license = "Apache-2.0"
@@ -11,20 +12,45 @@ license = "Apache-2.0"
 
 [lib]
 name = "relay_android"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "lib"]
+
+[[bin]]
+name = "uniffi-bindgen"
+path = "uniffi-bindgen.rs"
+required-features = ["bindgen"]
+
+[features]
+# Builds the Kotlin binding generator for the host (Gradle turns this on).
+bindgen = ["uniffi/cli"]
 
 [dependencies]
 relay-ui = { path = "../../crates/relay-ui" }
+relay-engine = { path = "../../crates/relay-engine" }
+relay-config = { path = "../../crates/relay-config" }
+relay-audio = { path = "../../crates/relay-audio" }
+relay-net = { path = "../../crates/relay-net" }
+relay-api = { path = "../../crates/relay-api" }
+relay-io = { path = "../../crates/relay-io" }
 egui = { version = "0.37.0", default-features = false }
-eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "android-native-activity"] }
+eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts"] }
 tokio = { version = "1.54.1", features = ["rt-multi-thread", "sync", "time", "macros"] }
-log = "0.4"
-relay-engine = { path = "../../crates/relay-engine", optional = true }
-relay-config = { path = "../../crates/relay-config", optional = true }
+uniffi = "0.32.2"
+thiserror = "2.0.21"
+zeroize = "1.9.1"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["registry", "std", "tracing-log"] }
+hex = "0.4.3"
 
-[features]
-engine = ["dep:relay-engine", "dep:relay-config"]
+[dev-dependencies]
+tempfile = "3"
 
 [target.'cfg(target_os = "android")'.dependencies]
-android-activity = { version = "0.6", features = ["native-activity"] }
-android_logger = "0.15"
+eframe = { version = "0.37.0", default-features = false, features = ["glow", "default_fonts", "android-game-activity"] }
+android-activity = { version = "0.6", features = ["game-activity"] }
+tracing-android = "0.2.0"
+
+[profile.release]
+opt-level = 3
+debug = false
+strip = "symbols"
+panic = "unwind"
