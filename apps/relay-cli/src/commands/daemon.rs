@@ -9,7 +9,7 @@ use std::path::Path;
 use std::process::Command as Process;
 use std::time::Duration;
 
-use relay_api::{Endpoint, RelayClient};
+use relay_api::{Endpoint, RelayClient, Revision};
 use relay_client::daemon::{self, Launch, Started, Stopped};
 use serde::Serialize;
 
@@ -30,6 +30,14 @@ struct Report {
 	log: Option<String>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	engine_version: Option<String>,
+	/// The running daemon's build (git commit) and API revision.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	build_revision: Option<String>,
+	#[serde(skip_serializing_if = "Option::is_none")]
+	api_revision: Option<u32>,
+	/// This CLI's own build, set only when the daemon's differs.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	out_of_date: Option<String>,
 }
 
 impl Report {
@@ -40,6 +48,9 @@ impl Report {
 			endpoint: endpoint::describe(endpoint),
 			log: None,
 			engine_version: None,
+			build_revision: None,
+			api_revision: None,
+			out_of_date: None,
 		}
 	}
 }
@@ -52,6 +63,15 @@ impl fmt::Display for Report {
 		}
 		if let Some(version) = &self.engine_version {
 			write!(f, ", engine {version}")?;
+		}
+		if let (Some(build), Some(api)) = (&self.build_revision, self.api_revision) {
+			write!(f, ", build {build} (api {api})")?;
+		}
+		if let Some(own) = &self.out_of_date {
+			write!(
+				f,
+				"\nwarning: the daemon is out of date; this CLI is {own}. Run `relay daemon restart`."
+			)?;
 		}
 		if let Some(log) = &self.log {
 			write!(f, ", log {log}")?;
@@ -69,7 +89,13 @@ pub async fn run(
 	match &args.action {
 		DaemonAction::Start(launch) => start(&endpoint, launch, out).await,
 		DaemonAction::Stop { wait } => stop(&endpoint, Duration::from_secs(*wait), out).await,
-		DaemonAction::Restart(launch) => {
+		DaemonAction::Restart { force, launch } => {
+			if !force && calls_in_progress(&endpoint).await? {
+				return Err(CliError::Usage(
+					"a call is in progress and restarting the daemon would end it; end the call or pass --force"
+						.into(),
+				));
+			}
 			stop(&endpoint, STOP_WAIT, out).await?;
 			start(&endpoint, launch, out).await
 		}
@@ -139,7 +165,30 @@ async fn status(endpoint: &Endpoint, out: &mut Out<'_>) -> Result<(), CliError> 
 	let client = RelayClient::connect(endpoint).await?;
 	let mut report = Report::new("running", endpoint);
 	report.engine_version = Some(client.info().application_version.clone());
+	let revision = client.daemon_revision();
+	if !revision.is_current() {
+		report.out_of_date = Some(Revision::local().to_string());
+	}
+	report.build_revision = Some(if revision.build.is_empty() {
+		"unknown".to_owned()
+	} else {
+		revision.build
+	});
+	report.api_revision = Some(revision.api);
 	out.emit(&report)
+}
+
+/// Whether a call is in progress on the running daemon (false when none runs).
+async fn calls_in_progress(endpoint: &Endpoint) -> Result<bool, CliError> {
+	if !daemon::reachable(endpoint).await {
+		return Ok(false);
+	}
+	let mut client = RelayClient::connect(endpoint).await?;
+	client
+		.register(CLIENT_NAME, env!("CARGO_PKG_VERSION"), &["observe"])
+		.await?;
+	let snapshot = client.snapshot().await?;
+	Ok(relay_client::refresh::any_call_in_progress(&snapshot.calls))
 }
 
 fn logs(lines: usize, file: Option<&Path>, out: &mut Out<'_>) -> Result<(), CliError> {

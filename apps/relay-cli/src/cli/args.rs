@@ -346,9 +346,16 @@ pub enum DaemonAction {
 		#[arg(long, default_value_t = 10, value_name = "SECONDS")]
 		wait: u64,
 	},
-	/// Stop the daemon if it runs, then start it again.
-	Restart(DaemonLaunch),
-	/// Show whether the daemon runs and which engine it is.
+	/// Stop the daemon if it runs, then start it again. Refuses while a call is in progress
+	/// (restarting ends it) unless `--force`.
+	Restart {
+		/// Restart even when a call is in progress.
+		#[arg(long)]
+		force: bool,
+		#[command(flatten)]
+		launch: DaemonLaunch,
+	},
+	/// Show whether the daemon runs, which engine it is and whether its build is out of date.
 	Status,
 	/// Print the end of the daemon's log file.
 	Logs {

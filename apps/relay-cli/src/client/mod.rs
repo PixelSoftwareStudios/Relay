@@ -12,6 +12,7 @@ mod requests;
 mod session_feed;
 
 use std::future::Future;
+use std::time::Duration;
 
 use relay_api::ApiError;
 use relay_api::pb::{EngineInfo, Operation, Snapshot, TelemetrySnapshot};
@@ -161,7 +162,11 @@ fn autostart_disabled_by_env() -> bool {
 
 async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliError> {
 	use relay_client::daemon::{self, EnsureError, StartOptions};
-	if global.no_autostart || autostart_disabled_by_env() || daemon::reachable(endpoint).await {
+	if global.no_autostart || autostart_disabled_by_env() {
+		return Ok(());
+	}
+	if daemon::reachable(endpoint).await {
+		replace_stale(endpoint, global).await;
 		return Ok(());
 	}
 	eprintln!(
@@ -176,6 +181,39 @@ async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliEr
 			endpoint: endpoint::describe(endpoint),
 		}),
 		Err(error) => Err(CliError::DaemonStart(error.to_string())),
+	}
+}
+
+/// A running daemon of another build is replaced when it is idle (one line says so); one
+/// with a call in progress is left alone with a warning. Failures only warn: the daemon that
+/// answers is still used.
+async fn replace_stale(endpoint: &Endpoint, global: &GlobalArgs) {
+	use relay_client::daemon::StartOptions;
+	use relay_client::refresh::{Outcome, Policy, refresh_endpoint};
+	let mut options = StartOptions::autostart();
+	options.binary.clone_from(&global.daemon_bin);
+	options.log_file.clone_from(&global.daemon_log);
+	let outcome = refresh_endpoint(
+		endpoint,
+		&options,
+		"relay-cli",
+		Policy::StaleOnly,
+		Duration::from_secs(10),
+	)
+	.await;
+	match outcome {
+		Ok(Outcome::Restarted { from }) => {
+			eprintln!(
+				"relay: restarted relayd (it was build {from}, this is {})",
+				relay_api::Revision::local()
+			);
+		}
+		Ok(Outcome::KeptBusy { revision, .. }) => eprintln!(
+			"relay: relayd is build {revision} but this is {}; a call is in progress, so it was not restarted (`relay daemon restart` when done)",
+			relay_api::Revision::local()
+		),
+		Ok(_) => {}
+		Err(error) => eprintln!("relay: could not replace the out-of-date relayd: {error}"),
 	}
 }
 
