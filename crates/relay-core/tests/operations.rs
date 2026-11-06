@@ -17,10 +17,10 @@ fn duplicate_request_returns_the_cached_result_without_reexecuting() {
 	let mut f = Fixture::new();
 	let op = f.node.ids.operation();
 	let (call, lease) = (f.call, f.lease);
-	let route = Command::SetTransmitRoute {
+	let route = Command::SetTransmitMode {
 		call,
 		lease,
-		route: TransmitRoute::open_mic(),
+		route: TransmitRoute::unmuted(),
 	};
 	let first = f.node.feed(request(f.client, op, route.clone()));
 	assert!(!first.duplicate);

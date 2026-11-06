@@ -18,7 +18,7 @@ fn receive_only_by_default_and_no_capture_before_consent() {
 #[test]
 fn consent_opens_capture_and_gate_opens_only_after_ready() {
 	let mut f = Fixture::new();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	assert_eq!(f.node.device.opened.len(), 1);
 	assert!(!f.gate_open(), "capture still opening");
 	f.node.complete_capture();
@@ -28,16 +28,16 @@ fn consent_opens_capture_and_gate_opens_only_after_ready() {
 #[test]
 fn withdrawal_stops_transmit_and_publishes_deny_first() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let (call, lease) = (f.call, f.lease);
 	let operation = f.node.ids.operation();
 	let out = f.node.feed(Input::Client(Request {
 		client: f.client,
 		operation,
-		command: Command::SetTransmitRoute {
+		command: Command::SetTransmitMode {
 			call,
 			lease,
-			route: TransmitRoute::RECEIVE_ONLY,
+			route: TransmitRoute::MUTED,
 		},
 	}));
 	assert!(out.effects[0].is_gate(), "deny precedes every other effect");
@@ -54,9 +54,9 @@ fn withdrawal_stops_transmit_and_publishes_deny_first() {
 fn route_generation_advances_on_every_consent_change() {
 	let mut f = Fixture::new();
 	let g0 = f.view().route_generation;
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let g1 = f.view().route_generation;
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	assert_eq!(f.view().route_generation, g1, "no-op keeps the generation");
 	f.route(TransmitRoute::push_to_talk()).unwrap();
 	assert!(g0 < g1 && g1 < f.view().route_generation);
@@ -75,8 +75,8 @@ fn invalid_route_and_not_active_call_are_rejected() {
 	let client = node.attach_client();
 	node.link_up(peer());
 	let (call, lease) = node.start_call(client, peer());
-	let route = TransmitRoute::open_mic();
-	let result = node.command(client, Command::SetTransmitRoute { call, lease, route });
+	let route = TransmitRoute::unmuted();
+	let result = node.command(client, Command::SetTransmitMode { call, lease, route });
 	assert_eq!(
 		result,
 		Err(Reject::CallNotActive),
@@ -86,9 +86,9 @@ fn invalid_route_and_not_active_call_are_rejected() {
 }
 
 #[test]
-fn every_deny_wins_over_open_mic() {
+fn every_deny_wins_over_unmuted() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let (call, lease) = (f.call, f.lease);
 
 	f.cmd(Command::SetGlobalControls {
@@ -134,7 +134,7 @@ fn every_deny_wins_over_open_mic() {
 #[test]
 fn deafen_suppresses_receive_and_transmit_and_preserves_mute() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let global = |muted, deafened| Command::SetGlobalControls {
 		muted,
 		deafened,
@@ -189,10 +189,10 @@ fn consent_is_per_call() {
 	let (b, _) = common::activate(&mut node, client, device_key(0xC0));
 	node.command(
 		client,
-		Command::SetTransmitRoute {
+		Command::SetTransmitMode {
 			call: a,
 			lease: lease_a,
-			route: TransmitRoute::open_mic(),
+			route: TransmitRoute::unmuted(),
 		},
 	)
 	.unwrap();
@@ -206,7 +206,7 @@ fn consent_is_per_call() {
 #[test]
 fn stale_capture_completion_is_rejected_and_loss_needs_explicit_resume() {
 	let mut f = Fixture::new();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	let gen1 = f.node.device.opened[0];
 	f.node.complete_capture();
 	assert!(f.gate_open());
@@ -239,15 +239,15 @@ fn stale_capture_completion_is_rejected_and_loss_needs_explicit_resume() {
 #[test]
 fn open_mic_follows_controller_unless_background() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	f.node.feed(Input::Disconnected(f.client));
-	assert_eq!(f.view().route, TransmitRoute::RECEIVE_ONLY);
+	assert_eq!(f.view().route, TransmitRoute::MUTED);
 	assert!(!f.gate_open());
 
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic_background());
+	f.consent(TransmitRoute::unmuted_background());
 	f.node.feed(Input::Disconnected(f.client));
-	assert_eq!(f.view().route, TransmitRoute::open_mic_background());
+	assert_eq!(f.view().route, TransmitRoute::unmuted_background());
 	assert!(
 		f.gate_open(),
 		"background authority survives closing the client"
@@ -261,7 +261,7 @@ fn lock_and_suspend_close_the_gate_and_close_capture() {
 		(SessionEvent::Suspended, SessionEvent::Resumed),
 	] {
 		let mut f = Fixture::new();
-		f.consent(TransmitRoute::open_mic());
+		f.consent(TransmitRoute::unmuted());
 		f.node.feed(Input::System(SystemEvent::Session(down)));
 		assert_eq!(f.view().gate.deny, Some(DenyReason::SessionBlocked));
 		assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
@@ -299,7 +299,7 @@ fn global_settings_conflict_is_reported_with_current_revision() {
 #[test]
 fn controller_takeover_requires_intent_and_expires_old_authority() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let other = f.node.attach_client();
 	let call = f.call;
 	let denied = f.node.command(
@@ -322,7 +322,7 @@ fn controller_takeover_requires_intent_and_expires_old_authority() {
 	};
 	assert_ne!(new_lease, f.lease);
 	// The previous client's lease is stale; it cannot change routing any more.
-	let stale = f.route(TransmitRoute::RECEIVE_ONLY);
+	let stale = f.route(TransmitRoute::MUTED);
 	assert_eq!(
 		stale,
 		Err(Reject::StaleController {
@@ -330,6 +330,6 @@ fn controller_takeover_requires_intent_and_expires_old_authority() {
 		})
 	);
 	// Takeover does not carry the old client's consent over.
-	assert_eq!(f.view().route, TransmitRoute::RECEIVE_ONLY);
+	assert_eq!(f.view().route, TransmitRoute::MUTED);
 	assert!(!f.gate_open());
 }

@@ -102,7 +102,7 @@ impl State {
 			return;
 		};
 		entry.controller = controller;
-		let keeps_route = entry.route.mode == RouteMode::OpenMic && entry.route.background;
+		let keeps_route = entry.route.mode == RouteMode::Unmuted && entry.route.background;
 		if !keeps_route {
 			self.reset_route(call, fault);
 		}

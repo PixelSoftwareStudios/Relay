@@ -1,46 +1,51 @@
-//! Explicit transmit consent for a call.
+//! The per-call transmit mode, which is also the call's microphone consent.
+//!
+//! Choosing [`RouteMode::Unmuted`] or [`RouteMode::PushToTalk`] is the explicit consent to send
+//! the microphone to that call; [`RouteMode::Muted`] withdraws it. Mode and consent are one
+//! value, so they can never disagree, and a change takes a new route generation: audio
+//! captured before the change is never sent (RT-02).
 
 /// How the microphone may be routed to a call.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum RouteMode {
-	/// Receive only; the microphone is never sent. The default.
+	/// Muted: the microphone is never sent. No consent is held. The default.
 	#[default]
-	ReceiveOnly,
-	/// Continuous sending while the gate is open.
-	OpenMic,
+	Muted,
+	/// Unmuted (open mic): continuous sending while the gate is open.
+	Unmuted,
 	/// Sending only while a live push-to-talk lease exists.
 	PushToTalk,
 }
 
-/// Per-call transmit consent.
+/// Per-call transmit mode and consent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct TransmitRoute {
 	/// The consent mode.
 	pub mode: RouteMode,
 	/// Keep transmitting after the controlling client goes away.
-	/// Only meaningful for [`RouteMode::OpenMic`].
+	/// Only meaningful for [`RouteMode::Unmuted`].
 	pub background: bool,
 }
 
 impl TransmitRoute {
-	/// Receive-only: no transmit consent.
-	pub const RECEIVE_ONLY: Self = Self {
-		mode: RouteMode::ReceiveOnly,
+	/// Muted: no transmit consent.
+	pub const MUTED: Self = Self {
+		mode: RouteMode::Muted,
 		background: false,
 	};
 
 	/// Open microphone, tied to the controller.
-	pub const fn open_mic() -> Self {
+	pub const fn unmuted() -> Self {
 		Self {
-			mode: RouteMode::OpenMic,
+			mode: RouteMode::Unmuted,
 			background: false,
 		}
 	}
 
 	/// Open microphone that survives loss of the controller.
-	pub const fn open_mic_background() -> Self {
+	pub const fn unmuted_background() -> Self {
 		Self {
-			mode: RouteMode::OpenMic,
+			mode: RouteMode::Unmuted,
 			background: true,
 		}
 	}
@@ -55,12 +60,12 @@ impl TransmitRoute {
 
 	/// Whether the description is internally consistent.
 	pub const fn is_valid(self) -> bool {
-		!self.background || matches!(self.mode, RouteMode::OpenMic)
+		!self.background || matches!(self.mode, RouteMode::Unmuted)
 	}
 
 	/// Whether the route grants any transmit consent.
 	pub const fn is_authorized(self) -> bool {
-		!matches!(self.mode, RouteMode::ReceiveOnly)
+		!matches!(self.mode, RouteMode::Muted)
 	}
 }
 

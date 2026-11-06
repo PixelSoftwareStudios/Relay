@@ -200,6 +200,9 @@ impl State {
 			at: now.saturating_add(span),
 			phase,
 		});
+		if matches!(to, CallState::Connecting | CallState::Interrupted) {
+			call.route_chosen = false;
+		}
 		if to == CallState::Connecting {
 			call.path_validated = false;
 			call.media_prepared = false;
@@ -238,6 +241,7 @@ impl State {
 		});
 		if ready {
 			self.transition(id, CallState::Active, None, MonoTime::ZERO);
+			self.apply_default_route(id);
 		}
 	}
 

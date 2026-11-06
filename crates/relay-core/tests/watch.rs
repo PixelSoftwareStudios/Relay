@@ -22,7 +22,7 @@ fn watcher_following_events_always_equals_a_fresh_snapshot() {
 fn every_revision_is_delivered_exactly_once_in_order() {
 	let mut f = Fixture::new();
 	let start = f.node.state.snapshot().cursor();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	let Watch::Events(events) = f.node.state.watch(start) else {
 		panic!("expected events")
 	};
@@ -123,7 +123,7 @@ fn independent_clients_see_the_same_independent_calls() {
 #[test]
 fn restart_gives_a_new_incarnation_and_nothing_resurrects() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic_background());
+	f.consent(TransmitRoute::unmuted_background());
 	let old = f.node.state.snapshot().cursor();
 	let fresh = State::new(
 		common::peer(),

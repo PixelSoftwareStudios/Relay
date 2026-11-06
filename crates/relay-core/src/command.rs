@@ -73,7 +73,7 @@ pub enum Command {
 		lease: ControllerLeaseId,
 	},
 	/// Set explicit transmit consent for a call.
-	SetTransmitRoute {
+	SetTransmitMode {
 		/// The call.
 		call: CallId,
 		/// Controller lease proving authority.
@@ -231,6 +231,16 @@ pub enum SystemEvent {
 		/// It holds at least one open watch.
 		watching: bool,
 	},
+	/// The call defaults changed (a user setting, also sent once at start). Every call that
+	/// connects from now on starts in `mode` unless its mode was chosen explicitly; with
+	/// `ptt_enabled` off, push-to-talk cannot be chosen, a default of it becomes muted and
+	/// calls already in it are muted at once.
+	CallDefaults {
+		/// The configured default mode.
+		mode: crate::call::RouteMode,
+		/// Push-to-talk may be used.
+		ptt_enabled: bool,
+	},
 	/// Local media resources for a call are ready.
 	MediaPrepared {
 		/// The call.
@@ -272,6 +282,10 @@ impl Input {
 				event,
 				SystemEvent::Session(SessionEvent::Locked | SessionEvent::Suspended)
 					| SystemEvent::CaptureLost { .. }
+					| SystemEvent::CallDefaults {
+						ptt_enabled: false,
+						..
+					}
 			),
 			Self::Client(request) => match &request.command {
 				Command::Ptt(update) => !update.pressed,

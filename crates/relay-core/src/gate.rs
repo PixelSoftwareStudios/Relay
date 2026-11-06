@@ -98,7 +98,7 @@ pub fn evaluate(g: &GateInputs) -> GateDecision {
 		Some(CallNotActive)
 	} else if !g.link_up {
 		Some(LinkDown)
-	} else if g.route == RouteMode::ReceiveOnly {
+	} else if g.route == RouteMode::Muted {
 		Some(NotAuthorized)
 	} else if !g.authority_valid {
 		Some(NoAuthority)

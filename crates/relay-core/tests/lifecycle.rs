@@ -9,7 +9,7 @@ fn outgoing_call_reaches_active_without_transmitting() {
 	let f = Fixture::new();
 	let view = f.view();
 	assert_eq!(view.state, CallState::Active);
-	assert_eq!(view.route, TransmitRoute::RECEIVE_ONLY);
+	assert_eq!(view.route, TransmitRoute::MUTED);
 	assert_eq!(view.gate.deny, Some(DenyReason::CaptureInvalid));
 	assert!(!f.gate_open());
 }
@@ -269,13 +269,13 @@ fn explicit_parallel_calls_are_not_coalesced() {
 #[test]
 fn link_loss_interrupts_active_and_fails_others() {
 	let mut f = Fixture::new();
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	assert!(f.gate_open());
 	let out = f.node.feed(Input::Peer(PeerEvent::LinkDown(peer())));
 	assert_eq!(f.view().state, CallState::Interrupted);
 	assert_eq!(
 		f.view().route,
-		TransmitRoute::RECEIVE_ONLY,
+		TransmitRoute::MUTED,
 		"consent never revives"
 	);
 	assert!(!common::gate_in(&out.effects, f.call).unwrap().open);

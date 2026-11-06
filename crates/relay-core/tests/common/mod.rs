@@ -45,7 +45,7 @@ impl Fixture {
 
 	pub fn route(&mut self, route: TransmitRoute) -> OpResult {
 		let (call, lease) = (self.call, self.lease);
-		self.cmd(Command::SetTransmitRoute { call, lease, route })
+		self.cmd(Command::SetTransmitMode { call, lease, route })
 	}
 
 	/// Consent to a route and complete the capture open.

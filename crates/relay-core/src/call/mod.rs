@@ -100,6 +100,9 @@ pub struct Call {
 	pub controller: Option<ControllerLease>,
 	/// Transmit consent.
 	pub route: TransmitRoute,
+	/// The mode was chosen explicitly since the call last (re)connected, so the default
+	/// transmit mode is not applied over it.
+	pub route_chosen: bool,
 	/// Generation of the transmit consent.
 	pub route_generation: RouteGeneration,
 	/// User controls.
@@ -139,7 +142,8 @@ impl Call {
 			state,
 			reason: None,
 			controller: None,
-			route: TransmitRoute::RECEIVE_ONLY,
+			route: TransmitRoute::MUTED,
+			route_chosen: false,
 			route_generation: RouteGeneration::ZERO,
 			controls: CallControls::default(),
 			input_leases: BTreeMap::new(),
@@ -159,7 +163,7 @@ impl Call {
 			Some(next) => self.route_generation = next,
 			None => {
 				self.route_exhausted = true;
-				self.route = TransmitRoute::RECEIVE_ONLY;
+				self.route = TransmitRoute::MUTED;
 			}
 		}
 	}

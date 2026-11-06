@@ -211,10 +211,10 @@ fn every_fail_closed_cause_ends_a_hold_immediately() {
 			f.node.feed(Input::Client(Request {
 				client: f.client,
 				operation,
-				command: Command::SetTransmitRoute {
+				command: Command::SetTransmitMode {
 					call,
 					lease,
-					route: TransmitRoute::open_mic(),
+					route: TransmitRoute::unmuted(),
 				},
 			}))
 		}),
@@ -224,10 +224,10 @@ fn every_fail_closed_cause_ends_a_hold_immediately() {
 			f.node.feed(Input::Client(Request {
 				client: f.client,
 				operation,
-				command: Command::SetTransmitRoute {
+				command: Command::SetTransmitMode {
 					call,
 					lease,
-					route: TransmitRoute::RECEIVE_ONLY,
+					route: TransmitRoute::MUTED,
 				},
 			}))
 		}),

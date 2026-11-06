@@ -40,6 +40,9 @@ pub(crate) struct Globals {
 	pub deafened: bool,
 	pub output_gain: Gain,
 	pub ptt_release_delay: Duration,
+	/// Mode a call starts in when it connects (see `SystemEvent::CallDefaults`).
+	pub default_route: crate::call::RouteMode,
+	pub ptt_enabled: bool,
 	pub settings: SettingsRevision,
 }
 
@@ -125,6 +128,8 @@ impl State {
 				deafened: false,
 				output_gain: Gain::UNITY,
 				ptt_release_delay: limits.ptt_release_delay,
+				default_route: crate::call::RouteMode::Muted,
+				ptt_enabled: true,
 				settings: SettingsRevision::ZERO,
 			},
 			session: SessionFlags::default(),
@@ -271,7 +276,7 @@ impl State {
 			Command::ReleaseController { call, lease } => {
 				self.release_controller(client, call, lease)
 			}
-			Command::SetTransmitRoute { call, lease, route } => {
+			Command::SetTransmitMode { call, lease, route } => {
 				self.set_route(client, call, lease, route)
 			}
 			Command::SetCallControls {

@@ -22,7 +22,11 @@ impl State {
 			return Err(Reject::InvalidRoute);
 		}
 		let id = self.authorize(client, call, lease)?;
-		let entry = self.calls.get(&id).ok_or(Reject::UnknownCall(call))?;
+		if route.mode == RouteMode::PushToTalk && !self.globals.ptt_enabled {
+			return Err(Reject::PttDisabled);
+		}
+		let entry = self.calls.get_mut(&id).ok_or(Reject::UnknownCall(call))?;
+		entry.route_chosen = true;
 		if route == entry.route {
 			return Ok(Reply::Done);
 		}
@@ -43,6 +47,55 @@ impl State {
 		Ok(Reply::Done)
 	}
 
+	/// The default mode a connecting call gets: push-to-talk becomes muted while it is switched
+	/// off. Muted is the fallback because it can never open the microphone by surprise.
+	fn effective_default(&self) -> RouteMode {
+		match self.globals.default_route {
+			RouteMode::PushToTalk if !self.globals.ptt_enabled => RouteMode::Muted,
+			mode => mode,
+		}
+	}
+
+	/// Applies the default mode to a call that just became active, unless the user already
+	/// chose one. The route generation advances and the gate is published with the new route,
+	/// so audio captured before this point is never sent (RT-02).
+	pub(crate) fn apply_default_route(&mut self, id: CallId) {
+		let mode = self.effective_default();
+		let Some(entry) = self.calls.get(&id) else {
+			return;
+		};
+		if mode == RouteMode::Muted || entry.route_chosen || entry.route_exhausted {
+			return;
+		}
+		self.close_leases(id, InputFault::RouteChanged);
+		if let Some(entry) = self.calls.get_mut(&id) {
+			entry.route = TransmitRoute {
+				mode,
+				background: false,
+			};
+			entry.advance_route_generation();
+		}
+		self.mark_dirty(id);
+	}
+
+	/// Stores the call defaults; switching push-to-talk off mutes the calls that use it.
+	pub(super) fn set_call_defaults(&mut self, mode: RouteMode, ptt_enabled: bool) -> OpResult {
+		self.globals.default_route = mode;
+		self.globals.ptt_enabled = ptt_enabled;
+		if !ptt_enabled {
+			let ids: Vec<CallId> = self
+				.calls
+				.values()
+				.filter(|c| c.route.mode == RouteMode::PushToTalk)
+				.map(|c| c.id)
+				.collect();
+			for id in ids {
+				self.reset_route(id, InputFault::RouteChanged);
+			}
+		}
+		Ok(Reply::Done)
+	}
+
 	/// Withdraws transmit consent and closes leases; a new route generation
 	/// invalidates anything issued under the old one.
 	pub(crate) fn reset_route(&mut self, call: CallId, fault: InputFault) {
@@ -50,8 +103,8 @@ impl State {
 		let Some(entry) = self.calls.get_mut(&call) else {
 			return;
 		};
-		if entry.route != TransmitRoute::RECEIVE_ONLY {
-			entry.route = TransmitRoute::RECEIVE_ONLY;
+		if entry.route != TransmitRoute::MUTED {
+			entry.route = TransmitRoute::MUTED;
 			entry.advance_route_generation();
 			self.mark_dirty(call);
 		}

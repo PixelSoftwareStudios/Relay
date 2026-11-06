@@ -187,15 +187,15 @@ impl World {
 			Step::Route(c, k, m) => {
 				if let Some(call) = self.call(k) {
 					let route = match m {
-						0 => TransmitRoute::RECEIVE_ONLY,
-						1 => TransmitRoute::open_mic(),
-						2 => TransmitRoute::open_mic_background(),
+						0 => TransmitRoute::MUTED,
+						1 => TransmitRoute::unmuted(),
+						2 => TransmitRoute::unmuted_background(),
 						_ => TransmitRoute::push_to_talk(),
 					};
 					let lease = self.lease(call, false);
 					drop(self.node.command(
 						self.client(c),
-						Command::SetTransmitRoute { call, lease, route },
+						Command::SetTransmitMode { call, lease, route },
 					));
 				}
 			}
@@ -358,7 +358,7 @@ impl World {
 				assert!(active);
 			}
 			if view.state.is_terminal() || view.state == CallState::Ending {
-				assert_eq!(view.route, TransmitRoute::RECEIVE_ONLY);
+				assert_eq!(view.route, TransmitRoute::MUTED);
 				assert!(!view.gate.open);
 			}
 			if view.state.is_terminal() {
@@ -415,7 +415,7 @@ proptest! {
 		mode in 0u8..3, authority in any::<bool>(), call_muted in any::<bool>(),
 		call_deafened in any::<bool>(), ptt in any::<bool>(),
 	) {
-		let route = [RouteMode::ReceiveOnly, RouteMode::OpenMic, RouteMode::PushToTalk][usize::from(mode)];
+		let route = [RouteMode::Muted, RouteMode::Unmuted, RouteMode::PushToTalk][usize::from(mode)];
 		let inputs = GateInputs {
 			global_muted: muted, global_deafened: deafened, session_allowed: session,
 			capture_ready: capture, call_active: active, link_up: link, route,
@@ -423,7 +423,7 @@ proptest! {
 		};
 		let open = evaluate(&inputs).is_open();
 		let any_deny = muted || deafened || !session || !capture || !active || !link
-			|| route == RouteMode::ReceiveOnly || !authority || call_muted || call_deafened
+			|| route == RouteMode::Muted || !authority || call_muted || call_deafened
 			|| (route == RouteMode::PushToTalk && !ptt);
 		prop_assert_eq!(open, !any_deny);
 	}

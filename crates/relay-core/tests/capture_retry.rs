@@ -8,7 +8,7 @@ use relay_core::*;
 
 fn failed_open() -> Fixture {
 	let mut f = Fixture::new();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	let generation = f.node.device.opened[0];
 	f.node.feed(f.node.device.failed(generation));
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Lost);
@@ -33,9 +33,9 @@ fn a_grant_during_the_call_reopens_capture() {
 #[test]
 fn the_next_call_tries_again_after_a_failed_open() {
 	let mut f = failed_open();
-	f.route(TransmitRoute::RECEIVE_ONLY).unwrap();
+	f.route(TransmitRoute::MUTED).unwrap();
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	assert_eq!(f.node.device.opened.len(), 2);
 	f.node.complete_capture();
 	assert!(f.gate_open());
@@ -44,12 +44,12 @@ fn the_next_call_tries_again_after_a_failed_open() {
 #[test]
 fn a_lost_device_still_waits_for_an_explicit_resume() {
 	let mut f = Fixture::new();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	let generation = f.node.device.opened[0];
 	f.node.complete_capture();
 	f.node.feed(f.node.device.unplugged(generation));
-	f.route(TransmitRoute::RECEIVE_ONLY).unwrap();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::MUTED).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Lost);
 	assert_eq!(f.node.device.opened.len(), 1);
 }

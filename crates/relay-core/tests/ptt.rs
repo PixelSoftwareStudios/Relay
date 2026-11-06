@@ -25,7 +25,7 @@ fn ptt_gate_is_closed_until_pressed_and_closes_on_release() {
 fn press_requires_ptt_consent_and_active_call() {
 	let mut f = Fixture::new();
 	assert_eq!(f.ptt(1, 1, true), Err(Reject::RouteNotAuthorized));
-	f.consent(TransmitRoute::open_mic());
+	f.consent(TransmitRoute::unmuted());
 	assert_eq!(f.ptt(1, 2, true), Err(Reject::RouteNotAuthorized));
 }
 
@@ -142,7 +142,7 @@ fn held_ptt_does_not_survive_takeover_and_old_press_never_revives() {
 fn held_ptt_does_not_survive_route_generation_change() {
 	let mut f = ptt_fixture();
 	f.ptt(1, 1, true).unwrap();
-	f.route(TransmitRoute::open_mic()).unwrap();
+	f.route(TransmitRoute::unmuted()).unwrap();
 	f.route(TransmitRoute::push_to_talk()).unwrap();
 	assert!(!f.gate_open(), "new route generation needs a fresh press");
 	f.ptt(1, 2, true).unwrap();
@@ -205,6 +205,6 @@ fn ending_the_call_drops_leases_and_route() {
 	let (call, lease) = (f.call, f.lease);
 	f.cmd(Command::EndCall { call, lease }).unwrap();
 	assert!(f.node.state.call(call).unwrap().input_leases.is_empty());
-	assert_eq!(f.view().route, TransmitRoute::RECEIVE_ONLY);
+	assert_eq!(f.view().route, TransmitRoute::MUTED);
 	assert_eq!(f.node.state.snapshot().global.capture, CaptureState::Closed);
 }
