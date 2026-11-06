@@ -30,6 +30,7 @@ fn current(busy: bool) -> Probe {
 	Probe {
 		revision: Revision::local(),
 		busy,
+		starting: false,
 	}
 }
 
@@ -40,6 +41,7 @@ fn stale(busy: bool) -> Probe {
 			api: 1,
 		},
 		busy,
+		starting: false,
 	}
 }
 

@@ -9,6 +9,12 @@
 //! daemon when none answers, under a per-endpoint file lock so that several
 //! clients launching at once start exactly one. A process that asked the
 //! daemon to stop ([`stop`]) is never allowed to restart it implicitly.
+//!
+//! The daemon serves its endpoint before it opens the system's secure storage, which can
+//! wait minutes for the user (a keychain password prompt). A daemon whose endpoint answers is
+//! running, whatever it reports: the launcher never kills or restarts it, waits while it is
+//! `Starting` (up to [`StartOptions::startup_timeout`], reporting progress) and gives up only
+//! when it reports `Failed` or disappears.
 
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -16,6 +22,7 @@ use std::process::Child;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
+use relay_api::pb::{Startup, StartupReason, StartupState};
 use relay_api::{ApiError, Endpoint, RelayClient};
 use relay_io::IoError;
 use relay_io::lock::ProcessLock;
@@ -247,23 +254,20 @@ async fn start_unguarded(launch: &Launch) -> Started {
 		Err(error) => return failed(format!("cannot run {}: {error}", binary.display()), from),
 	};
 	let pid = child.id();
-	match wait_ready(&mut child, &launch.endpoint, launch.timeout).await {
+	match wait_serving(&mut child, &launch.endpoint, launch.timeout).await {
 		Ready::Yes => {
 			// Reap it when it eventually exits so a long-lived client leaves no zombie.
 			reap_in_background(child);
 			Started::Launched { pid, binary, log }
 		}
-		Ready::Exited(status) if reachable(&launch.endpoint).await => {
-			let _ = status;
-			Started::AlreadyRunning
-		}
+		Ready::Exited(_) if reachable(&launch.endpoint).await => Started::AlreadyRunning,
 		Ready::Exited(status) => failed(format!("the daemon exited early ({status})"), from),
 		Ready::TimedOut => {
-			let _ = child.kill();
-			let _ = child.wait();
+			// Never killed: it may be slow rather than stuck, and a second attempt finds it.
+			reap_in_background(child);
 			failed(
 				format!(
-					"the daemon did not become ready within {:?}",
+					"the daemon did not answer within {:?}; it was left running",
 					launch.timeout
 				),
 				from,
@@ -278,7 +282,9 @@ enum Ready {
 	TimedOut,
 }
 
-async fn wait_ready(child: &mut Child, endpoint: &Endpoint, limit: Duration) -> Ready {
+/// Waits until the endpoint accepts connections. Whether the daemon has finished opening its
+/// secure storage is [`wait_ready`]'s question, not this one's.
+async fn wait_serving(child: &mut Child, endpoint: &Endpoint, limit: Duration) -> Ready {
 	let deadline = Instant::now() + limit;
 	loop {
 		if let Ok(Some(status)) = child.try_wait() {
@@ -291,6 +297,83 @@ async fn wait_ready(child: &mut Child, endpoint: &Endpoint, limit: Duration) -> 
 			return Ready::TimedOut;
 		}
 		sleep(POLL).await;
+	}
+}
+
+/// Why a running daemon did not become ready.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NotReady {
+	/// It reported a failure and waits for the user (see [`describe_failure`]).
+	Failed {
+		/// A plain sentence for the user.
+		reason: String,
+		/// The system's own text.
+		detail: String,
+	},
+	/// It was still starting when the time was up; it was left running.
+	TimedOut,
+	/// It stopped answering.
+	Gone,
+}
+
+/// How often readiness is asked.
+const READY_POLL: Duration = Duration::from_millis(250);
+
+/// A plain sentence for what a `Failed` start-up means.
+pub fn describe_failure(startup: &Startup) -> String {
+	match startup.reason() {
+		StartupReason::IdentityUnreadable => {
+			"The stored identity cannot be read. Relay left it untouched.".to_owned()
+		}
+		_ => "Relay needs access to your keychain to keep your identity safe. Allow it, or choose \
+			the file store in settings"
+			.to_owned(),
+	}
+}
+
+/// Asks the daemon at `endpoint` how far it is. `None` when nothing answers.
+pub async fn startup_of(endpoint: &Endpoint) -> Option<Startup> {
+	let client = RelayClient::connect(endpoint).await.ok()?;
+	Some(client.startup())
+}
+
+/// Waits until the daemon at `endpoint` is ready for clients. While it is `Starting`
+/// (waiting for the keychain prompt, say) it keeps waiting up to `limit` and calls `progress`
+/// whenever what it waits for changes. Never touches the daemon process.
+pub async fn wait_ready(
+	endpoint: &Endpoint,
+	limit: Duration,
+	progress: &mut (dyn FnMut(&Startup) + Send),
+) -> Result<(), NotReady> {
+	let deadline = Instant::now() + limit;
+	let mut last: Option<Startup> = None;
+	loop {
+		let Some(startup) = startup_of(endpoint).await else {
+			if !reachable(endpoint).await {
+				return Err(NotReady::Gone);
+			}
+			sleep(READY_POLL).await;
+			continue;
+		};
+		match startup.state() {
+			StartupState::Ready => return Ok(()),
+			StartupState::Failed => {
+				return Err(NotReady::Failed {
+					reason: describe_failure(&startup),
+					detail: startup.detail,
+				});
+			}
+			StartupState::Starting => {
+				if last.as_ref() != Some(&startup) {
+					progress(&startup);
+					last = Some(startup);
+				}
+			}
+		}
+		if Instant::now() >= deadline {
+			return Err(NotReady::TimedOut);
+		}
+		sleep(READY_POLL).await;
 	}
 }
 
@@ -354,6 +437,8 @@ pub struct StartOptions {
 	pub idle_exit: Option<Duration>,
 	/// How long to wait for a launched daemon to accept connections.
 	pub ready_timeout: Duration,
+	/// How long to wait for a daemon that answers but is still opening its secure storage.
+	pub startup_timeout: Duration,
 	/// How long to wait for another client that is already starting it.
 	pub lock_timeout: Duration,
 }
@@ -366,6 +451,7 @@ impl Default for StartOptions {
 			extra_args: Vec::new(),
 			idle_exit: None,
 			ready_timeout: Duration::from_secs(10),
+			startup_timeout: Duration::from_secs(300),
 			lock_timeout: Duration::from_secs(15),
 		}
 	}
@@ -443,6 +529,8 @@ pub enum EnsureError {
 		/// The last lines the daemon wrote to its log.
 		log_tail: String,
 	},
+	/// The daemon runs but could not open its secure storage and waits for the user.
+	NotReady(NotReady),
 }
 
 impl std::fmt::Display for EnsureError {
@@ -470,6 +558,21 @@ impl std::fmt::Display for EnsureError {
 					binary_name(),
 					places.join(", ")
 				)
+			}
+			Self::NotReady(NotReady::Failed { reason, detail }) => {
+				write!(f, "{reason}")?;
+				if !detail.is_empty() {
+					write!(f, " ({detail})")?;
+				}
+				write!(f, "\nTry again with `relay daemon retry`.")
+			}
+			Self::NotReady(NotReady::TimedOut) => write!(
+				f,
+				"the background service is still waiting for permission to use secure storage; \
+				 answer the system prompt, then try again"
+			),
+			Self::NotReady(NotReady::Gone) => {
+				write!(f, "the background service stopped while it was starting")
 			}
 			Self::FailedToStart { reason, log_tail } => {
 				write!(f, "the daemon did not start: {reason}")?;
@@ -501,19 +604,39 @@ pub fn lock_path(endpoint: &Endpoint) -> PathBuf {
 	base.with_file_name(format!("{name}.start.lock"))
 }
 
-/// Makes sure a daemon answers at `endpoint`, starting one if needed.
+/// Makes sure a daemon answers at `endpoint` and is ready, starting one if needed.
 ///
 /// Several clients may call this at once; they take a file lock, so exactly
-/// one launches the daemon and the others wait for it to become ready.
-/// Starting never grants anything: the daemon comes up receive-only with no
-/// microphone open.
+/// one launches the daemon and the others attach to it. Starting never grants
+/// anything: the daemon comes up receive-only with no microphone open. A daemon that
+/// answers but waits for the user's keychain prompt is waited for, never restarted.
 pub async fn ensure_running(
 	endpoint: &Endpoint,
 	options: &StartOptions,
 ) -> Result<Ensure, EnsureError> {
+	ensure_running_with(endpoint, options, &mut |_| {}).await
+}
+
+/// [`ensure_running`] reporting what a starting daemon waits for through `progress`.
+pub async fn ensure_running_with(
+	endpoint: &Endpoint,
+	options: &StartOptions,
+	progress: &mut (dyn FnMut(&Startup) + Send),
+) -> Result<Ensure, EnsureError> {
 	if STOPPED_BY_US.load(Ordering::Acquire) {
 		return Err(EnsureError::StoppedByRequest);
 	}
+	let found = serve(endpoint, options).await?;
+	wait_ready(endpoint, options.startup_timeout, progress)
+		.await
+		.map_err(EnsureError::NotReady)?;
+	Ok(found)
+}
+
+/// Gets an endpoint that answers: attaches to the daemon already there or launches one under
+/// the start lock. The lock is released as soon as the endpoint answers, so a daemon that waits
+/// for a prompt never holds other clients up.
+async fn serve(endpoint: &Endpoint, options: &StartOptions) -> Result<Ensure, EnsureError> {
 	if reachable(endpoint).await {
 		return Ok(Ensure::AlreadyRunning);
 	}
@@ -523,7 +646,7 @@ pub async fn ensure_running(
 		match ProcessLock::acquire_beside(&lock_file) {
 			Ok(lock) => break lock,
 			Err(IoError::Locked(_)) => {
-				// Whoever holds it is starting the daemon: its readiness is ours too.
+				// Whoever holds it is starting the daemon: its endpoint is ours too.
 				if reachable(endpoint).await {
 					return Ok(Ensure::AlreadyRunning);
 				}

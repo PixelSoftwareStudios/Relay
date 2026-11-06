@@ -63,6 +63,9 @@ pub enum LaunchRefresh {
 	Restarted,
 	/// A call is in progress: the daemon was left alone (a stale one shows the banner).
 	KeptBusy,
+	/// The daemon is still opening its secure storage or waits for the user to choose: it was
+	/// left alone and the app shows what it waits for.
+	KeptStarting,
 	/// The old daemon would not stop or the new one did not start; the text says why.
 	Failed(String),
 }
@@ -72,6 +75,7 @@ pub fn launch_result(result: Result<Outcome, RefreshError>) -> LaunchRefresh {
 	match result {
 		Ok(Outcome::Restarted { .. }) => LaunchRefresh::Restarted,
 		Ok(Outcome::KeptBusy { .. }) => LaunchRefresh::KeptBusy,
+		Ok(Outcome::Starting) => LaunchRefresh::KeptStarting,
 		Ok(Outcome::NotRunning | Outcome::Current | Outcome::Contended) => LaunchRefresh::Nothing,
 		Err(RefreshError::Probe(why)) => {
 			tracing::debug!(%why, "the running daemon was not inspected at launch");

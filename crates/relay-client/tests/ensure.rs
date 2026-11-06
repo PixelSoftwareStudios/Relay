@@ -46,6 +46,7 @@ impl Home {
 			],
 			idle_exit: None,
 			ready_timeout: Duration::from_secs(5),
+			startup_timeout: Duration::from_secs(20),
 			lock_timeout: Duration::from_secs(10),
 		}
 	}

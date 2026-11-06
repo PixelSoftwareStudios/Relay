@@ -37,6 +37,9 @@ pub struct Probe {
 	pub revision: Revision,
 	/// A call is in progress.
 	pub busy: bool,
+	/// It is still opening its secure storage (the user may be at a prompt) or failed to and
+	/// waits for the user. Such a daemon is never stopped.
+	pub starting: bool,
 }
 
 /// What [`refresh`] did.
@@ -60,6 +63,8 @@ pub enum Outcome {
 	},
 	/// Another client held the start lock for the whole wait; nothing was done.
 	Contended,
+	/// The daemon is starting or waits for the user (keychain); it was left alone.
+	Starting,
 }
 
 /// Why a replacement failed.
@@ -92,6 +97,9 @@ pub async fn refresh<D: Daemon>(daemon: &mut D, policy: Policy) -> Result<Outcom
 	let Some(probe) = daemon.probe().await.map_err(RefreshError::Probe)? else {
 		return Ok(Outcome::NotRunning);
 	};
+	if probe.starting {
+		return Ok(Outcome::Starting);
+	}
 	let stale = !probe.revision.is_current();
 	if !(stale || policy == Policy::AnyIdle) {
 		return Ok(Outcome::Current);
@@ -141,6 +149,13 @@ impl Daemon for Live<'_> {
 			.await
 			.map_err(|e| e.to_string())?;
 		let revision = client.daemon_revision();
+		if client.startup().state() != relay_api::pb::StartupState::Ready {
+			return Ok(Some(Probe {
+				revision,
+				busy: false,
+				starting: true,
+			}));
+		}
 		client
 			.register(self.name, env!("CARGO_PKG_VERSION"), &["observe"])
 			.await
@@ -149,6 +164,7 @@ impl Daemon for Live<'_> {
 		Ok(Some(Probe {
 			revision,
 			busy: any_call_in_progress(&snapshot.calls),
+			starting: false,
 		}))
 	}
 

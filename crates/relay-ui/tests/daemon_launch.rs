@@ -34,6 +34,7 @@ fn running(busy: bool) -> Fake {
 		probe: Some(Probe {
 			revision: Revision::local(),
 			busy,
+			starting: false,
 		}),
 		..Fake::default()
 	}
