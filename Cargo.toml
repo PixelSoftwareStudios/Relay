@@ -219,6 +219,77 @@ undocumented_unsafe_blocks = "deny"
 [profile.dev]
 debug = "line-tables-only"
 
+# Dependencies that do the heavy lifting run optimised even in dev and test builds:
+# password hashing, ciphers, the Opus codec, resampling, image codecs, SQLite and egui
+# text layout are 10 to 50 times slower unoptimised and dominated the test runs.
+# The workspace crates stay unoptimised, so edits keep rebuilding quickly.
+[profile.dev.package.argon2]
+opt-level = 3
+[profile.dev.package.blake2]
+opt-level = 3
+[profile.dev.package.blake3]
+opt-level = 3
+[profile.dev.package.chacha20]
+opt-level = 3
+[profile.dev.package.chacha20poly1305]
+opt-level = 3
+[profile.dev.package.poly1305]
+opt-level = 3
+[profile.dev.package.curve25519-dalek]
+opt-level = 3
+[profile.dev.package.ed25519-dalek]
+opt-level = 3
+[profile.dev.package.sha2]
+opt-level = 3
+[profile.dev.package.snow]
+opt-level = 3
+[profile.dev.package.spake2]
+opt-level = 3
+[profile.dev.package.ring]
+opt-level = 3
+[profile.dev.package.opusic-sys]
+opt-level = 3
+[profile.dev.package.opus]
+opt-level = 3
+[profile.dev.package.rubato]
+opt-level = 3
+[profile.dev.package.realfft]
+opt-level = 3
+[profile.dev.package.rustfft]
+opt-level = 3
+[profile.dev.package.image]
+opt-level = 3
+[profile.dev.package.image-webp]
+opt-level = 3
+[profile.dev.package.png]
+opt-level = 3
+[profile.dev.package.fdeflate]
+opt-level = 3
+[profile.dev.package.flate2]
+opt-level = 3
+[profile.dev.package.miniz_oxide]
+opt-level = 3
+[profile.dev.package.zune-jpeg]
+opt-level = 3
+[profile.dev.package.libsqlite3-sys]
+opt-level = 3
+[profile.dev.package.egui]
+opt-level = 3
+[profile.dev.package.epaint]
+opt-level = 3
+[profile.dev.package.ecolor]
+opt-level = 3
+[profile.dev.package.emath]
+opt-level = 3
+[profile.dev.package.skrifa]
+opt-level = 3
+[profile.dev.package.read-fonts]
+opt-level = 3
+[profile.dev.package.harfrust]
+opt-level = 3
+[profile.dev.package.prost]
+opt-level = 3
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
