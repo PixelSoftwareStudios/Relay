@@ -198,3 +198,31 @@ pub(super) fn insert(
 	)?;
 	tx.commit()
 }
+
+/// Evicts least recently used entries (never `pinned`) until the total fits `max_bytes` or
+/// only the pinned entry is left.
+pub(super) fn shrink(
+	conn: &mut Connection,
+	pinned: Option<&[u8; 32]>,
+	max_bytes: u64,
+) -> rusqlite::Result<()> {
+	let tx = conn.transaction()?;
+	let pinned = pinned.map(|h| h.as_slice());
+	let mut size = total(&tx)?;
+	while size > max_bytes {
+		let victim: Option<(Vec<u8>, i64)> = tx
+			.query_row(
+				"SELECT hash, size FROM avatars WHERE hash IS NOT ?1
+				 ORDER BY last_used ASC LIMIT 1",
+				[pinned],
+				|r| Ok((r.get(0)?, r.get(1)?)),
+			)
+			.optional()?;
+		let Some((victim, victim_size)) = victim else {
+			break;
+		};
+		tx.execute("DELETE FROM avatars WHERE hash = ?1", [victim])?;
+		size = size.saturating_sub(victim_size.max(0) as u64);
+	}
+	tx.commit()
+}

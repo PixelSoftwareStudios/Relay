@@ -2,6 +2,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::limits::Limits;
 use crate::error::{ConfigError, Result};
 
 /// Highest schema version this build writes and understands.
@@ -331,6 +332,7 @@ pub struct Preferences {
 	pub clients: Clients,
 	pub messages: Messages,
 	pub history: History,
+	pub limits: Limits,
 }
 
 impl Default for Preferences {
@@ -348,6 +350,7 @@ impl Default for Preferences {
 			clients: Clients::default(),
 			messages: Messages::default(),
 			history: History::default(),
+			limits: Limits::default(),
 		}
 	}
 }
@@ -392,6 +395,9 @@ impl Preferences {
 		}
 		if self.messages.transfer_rate_limit_mbps > MAX_TRANSFER_RATE_MBPS {
 			return bad("messages.transfer_rate_limit_mbps must be within 0..=1024");
+		}
+		if let Some(reason) = self.limits.check() {
+			return bad(&reason);
 		}
 		Ok(())
 	}

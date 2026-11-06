@@ -2,12 +2,14 @@
 
 mod devices;
 pub mod flat;
+pub mod limits;
 mod model;
 mod portable;
 pub(crate) mod sql;
 mod store;
 
 pub use devices::DeviceChoice;
+pub use limits::{LimitSpec, Limits};
 pub use model::{
 	AdvertMode, Audio, CURRENT_VERSION, DeviceSelection, Diagnostics, Discovery, History, Hotkeys,
 	Identity, InboundPolicy, KeyStorage, MAX_OFFER_SIZE_MIB, MAX_RELEASE_DELAY_MS,

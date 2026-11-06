@@ -1,5 +1,8 @@
 //! The `call_history` table.
 
+use std::sync::{Arc, Mutex};
+
+use relay_io::LockExt;
 use rusqlite::{Connection, params};
 
 use crate::db::Database;
@@ -119,7 +122,7 @@ fn clamp(value: u64) -> i64 {
 #[derive(Debug, Clone)]
 pub struct CallHistory {
 	db: Database,
-	limits: Limits,
+	limits: Arc<Mutex<Limits>>,
 }
 
 impl CallHistory {
@@ -130,8 +133,20 @@ impl CallHistory {
 	pub fn with_limits(db: &Database, limits: Limits) -> Self {
 		Self {
 			db: db.clone(),
-			limits,
+			limits: Arc::new(Mutex::new(limits)),
 		}
+	}
+
+	/// The retention limits in force.
+	pub fn limits(&self) -> Limits {
+		*self.limits.lock_unpoisoned()
+	}
+
+	/// Changes the retention limits for this history and every clone of it, and prunes
+	/// against them now, so a smaller limit deletes the surplus entries at once.
+	pub fn set_limits(&self, limits: Limits, now_ms: u64) -> Result<()> {
+		*self.limits.lock_unpoisoned() = limits;
+		self.db.with(|conn| prune(conn, limits, now_ms))
 	}
 
 	/// Appends an entry, then prunes: entries older than 90 days (against `now_ms`) and
@@ -164,7 +179,7 @@ impl CallHistory {
 				],
 			)?;
 			let id = tx.last_insert_rowid();
-			prune(&tx, self.limits, now_ms)?;
+			prune(&tx, self.limits(), now_ms)?;
 			tx.commit()?;
 			Ok(id.max(0) as u64)
 		})

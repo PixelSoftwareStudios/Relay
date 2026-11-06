@@ -8,6 +8,7 @@
 
 use relay_io::LockExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use rusqlite::{OptionalExtension, params};
@@ -27,7 +28,7 @@ const FILE_NAME: &str = "avatars.db";
 pub struct AvatarCache {
 	settings: Database,
 	store: Arc<Mutex<Store>>,
-	max_bytes: u64,
+	max_bytes: Arc<AtomicU64>,
 }
 
 impl AvatarCache {
@@ -46,7 +47,7 @@ impl AvatarCache {
 		Self {
 			settings: db.clone(),
 			store: Arc::new(Mutex::new(Store::new(file))),
-			max_bytes,
+			max_bytes: Arc::new(AtomicU64::new(max_bytes)),
 		}
 	}
 
@@ -90,17 +91,33 @@ impl AvatarCache {
 	}
 
 	fn write(&self, hash: &[u8; 32], bytes: &[u8]) -> Result<()> {
-		if bytes.len() as u64 > self.max_bytes {
+		let max_bytes = self.limit();
+		if bytes.len() as u64 > max_bytes {
 			return Ok(());
 		}
 		let pinned = self.pinned()?;
 		self.store()
-			.run(|conn| store::insert(conn, hash, bytes, pinned.as_ref(), self.max_bytes))
+			.run(|conn| store::insert(conn, hash, bytes, pinned.as_ref(), max_bytes))
 	}
 
 	/// Returns cached bytes if present and still matching their hash.
 	pub fn get(&self, hash: &[u8; 32]) -> Result<Option<Vec<u8>>> {
 		self.store().run(|conn| store::fetch(conn, hash))
+	}
+
+	/// The current size bound in bytes.
+	pub fn limit(&self) -> u64 {
+		self.max_bytes.load(Ordering::Relaxed)
+	}
+
+	/// Changes the size bound for this cache and every clone of it. A smaller bound evicts
+	/// least recently used entries at once (never the local user's own avatar); a larger one
+	/// just allows more.
+	pub fn set_limit(&self, max_bytes: u64) -> Result<()> {
+		self.max_bytes.store(max_bytes, Ordering::Relaxed);
+		let pinned = self.pinned()?;
+		self.store()
+			.run(|conn| store::shrink(conn, pinned.as_ref(), max_bytes))
 	}
 
 	/// Total bytes of cached avatars.

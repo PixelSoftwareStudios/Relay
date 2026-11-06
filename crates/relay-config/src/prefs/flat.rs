@@ -145,3 +145,33 @@ pub fn set(prefs: &Preferences, key: &str, raw: &str) -> Result<Preferences> {
 	flat.insert(key.to_owned(), encoded);
 	unflatten(flat)
 }
+
+/// Applies several settings in one go and reports each: `None` when it took effect, or the
+/// reason it was refused. A key refused only because of another key in the same request (a
+/// limit that must not exceed a sibling) gets a second try once the others are in, so the
+/// order of the request does not matter.
+pub fn set_many(
+	prefs: &Preferences,
+	entries: &[(String, String)],
+) -> (Preferences, Vec<Option<String>>) {
+	let mut next = prefs.clone();
+	let mut answers: Vec<Option<String>> = vec![None; entries.len()];
+	let mut failed = Vec::new();
+	for (index, (key, text)) in entries.iter().enumerate() {
+		match set(&next, key, text) {
+			Ok(updated) => next = updated,
+			Err(error) => {
+				answers[index] = Some(error.to_string());
+				failed.push(index);
+			}
+		}
+	}
+	for index in failed {
+		let (key, text) = &entries[index];
+		if let Ok(updated) = set(&next, key, text) {
+			next = updated;
+			answers[index] = None;
+		}
+	}
+	(next, answers)
+}
