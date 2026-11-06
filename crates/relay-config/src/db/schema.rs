@@ -88,7 +88,7 @@ CREATE TABLE IF NOT EXISTS favorites (
 	position INTEGER NOT NULL UNIQUE CHECK (position >= 0)
 ) WITHOUT ROWID;
 
--- Devices the user blocked, by the SHA-256 digest of their key (the peer id). The name is
+-- Devices the user blocked, by the digest of their key (the peer id). The name is
 -- what the device called itself when it was blocked, for the list in Settings. The count
 -- limit lives in crate::blocklist.
 CREATE TABLE IF NOT EXISTS blocked (

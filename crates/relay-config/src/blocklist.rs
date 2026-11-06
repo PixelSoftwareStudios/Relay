@@ -20,7 +20,7 @@ const NAME_MAX: usize = 128;
 /// One blocked device.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BlockedDevice {
-	/// SHA-256 digest of the device's key.
+	/// Digest of the device's key (its peer id).
 	pub fingerprint: [u8; 32],
 	/// The name it had when it was blocked.
 	pub display_name: String,
