@@ -19,6 +19,12 @@ test names and missing evidence are in `docs/gates.md`.
 | 10 | Desktop client | implemented, gates open (resource gate unmet, never observed by a person) |
 | 11 | Qualification and release | in progress: policy, CI, fuzz targets and release plan written; no gate closed |
 | 12 | Speaker-mode AEC | not started (deferred past v1) |
+| 13 | Named channels (password and invite) | implemented, gates open (independent review of the PAKE composition; F-12 mitigated, residual risk documented) |
+| 14 | Session messaging and file offers | implemented in engine, CLI and desktop, gates open (real two-machine transfer) |
+| 15 | Daemon split (`relayd`), presence, call ownership, ringtone, PTT release delay | implemented, gates met by tests; autostart verified on macOS only |
+| 16 | Overlay (Tailscale) peers | implemented behind an opt-in; unit-tested, no real overlay call yet |
+| 17 | Desktop localization (en plus eight languages, Noto Sans) | implemented; translations machine-written and unreviewed, Hindi flagged experimental, not seen on screen |
+| 18 | Android | feasibility spike only (workspace-excluded); app shell not started, estimate 9 to 15 weeks to beta |
 
 Hardware, multi-device and external-review gates cannot be closed from a single development machine;
 they are tracked as open in `docs/gates.md`, and measurements are recorded in `docs/evidence.md`.
