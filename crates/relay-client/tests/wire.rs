@@ -45,7 +45,7 @@ async fn call_bound_commands_carry_the_given_generation() {
 }
 
 #[tokio::test]
-async fn consent_travels_in_the_same_request_as_the_route() {
+async fn the_mode_is_the_consent_and_travels_in_one_request() {
 	let h = Harness::start().await;
 	let mut c = client(&h).await;
 	send(
@@ -53,8 +53,7 @@ async fn consent_travels_in_the_same_request_as_the_route() {
 		Command::SetTransmit {
 			call_id: vec![1; 16],
 			generation: 2,
-			mode: TransmitMode::OpenMic,
-			consent: true,
+			mode: TransmitMode::Unmuted,
 		},
 	)
 	.await
@@ -62,8 +61,8 @@ async fn consent_travels_in_the_same_request_as_the_route() {
 	assert_eq!(
 		h.log(),
 		[format!(
-			"route mode={} consent=true gen=2",
-			TransmitMode::OpenMic as i32
+			"route mode={} gen=2",
+			TransmitMode::Unmuted as i32
 		)]
 	);
 }
@@ -115,9 +114,9 @@ async fn every_other_command_reaches_its_rpc() {
 		Command::ForgetPeer {
 			peer_id: Vec::new(),
 			query: "kitchen".into(),
+		},
 		Command::SetFavorites {
 			peer_ids: vec![vec![0xab; 32], vec![0xcd; 32]],
-		},
 		},
 		Command::SetSettings {
 			values: vec![("hotkeys.push_to_talk".into(), "F9".into())],
@@ -132,6 +131,9 @@ async fn every_other_command_reaches_its_rpc() {
 			public_key_sha256: vec![2; 32],
 			requested: TrustState::Verified,
 			out_of_band_verified: true,
+		},
+		Command::ConnectAndTrust {
+			connection_string: "relay://10.0.0.3:47800#abcd".into(),
 		},
 	];
 	for command in commands {
@@ -154,11 +156,12 @@ async fn every_other_command_reaches_its_rpc() {
 			"clear_avatar".into(),
 			"clear_call_history".into(),
 			"forget_peer id=0 query=kitchen".into(),
+			format!("favorites {},{}", "ab".repeat(32), "cd".repeat(32)),
 			"set_settings hotkeys.push_to_talk=F9".into(),
 			"mic_test_start".into(),
-			format!("favorites {},{}", "ab".repeat(32), "cd".repeat(32)),
 			"mic_test_stop".into(),
 			format!("trust {} oob=true", TrustState::Verified as i32),
+			"connect_and_trust relay://10.0.0.3:47800#abcd".into(),
 		]
 	);
 }

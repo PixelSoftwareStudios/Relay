@@ -91,7 +91,8 @@ pub enum Command {
 		/// Controller lease generation.
 		generation: u64,
 	},
-	/// Set the transmit route. Microphone use needs `consent` in this request.
+	/// Set the call's transmit mode. `Unmuted` and `PushToTalk` are the consent to send the
+	/// microphone; `Muted` withdraws it. One atomic request.
 	SetTransmit {
 		/// Call id.
 		call_id: Vec<u8>,
@@ -99,8 +100,12 @@ pub enum Command {
 		generation: u64,
 		/// Requested mode.
 		mode: TransmitMode,
-		/// Explicit microphone consent given for this request.
-		consent: bool,
+	},
+	/// Dial a scanned `relay://host:port#fingerprint` string and trust the device as verified
+	/// (out of band) when its key matches the scanned fingerprint.
+	ConnectAndTrust {
+		/// The scanned connection string.
+		connection_string: String,
 	},
 	/// Mute, deafen or set the receive gain of one call; `None` is unchanged.
 	SetCallControls {
@@ -175,17 +180,17 @@ pub enum Command {
 		/// Hex fingerprint prefix (at least 8 digits) or exact display name.
 		query: String,
 	},
-	/// Change preferences by flat key while the daemon runs. Only the operation comes back;
-	/// use `RelayClient::set_settings` for the per-key outcome.
-	SetSettings {
-		/// `section.key` and text value, parsed like `relay config set`.
-		values: Vec<(String, String)>,
 	/// Replace the favorites (the quick-call grid) by this ordered list of trusted peers,
 	/// each a 32-byte peer id. More than 6, a repeat or an untrusted peer fails the operation.
 	SetFavorites {
 		/// Peer ids, first = position 0.
 		peer_ids: Vec<Vec<u8>>,
 	},
+	/// Change preferences by flat key while the daemon runs. Only the operation comes back;
+	/// use `RelayClient::set_settings` for the per-key outcome.
+	SetSettings {
+		/// `section.key` and text value, parsed like `relay config set`.
+		values: Vec<(String, String)>,
 	},
 	/// Delete every call history entry on this device.
 	ClearCallHistory,

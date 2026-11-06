@@ -3,11 +3,11 @@
 //! the telemetry stream.
 
 use relay_api::pb::{
-	AcquireControllerRequest, CallMutation, CreateChannelRequest, DecidePeerTrustRequest,
+	AcquireControllerRequest, CallMutation, ConnectAndTrustRequest, CreateChannelRequest, DecidePeerTrustRequest,
 	ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
 	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest,
 	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest,
-	SetSettingsRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
+	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
 	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
@@ -122,15 +122,20 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			call_id,
 			generation,
 			mode,
-			consent,
 		} => {
-			rpc.set_transmit_route(SetTransmitRouteRequest {
+			rpc.set_transmit_mode(SetTransmitModeRequest {
 				context: Some(context),
 				call_id,
 				controller_generation: generation,
 				mode: mode as i32,
-				explicit_microphone_consent: consent,
 				authorize_background_open_mic: false,
+			})
+			.await
+		}
+		Command::ConnectAndTrust { connection_string } => {
+			rpc.connect_and_trust(ConnectAndTrustRequest {
+				context: Some(context),
+				connection_string,
 			})
 			.await
 		}
@@ -232,11 +237,6 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			})
 			.await
 		}
-		Command::SetSettings { values } => {
-			let request = SetSettingsRequest {
-				context: Some(context),
-				values: values.into_iter().collect(),
-			};
 		Command::SetFavorites { peer_ids } => {
 			rpc.set_favorites(SetFavoritesRequest {
 				context: Some(context),
@@ -244,6 +244,11 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			})
 			.await
 		}
+		Command::SetSettings { values } => {
+			let request = SetSettingsRequest {
+				context: Some(context),
+				values: values.into_iter().collect(),
+			};
 			let answer = rpc.set_settings(request).await?.into_inner();
 			return answer.operation.ok_or(ApiError::InvalidResponse(
 				"settings answer without operation",

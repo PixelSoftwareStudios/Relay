@@ -42,6 +42,8 @@ impl Engine for FakeEngine {
 			application_version: "test-engine".into(),
 			api_major: 1,
 			api_minor: 0,
+			build_revision: "test".into(),
+			api_revision: 0,
 			capabilities: vec!["observe".into(), "call-control".into()],
 			limits: None,
 		}))
@@ -55,6 +57,8 @@ impl Engine for FakeEngine {
 			}),
 			granted_capabilities: vec!["observe".into()],
 			revision: 1,
+			daemon_build_revision: "test".into(),
+			daemon_api_revision: 0,
 		}))
 	}
 	async fn get_snapshot(&self, _: Request<ClientContext>) -> Resp<Snapshot> {
@@ -196,15 +200,29 @@ impl Engine for FakeEngine {
 	async fn release_controller(&self, _: Request<ReleaseControllerRequest>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_transmit_route(&self, r: Request<SetTransmitRouteRequest>) -> Resp<Operation> {
+	async fn set_transmit_mode(&self, r: Request<SetTransmitModeRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(
 			r.context.as_ref(),
 			format!(
-				"route mode={} consent={} gen={}",
-				r.mode, r.explicit_microphone_consent, r.controller_generation
+				"route mode={} gen={}",
+				r.mode, r.controller_generation
 			),
 		)
+	}
+	async fn connect_and_trust(&self, r: Request<ConnectAndTrustRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("connect_and_trust {}", r.connection_string),
+		)
+	}
+	type WatchCallStatsStream = ReceiverStream<Result<CallStats, Status>>;
+	async fn watch_call_stats(
+		&self,
+		_: Request<WatchCallStatsRequest>,
+	) -> Resp<Self::WatchCallStatsStream> {
+		unsupported()
 	}
 	async fn set_call_controls(&self, r: Request<SetCallControlsRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
@@ -287,6 +305,11 @@ impl Engine for FakeEngine {
 	async fn list_call_history(&self, _: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
 		unsupported()
 	}
+	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let ids: Vec<String> = r.peer_ids.iter().map(hex::encode).collect();
+		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
+	}
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(
@@ -297,6 +320,8 @@ impl Engine for FakeEngine {
 	async fn get_settings(&self, _: Request<ClientContext>) -> Resp<SettingsDump> {
 		self.log.lock().unwrap().push("get_settings".into());
 		Ok(Response::new(SettingsDump {
+			build_revision: "test".into(),
+			api_revision: 0,
 			values: [("ptt.release_delay_ms".to_owned(), "200".to_owned())].into(),
 			usage: Default::default(),
 		}))
@@ -305,11 +330,6 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		let mut keys: Vec<_> = r.values.iter().map(|(k, v)| format!("{k}={v}")).collect();
 		keys.sort();
-	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
-		let r = r.into_inner();
-		let ids: Vec<String> = r.peer_ids.iter().map(hex::encode).collect();
-		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
-	}
 		let operation = self.op(
 			r.context.as_ref(),
 			format!("set_settings {}", keys.join(",")),
