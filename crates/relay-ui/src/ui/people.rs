@@ -9,7 +9,7 @@ use crate::viewmodel::PeerRow;
 
 use super::kit::{self, Cx};
 use super::widgets::{avatar, button_row, field_width};
-use super::{connect, visibility};
+use super::{connect, found, visibility};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
@@ -19,15 +19,19 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	connect::show(ui, cx, rows.is_empty());
 	kit::gap(ui);
 	add_by_address(ui, cx);
-	let (near, far): (Vec<_>, Vec<_>) = rows.iter().partition(|r| r.reachable);
+	let (near, rest): (Vec<_>, Vec<_>) = rows.iter().partition(|r| r.reachable);
+	let (far, met): (Vec<_>, Vec<_>) = rest.into_iter().partition(|r| r.known);
 	kit::section_title(ui, tr!("home-nearby"));
-	if near.is_empty() {
+	if near.is_empty() && met.is_empty() {
 		kit::help(ui, tr!("people-none-nearby"));
 		kit::help(ui, tr!("people-none-nearby-help"));
 	}
 	for row in near {
 		self::row(ui, row, cx, true);
 		kit::gap(ui);
+	}
+	if !met.is_empty() {
+		found::section(ui, &met, cx);
 	}
 	if !far.is_empty() {
 		kit::section_title(ui, tr!("people-known"));

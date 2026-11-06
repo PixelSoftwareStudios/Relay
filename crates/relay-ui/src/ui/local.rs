@@ -59,6 +59,10 @@ pub struct Local {
 	pub connection_requested: bool,
 	pub qr: Option<(String, TextureHandle)>,
 	pub paste: String,
+	/// A QR scan is open (the Scan button waits until it ends).
+	pub scanning: bool,
+	/// What the last scan said; cleared when the section is left.
+	pub scan_note: Option<crate::qr_scan::ScanNote>,
 	/// The user's choice for the "Connect a device" section; `None` follows the default.
 	pub connect_open: Option<bool>,
 
@@ -76,6 +80,8 @@ pub struct Local {
 	pub call_since: HashMap<String, Instant>,
 	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
 	pub forget_confirm: Option<String>,
+	/// The found device (hex peer id) whose "Trust this device" awaits confirmation.
+	pub trust_confirm: Option<String>,
 	/// "Remove picture" is waiting for confirmation.
 	pub confirm_remove_avatar: bool,
 

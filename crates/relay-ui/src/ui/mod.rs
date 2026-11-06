@@ -12,6 +12,7 @@ mod call_card;
 mod channels;
 mod chat;
 mod connect;
+mod found;
 mod history;
 mod home;
 mod incoming;
@@ -213,6 +214,15 @@ impl RelayApp {
 		if let Some(result) = inbox.take_connection() {
 			self.local.connection = Some(result);
 		}
+		if let Some(result) = inbox.take_scanned() {
+			self.local.scanning = false;
+			if let Some((note, address)) = crate::qr_scan::outcome(result) {
+				self.local.scan_note = Some(note);
+				if let Some(address) = address {
+					self.local.paste = address;
+				}
+			}
+		}
 		if let Some(p) = inbox.take_picked() {
 			let texture = upload(ctx, "picked-avatar", &p.preview);
 			self.local.picked = Some(PickedImage {
@@ -310,7 +320,7 @@ impl RelayApp {
 				.frame(top_frame(ui, class))
 				.show(ui, |ui| {
 					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
-					banners::show(ui, &state, error.as_deref(), cx.actions);
+					banners::show(ui, &state, error.as_deref(), cx.actions, cx.local);
 					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
 					incoming::show(ui, &incoming, &mut cx);
 				});

@@ -349,6 +349,15 @@ impl Operations for MockOps {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| s.peers.retain(|p| p.peer_id != wanted));
 			}
+			Command::TrustPeer { peer_id } => {
+				let wanted = hex::encode(peer_id);
+				self.hub.update(|s| {
+					if let Some(p) = s.peers.iter_mut().find(|p| p.peer_id == wanted) {
+						p.trust = Trust::TofuUnverified;
+						p.reachable = true;
+					}
+				});
+			}
 			Command::ClearCallHistory => self.hub.update(|s| s.history.clear()),
 			Command::ClearAvatar => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {

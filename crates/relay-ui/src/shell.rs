@@ -158,4 +158,18 @@ pub trait Shell: FilePicker {
 	fn request_microphone(&self) {}
 	/// Open the OS page where the microphone permission can be turned on.
 	fn open_microphone_settings(&self) {}
+	/// Whether the shell can scan a QR code with the camera. The Scan button is
+	/// shown only when this is true. The default has no scanner.
+	fn can_scan_qr(&self) -> bool {
+		false
+	}
+	/// Scan one QR code and return its text. The shell shows its own scanner
+	/// (and asks for the camera permission on first use, not at startup).
+	/// `Ok(None)` when the user cancelled. The text is untrusted: the UI checks
+	/// it like a pasted connection string.
+	fn scan_qr(&self) -> BoxFuture<'_, Result<Option<String>, crate::qr_scan::ScanError>> {
+		Box::pin(async { Ok(None) })
+	}
+	/// Open the OS page where the camera permission can be turned on.
+	fn open_camera_settings(&self) {}
 }

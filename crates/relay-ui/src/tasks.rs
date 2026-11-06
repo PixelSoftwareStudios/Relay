@@ -203,6 +203,17 @@ impl Actions {
 		});
 	}
 
+	/// The shell's QR scanner. The text goes to the inbox; the UI checks it like a
+	/// pasted connection string and only fills in the address field.
+	pub fn scan_qr(&self) {
+		let (shared, shell) = (self.shared.clone(), self.shell.clone());
+		self.runtime.spawn(async move {
+			let result = shell.scan_qr().await;
+			shared.inbox.set_scanned(result);
+			shell.request_repaint();
+		});
+	}
+
 	/// Create an invite; the token goes to the inbox, never to logs.
 	pub fn create_invite(&self, channel_id: String, ttl_seconds: u32, uses: u32) {
 		let (controller, shared, shell) = (

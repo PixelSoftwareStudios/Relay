@@ -258,6 +258,12 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			peer_id,
 			query: String::new(),
 		},
+		Command::TrustPeer { peer_id } => WireCommand::DecideTrust {
+			public_key_sha256: peer_id.clone(),
+			peer_id,
+			requested: pb::TrustState::TofuUnverified,
+			out_of_band_verified: false,
+		},
 		Command::StartCallConnection { text } => {
 			WireCommand::StartCall(CallTarget::ConnectionString(text))
 		}

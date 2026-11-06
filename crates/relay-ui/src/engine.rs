@@ -115,6 +115,11 @@ pub enum Command {
 	ForgetPeer {
 		peer_id: Vec<u8>,
 	},
+	/// Trust a found device (32 byte key digest) after the user compared its
+	/// fingerprint. The digest is also the key the engine must see.
+	TrustPeer {
+		peer_id: Vec<u8>,
+	},
 	/// Call a pasted `relay://` string; the engine validates it.
 	StartCallConnection {
 		text: String,

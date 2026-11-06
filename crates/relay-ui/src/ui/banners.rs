@@ -7,11 +7,16 @@ use egui::{self, Ui};
 
 use crate::actions::Actions;
 use crate::format::link_label;
+use crate::layout::Page;
 use crate::model::{AppState, Link};
 
 use super::kit;
+use super::local::Local;
 use super::widgets::banner;
 use crate::tr;
+
+/// The engine's code for a device that connected and waits for a trust decision.
+const TRUST_REQUIRED: &str = "TRUST_REQUIRED";
 
 /// Whether any notice would be drawn.
 pub fn any(state: &AppState, error: Option<&str>) -> bool {
@@ -22,7 +27,13 @@ pub fn any(state: &AppState, error: Option<&str>) -> bool {
 		|| state.notice.is_some()
 }
 
-pub fn show(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Actions) {
+pub fn show(
+	ui: &mut Ui,
+	state: &AppState,
+	error: Option<&str>,
+	actions: &Actions,
+	local: &mut Local,
+) {
 	if state.mock {
 		banner(ui, tr!("banner-mock"), false);
 	} else if state.link != Link::Connected {
@@ -47,6 +58,9 @@ pub fn show(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Action
 	}
 	for w in &state.warnings {
 		banner(ui, &w.message, false);
+		if w.code == TRUST_REQUIRED && ui.button(tr!("found-review")).clicked() {
+			local.goto = Some(Page::People);
+		}
 	}
 	if let Some(e) = error {
 		banner(ui, e, true);

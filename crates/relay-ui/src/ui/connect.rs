@@ -7,6 +7,7 @@ use egui::{self, RichText, Ui};
 
 use crate::model::ConnectionView;
 use crate::qr;
+use crate::qr_scan::{ScanError, ScanNote};
 
 use super::kit::{self, Cx};
 use super::local::Local;
@@ -81,8 +82,45 @@ fn body(ui: &mut Ui, cx: &mut Cx) {
 				kit::gap(ui);
 				qr_code(ui, cx.local, &info.connection_string);
 			}
+			scan(ui, cx);
 			details(ui, &info);
 		}
+	}
+}
+
+/// The Scan button under the QR code, shown only when the shell has a camera
+/// scanner, and what the last scan said. A scan only fills in the address
+/// field of "Add a device by address"; it never trusts or calls anything.
+fn scan(ui: &mut Ui, cx: &mut Cx) {
+	if !cx.actions.shell.can_scan_qr() {
+		return;
+	}
+	kit::gap(ui);
+	let idle = !cx.local.scanning;
+	button_row(ui, |ui| {
+		if ui
+			.add_enabled(idle, egui::Button::new(tr!("connection-scan")))
+			.clicked()
+		{
+			cx.local.scanning = true;
+			cx.local.scan_note = None;
+			cx.actions.scan_qr();
+		}
+	});
+	let Some(note) = cx.local.scan_note else {
+		return;
+	};
+	if note.is_problem() {
+		ui.label(RichText::new(note.message()).color(crate::theme::WARN));
+	} else {
+		kit::help(ui, note.message());
+	}
+	if note == ScanNote::Failed(ScanError::CameraBlocked) {
+		button_row(ui, |ui| {
+			if ui.button(tr!("mic-open-settings")).clicked() {
+				cx.actions.shell.open_camera_settings();
+			}
+		});
 	}
 }
 
