@@ -98,7 +98,8 @@ class MacosTests(unittest.TestCase):
         self.assertNotEqual(before, verify.app_files(app))
 
     def test_disk_image_layout_has_applications_shortcut(self):
-        settings = macos.disk_image_settings(Path("Relay.app"))
+        settings = macos.disk_image_settings(Path("Relay.app"), Path("background.tiff"))
+        self.assertEqual(settings["background"], "background.tiff")
         self.assertEqual(settings["symlinks"], {"Applications": "/Applications"})
         self.assertEqual(set(settings["icon_locations"]), {"Relay.app", "Applications"})
 

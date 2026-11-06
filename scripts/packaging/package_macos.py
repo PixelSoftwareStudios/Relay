@@ -18,8 +18,9 @@ ICON = ROOT / "assets/icon/relay.icns"
 APP = "Relay.app"
 MINIMUM_SYSTEM = "13.0"
 IDENTIFIER_PREFIX = "dev.relay"
-DMG_LAYOUT = {"window_rect": ((200, 200), (540, 300)), "icon_size": 128,
-              "icon_locations": {APP: (140, 140), "Applications": (400, 140)}}
+BACKGROUND = ROOT / "assets/packaging/macos/dmg-background.png"
+DMG_LAYOUT = {"window_rect": ((200, 200), (640, 300)), "icon_size": 128,
+              "icon_locations": {APP: (160, 150), "Applications": (480, 150)}}
 
 
 def metadata(version):
@@ -80,9 +81,19 @@ def write_update_archive(app, archive):
     release.write_checksum(archive)
 
 
-def disk_image_settings(app):
+def retina_background(directory):
+    """One multi-resolution TIFF from the 1x and @2x arrows, so the Finder window is sharp on Retina."""
+    result = directory / "dmg-background.tiff"
+    retina = BACKGROUND.with_name(BACKGROUND.stem + "@2x.png")
+    subprocess.run(["/usr/bin/tiffutil", "-cathidpicheck", str(BACKGROUND), str(retina), "-out", str(result)],
+                   check=True, capture_output=True)
+    return result
+
+
+def disk_image_settings(app, background):
     return {"format": "UDZO", "files": [str(app)], "symlinks": {"Applications": "/Applications"},
-            "icon": str(ICON), "default_view": "icon-view", "text_size": 14, **DMG_LAYOUT}
+            "icon": str(ICON), "background": str(background), "default_view": "icon-view",
+            "text_size": 14, **DMG_LAYOUT}
 
 
 def build_disk_image(app, archive):
@@ -90,7 +101,9 @@ def build_disk_image(app, archive):
         import dmgbuild
     except ImportError as error:
         raise ValueError("macOS packaging requires: python -m pip install dmgbuild==1.6.7") from error
-    dmgbuild.build_dmg(str(archive), "Relay", settings=disk_image_settings(app))
+    with tempfile.TemporaryDirectory() as scratch:
+        background = retina_background(Path(scratch))
+        dmgbuild.build_dmg(str(archive), "Relay", settings=disk_image_settings(app, background))
     # Do not hide .app extensions: changing FinderInfo invalidates strict signatures.
     subprocess.run(["/usr/bin/hdiutil", "verify", str(archive)], check=True)
 
