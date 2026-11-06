@@ -47,6 +47,20 @@ fn worker_failed_message(failure: &crate::media::WorkerFailure) -> String {
 	format!("{part} {what}. Relay restarted it.")
 }
 
+/// The recovery hint of a worker failure, which clients map to their own wording:
+/// `restart_daemon` when it will not come back, else which part was restarted.
+fn worker_failed_recovery(failure: &crate::media::WorkerFailure) -> &'static str {
+	use crate::media::WorkerId;
+	if failure.permanent {
+		return "restart_daemon";
+	}
+	match failure.worker {
+		WorkerId::Capture => "restarted_capture",
+		WorkerId::Render => "restarted_render",
+		WorkerId::Devices | WorkerId::Network => "restarted",
+	}
+}
+
 /// The warning code raised when the microphone cannot be opened.
 const MICROPHONE_UNAVAILABLE: &str = "MICROPHONE_UNAVAILABLE";
 
@@ -105,7 +119,7 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 					let warning = problem(
 						"MEDIA_WORKER_FAILED",
 						worker_failed_message(&failure),
-						"restart_daemon",
+						worker_failed_recovery(&failure),
 					);
 					handle.attention(None, warning).await
 				}
