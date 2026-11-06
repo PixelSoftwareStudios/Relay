@@ -56,6 +56,7 @@ impl Settings {
 	pub fn dump(&self) -> SettingsDump {
 		SettingsDump {
 			values: self.values.lock().unwrap().clone().into_iter().collect(),
+			usage: [("limits.avatar_cache_mib".to_owned(), 7)].into(),
 		}
 	}
 

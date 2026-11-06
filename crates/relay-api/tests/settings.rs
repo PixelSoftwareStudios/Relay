@@ -82,4 +82,8 @@ async fn a_sensitive_key_is_permission_denied() {
 	};
 	assert_eq!(status.code(), tonic::Code::PermissionDenied);
 	assert!(c.get_settings().await.unwrap().is_empty());
+	assert_eq!(
+		c.get_limit_usage().await.unwrap()["limits.avatar_cache_mib"],
+		7
+	);
 }
