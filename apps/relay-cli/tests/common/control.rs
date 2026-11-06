@@ -140,6 +140,9 @@ impl Control for FakeControl {
 	async fn stop_mic_test(&mut self) -> Result<Operation, ApiError> {
 		self.record("mic_test_stop")
 	}
+	async fn connect_and_trust(&mut self, connection_string: &str) -> Result<Operation, ApiError> {
+		self.record(format!("connect_and_trust {connection_string}"))
+	}
 	async fn decide_trust(&mut self, d: TrustDecision) -> Result<Operation, ApiError> {
 		self.record(format!(
 			"trust {} {:?} oob={} key={}",

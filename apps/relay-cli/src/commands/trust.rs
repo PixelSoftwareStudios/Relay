@@ -5,7 +5,7 @@ use relay_api::pb::TrustState;
 use super::resolve::resolve_peer;
 use super::views::PeerList;
 use super::{Out, report};
-use crate::cli::{CliError, TrustCommand};
+use crate::cli::{CliError, ConnectArgs, TrustCommand};
 use crate::client::{Control, Manage, TrustDecision};
 
 /// Longest `forget` query the engine accepts.
@@ -60,4 +60,16 @@ pub fn parse_fingerprint(text: &str) -> Result<Vec<u8>, CliError> {
 			"fingerprint must be 64 hex characters (SHA-256 of the peer's public key)".into(),
 		)),
 	}
+}
+
+/// `relay connect --trust <string>`: the string carries the device's fingerprint, so scanning or
+/// pasting it is an out-of-band exchange. The engine dials with that key pinned and trusts the
+/// device as verified only when it proves the key.
+pub async fn connect<C: Control>(
+	client: &mut C,
+	args: &ConnectArgs,
+	out: &mut Out<'_>,
+) -> Result<(), CliError> {
+	let op = client.connect_and_trust(args.string.trim()).await?;
+	report(&op, out)
 }

@@ -101,6 +101,8 @@ pub trait Control {
 	) -> Result<Operation, ApiError>;
 	/// Stop the microphone test.
 	async fn stop_mic_test(&mut self) -> Result<Operation, ApiError>;
+	/// Dial a scanned connection string and trust the device as verified when it matches.
+	async fn connect_and_trust(&mut self, connection_string: &str) -> Result<Operation, ApiError>;
 	/// Record a trust decision about a peer.
 	async fn decide_trust(&mut self, decision: TrustDecision) -> Result<Operation, ApiError>;
 	/// Press, renew or release push-to-talk.

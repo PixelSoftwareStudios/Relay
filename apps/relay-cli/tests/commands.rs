@@ -229,3 +229,18 @@ async fn mic_test_reports_peak_and_always_stops() {
 	);
 	assert_eq!(c.log.last().map(String::as_str), Some("mic_test_stop"));
 }
+
+#[tokio::test]
+async fn connect_trust_sends_the_scanned_string_once() {
+	let mut c = FakeControl::new();
+	let text = format!("relay://192.168.1.20:47800#{}", "ab".repeat(32));
+	run_with(&mut c, &["connect", "--trust", &text], false)
+		.await
+		.unwrap();
+	assert_eq!(c.log, [format!("connect_and_trust {text}")]);
+	use clap::Parser;
+	assert!(
+		relay_cli::cli::Cli::try_parse_from(["relay", "connect", &text]).is_err(),
+		"the command exists to trust, so --trust is required"
+	);
+}

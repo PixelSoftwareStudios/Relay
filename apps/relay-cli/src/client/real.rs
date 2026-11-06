@@ -277,6 +277,13 @@ impl Control for RealClient {
 		self.run_command(Command::StopMicTest).await
 	}
 
+	async fn connect_and_trust(&mut self, connection_string: &str) -> Result<Operation, ApiError> {
+		self.run_command(Command::ConnectAndTrust {
+			connection_string: connection_string.to_owned(),
+		})
+		.await
+	}
+
 	async fn decide_trust(&mut self, decision: TrustDecision) -> Result<Operation, ApiError> {
 		self.run_command(Command::DecideTrust {
 			peer_id: decision.peer_id,

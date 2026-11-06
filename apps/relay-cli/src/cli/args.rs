@@ -55,6 +55,10 @@ pub enum Command {
 	Status,
 	/// List peers discovered on the LAN.
 	Peers,
+	/// The live calls with their connected time and, best effort, their diagnostics.
+	Calls,
+	/// Live measurements of a call: path, packets, rtt, jitter, loss, buffers, latency estimate.
+	Stats(StatsArgs),
 	/// Call a peer by name, id prefix or `ip:port`.
 	Call {
 		/// Peer name, id prefix, or manual address.
@@ -94,6 +98,8 @@ pub enum Command {
 	Tui(TuiArgs),
 	/// Print the connection string others use to call this device.
 	Address(AddressArgs),
+	/// Dial a scanned connection string and trust the device when its key matches.
+	Connect(ConnectArgs),
 	/// Global push-to-talk hotkey: run it, check its status, or change the key.
 	Hotkey(HotkeyArgs),
 	/// Who may call you and how you appear on the network.
@@ -150,6 +156,19 @@ pub struct TuiArgs {
 	/// Push-to-talk accelerator for this run, instead of the saved one.
 	#[arg(long, value_name = "KEYS", conflicts_with = "no_hotkey")]
 	pub binding: Option<String>,
+}
+
+/// Options of `relay connect`.
+#[derive(Debug, Clone, Args)]
+pub struct ConnectArgs {
+	/// The connection string, `relay://host:port#<64 hex digits>`, as shown by `relay address`
+	/// or a QR code.
+	pub string: String,
+	/// Treat the string as an out-of-band exchange of the fingerprint: when the device at the
+	/// address proves that key, trust it as verified. A mismatch trusts nothing. Required: the
+	/// command exists for this.
+	#[arg(long, required = true)]
+	pub trust: bool,
 }
 
 /// Options of `relay address`.
