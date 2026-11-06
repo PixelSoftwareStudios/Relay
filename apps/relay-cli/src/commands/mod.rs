@@ -14,6 +14,7 @@ mod favorites;
 mod history;
 mod hold;
 mod hotkey;
+mod identity;
 pub mod limits;
 pub mod messages;
 mod mic_test;
@@ -76,6 +77,7 @@ async fn dispatch(
 	let mut out = Out::new(cli.global.json, w);
 	match cli.command {
 		Command::Daemon(args) => daemon::run(&cli.global, &args, &mut out).await,
+		Command::Identity(args) => identity::run(&cli.global, &args, &mut out).await,
 		Command::Doctor(args) => doctor::run(&cli.global, &args, &mut out).await,
 		Command::Tui(_) => crate::tui::run(&cli.global, hotkeys).await,
 		Command::Hotkey(args) => hotkey::run(&cli.global, &args, hotkeys, &mut out).await,
@@ -138,6 +140,7 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		Command::Avatar(cmd) => avatar::run(client, cmd, out).await,
 		Command::History(args) => history::run(client, args, out).await,
 		Command::Daemon(_)
+		| Command::Identity(_)
 		| Command::Doctor(_)
 		| Command::Tui(_)
 		| Command::Hotkey(_)

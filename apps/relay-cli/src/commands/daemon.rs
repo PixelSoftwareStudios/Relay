@@ -9,6 +9,7 @@ use std::path::Path;
 use std::process::Command as Process;
 use std::time::Duration;
 
+use relay_api::pb::StartupState;
 use relay_api::{Endpoint, RelayClient, Revision};
 use relay_client::daemon::{self, Launch, Started, Stopped};
 use serde::Serialize;
@@ -28,6 +29,9 @@ struct Report {
 	endpoint: String,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	log: Option<String>,
+	/// What a daemon that is not ready waits for or failed on, in plain words.
+	#[serde(skip_serializing_if = "Option::is_none")]
+	waiting: Option<String>,
 	#[serde(skip_serializing_if = "Option::is_none")]
 	engine_version: Option<String>,
 	/// The running daemon's build (git commit) and API revision.
@@ -47,6 +51,7 @@ impl Report {
 			pid: None,
 			endpoint: endpoint::describe(endpoint),
 			log: None,
+			waiting: None,
 			engine_version: None,
 			build_revision: None,
 			api_revision: None,
@@ -60,6 +65,9 @@ impl fmt::Display for Report {
 		write!(f, "daemon {} ({})", self.state, self.endpoint)?;
 		if let Some(pid) = self.pid {
 			write!(f, ", pid {pid}")?;
+		}
+		if let Some(waiting) = &self.waiting {
+			write!(f, ": {waiting}")?;
 		}
 		if let Some(version) = &self.engine_version {
 			write!(f, ", engine {version}")?;
@@ -100,6 +108,8 @@ pub async fn run(
 			start(&endpoint, launch, out).await
 		}
 		DaemonAction::Status => status(&endpoint, out).await,
+		DaemonAction::Retry => retry(&endpoint, out).await,
+		DaemonAction::UseFileStore { yes } => use_file_store(&endpoint, *yes, out).await,
 		DaemonAction::Logs { lines, file } => logs(*lines, file.as_deref(), out),
 		DaemonAction::Run(launch) => foreground(&endpoint, launch),
 	}
@@ -163,7 +173,25 @@ async fn status(endpoint: &Endpoint, out: &mut Out<'_>) -> Result<(), CliError> 
 		});
 	}
 	let client = RelayClient::connect(endpoint).await?;
-	let mut report = Report::new("running", endpoint);
+	let startup = client.startup();
+	let mut report = Report::new(
+		match startup.state() {
+			StartupState::Ready => "running",
+			StartupState::Starting => "starting",
+			StartupState::Failed => "failed",
+		},
+		endpoint,
+	);
+	report.waiting = match startup.state() {
+		StartupState::Ready => None,
+		StartupState::Starting => Some(
+			"waiting for permission to use secure storage; answer the system prompt".to_owned(),
+		),
+		StartupState::Failed => Some(format!(
+			"{} Run `relay daemon retry`.",
+			daemon::describe_failure(&startup)
+		)),
+	};
 	report.engine_version = Some(client.info().application_version.clone());
 	let revision = client.daemon_revision();
 	if !revision.is_current() {
@@ -176,6 +204,50 @@ async fn status(endpoint: &Endpoint, out: &mut Out<'_>) -> Result<(), CliError> 
 	});
 	report.api_revision = Some(revision.api);
 	out.emit(&report)
+}
+
+/// Asks a daemon that failed to open the secure storage to read it again.
+async fn retry(endpoint: &Endpoint, out: &mut Out<'_>) -> Result<(), CliError> {
+	let mut client = connect_running(endpoint).await?;
+	let info = client.retry_keychain().await?;
+	let mut report = Report::new("retrying", endpoint);
+	report.waiting = Some(describe_startup(info.startup.as_ref()));
+	out.emit(&report)
+}
+
+/// Chooses the file-backed store, after the user confirmed.
+async fn use_file_store(endpoint: &Endpoint, yes: bool, out: &mut Out<'_>) -> Result<(), CliError> {
+	if !yes {
+		return Err(CliError::Usage(
+			"the file store keeps your identity key and channel secrets in a plain file that is only \
+			 protected by file permissions; the system's secure storage is safer. Pass --yes to use it anyway"
+				.into(),
+		));
+	}
+	let mut client = connect_running(endpoint).await?;
+	let info = client.use_file_store().await?;
+	let mut report = Report::new("using the file store", endpoint);
+	report.waiting = Some(describe_startup(info.startup.as_ref()));
+	out.emit(&report)
+}
+
+async fn connect_running(endpoint: &Endpoint) -> Result<RelayClient, CliError> {
+	if !daemon::reachable(endpoint).await {
+		return Err(CliError::NotRunning {
+			endpoint: endpoint::describe(endpoint),
+		});
+	}
+	Ok(RelayClient::connect(endpoint).await?)
+}
+
+fn describe_startup(startup: Option<&relay_api::pb::Startup>) -> String {
+	match startup.map(|s| (s.state(), s)) {
+		Some((StartupState::Failed, s)) => daemon::describe_failure(s),
+		Some((StartupState::Starting, _)) => {
+			"waiting for permission to use secure storage".to_owned()
+		}
+		_ => "ready".to_owned(),
+	}
 }
 
 /// Whether a call is in progress on the running daemon (false when none runs).

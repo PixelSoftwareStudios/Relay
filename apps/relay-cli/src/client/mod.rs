@@ -174,17 +174,24 @@ async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliEr
 	if global.no_autostart || autostart_disabled_by_env() {
 		return Ok(());
 	}
-	if daemon::reachable(endpoint).await {
-		replace_stale(endpoint, global).await;
-		return Ok(());
-	}
-	eprintln!(
-		"relay: starting relayd... (it opens no microphone; while a client such as this one is attached, this device advertises on the LAN, by default with its name; `relay privacy` can hide that)"
-	);
 	let mut options = StartOptions::autostart();
 	options.binary.clone_from(&global.daemon_bin);
 	options.log_file.clone_from(&global.daemon_log);
-	match daemon::ensure_running(endpoint, &options).await {
+	if daemon::reachable(endpoint).await {
+		replace_stale(endpoint, global).await;
+	} else {
+		eprintln!(
+			"relay: starting relayd... (it opens no microphone; while a client such as this one is attached, this device advertises on the LAN, by default with its name; `relay privacy` can hide that)"
+		);
+	}
+	// A daemon that answers but waits for the system's keychain prompt is waited for, never
+	// restarted or started a second time.
+	let mut progress = |_: &relay_api::pb::Startup| {
+		eprintln!(
+			"relay: waiting for permission to use secure storage; answer the system prompt to continue..."
+		);
+	};
+	match daemon::ensure_running_with(endpoint, &options, &mut progress).await {
 		Ok(_) => Ok(()),
 		Err(EnsureError::StoppedByRequest) => Err(CliError::NotRunning {
 			endpoint: endpoint::describe(endpoint),

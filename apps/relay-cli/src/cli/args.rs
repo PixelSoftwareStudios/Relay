@@ -51,6 +51,8 @@ pub struct GlobalArgs {
 pub enum Command {
 	/// Start, stop and inspect the background engine (`relayd`).
 	Daemon(DaemonArgs),
+	/// This device's identity key.
+	Identity(IdentityArgs),
 	/// Show engine, audio and call status.
 	Status,
 	/// List peers discovered on the LAN.
@@ -350,6 +352,25 @@ pub enum AvatarCommand {
 	Clear,
 }
 
+/// Options of `relay identity`.
+#[derive(Debug, Clone, Args)]
+pub struct IdentityArgs {
+	#[command(subcommand)]
+	pub action: IdentityAction,
+}
+
+/// What to do with the identity.
+#[derive(Debug, Clone, Subcommand)]
+pub enum IdentityAction {
+	/// Delete this device's identity so the next start creates a new one. Every contact
+	/// will see a new key and has to verify this device again. Needs `--yes`.
+	Reset {
+		/// Confirm the reset.
+		#[arg(long)]
+		yes: bool,
+	},
+}
+
 /// Options of `relay daemon`.
 #[derive(Debug, Clone, Args)]
 pub struct DaemonArgs {
@@ -381,6 +402,16 @@ pub enum DaemonAction {
 	},
 	/// Show whether the daemon runs, which engine it is and whether its build is out of date.
 	Status,
+	/// Ask a daemon that could not open the system's secure storage (keychain) to try again,
+	/// for example after you allowed access in the system prompt.
+	Retry,
+	/// Keep the identity and channel secrets in a plain file instead of the system's secure
+	/// storage. Less secure; only for a daemon that is waiting after the keychain failed.
+	UseFileStore {
+		/// Confirm that you understand the file is not encrypted.
+		#[arg(long)]
+		yes: bool,
+	},
 	/// Print the end of the daemon's log file.
 	Logs {
 		/// Number of lines to show.
