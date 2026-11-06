@@ -3,14 +3,14 @@
 
 mod phone;
 
-use phone::{LANGUAGES, Phone, SIZES};
+use phone::{LANGUAGES, Phone, SIZES, TALL};
 use relay_ui::layout::Page;
 
 #[tokio::test]
 async fn nothing_overflows_horizontally() {
 	let mut bad = Vec::new();
 	for language in LANGUAGES {
-		for (w, h) in SIZES {
+		for (w, h) in SIZES.into_iter().chain(TALL) {
 			let mut phone = Phone::new(w, h, language);
 			for page in Page::ALL {
 				let drawn = phone.page(page);
@@ -24,5 +24,10 @@ async fn nothing_overflows_horizontally() {
 		}
 	}
 	bad.dedup();
-	assert!(bad.is_empty(), "{} overflows, first: {:#?}", bad.len(), &bad[..bad.len().min(12)]);
+	assert!(
+		bad.is_empty(),
+		"{} overflows, first: {:#?}",
+		bad.len(),
+		&bad[..bad.len().min(12)]
+	);
 }

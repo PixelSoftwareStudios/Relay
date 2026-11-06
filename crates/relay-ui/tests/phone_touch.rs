@@ -2,7 +2,7 @@
 
 mod phone;
 
-use phone::{LANGUAGES, Phone, SIZES};
+use phone::{LANGUAGES, Phone, SIZES, TALL};
 use relay_ui::layout::{MIN_TOUCH_TARGET, Page};
 
 const SCROLL_BAR_WIDTH: f32 = 12.0;
@@ -11,7 +11,7 @@ const SCROLL_BAR_WIDTH: f32 = 12.0;
 async fn tap_targets_are_at_least_44_points() {
 	let mut bad = Vec::new();
 	for language in LANGUAGES {
-		for (w, h) in SIZES {
+		for (w, h) in SIZES.into_iter().chain(TALL) {
 			let mut phone = Phone::new(w, h, language);
 			for page in Page::ALL {
 				let drawn = phone.page(page);
@@ -29,5 +29,10 @@ async fn tap_targets_are_at_least_44_points() {
 	}
 	bad.sort();
 	bad.dedup();
-	assert!(bad.is_empty(), "{} small targets, first: {:#?}", bad.len(), &bad[..bad.len().min(15)]);
+	assert!(
+		bad.is_empty(),
+		"{} small targets, first: {:#?}",
+		bad.len(),
+		&bad[..bad.len().min(15)]
+	);
 }

@@ -6,12 +6,14 @@
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 
-use relay_ui::actions::{Actions, Shared};
+use relay_ui::actions::{Actions, Shared, ShellSink};
 use relay_ui::controller::{Controller, SessionSlot};
+use relay_ui::emitter::Sink;
 use relay_ui::hub::Hub;
 use relay_ui::i18n::{self, Language};
 use relay_ui::layout::Page;
 use relay_ui::mock::seed;
+use relay_ui::model::AppState;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use relay_ui::ui::RelayApp;
 
@@ -19,6 +21,8 @@ use relay_ui::ui::RelayApp;
 pub const DENSITY: f32 = 2.6;
 /// Phone sizes in points: (width, height).
 pub const SIZES: [(f32, f32); 2] = [(360.0, 800.0), (320.0, 640.0)];
+/// Tall viewports of the same widths, so a whole page is on screen at once.
+pub const TALL: [(f32, f32); 2] = [(360.0, 5000.0), (320.0, 5000.0)];
 /// Languages with the longest strings.
 pub const LANGUAGES: [Language; 3] = [Language::En, Language::De, Language::Ru];
 
@@ -65,14 +69,30 @@ impl Shell for PhoneShell {
 	}
 }
 
+/// The mock state plus a connected push-to-talk call, so both an incoming and
+/// a running call card are drawn.
+pub fn busy_state() -> AppState {
+	let mut state = seed();
+	let mut running = state.calls[0].clone();
+	running.call_id = "02".repeat(16);
+	running.phase = relay_ui::model::Phase::Connected;
+	running.transmit.mode = relay_ui::model::Mode::PushToTalk;
+	state.calls.push(running);
+	state
+}
+
 /// What one frame drew.
 pub struct Drawn {
 	/// Every widget (and container) rect of the frame.
 	pub widgets: Vec<egui::Rect>,
-	/// Enabled widgets that react to a tap.
+	/// Enabled widgets that react to a tap and are at least partly on screen.
 	pub tappable: Vec<egui::Rect>,
+	/// The same widgets, cut to what is visible.
+	pub visible: Vec<egui::Rect>,
 	/// Bounds of everything painted.
 	pub painted: Vec<egui::Rect>,
+	/// Painted text: its visible bounds and its number of rows.
+	pub texts: Vec<(egui::Rect, usize)>,
 }
 
 pub struct Phone {
@@ -100,6 +120,11 @@ impl Phone {
 			runtime: tokio::runtime::Handle::current(),
 			shell: shell.clone(),
 		};
+		let sink = ShellSink {
+			shared: actions.shared.clone(),
+			shell: shell.clone(),
+		};
+		sink.state(&busy_state());
 		let ctx = egui::Context::default();
 		ctx.set_pixels_per_point(DENSITY);
 		let app = RelayApp::new(actions.clone(), &ctx);
@@ -110,6 +135,15 @@ impl Phone {
 			actions,
 			size: egui::vec2(width, height),
 		}
+	}
+
+	/// Replace the state the screen shows.
+	pub fn show_state(&self, state: &AppState) {
+		ShellSink {
+			shared: self.actions.shared.clone(),
+			shell: self.shell.clone(),
+		}
+		.state(state);
 	}
 
 	pub fn screen(&self) -> egui::Rect {
@@ -134,14 +168,28 @@ impl Phone {
 			.map(|s| s.shape.visual_bounding_rect())
 			.filter(|r| r.is_finite())
 			.collect();
+		let texts = out
+			.shapes
+			.iter()
+			.filter_map(|s| match &s.shape {
+				egui::Shape::Text(t) => Some((
+					t.visual_bounding_rect().intersect(s.clip_rect),
+					t.galley.rows.len(),
+				)),
+				_ => None,
+			})
+			.collect();
 		let mut widgets = Vec::new();
 		let mut tappable = Vec::new();
+		let mut visible = Vec::new();
 		self.ctx.viewport(|v| {
 			for (_, list) in v.prev_pass.widgets.layers() {
 				for w in list {
 					widgets.push(w.rect);
-					if w.enabled && w.sense.senses_click() {
+					let seen = w.interact_rect.width() > 0.0 && w.interact_rect.height() > 0.0;
+					if w.enabled && w.sense.senses_click() && seen {
 						tappable.push(w.rect);
+						visible.push(w.interact_rect);
 					}
 				}
 			}
@@ -149,11 +197,29 @@ impl Phone {
 		Drawn {
 			widgets,
 			tappable,
+			visible,
 			painted,
+			texts,
 		}
 	}
 
 	/// Draw until the layout settles (a few frames) and report the last one.
+	/// The rects of the bottom navigation tabs, left to right: the controls
+	/// whose bottom edge rests on the bottom inset.
+	pub fn tabs(&self, drawn: &Drawn) -> Vec<egui::Rect> {
+		let floor = self.size.y - self.shell.insets.lock().unwrap().bottom;
+		let mut tabs: Vec<_> = drawn
+			.tappable
+			.iter()
+			.copied()
+			.filter(|r| {
+				(floor - 12.0..=floor + 1.0).contains(&r.max.y) && r.width() < self.size.x / 2.0
+			})
+			.collect();
+		tabs.sort_by(|a, b| a.min.x.total_cmp(&b.min.x));
+		tabs
+	}
+
 	pub fn settle(&mut self) -> Drawn {
 		for _ in 0..4 {
 			self.frame_with(Vec::new());
