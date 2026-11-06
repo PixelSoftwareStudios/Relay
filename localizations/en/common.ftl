@@ -20,3 +20,6 @@ nav-people = People
 nav-settings = Settings
 header-engine = engine { $version }
 action-dismiss = Dismiss
+action-back = Back
+action-details = Details
+error-next = You can try again or dismiss this message.

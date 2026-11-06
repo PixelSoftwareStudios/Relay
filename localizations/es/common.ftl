@@ -17,3 +17,6 @@ nav-people = Personas
 nav-settings = Ajustes
 header-engine = motor { $version }
 action-dismiss = Descartar
+action-back = Atrás
+action-details = Detalles
+error-next = Puedes intentarlo de nuevo o cerrar este mensaje.

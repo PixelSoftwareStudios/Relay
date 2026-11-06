@@ -19,3 +19,6 @@ nav-people = 用户
 nav-settings = 设置
 header-engine = 引擎 { $version }
 action-dismiss = 忽略
+action-back = 返回
+action-details = 详情
+error-next = 你可以重试，或关闭此消息。

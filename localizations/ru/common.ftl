@@ -17,3 +17,6 @@ nav-people = Участники
 nav-settings = Настройки
 header-engine = движок { $version }
 action-dismiss = Закрыть
+action-back = Назад
+action-details = Подробности
+error-next = Можно повторить попытку или закрыть это сообщение.

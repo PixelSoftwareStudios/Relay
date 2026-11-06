@@ -17,3 +17,6 @@ nav-people = ピア
 nav-settings = 設定
 header-engine = エンジン { $version }
 action-dismiss = 閉じる
+action-back = 戻る
+action-details = 詳細
+error-next = もう一度試すか、このメッセージを閉じてください。

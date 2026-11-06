@@ -18,3 +18,6 @@ nav-people = लोग
 nav-settings = सेटिंग
 header-engine = इंजन { $version }
 action-dismiss = हटाएँ
+action-back = वापस
+action-details = विवरण
+error-next = आप फिर से कोशिश कर सकते हैं या इस संदेश को बंद कर सकते हैं।

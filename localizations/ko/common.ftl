@@ -19,3 +19,6 @@ nav-people = 사용자
 nav-settings = 설정
 header-engine = 엔진 { $version }
 action-dismiss = 닫기
+action-back = 뒤로
+action-details = 자세히
+error-next = 다시 시도하거나 이 메시지를 닫을 수 있습니다.
