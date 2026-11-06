@@ -36,7 +36,7 @@ pub struct PhoneShell {
 	pub ptt: Mutex<Vec<(String, bool)>>,
 	/// Everything handed to `copy_text`.
 	pub copied: Mutex<Vec<String>>,
-	visible: AtomicBool,
+	pub visible: AtomicBool,
 	/// Behave like a desktop shell: closing hides to a tray, no talk button.
 	pub desktop: AtomicBool,
 	/// The time the shell reports, in unix milliseconds; 0 is the system clock.
