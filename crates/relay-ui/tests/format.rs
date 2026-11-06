@@ -46,16 +46,9 @@ fn avatar_precheck() {
 #[test]
 fn listen_only_never_claims_a_live_microphone() {
 	assert_eq!(
-		describe_transmit(&tx(Mode::ReceiveOnly, false, true, "")).tone,
+		describe_transmit(&tx(Mode::Muted, false, true, "")).tone,
 		Tone::Idle
 	);
-}
-
-#[test]
-fn consent_is_required_before_talking_about_transmitting() {
-	let s = describe_transmit(&tx(Mode::OpenMic, false, true, ""));
-	assert_eq!(s.tone, Tone::Warn);
-	assert!(s.label.contains("not allowed"));
 }
 
 #[test]
@@ -66,12 +59,13 @@ fn transmitting_is_reported_only_when_the_engine_says_so() {
 	);
 	let armed = describe_transmit(&tx(Mode::PushToTalk, true, false, ""));
 	assert_eq!(armed.tone, Tone::Idle);
-	assert!(armed.label.contains("armed"));
+	assert_eq!(armed.label, "Ready to talk");
+	assert!(!armed.detail.contains("engine"));
 }
 
 #[test]
 fn blocked_reason_from_the_engine_is_surfaced() {
-	let s = describe_transmit(&tx(Mode::OpenMic, true, false, "device lost"));
+	let s = describe_transmit(&tx(Mode::Unmuted, true, false, "device lost"));
 	assert_eq!(s.tone, Tone::Warn);
 	assert!(s.detail.contains("device lost"));
 }
@@ -88,7 +82,7 @@ fn releasing_is_reported_only_while_the_engine_says_the_gate_is_open() {
 	closed.transmit.releasing = true;
 	assert_eq!(
 		relay_ui::format::describe_transmit(&closed).label,
-		"Push-to-talk armed"
+		"Ready to talk"
 	);
 }
 

@@ -6,7 +6,7 @@
 mod chatkit;
 mod phone;
 
-use chatkit::{ada_call, has, has_exact, incoming, live_messages, state};
+use chatkit::{ada_call, chat_glyph, has, has_exact, incoming, live_messages, state};
 use std::time::Duration;
 
 use egui::{Event, Key, Modifiers};
@@ -51,7 +51,7 @@ async fn the_call_card_shows_the_chat_below_it_and_toggles_it_on_desktop() {
 	// The card is still on the page: the chat is part of the call, not another page.
 	assert!(has(&open, "End call"));
 	assert!(!has(&open, "Back to the call"), "no full screen on desktop");
-	phone.click_label("Messages");
+	phone.click_label(&chat_glyph());
 	assert_eq!(phone.app.chat_call(), None);
 	assert!(!phone::has_icon(&phone.settle(), relay_ui::icons::Icon::Send));
 }
@@ -61,7 +61,7 @@ async fn the_call_card_opens_a_full_screen_chat_with_a_way_back_on_a_phone() {
 	let mut phone = handset(Language::En, false);
 	let calls = phone.settle();
 	assert_eq!(phone.tabs(&calls).len(), 5, "five tabs, none for messages");
-	assert!(has_exact(&calls, "Contacts") && !has_exact(&calls, "Messages"));
+	assert!(has_exact(&calls, "Contacts"));
 	phone.click_label(&chatkit::badge(&phone));
 	let chat = phone.settle();
 	assert!(phone::has_icon(&chat, relay_ui::icons::Icon::Send), "{:?}", chat.labels);
@@ -103,20 +103,21 @@ async fn unread_messages_show_as_a_badge_and_never_open_the_chat() {
 		first.labels
 	);
 	// Opening the chat reads everything.
-	phone.click_label(&chatkit::badge(&phone));
+	let unread = chatkit::badge(&phone);
+	phone.click_label(&unread);
 	phone.settle();
-	phone.click_label("Messages");
+	phone.click_label(&chat_glyph());
 	let read = phone.settle();
-	assert!(has_exact(&read, "Messages"), "{:?}", read.labels);
-	assert!(!has(&read, "Messages ("));
+	assert!(has_exact(&read, &chat_glyph()), "{:?}", read.labels);
+	assert!(!has_exact(&read, &unread), "the badge is gone once read");
 	// A new message while the chat is closed: a badge, and nothing opens.
 	incoming(&phone, 500);
 	let badge = phone.settle();
-	assert!(has_exact(&badge, "Messages (1)"), "{:?}", badge.labels);
+	assert!(has_exact(&badge, "1"), "{:?}", badge.labels);
 	assert_eq!(phone.app.chat_call(), None);
 	assert!(!phone::has_icon(&badge, relay_ui::icons::Icon::Send));
 	// A message while the chat is open is read at once.
-	phone.click_label("Messages (1)");
+	phone.click_label("1");
 	incoming(&phone, 501);
 	let open = phone.settle();
 	assert!(phone::has_icon(&open, relay_ui::icons::Icon::Send));

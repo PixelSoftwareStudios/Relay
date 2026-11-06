@@ -4,7 +4,7 @@
 use crate::avatar::Avatar;
 use crate::format::{TransmitStatus, describe_transmit, phase_label};
 use crate::model::{
-	Advert, AppState, Call, CallMeter, Channel, Link, Meters, Mode, Peer, Phase, Trust,
+	Advert, AppState, Call, CallMeter, Channel, Link, Meters, Peer, Phase, Trust,
 };
 use crate::tr;
 
@@ -93,9 +93,6 @@ pub fn call_cards(state: &AppState, meters: &Meters) -> Vec<CallCard> {
 			if speaking {
 				subtitle.push_str(" · ");
 				subtitle.push_str(tr!("call-speaking"));
-			}
-			if !call.profile.is_empty() {
-				subtitle.push_str(&format!(" · {}", call.profile));
 			}
 			CallCard {
 				call_id: call.call_id.clone(),
@@ -194,20 +191,6 @@ pub fn favorites(state: &AppState) -> Vec<PeerRow> {
 		.collect();
 	rows.sort_by_key(|r| r.favorite_position);
 	rows
-}
-
-/// Mode buttons: label, mode, and whether it needs consent first.
-pub fn modes() -> [(&'static str, Mode); 3] {
-	[
-		(tr!("mode-listen"), Mode::ReceiveOnly),
-		(tr!("mode-ptt"), Mode::PushToTalk),
-		(tr!("mode-open"), Mode::OpenMic),
-	]
-}
-
-/// A mode button is enabled when it needs no consent or consent is ticked.
-pub fn mode_enabled(mode: Mode, consent_checked: bool) -> bool {
-	mode == Mode::ReceiveOnly || consent_checked
 }
 
 /// Avatar of the local profile.

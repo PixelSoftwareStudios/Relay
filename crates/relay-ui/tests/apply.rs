@@ -44,7 +44,7 @@ fn unknown_enum_values_degrade_conservatively() {
 	});
 	apply(&mut s, 4, Event::Call(call));
 	assert_eq!(s.calls[0].phase, Phase::Preparing);
-	assert_eq!(s.calls[0].transmit.mode, relay_ui::model::Mode::ReceiveOnly);
+	assert_eq!(s.calls[0].transmit.mode, relay_ui::model::Mode::Muted);
 	assert!(!s.calls[0].controlled_by_me);
 }
 

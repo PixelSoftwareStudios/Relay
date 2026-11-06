@@ -3,6 +3,8 @@
 
 #![allow(dead_code)]
 
+pub mod stats;
+
 use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
@@ -351,6 +353,13 @@ impl Phone {
 		self.frame_with(vec![button(true)]);
 		self.frame_with(vec![button(false)]);
 		self.settle();
+	}
+
+	/// Expand the History section of the Calls page (it is collapsed until opened).
+	pub fn open_history(&mut self) -> Drawn {
+		self.app.set_page(Page::Calls);
+		self.click_label(relay_ui::i18n::t("history-heading"));
+		self.settle()
 	}
 
 	pub fn page(&mut self, page: Page) -> Drawn {

@@ -28,7 +28,7 @@ async fn runs_a_call_through_accept_and_end_without_a_daemon() {
 async fn mock_commands_share_the_real_validation() {
 	let (ctl, hub) = rig().await;
 	let id = hub.state().calls[0].call_id.clone();
-	assert!(ctl.set_transmit("zz", Mode::OpenMic).await.is_err());
+	assert!(ctl.set_transmit("zz", Mode::Unmuted).await.is_err());
 	ctl.set_transmit(&id, Mode::PushToTalk).await.unwrap();
 	let call = hub.state().calls[0].clone();
 	assert!(call.transmit.consent_granted);

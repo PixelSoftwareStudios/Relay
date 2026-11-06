@@ -149,18 +149,11 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 		detail,
 		tone,
 	};
-	if t.mode == Mode::ReceiveOnly {
+	if t.mode == Mode::Muted {
 		return status(
 			tr!("transmit-listening"),
 			tr!("transmit-listening-detail").to_owned(),
 			Tone::Idle,
-		);
-	}
-	if !t.consent_granted {
-		return status(
-			tr!("transmit-no-consent"),
-			blocked(tr!("transmit-no-consent-detail"), reason),
-			Tone::Warn,
 		);
 	}
 	if t.effective_transmitting && t.releasing {
@@ -171,7 +164,7 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 		);
 	}
 	if t.effective_transmitting {
-		let how = if t.mode == Mode::OpenMic {
+		let how = if t.mode == Mode::Unmuted {
 			tr!("transmit-how-open")
 		} else {
 			tr!("transmit-how-key")
@@ -182,7 +175,7 @@ pub fn describe_transmit(call: &Call) -> TransmitStatus {
 			Tone::Live,
 		);
 	}
-	if t.mode == Mode::OpenMic {
+	if t.mode == Mode::Unmuted {
 		return status(
 			tr!("transmit-open-armed"),
 			blocked(tr!("transmit-open-armed-detail"), reason),

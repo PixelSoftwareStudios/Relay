@@ -3,7 +3,7 @@ mod common;
 use common::*;
 use relay_api::pb::CallState;
 use relay_ui::mock::{meters_at, seed};
-use relay_ui::model::{AppState, CallMeter, Meters, Mode, Phase, Trust};
+use relay_ui::model::{AppState, CallMeter, Meters, Phase, Trust};
 use relay_ui::viewmodel::*;
 
 fn state_with(calls: Vec<relay_api::pb::Call>) -> AppState {
@@ -58,13 +58,6 @@ fn peers_are_callable_only_when_reachable_trusted_and_idle() {
 	assert!(!peer_rows(&s)[0].can_call);
 	let busy = state_with(vec![pb_call(CallState::Connected, None)]);
 	assert!(!peer_rows(&busy)[0].can_call);
-}
-
-#[test]
-fn modes_other_than_listen_only_need_consent() {
-	assert!(mode_enabled(Mode::ReceiveOnly, false));
-	assert!(!mode_enabled(Mode::OpenMic, false));
-	assert!(mode_enabled(Mode::PushToTalk, true));
 }
 
 #[test]

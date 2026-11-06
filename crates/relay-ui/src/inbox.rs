@@ -14,6 +14,9 @@ use crate::limits_settings::Loaded;
 use crate::model::ConnectionView;
 use crate::qr_scan::{ScanError, ScanTrust};
 
+/// The engine's answer to saving one preference key.
+pub type SavedSetting = (&'static str, Result<Vec<SettingResult>, String>);
+
 /// A profile image the user chose, ready to preview and upload.
 pub struct Picked {
 	pub bytes: Vec<u8>,
@@ -38,12 +41,15 @@ pub struct Inbox {
 	hotkey_loaded: Mutex<Option<Result<HotkeyValues, String>>>,
 	hotkey_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 	history_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
+	setting_saved: Mutex<Vec<SavedSetting>>,
 	limits_loaded: Mutex<Option<Result<Loaded, String>>>,
 	limits_saved: Mutex<Option<Result<Vec<SettingResult>, String>>>,
 }
 
 /// Decoded avatars queued before the UI catches up; older results drop.
 const MAX_QUEUED_AVATARS: usize = 32;
+/// Answers to single-key saves waiting for the UI.
+const MAX_QUEUED_SETTINGS: usize = 8;
 
 impl Inbox {
 	pub fn push_avatar(&self, hash: String, image: Option<Decoded>) {
@@ -108,6 +114,18 @@ impl Inbox {
 
 	pub fn take_hotkey_saved(&self) -> Option<Result<Vec<SettingResult>, String>> {
 		self.hotkey_saved.lock_unpoisoned().take()
+	}
+
+	pub fn set_setting_saved(&self, key: &'static str, result: Result<Vec<SettingResult>, String>) {
+		let mut q = self.setting_saved.lock_unpoisoned();
+		if q.len() >= MAX_QUEUED_SETTINGS {
+			drop(q.remove(0));
+		}
+		q.push((key, result));
+	}
+
+	pub fn take_setting_saved(&self) -> Vec<SavedSetting> {
+		std::mem::take(&mut *self.setting_saved.lock_unpoisoned())
 	}
 
 	pub fn set_history_saved(&self, result: Result<Vec<SettingResult>, String>) {

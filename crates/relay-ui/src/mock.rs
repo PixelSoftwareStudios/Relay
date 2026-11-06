@@ -33,7 +33,7 @@ fn call(n: u8, peer: u8, phase: Phase) -> Call {
 		peer_id: id(peer, 32),
 		phase,
 		transmit: Transmit {
-			mode: Mode::ReceiveOnly,
+			mode: Mode::Muted,
 			consent_granted: false,
 			effective_transmitting: false,
 			blocked_reason: String::new(),
@@ -243,9 +243,15 @@ impl Operations for MockOps {
 					..Outcome::default()
 				});
 			}
-			Command::AcceptCall { call_id, .. } => {
-				self.with_call(&call_id, |c| c.phase = Phase::Connected)
-			}
+			Command::AcceptCall { call_id, .. } => self.with_call(&call_id, |c| {
+				// A call starts in the default mode, push-to-talk, like the engine's.
+				c.phase = Phase::Connected;
+				c.connected_at_unix_ms = std::time::SystemTime::now()
+					.duration_since(std::time::UNIX_EPOCH)
+					.map_or(0, |d| u64::try_from(d.as_millis()).unwrap_or(0));
+				c.transmit.mode = Mode::PushToTalk;
+				c.transmit.consent_granted = true;
+			}),
 			Command::DeclineCall { call_id, .. } => {
 				self.with_call(&call_id, |c| c.phase = Phase::Declined)
 			}
@@ -257,8 +263,8 @@ impl Operations for MockOps {
 				// push-to-talk without a key.
 				c.transmit = Transmit {
 					mode,
-					consent_granted: mode != Mode::ReceiveOnly,
-					effective_transmitting: mode == Mode::OpenMic,
+					consent_granted: mode != Mode::Muted,
+					effective_transmitting: mode == Mode::Unmuted,
 					blocked_reason: String::new(),
 					releasing: false,
 				};

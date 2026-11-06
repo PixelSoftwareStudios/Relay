@@ -16,7 +16,7 @@ use crate::tr;
 pub const AVATAR_MAX_BYTES: usize = 1024 * 1024;
 const NAME_MAX_CHARS: usize = 64;
 const GAIN_MAX: f32 = 4.0;
-const CALL_ID_LEN: usize = 16;
+pub(crate) const CALL_ID_LEN: usize = 16;
 const PEER_ID_LEN: usize = 32;
 
 /// A user-facing failure. Serializes as a plain string for the webview.
@@ -199,8 +199,8 @@ impl Controller {
 		.map(drop)
 	}
 
-	/// Sets the call's microphone mode. `OpenMic` (unmuted) and `PushToTalk` are the user's
-	/// consent to send the microphone to this call, `ReceiveOnly` (muted) withdraws it; the
+	/// Sets the call's microphone mode. `Unmuted` (unmuted) and `PushToTalk` are the user's
+	/// consent to send the microphone to this call, `Muted` (muted) withdraws it; the
 	/// engine applies mode and consent as one change.
 	pub async fn set_transmit(&self, call_id: &str, mode: Mode) -> Result<(), ControlError> {
 		let (id, call) = self.call(call_id)?;

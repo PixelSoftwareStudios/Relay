@@ -276,7 +276,8 @@ async fn settled_panel_is_idle() {
 			r.frame_with(width, vec![]);
 		}
 		let (delay, _) = r.frame_with(width, vec![]);
-		assert_eq!(delay, Duration::MAX, "width {width}");
+		// A connected call repaints once a second for its time, never faster.
+		assert!(delay >= Duration::from_secs(1), "width {width}: {delay:?}");
 	}
 }
 

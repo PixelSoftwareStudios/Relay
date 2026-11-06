@@ -52,8 +52,13 @@ fn many(count: u64) -> Vec<HistoryEntry> {
 		.collect()
 }
 
+/// A row takes at most this many points on a phone; pages are sized from it, so a taller row
+/// never pushes the last ones off a test screen.
+const ROW_POINTS: f32 = 320.0;
+
 fn phone_with(history: Vec<HistoryEntry>) -> Phone {
-	let mut phone = Phone::new(360.0, 14000.0, Language::En);
+	let height = 2500.0 + ROW_POINTS * history.len() as f32;
+	let mut phone = Phone::new(360.0, height, Language::En);
 	phone
 		.shell
 		.now_ms
@@ -61,7 +66,7 @@ fn phone_with(history: Vec<HistoryEntry>) -> Phone {
 	let mut state = phone::busy_state();
 	state.history = history;
 	phone.show_state(&state);
-	phone.settle();
+	phone.open_history();
 	phone
 }
 
@@ -101,7 +106,10 @@ async fn the_section_is_always_there_and_says_so_when_empty() {
 	for state in cases {
 		let mut phone = Phone::new(360.0, 3000.0, Language::En);
 		phone.show_state(&state);
-		let drawn = phone.page(Page::Calls);
+		let collapsed = phone.page(Page::Calls);
+		assert!(collapsed.labels.contains(&"History".to_owned()));
+		assert!(!collapsed.labels.contains(&"No call history yet".to_owned()));
+		let drawn = phone.open_history();
 		assert!(
 			drawn.labels.contains(&"History".to_owned()),
 			"{:?}",
@@ -236,7 +244,7 @@ async fn a_switched_off_history_says_that_entries_stay() {
 	state.history = every_outcome();
 	state.settings.as_mut().unwrap().history_enabled = false;
 	phone.show_state(&state);
-	let drawn = phone.page(Page::Calls);
+	let drawn = phone.settle();
 	assert!(
 		drawn
 			.labels
@@ -313,7 +321,8 @@ async fn nothing_overflows_and_touch_targets_stay_large() {
 				let mut state = phone::busy_state();
 				state.history = history.clone();
 				phone.show_state(&state);
-				let mut pages = vec![phone.page(Page::Calls)];
+				phone.page(Page::Calls);
+				let mut pages = vec![phone.open_history()];
 				phone.app.open_settings(Some(SettingsCategory::Privacy));
 				pages.push(phone.settle());
 				for drawn in pages {

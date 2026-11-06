@@ -2,7 +2,6 @@
 //! can hold passwords and invite tokens while a form is open.
 
 use std::collections::HashMap;
-use std::time::Instant;
 
 use egui::TextureHandle;
 
@@ -42,7 +41,6 @@ pub struct ChatTarget {
 pub struct Local {
 	pub name_input: String,
 	pub name_seeded: bool,
-	pub consent: HashMap<String, bool>,
 	pub gain_edits: HashMap<String, Option<f32>>,
 	/// In-flight drag of the push-to-talk release delay slider.
 	pub release_delay_edit: Option<u32>,
@@ -78,8 +76,6 @@ pub struct Local {
 	pub chat: Option<ChatTarget>,
 	/// A page asked to go to another page (an empty state's button).
 	pub goto: Option<crate::layout::Page>,
-	/// When this app first saw each call connected (hex call id).
-	pub call_since: HashMap<String, Instant>,
 	/// The contact (hex peer id) the Contacts page should scroll to and show.
 	pub focus_contact: Option<String>,
 	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
@@ -94,6 +90,15 @@ pub struct Local {
 	/// The microphone card was dismissed for the current access state.
 	pub microphone: crate::microphone::Dismissal,
 
+	/// The call whose connection details are open, and whether they were drawn this frame
+	/// (a panel that is not drawn closes its statistics stream).
+	pub details_call: Option<String>,
+	pub details_drawn: bool,
+	/// The call whose volume popup was asked for from the menu.
+	pub volume_ask: Option<String>,
+	/// Single-key saves in flight and the engine's last answer for each key.
+	pub setting_saving: std::collections::HashSet<&'static str>,
+	pub setting_reports: HashMap<&'static str, Result<Vec<crate::engine::SettingResult>, String>>,
 	/// How many call history rows the Calls page shows.
 	pub history_shown: usize,
 	/// "Clear history" is waiting for confirmation.

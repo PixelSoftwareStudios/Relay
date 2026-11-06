@@ -13,8 +13,9 @@ use relay_ui::i18n::Language;
 const GONE: &str = "Messages from this call are no longer kept";
 
 fn desktop() -> Phone {
-	let phone = Phone::desktop(720.0, 3200.0, Language::En);
+	let mut phone = Phone::desktop(720.0, 3200.0, Language::En);
 	phone.show_state(&history_state());
+	phone.open_history();
 	phone
 }
 
@@ -111,6 +112,7 @@ async fn on_a_phone_the_history_chat_is_a_screen_with_a_back() {
 	let mut phone = Phone::new(360.0, 5000.0, Language::En);
 	phone.show_state(&history_state());
 	live_messages(&phone);
+	phone.open_history();
 	phone.click_label("Messages: 3000");
 	let open = phone.settle();
 	assert!(

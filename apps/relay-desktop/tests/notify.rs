@@ -30,7 +30,7 @@ fn call(id: &str, phase: Phase) -> Call {
 		peer_id: "aa".into(),
 		phase,
 		transmit: Transmit {
-			mode: relay_ui::model::Mode::ReceiveOnly,
+			mode: relay_ui::model::Mode::Muted,
 			consent_granted: false,
 			effective_transmitting: false,
 			blocked_reason: String::new(),
@@ -43,6 +43,7 @@ fn call(id: &str, phase: Phase) -> Call {
 		problem: None,
 		controlled_by_me: false,
 		controller_generation: 0,
+		connected_at_unix_ms: 0,
 	}
 }
 

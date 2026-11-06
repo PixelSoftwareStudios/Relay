@@ -10,6 +10,7 @@ use crate::messaging::rules::{Kept, transcript_kept};
 use crate::theme;
 
 use super::chat;
+use super::collapsing::{ChevronSide, collapsing_header};
 use super::kit::{self, Cx};
 use super::widgets::button_row;
 use crate::tr;
@@ -18,7 +19,21 @@ use crate::tr;
 const REFRESH: Duration = Duration::from_secs(30);
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
-	kit::section_title(ui, tr!("history-heading"));
+	ui.add_space(theme::SPACE_M);
+	collapsing_header(
+		ui,
+		"history-section",
+		tr!("history-heading"),
+		false,
+		ChevronSide::Left,
+		|ui| {
+			ui.add_space(theme::SPACE_S);
+			body(ui, cx);
+		},
+	);
+}
+
+fn body(ui: &mut Ui, cx: &mut Cx) {
 	let enabled = cx
 		.state
 		.settings

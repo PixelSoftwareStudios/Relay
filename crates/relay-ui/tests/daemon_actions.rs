@@ -165,7 +165,7 @@ fn call(id: &str, phase: relay_ui::model::Phase, mine: bool) -> relay_ui::model:
 		peer_id: "p".to_owned(),
 		phase,
 		transmit: relay_ui::model::Transmit {
-			mode: relay_ui::model::Mode::ReceiveOnly,
+			mode: relay_ui::model::Mode::Muted,
 			consent_granted: false,
 			effective_transmitting: false,
 			blocked_reason: String::new(),

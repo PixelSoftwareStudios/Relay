@@ -86,14 +86,19 @@ pub fn has_exact(drawn: &crate::phone::Drawn, text: &str) -> bool {
 	drawn.labels.iter().any(|l| l == text)
 }
 
-/// The Messages button label while the Ada chat is closed: the unread count in it.
+/// The chat icon of the call card's Messages button.
+pub fn chat_glyph() -> String {
+	relay_ui::icons::Icon::Chat.codepoint().to_string()
+}
+
+/// The text of the Messages button's unread badge while the Ada chat is closed (the count).
 pub fn badge(phone: &Phone) -> String {
 	let count = phone.actions.shared.messages.read(|s| {
 		let key = hex::encode([ADA_CALL; 16]);
 		s.transcript(&key)
 			.map_or(0, |t| t.entries.iter().filter(|e| !e.outgoing).count())
 	});
-	format!("Messages ({count})")
+	count.to_string()
 }
 
 /// Whether a painted text sits on an enabled, tappable control.

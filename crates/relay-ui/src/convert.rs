@@ -39,16 +39,16 @@ pub fn phase(value: i32) -> Phase {
 pub fn mode(value: i32) -> Mode {
 	match pb::TransmitMode::try_from(value) {
 		Ok(pb::TransmitMode::PushToTalk) => Mode::PushToTalk,
-		Ok(pb::TransmitMode::Unmuted) => Mode::OpenMic,
-		_ => Mode::ReceiveOnly,
+		Ok(pb::TransmitMode::Unmuted) => Mode::Unmuted,
+		_ => Mode::Muted,
 	}
 }
 
 pub fn mode_to_wire(mode: Mode) -> pb::TransmitMode {
 	match mode {
-		Mode::ReceiveOnly => pb::TransmitMode::Muted,
+		Mode::Muted => pb::TransmitMode::Muted,
 		Mode::PushToTalk => pb::TransmitMode::PushToTalk,
-		Mode::OpenMic => pb::TransmitMode::Unmuted,
+		Mode::Unmuted => pb::TransmitMode::Unmuted,
 	}
 }
 

@@ -422,3 +422,167 @@ async fn chat_design_screenshots() {
 		);
 	}
 }
+
+/// The Calls page in its states (favorites full and empty, history collapsed and open, a call in
+/// each mode, the connection details) and the Settings categories of the calls area.
+#[tokio::test]
+async fn calls_screenshots() {
+	use relay_ui::model::{HistoryDirection, HistoryEntry, HistoryOutcome, Mode};
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	let now = 1_793_880_000_000u64;
+	let history = (1..=3u64)
+		.map(|i| HistoryEntry {
+			id: i,
+			call_id: hex::encode([i as u8; 16]),
+			peer_id: hex::encode([1u8; 32]),
+			peer_name: ["Ada Lovelace", "Grace Hopper", "Alan Turing"][i as usize - 1].into(),
+			fingerprint_short: String::new(),
+			direction: if i == 2 {
+				HistoryDirection::Outgoing
+			} else {
+				HistoryDirection::Incoming
+			},
+			outcome: if i == 3 {
+				HistoryOutcome::Missed
+			} else {
+				HistoryOutcome::Completed
+			},
+			started_at_ms: now - i * 3_600_000,
+			duration_ms: 125_000,
+		})
+		.collect::<Vec<_>>();
+	for (name, desktop, w, h) in [
+		("desktop", true, 760.0, 900.0),
+		("phone", false, 360.0, 820.0),
+	] {
+		let mut phone = if desktop {
+			Phone::desktop(w, h, Language::En)
+		} else {
+			Phone::new(w, h, Language::En)
+		};
+		phone
+			.shell
+			.now_ms
+			.store(now, std::sync::atomic::Ordering::SeqCst);
+		if desktop {
+			phone.ctx.set_pixels_per_point(1.5);
+		}
+		let mut textures = Textures::default();
+		let mut idle = phone::busy_state();
+		idle.calls.clear();
+		idle.history = history.clone();
+		let mut none = idle.clone();
+		for p in &mut none.peers {
+			p.favorite = false;
+		}
+		let mut nobody = idle.clone();
+		nobody.peers.clear();
+		let mut full = idle.clone();
+		for (i, p) in full.peers.iter_mut().enumerate() {
+			p.favorite = true;
+			p.favorite_position = i as u32;
+		}
+		let mut call = phone::busy_state();
+		call.calls.retain(|c| c.call_id == "02".repeat(16));
+		call.history = history.clone();
+		call.calls[0].connected_at_unix_ms = now - 754_000;
+		let mut muted = call.clone();
+		muted.calls[0].transmit.mode = Mode::Muted;
+		let mut open = call.clone();
+		open.calls[0].transmit.mode = Mode::Unmuted;
+		open.calls[0].transmit.effective_transmitting = true;
+		for (tag, state) in [
+			("favorites", idle),
+			("favorites-full", full),
+			("favorites-empty", none),
+			("favorites-nobody", nobody),
+			("call-ptt", call),
+			("call-muted", muted),
+			("call-open", open),
+			("incoming", phone::busy_state()),
+		] {
+			phone.show_state(&state);
+			phone.app.set_page(Page::Calls);
+			shoot(
+				&mut phone,
+				&mut textures,
+				&dir.join(format!("calls-{name}-{tag}.png")),
+			);
+		}
+		// History open.
+		let mut state = phone::busy_state();
+		state.calls.clear();
+		state.history = history.clone();
+		phone.show_state(&state);
+		phone.app.set_page(Page::Calls);
+		phone.size.y = 1500.0;
+		phone.settle();
+		phone.click_label("History");
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("calls-{name}-history-open.png")),
+		);
+		// The connection details with live numbers.
+		let mut state = phone::busy_state();
+		state.calls.retain(|c| c.call_id == "02".repeat(16));
+		state.calls[0].connected_at_unix_ms = now - 754_000;
+		phone.show_state(&state);
+		phone
+			.slot
+			.set(std::sync::Arc::new(phone::stats::Ops::default()));
+		phone.app.set_page(Page::Calls);
+		phone.settle();
+		phone.frame_with(vec![egui::Event::Key {
+			key: egui::Key::D,
+			physical_key: None,
+			pressed: true,
+			repeat: false,
+			modifiers: egui::Modifiers::COMMAND | egui::Modifiers::SHIFT,
+		}]);
+		let id = "02".repeat(16);
+		for _ in 0..200 {
+			if phone.actions.shared.stats.latest(&id).is_some() {
+				break;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+		}
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("calls-{name}-details.png")),
+		);
+		phone.click_label(relay_ui::i18n::t("action-details"));
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("calls-{name}-details-more.png")),
+		);
+		phone.size.y = h;
+		let mut off = phone::busy_state();
+		off.settings.as_mut().unwrap().ptt_enabled = false;
+		off.settings
+			.as_mut()
+			.unwrap()
+			.effective_default_transmit_mode = Mode::Muted;
+		for (tag, state) in [("on", phone::busy_state()), ("off", off)] {
+			phone.show_state(&state);
+			for category in [
+				SettingsCategory::Profile,
+				SettingsCategory::PushToTalk,
+				SettingsCategory::Calls,
+			] {
+				phone.app.open_settings(Some(category));
+				shoot(
+					&mut phone,
+					&mut textures,
+					&dir.join(format!("calls-{name}-settings-{category:?}-{tag}.png")),
+				);
+			}
+		}
+	}
+}

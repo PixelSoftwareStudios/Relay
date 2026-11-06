@@ -15,6 +15,7 @@ mod privacy;
 mod profile;
 mod ptt;
 mod ring;
+mod saved;
 mod startup;
 
 use egui::{self, RichText, Sense, Ui};
@@ -146,7 +147,7 @@ fn category_page(ui: &mut Ui, category: SettingsCategory, cx: &mut Cx) {
 /// (the compact list). Returns whether it was clicked.
 fn entry(ui: &mut Ui, category: SettingsCategory, selected: bool, summary: bool) -> bool {
 	let width = ui.available_width();
-	let inner = width - 2.0 * theme::SPACE_M - 16.0;
+	let inner = width - theme::SPACE_M - theme::SPACE_L - 28.0;
 	let title = ui.painter().layout(
 		category.label().to_owned(),
 		egui::TextStyle::Button.resolve(ui.style()),
@@ -185,10 +186,10 @@ fn entry(ui: &mut Ui, category: SettingsCategory, selected: bool, summary: bool)
 		let color = ui.visuals().weak_text_color();
 		ui.painter().galley(egui::pos2(x, y), note, color);
 		ui.painter().text(
-			egui::pos2(rect.max.x - theme::SPACE_M, rect.center().y),
+			egui::pos2(rect.max.x - theme::SPACE_L, rect.center().y),
 			egui::Align2::RIGHT_CENTER,
-			"\u{203A}",
-			egui::FontId::proportional(theme::TEXT_HEADING),
+			crate::icons::Icon::ChevronRight.codepoint(),
+			crate::icons::Icon::ChevronRight.font(18.0),
 			visuals.text_color(),
 		);
 	}

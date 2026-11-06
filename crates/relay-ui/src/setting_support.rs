@@ -24,6 +24,6 @@ pub fn reason(reason: &str) -> &str {
 	if is_unknown_key(reason) {
 		tr!("setting-unsupported")
 	} else {
-		reason.trim()
+		crate::engine::plain_refusal(reason)
 	}
 }

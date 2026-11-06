@@ -101,9 +101,9 @@ async fn a_shell_that_cannot_manage_the_daemon_still_explains_without_a_button()
 async fn the_history_switch_defaults_to_on_when_an_old_daemon_does_not_report_it() {
 	let off = relay_ui::i18n::t("history-off-note");
 	let mut old = rig(Some(0), false);
-	let shown = old.page(Page::Calls);
+	let shown = old.open_history();
 	assert!(!shown.labels.iter().any(|l| l == off), "old daemon: on");
 	let mut current = rig(None, false);
-	let shown = current.page(Page::Calls);
+	let shown = current.open_history();
 	assert!(shown.labels.iter().any(|l| l == off), "a real off is shown");
 }

@@ -3,6 +3,8 @@
 
 use egui::{self, RichText, Ui};
 
+use crate::icons::{Icon, icon_label_danger, icon_label_primary};
+use crate::model::Mode;
 use crate::theme;
 use crate::viewmodel::CallCard;
 
@@ -44,16 +46,16 @@ fn prompt(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 			let id = card.call_id.clone();
 			let actions = cx.actions;
 			button_row(ui, |ui| {
-				if kit::accept_button(ui, tr!("call-accept")).clicked() {
+				if icon_label_primary(ui, Icon::Call, tr!("call-accept")).clicked() {
 					let id = id.clone();
 					actions.run(|c| async move { c.accept_call(&id).await });
 				}
-				if kit::danger_button(ui, tr!("call-decline")).clicked() {
+				if icon_label_danger(ui, Icon::HangUp, tr!("call-decline")).clicked() {
 					let id = id.clone();
 					actions.run(|c| async move { c.decline_call(&id).await });
 				}
 			});
-			kit::help(ui, tr!("call-accept-note"));
+			kit::help(ui, join_note(cx));
 			kit::details(ui, ("incoming-details", &card.call_id), |ui| {
 				ui.label(trust_line(&card.trust, &card.fingerprint));
 			});
@@ -68,5 +70,19 @@ fn trust_line(trust: &str, fingerprint: &str) -> String {
 		tr!("trust-line", trust = trust)
 	} else {
 		tr!("trust-line-key", trust = trust, fingerprint = fingerprint)
+	}
+}
+
+/// What accepting does to the microphone: the call starts in the mode that would really apply.
+fn join_note(cx: &Cx) -> &'static str {
+	let mode = cx
+		.state
+		.settings
+		.as_ref()
+		.map_or(Mode::PushToTalk, |s| s.effective_default_transmit_mode);
+	match mode {
+		Mode::Muted => tr!("incoming-join-muted"),
+		Mode::Unmuted => tr!("incoming-join-unmuted"),
+		Mode::PushToTalk => tr!("incoming-join-ptt"),
 	}
 }

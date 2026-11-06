@@ -10,18 +10,22 @@
 mod back;
 mod banners;
 mod call_card;
+mod call_details;
+mod call_mode;
+mod call_volume;
 mod channels;
 mod chat;
+pub mod collapsing;
 mod connect;
 mod contacts;
+mod favorites;
 mod history;
-pub mod collapsing;
 mod home;
+pub mod icon_style;
 mod incoming;
 mod kit;
 mod local;
 pub mod messages;
-pub mod icon_style;
 mod microphone;
 mod nav;
 mod nearby;
@@ -32,13 +36,11 @@ mod textures;
 mod visibility;
 mod widgets;
 
-use std::time::Instant;
-
 use crate::actions::Actions;
 use crate::capabilities::{Capabilities, SettingsCategory};
 use crate::imaging::{Decoded, decode_for_texture};
-use crate::qr_scan::{ScanTrust, Scanned};
 use crate::layout::{LayoutClass, Page};
+use crate::qr_scan::{ScanTrust, Scanned};
 use crate::shell::Insets;
 use crate::theme;
 use crate::viewmodel::{call_cards, peer_rows};
@@ -192,6 +194,11 @@ impl RelayApp {
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
+		if !self.actions.shell.window_visible() {
+			// Nobody sees the details: stop the engine's statistics stream.
+			self.local.details_call = None;
+			self.actions.stop_stats();
+		}
 	}
 
 	/// Follow the shell's language: switch the catalogs and reinstall the
@@ -251,6 +258,12 @@ impl RelayApp {
 			self.local.history_saving = false;
 			self.local.history_report = Some(result.map_err(crate::setting_support::friendly));
 		}
+		for (key, result) in inbox.take_setting_saved() {
+			self.local.setting_saving.remove(key);
+			self.local
+				.setting_reports
+				.insert(key, result.map_err(crate::setting_support::friendly));
+		}
 		if let Some(invite) = inbox.take_invite() {
 			self.local.invite = Some(invite);
 		}
@@ -261,7 +274,7 @@ impl RelayApp {
 	/// to an open drop-down.
 	fn handle_keys(&mut self, ctx: &egui::Context) {
 		use egui::{Key, Modifiers};
-		let (escape, jump) = ctx.input_mut(|i| {
+		let (escape, jump, details) = ctx.input_mut(|i| {
 			let escape = i.consume_key(Modifiers::NONE, Key::Escape);
 			let keys = [Key::Num1, Key::Num2, Key::Num3, Key::Num4];
 			let jump = keys
@@ -269,8 +282,12 @@ impl RelayApp {
 				.position(|k| i.consume_key(Modifiers::COMMAND, *k))
 				.map(|n| Page::SIDEBAR[n]);
 			let settings = i.consume_key(Modifiers::COMMAND, Key::Comma);
-			(escape, jump.or(settings.then_some(Page::Settings)))
+			let details = i.consume_key(Modifiers::COMMAND | Modifiers::SHIFT, Key::D);
+			(escape, jump.or(settings.then_some(Page::Settings)), details)
 		});
+		if details {
+			call_details::toggle_shortcut(&mut self.local, &self.actions.shared.state());
+		}
 		if escape && !ctx.any_popup_open() {
 			self.step_out();
 		}
@@ -294,7 +311,6 @@ impl RelayApp {
 		let error = self.actions.shared.error();
 		let cards = call_cards(&state, &meters);
 		let rows = peer_rows(&state);
-		track_calls(&mut self.local, &cards);
 		let ringing = cards.iter().any(|c| c.incoming);
 		let mut cx = Cx {
 			state: &state,
@@ -381,6 +397,11 @@ impl RelayApp {
 			self.actions.shell.push_to_talk(&call, false);
 		}
 		self.local.talk_drawn = false;
+		if !self.local.details_drawn {
+			self.local.details_call = None;
+			self.actions.stop_stats();
+		}
+		self.local.details_drawn = false;
 		let caps = Capabilities::of(&*self.actions.shell);
 		let shown = (self.page == Page::Settings).then(|| match class.is_compact() {
 			true => self.category,
@@ -411,22 +432,6 @@ fn top_frame(ui: &egui::Ui, class: LayoutClass) -> egui::Frame {
 		theme::SPACE_L
 	};
 	egui::Frame::side_top_panel(ui.style()).inner_margin(margin)
-}
-
-/// Remember when each call was first seen connected, for its duration, and
-/// forget calls that are gone.
-fn track_calls(local: &mut Local, cards: &[crate::viewmodel::CallCard]) {
-	local
-		.call_since
-		.retain(|id, _| cards.iter().any(|c| &c.call_id == id));
-	for card in cards {
-		if card.phase == crate::model::Phase::Connected {
-			local
-				.call_since
-				.entry(card.call_id.clone())
-				.or_insert_with(Instant::now);
-		}
-	}
 }
 
 /// While the soft keyboard is up, scroll the focused field into view once

@@ -57,9 +57,9 @@ impl Phase {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub enum Mode {
-	ReceiveOnly,
+	Muted,
 	PushToTalk,
-	OpenMic,
+	Unmuted,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

@@ -64,14 +64,14 @@ async fn acquires_control_before_mutating_a_call_held_elsewhere() {
 #[tokio::test]
 async fn the_transmit_mode_is_the_consent_and_travels_alone() {
 	let (ctl, _hub, ops) = controller_with(mine(), 0);
-	let err = ctl.set_transmit("zz", Mode::OpenMic).await.unwrap_err();
+	let err = ctl.set_transmit("zz", Mode::Unmuted).await.unwrap_err();
 	assert!(matches!(err, ControlError::Invalid(_)));
 	assert!(ops.recorded().is_empty());
 
 	ctl.set_transmit(&call_hex(), Mode::PushToTalk)
 		.await
 		.unwrap();
-	ctl.set_transmit(&call_hex(), Mode::ReceiveOnly)
+	ctl.set_transmit(&call_hex(), Mode::Muted)
 		.await
 		.unwrap();
 	let sent = ops.recorded();
@@ -88,7 +88,7 @@ async fn the_transmit_mode_is_the_consent_and_travels_alone() {
 		Command::SetTransmit {
 			call_id: CALL.to_vec(),
 			generation: 3,
-			mode: Mode::ReceiveOnly,
+			mode: Mode::Muted,
 		}
 	);
 }
