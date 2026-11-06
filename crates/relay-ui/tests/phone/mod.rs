@@ -3,7 +3,7 @@
 
 #![allow(dead_code)]
 
-use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 
 use relay_ui::actions::{Actions, Shared, ShellSink};
@@ -14,6 +14,7 @@ use relay_ui::i18n::{self, Language};
 use relay_ui::layout::Page;
 use relay_ui::mock::seed;
 use relay_ui::model::AppState;
+use relay_ui::qr_scan::ScanError;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use relay_ui::ui::RelayApp;
 
@@ -38,6 +39,12 @@ pub struct PhoneShell {
 	pub desktop: AtomicBool,
 	/// The time the shell reports, in unix milliseconds; 0 is the system clock.
 	pub now_ms: AtomicU64,
+	/// `can_scan_qr`: the shell has a camera scanner.
+	pub scanner: AtomicBool,
+	/// How many times the UI asked for a scan, and the answer each one gets.
+	pub scans: AtomicUsize,
+	pub scan_reply: Mutex<Option<Result<Option<String>, ScanError>>>,
+	pub camera_settings: AtomicUsize,
 }
 
 impl FilePicker for PhoneShell {
@@ -88,6 +95,17 @@ impl Shell for PhoneShell {
 	}
 	fn push_to_talk(&self, call_id: &str, pressed: bool) {
 		self.ptt.lock().unwrap().push((call_id.to_owned(), pressed));
+	}
+	fn can_scan_qr(&self) -> bool {
+		self.scanner.load(Ordering::SeqCst)
+	}
+	fn scan_qr(&self) -> BoxFuture<'_, Result<Option<String>, ScanError>> {
+		self.scans.fetch_add(1, Ordering::SeqCst);
+		let reply = self.scan_reply.lock().unwrap().clone();
+		Box::pin(async move { reply.unwrap_or(Ok(None)) })
+	}
+	fn open_camera_settings(&self) {
+		self.camera_settings.fetch_add(1, Ordering::SeqCst);
 	}
 }
 
