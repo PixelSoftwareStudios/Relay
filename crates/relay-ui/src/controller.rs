@@ -35,7 +35,10 @@ impl std::fmt::Display for ControlError {
 		match self {
 			Self::NotConnected => f.write_str(tr!("err-not-connected")),
 			Self::Invalid(text) => f.write_str(text),
-			Self::Engine(text) => f.write_str(text),
+			Self::Engine(text) => match crate::plain_error::storage_words(text) {
+				Some(plain) => f.write_str(&plain),
+				None => f.write_str(text),
+			},
 		}
 	}
 }

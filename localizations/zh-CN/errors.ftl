@@ -46,3 +46,5 @@ err-cannot-start-daemon = 此设备无法启动 Relay 守护进程。
 err-cannot-stop-daemon = 此设备无法停止 Relay 守护进程。
 err-read-file = 无法读取文件：{ $error }
 err-fingerprint-mismatch = 这不是该设备新密钥的指纹。
+err-trust-full = 已达到 { $limit } 台已保存设备的上限。请在联系人中移除一些。
+err-save-failed = Relay 无法保存此更改。请重试，或重新启动应用。

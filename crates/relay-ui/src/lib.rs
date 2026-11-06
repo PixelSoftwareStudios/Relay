@@ -35,6 +35,7 @@ pub mod mock;
 pub mod model;
 pub mod notice_words;
 pub mod notices;
+pub mod plain_error;
 pub mod ptt_target;
 pub mod qr;
 pub mod qr_scan;

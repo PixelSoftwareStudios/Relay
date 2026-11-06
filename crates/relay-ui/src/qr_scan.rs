@@ -70,6 +70,8 @@ pub enum ScanTrust {
 	Unreachable,
 	/// The device that answered is not the one in the code; nothing was stored.
 	Mismatch,
+	/// The device could not be saved; the sentence says why in plain words.
+	Refused(String),
 	/// Anything else, in the engine's words.
 	Failed(String),
 }
@@ -79,7 +81,9 @@ impl ScanTrust {
 	pub fn from_failure(message: &str) -> Self {
 		let lower = message.to_lowercase();
 		let has = |words: &[&str]| words.iter().any(|w| lower.contains(w));
-		if has(&["match", "fingerprint"]) {
+		if let Some(plain) = crate::plain_error::storage_words(message) {
+			Self::Refused(plain)
+		} else if has(&["match", "fingerprint"]) {
 			Self::Mismatch
 		} else if has(&["reach", "timed out", "timeout", "refused", "no route"]) {
 			Self::Unreachable

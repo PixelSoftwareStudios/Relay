@@ -44,3 +44,5 @@ err-cannot-start-daemon = このデバイスでは Relay デーモンを起動�
 err-cannot-stop-daemon = このデバイスでは Relay デーモンを停止できません。
 err-read-file = ファイルを読み取れません: { $error }
 err-fingerprint-mismatch = これはこのデバイスの新しいキーのフィンガープリントではありません。
+err-trust-full = 保存できるデバイスの上限（{ $limit } 台）に達しました。連絡先からいくつか削除してください。
+err-save-failed = Relay はこの変更を保存できませんでした。もう一度試すか、アプリを再起動してください。

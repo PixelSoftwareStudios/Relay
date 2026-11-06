@@ -45,3 +45,5 @@ err-cannot-start-daemon = यह डिवाइस Relay डेमन शुर
 err-cannot-stop-daemon = यह डिवाइस Relay डेमन बंद नहीं कर सकता।
 err-read-file = फ़ाइल पढ़ी नहीं जा सकी: { $error }
 err-fingerprint-mismatch = यह इस डिवाइस की नई कुंजी का फ़िंगरप्रिंट नहीं है।
+err-trust-full = आप { $limit } सहेजे गए डिवाइस की सीमा तक पहुँच गए हैं। संपर्क में से कुछ हटाएँ।
+err-save-failed = Relay यह बदलाव सहेज नहीं सका। फिर कोशिश करें, या ऐप फिर से शुरू करें।

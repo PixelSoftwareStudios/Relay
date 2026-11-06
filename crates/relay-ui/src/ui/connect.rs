@@ -166,6 +166,9 @@ pub(super) fn scan_status(ui: &mut Ui, cx: &mut Cx) {
 		Some(ScanTrust::Mismatch) => {
 			ui.label(RichText::new(tr!("scan-mismatch")).color(theme::WARN));
 		}
+		Some(ScanTrust::Refused(text)) => {
+			ui.label(RichText::new(text.as_str()).color(theme::WARN));
+		}
 		Some(ScanTrust::Failed(reason)) => {
 			ui.label(
 				RichText::new(tr!("scan-trust-failed", reason = reason.as_str()))
@@ -262,6 +265,7 @@ fn add_by_address(ui: &mut Ui, cx: &mut Cx) {
 				cx.actions
 					.run(|c| async move { c.start_call_to(&text).await });
 				local.paste.clear();
+				local.goto = Some(crate::layout::Page::Calls);
 			}
 		});
 		if let Some(p) = problem {

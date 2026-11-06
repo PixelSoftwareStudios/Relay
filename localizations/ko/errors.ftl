@@ -46,3 +46,5 @@ err-cannot-start-daemon = 이 기기에서는 Relay 데몬을 시작할 수 없�
 err-cannot-stop-daemon = 이 기기에서는 Relay 데몬을 중지할 수 없습니다.
 err-read-file = 파일을 읽을 수 없습니다: { $error }
 err-fingerprint-mismatch = 이 기기의 새 키 지문이 아닙니다.
+err-trust-full = 저장된 기기 한도({ $limit }대)에 도달했습니다. 연락처에서 일부를 삭제하세요.
+err-save-failed = Relay가 이 변경을 저장하지 못했습니다. 다시 시도하거나 앱을 다시 시작하세요.

@@ -47,3 +47,5 @@ err-cannot-start-daemon = This device cannot start the Relay daemon.
 err-cannot-stop-daemon = This device cannot stop the Relay daemon.
 err-read-file = Cannot read the file: { $error }
 err-fingerprint-mismatch = That is not the fingerprint of this device's new key.
+err-trust-full = You have reached the limit of { $limit } saved devices. Remove some from Contacts.
+err-save-failed = Relay could not save this change. Try again, or restart the app.
