@@ -220,6 +220,7 @@ impl Model {
 				"device" => snap
 					.devices
 					.retain(|d| d.device_id.as_bytes() != r.id.as_slice()),
+				"warning" => snap.warnings.retain(|w| w.code.as_bytes() != r.id.as_slice()),
 				_ => {}
 			},
 			Event::Warning(w) => push_warning(&mut snap.warnings, w),

@@ -178,6 +178,16 @@ impl DaemonHandle {
 		&self.control
 	}
 
+	/// The system now allows (or may allow) using the microphone, for example a
+	/// permission was granted while the app ran: a capture that failed to open
+	/// is tried again without a restart.
+	pub async fn input_access_changed(&self) {
+		let _ = self
+			.control
+			.system(relay_core::SystemEvent::InputAccessChanged)
+			.await;
+	}
+
 	/// The published transmit gates.
 	pub fn gates(&self) -> &GateReader {
 		&self.gates

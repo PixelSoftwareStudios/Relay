@@ -148,6 +148,9 @@ pub(crate) enum Msg {
 		peer: Option<PeerInfo>,
 		warning: Problem,
 	},
+	ClearWarning {
+		code: &'static str,
+	},
 	Shutdown,
 }
 
@@ -222,6 +225,11 @@ impl ControlHandle {
 		warning: Problem,
 	) -> Result<(), ServiceError> {
 		self.post(Msg::Attention { peer, warning }).await
+	}
+
+	/// Withdraws the warning with this code once its cause is gone.
+	pub async fn clear_warning(&self, code: &'static str) -> Result<(), ServiceError> {
+		self.post(Msg::ClearWarning { code }).await
 	}
 
 	/// Stops the actor after it drains what it already accepted.

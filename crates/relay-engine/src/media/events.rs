@@ -19,6 +19,9 @@ pub enum MediaEvent {
 	/// use). The domain also gets `CaptureFailed`; this carries the reason so
 	/// the user is told what to do.
 	CaptureUnavailable(String),
+	/// The microphone opened (for a call or a test): an earlier
+	/// `CaptureUnavailable` no longer holds.
+	CaptureOpened,
 	/// A media thread panicked or stopped responding. Gates are already
 	/// closed and the affected call (if known) is out of the media path; the
 	/// owner should tell the user and end calls that cannot recover.

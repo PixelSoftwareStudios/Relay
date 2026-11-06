@@ -289,6 +289,7 @@ impl Node {
 				MediaEvent::Peer(event) => self.feed(Input::Peer(event)),
 				MediaEvent::OutputLost
 				| MediaEvent::CaptureUnavailable(_)
+				| MediaEvent::CaptureOpened
 				| MediaEvent::WorkerFailed(_) => continue,
 			};
 		}

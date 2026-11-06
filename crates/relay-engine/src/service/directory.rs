@@ -232,6 +232,13 @@ impl Directory {
 		})
 	}
 
+	/// Drops the warning with this code, if any; clients learn it no longer holds.
+	pub fn clear_warning(&mut self, code: &str) -> Option<StateEvent> {
+		let before = self.warnings.len();
+		self.warnings.retain(|w| w.code != code);
+		(self.warnings.len() != before).then(|| removed(code.as_bytes().to_vec(), "warning"))
+	}
+
 	/// Replaces the discovered peers and reports what changed.
 	pub fn set_peers(&mut self, peers: Vec<PeerInfo>) -> Vec<StateEvent> {
 		let mut next: BTreeMap<PeerId, PeerInfo> = peers.into_iter().map(|p| (p.id, p)).collect();

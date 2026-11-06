@@ -324,6 +324,10 @@ impl Actor {
 				events.extend(self.directory.warn(warning));
 				self.publish(events);
 			}
+			Msg::ClearWarning { code } => {
+				let event = self.directory.clear_warning(code);
+				self.publish(event.into_iter().collect());
+			}
 			Msg::Shutdown => {}
 		}
 	}

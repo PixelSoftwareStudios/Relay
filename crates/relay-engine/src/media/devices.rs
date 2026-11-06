@@ -197,6 +197,7 @@ impl Thread {
 		match self.try_open_capture(generation) {
 			Ok(handle) => {
 				self.open_capture = Some((generation, handle));
+				self.events_out(MediaEvent::CaptureOpened);
 				self.emit(SystemEvent::CaptureReady { generation });
 			}
 			Err(error) => {

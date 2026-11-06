@@ -99,6 +99,8 @@ impl AppState {
 			"channel" => self.channels.retain(|c| c.channel_id != hex_id),
 			"call" => self.calls.retain(|c| c.call_id != hex_id),
 			"device" => self.devices.retain(|d| d.device_id.as_bytes() != id),
+			// The id is the warning's code: its cause is gone.
+			"warning" => self.warnings.retain(|w| w.code.as_bytes() != id),
 			other => tracing::debug!(kind = other, "ignoring removal of unknown kind"),
 		}
 	}

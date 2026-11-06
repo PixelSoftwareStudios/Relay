@@ -138,3 +138,28 @@ fn state_serializes_camel_case_without_internal_fields() {
 	assert!(json["calls"][0].get("controllerGeneration").is_none());
 	assert!(json.get("clientId").is_none());
 }
+
+#[test]
+fn a_withdrawn_warning_disappears() {
+	let mut s = AppState::default();
+	for code in ["MICROPHONE_UNAVAILABLE", "OTHER"] {
+		apply(
+			&mut s,
+			1,
+			Event::Warning(pb::Problem {
+				code: code.into(),
+				..Default::default()
+			}),
+		);
+	}
+	apply(
+		&mut s,
+		2,
+		Event::Removed(pb::Removed {
+			id: b"MICROPHONE_UNAVAILABLE".to_vec(),
+			kind: "warning".into(),
+		}),
+	);
+	let codes: Vec<&str> = s.warnings.iter().map(|w| w.code.as_str()).collect();
+	assert_eq!(codes, ["OTHER"]);
+}

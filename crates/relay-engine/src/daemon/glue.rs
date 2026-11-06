@@ -49,6 +49,9 @@ fn worker_failed_message(failure: &crate::media::WorkerFailure) -> String {
 	format!("The daemon's {part} {what}. {tail}")
 }
 
+/// The warning code raised when the microphone cannot be opened.
+const MICROPHONE_UNAVAILABLE: &str = "MICROPHONE_UNAVAILABLE";
+
 /// What to tell the user when the microphone cannot be opened. On macOS the
 /// first open triggers the system prompt; a refused or undetermined choice
 /// shows up here, and only the user can change it.
@@ -93,12 +96,13 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 				}
 				MediaEvent::CaptureUnavailable(reason) => {
 					let warning = problem(
-						"MICROPHONE_UNAVAILABLE",
+						MICROPHONE_UNAVAILABLE,
 						microphone_unavailable_message(&reason),
 						"check_microphone_access",
 					);
 					handle.attention(None, warning).await
 				}
+				MediaEvent::CaptureOpened => handle.clear_warning(MICROPHONE_UNAVAILABLE).await,
 				MediaEvent::WorkerFailed(failure) => {
 					let warning = problem(
 						"MEDIA_WORKER_FAILED",
