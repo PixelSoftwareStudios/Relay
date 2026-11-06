@@ -2,7 +2,7 @@
 # German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
-peer-unknown = Unbekannter Peer
+peer-unknown = Unbekanntes Gerät
 peer-online = Online
 peer-unreachable = Nicht erreichbar
 peer-key = Schlüssel { $fingerprint }
@@ -45,7 +45,9 @@ found-subtitle = Noch nicht vertraut · { $fingerprint }
 contacts-empty-title = Noch keine Kontakte
 contacts-empty-help = Ein Kontakt ist ein Gerät, dem du vertraust. Suche eines unter Verbinden und vertraue ihm, dann erscheint es hier.
 contacts-go-connect = Zu Verbinden
-contact-more = Mehr
+contact-more = Weitere Optionen
+contact-favorite-add = Zu Favoriten hinzufügen
+contact-favorite-remove = Aus Favoriten entfernen
 peer-addresses = Adressen: { $addresses }
 home-online = Jetzt online
 contact-last-seen = Zuletzt gesehen: { $when }

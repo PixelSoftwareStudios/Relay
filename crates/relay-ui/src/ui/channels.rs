@@ -8,9 +8,11 @@ use relay_client::ChannelOptions;
 use crate::actions::Actions;
 use crate::model::Channel;
 
+use super::collapsing::{ChevronSide, collapsing_header};
 use super::kit::{self, Cx};
 use super::local::{INVITE_USES, Local, invite_ttls};
 use super::widgets::{button_row, field_width};
+use crate::icons::{Icon, icon_button, icon_inline, icon_label, icon_label_enabled};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
@@ -47,7 +49,17 @@ fn flags(channel: &Channel) -> String {
 }
 
 fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Local) {
-	ui.label(RichText::new(&channel.name).strong());
+	ui.horizontal(|ui| {
+		ui.label(RichText::new(&channel.name).strong());
+		if channel.password || channel.invite_only {
+			let why = if channel.password {
+				tr!("channel-password")
+			} else {
+				tr!("channel-invite-only")
+			};
+			icon_inline(ui, Icon::Lock, ui.visuals().weak_text_color()).on_hover_text(why);
+		}
+	});
 	ui.label(
 		RichText::new(tr!(
 			"channel-summary",
@@ -58,7 +70,8 @@ fn channel_row(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 		.weak(),
 	);
 	button_row(ui, |ui| {
-		if channel.can_admin() && ui.button(tr!("channel-invite")).clicked() {
+		if channel.can_admin() && icon_label(ui, Icon::AddContact, tr!("channel-invite")).clicked()
+		{
 			local.invite_channel = Some(channel.channel_id.clone());
 			local.invite = None;
 		}
@@ -79,7 +92,7 @@ fn leave_button(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut L
 		if ui.button(tr!("channel-leave-stay")).clicked() {
 			local.leave_confirm = None;
 		}
-	} else if ui.button(tr!("channel-leave")).clicked() {
+	} else if icon_label(ui, Icon::SignOut, tr!("channel-leave")).clicked() {
 		local.leave_confirm = Some(channel.channel_id.clone());
 	}
 }
@@ -100,14 +113,14 @@ fn invite_form(ui: &mut Ui, channel: &Channel, actions: &Actions, local: &mut Lo
 					ui.selectable_value(&mut local.invite_uses, i, tr!("invite-uses", count = *n));
 				}
 			});
-		if ui.button(tr!("invite-create")).clicked() {
+		if icon_label(ui, Icon::Add, tr!("invite-create")).clicked() {
 			actions.create_invite(
 				channel.channel_id.clone(),
 				invite_ttls()[local.invite_ttl].1,
 				INVITE_USES[local.invite_uses],
 			);
 		}
-		if ui.button(tr!("action-close")).clicked() {
+		if icon_button(ui, Icon::Close, tr!("action-close")).clicked() {
 			local.invite_channel = None;
 			local.invite = None;
 		}
@@ -127,10 +140,10 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				.wrap(),
 		);
 		button_row(ui, |ui| {
-			if ui.button(tr!("action-copy")).clicked() {
+			if icon_button(ui, Icon::Copy, tr!("action-copy")).clicked() {
 				actions.copy_text(&token);
 			}
-			if ui.button(tr!("action-hide")).clicked() {
+			if icon_button(ui, Icon::EyeOff, tr!("action-hide")).clicked() {
 				local.invite = None;
 			}
 		});
@@ -139,9 +152,13 @@ fn invite_box(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 }
 
 fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	egui::CollapsingHeader::new(tr!("channel-create-heading"))
-		.id_salt("channel-create")
-		.show(ui, |ui| {
+	collapsing_header(
+		ui,
+		"channel-create",
+		tr!("channel-create-heading"),
+		false,
+		ChevronSide::Right,
+		|ui| {
 			let f = &mut local.new_channel;
 			ui.add(
 				egui::TextEdit::singleline(&mut f.name)
@@ -162,10 +179,7 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			}
 			let ready =
 				!f.name.trim().is_empty() && (!f.password_required || !f.password.is_empty());
-			if ui
-				.add_enabled(ready, egui::Button::new(tr!("action-create")))
-				.clicked()
-			{
+			if icon_label_enabled(ui, ready, Icon::Add, tr!("action-create")).clicked() {
 				let options = ChannelOptions {
 					listed: f.listed,
 					password: f.password_required,
@@ -174,13 +188,18 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 				let (name, password) = (mem::take(&mut f.name), mem::take(&mut f.password));
 				actions.run(|c| async move { c.create_channel(&name, options, &password).await });
 			}
-		});
+		},
+	);
 }
 
 fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
-	egui::CollapsingHeader::new(tr!("channel-join-heading"))
-		.id_salt("channel-join")
-		.show(ui, |ui| {
+	collapsing_header(
+		ui,
+		"channel-join",
+		tr!("channel-join-heading"),
+		false,
+		ChevronSide::Right,
+		|ui| {
 			ui.label(tr!("channel-join-note"));
 			ui.add(
 				egui::TextEdit::singleline(&mut local.join_target)
@@ -193,16 +212,18 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 					.password(true)
 					.hint_text(tr!("password-optional-hint")),
 			);
-			if ui
-				.add_enabled(
-					!local.join_target.trim().is_empty(),
-					egui::Button::new(tr!("action-join")),
-				)
-				.clicked()
+			if icon_label_enabled(
+				ui,
+				!local.join_target.trim().is_empty(),
+				Icon::Channels,
+				tr!("action-join"),
+			)
+			.clicked()
 			{
 				let target = mem::take(&mut local.join_target);
 				let password = mem::take(&mut local.join_password);
 				actions.run(|c| async move { c.join_channel(&target, &password).await });
 			}
-		});
+		},
+	);
 }

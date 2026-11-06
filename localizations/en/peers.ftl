@@ -4,7 +4,7 @@
 # use the same $variables. Ids are stable semantic keys, never the English text.
 # See docs/i18n.md.
 
-peer-unknown = Unknown peer
+peer-unknown = Unknown device
 peer-online = Online
 peer-unreachable = Not reachable
 peer-key = Key { $fingerprint }
@@ -47,7 +47,9 @@ found-subtitle = Not trusted yet · { $fingerprint }
 contacts-empty-title = No contacts yet
 contacts-empty-help = A contact is a device you have trusted. Find one under Connect and trust it, then it shows up here.
 contacts-go-connect = Go to Connect
-contact-more = More
+contact-more = More options
+contact-favorite-add = Add to favorites
+contact-favorite-remove = Remove from favorites
 peer-addresses = Addresses: { $addresses }
 home-online = Online now
 contact-last-seen = Last seen { $when }

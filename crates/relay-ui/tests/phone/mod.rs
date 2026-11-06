@@ -248,7 +248,7 @@ impl Phone {
 			.shapes
 			.iter()
 			.filter_map(|s| match &s.shape {
-				egui::Shape::Text(t) => Some(t.galley.text().to_owned()),
+				egui::Shape::Text(t) => Some(plain(t.galley.text())),
 				_ => None,
 			})
 			.collect();
@@ -257,7 +257,7 @@ impl Phone {
 			.iter()
 			.filter_map(|s| match &s.shape {
 				egui::Shape::Text(t) => Some((
-					t.galley.text().to_owned(),
+					plain(t.galley.text()),
 					t.visual_bounding_rect().intersect(s.clip_rect),
 				)),
 				_ => None,
@@ -321,7 +321,26 @@ impl Phone {
 			.iter()
 			.find(|(t, _)| t == label)
 			.unwrap_or_else(|| panic!("no {label:?} in {:?}", drawn.labels));
-		let pos = rect.center();
+		self.click_at(rect.center());
+	}
+
+	/// Click the `nth` (from 0) drawn instance of `icon`, in paint order.
+	pub fn click_icon_nth(&mut self, icon: relay_ui::icons::Icon, nth: usize) {
+		let drawn = self.settle();
+		let rect = icon_rects(&drawn, icon)
+			.get(nth)
+			.copied()
+			.unwrap_or_else(|| panic!("no {icon:?} #{nth} on screen"));
+		self.click_at(rect.center());
+	}
+
+	/// Click the first drawn instance of `icon`.
+	pub fn click_icon(&mut self, icon: relay_ui::icons::Icon) {
+		self.click_icon_nth(icon, 0);
+	}
+
+	/// Press and release the primary button at `pos`.
+	pub fn click_at(&mut self, pos: egui::Pos2) {
 		let button = |pressed| egui::Event::PointerButton {
 			pos,
 			button: egui::PointerButton::Primary,
@@ -337,5 +356,34 @@ impl Phone {
 	pub fn page(&mut self, page: Page) -> Drawn {
 		self.app.set_page(page);
 		self.settle()
+	}
+}
+
+/// Where `icon` was drawn: its painted glyphs, in paint order.
+pub fn icon_rects(drawn: &Drawn, icon: relay_ui::icons::Icon) -> Vec<egui::Rect> {
+	let glyph = icon.codepoint().to_string();
+	drawn
+		.named
+		.iter()
+		.filter(|(t, _)| *t == glyph)
+		.map(|(_, r)| *r)
+		.collect()
+}
+
+/// Whether `icon` was drawn at all.
+pub fn has_icon(drawn: &Drawn, icon: relay_ui::icons::Icon) -> bool {
+	!icon_rects(drawn, icon).is_empty()
+}
+
+/// Text as people read it: an icon glyph that leads a longer label (an icon
+/// button with a visible label) is dropped; a lone glyph stays, so
+/// [`icon_rects`] can find it.
+fn plain(text: &str) -> String {
+	let mut chars = text.chars();
+	match chars.next() {
+		Some(c) if ('\u{E000}'..='\u{F8FF}').contains(&c) && !chars.as_str().is_empty() => {
+			chars.as_str().to_owned()
+		}
+		_ => text.to_owned(),
 	}
 }

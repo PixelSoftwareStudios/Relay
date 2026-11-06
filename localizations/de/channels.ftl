@@ -9,8 +9,8 @@ channel-listed = gelistet
 channel-password = Passwort
 channel-invite-only = nur mit Einladung
 channel-summary = { $role } · { $flags } · { $peers ->
-        [one] { $peers } gemeinsamer Peer
-       *[other] { $peers } gemeinsame Peers
+        [one] { $peers } gemeinsames Gerät
+       *[other] { $peers } gemeinsame Geräte
     }
 channel-invite = Einladen…
 channel-leave-yes = Ja, verlassen
@@ -21,7 +21,7 @@ invite-uses = { $count ->
        *[other] { $count } Verwendungen
     }
 invite-create = Einladung erstellen
-invite-token-note = Einladungstoken (geheim). Jeder, der es hat, kann beitreten, bis es abläuft oder aufgebraucht ist:
+invite-token-note = Einladungscode (geheim halten). Jeder, der ihn hat, kann beitreten, bis er abläuft oder aufgebraucht ist:
 channel-create-heading = Kanal erstellen
 channel-name-hint = Kanalname
 channel-listed-label = Gelistet: Namen auf Geräten von Mitgliedern anzeigen
@@ -29,8 +29,8 @@ channel-password-label = Passwort zum Beitreten verlangen
 channel-invite-only-label = Nur mit Einladung
 password-hint = Passwort
 channel-join-heading = Kanal beitreten
-channel-join-note = Füge ein Einladungstoken oder eine Kanal-ID mit Passwort ein.
-channel-join-hint = RLYI1… oder Kanal-ID
+channel-join-note = Füge einen Einladungscode oder eine Kanal-ID mit Passwort ein.
+channel-join-hint = Einladungscode oder Kanal-ID
 password-optional-hint = Passwort (bei Einladung nicht nötig)
 privacy-none = Die Datenschutzeinstellungen erscheinen, sobald der Daemon verbunden ist.
 privacy-inbound-anyone = Jeder im Netzwerk
@@ -42,16 +42,16 @@ privacy-visibility = Sichtbarkeit im Netzwerk
 invite-ttl-hour = 1 Stunde
 invite-ttl-day = 1 Tag
 invite-ttl-week = 7 Tage
-connection-none = Der Daemon hat keine Verbindungszeichenfolge gemeldet.
-connection-share = Teile diese Zeichenfolge, um von einem anderen Computer in deinem Netzwerk angerufen zu werden:
+connection-none = Relay hat keine Adresse zum Teilen gefunden. Prüfe, ob es läuft, und versuche es erneut.
+connection-share = Teile diese Adresse, damit dich ein anderes Gerät in deinem Netzwerk anrufen kann:
 connection-addresses = Adressen: { $addresses } · Port { $port }
 connection-fingerprint = Fingerabdruck { $fingerprint }
-connection-warning = Jeder mit dieser Zeichenfolge kann bei dir anrufen; sie gewährt weder Vertrauen noch Mikrofonzugriff.
-connection-qr-too-long = Die Verbindungszeichenfolge ist für einen QR-Code zu lang.
+connection-warning = Jeder mit dieser Adresse kann dich anrufen. Sie macht niemanden vertrauenswürdig und gibt keinen Zugriff auf dein Mikrofon.
+connection-qr-too-long = Die Adresse ist für einen QR-Code zu lang.
 channel-hidden = verborgen
 channels-none-help = Erstellen Sie einen Kanal, um mit mehreren Personen gleichzeitig zu sprechen, oder treten Sie mit einer Einladung bei.
 connection-copy = Adresse kopieren
-connection-error-next = Prüfen Sie, ob der Daemon läuft, und versuchen Sie es dann erneut.
+connection-error-next = Prüfe, ob Relay im Hintergrund läuft, und versuche es dann erneut.
 connection-qr-help = Scannen Sie diesen Code mit einem anderen Gerät, damit es Sie anrufen kann.
 privacy-who-rings-help = Legt fest, wer einen Anruf mit Ihnen beginnen darf.
 privacy-visibility-help = Versteckte Geräte können weiterhin über ihre Verbindungszeichenfolge angerufen werden.
@@ -70,5 +70,5 @@ scan-trusting = Verbinde und vertraue…
 scan-added = { $name } wurde zu den Kontakten hinzugefügt.
 scan-added-unnamed = Das Gerät wurde zu den Kontakten hinzugefügt.
 scan-unreachable = Das Gerät ist nicht erreichbar. Prüfe, ob es im selben Netzwerk ist und Relay geöffnet hat, und scanne erneut.
-scan-mismatch = Das Gerät stimmt nicht mit dem Code überein (sein Fingerabdruck ist anders). Ihm wurde nicht vertraut.
+scan-mismatch = Das Gerät stimmt nicht mit dem Code überein. Ihm wurde nicht vertraut.
 scan-trust-failed = Das Gerät konnte nicht hinzugefügt werden: { $reason }

@@ -270,9 +270,7 @@ impl MessagesUi {
 				edit.request_focus();
 				self.search_started = true;
 			}
-			if ui
-				.add_sized([side, side], egui::Button::new("×"))
-				.on_hover_text(tr!("action-close"))
+			if crate::icons::icon_button(ui, crate::icons::Icon::Close, tr!("action-close"))
 				.clicked()
 			{
 				self.search_open = false;

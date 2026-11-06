@@ -15,6 +15,8 @@ pub const PRIMARY_FILL: Color32 = Color32::from_rgb(34, 128, 56);
 pub enum Tone {
 	Plain,
 	Danger,
+	/// The accent fill of the main action of a bar (send).
+	Accent,
 }
 
 /// What to paint for one frame of an icon button.
@@ -39,6 +41,19 @@ pub fn paint(ui: &Ui, response: &Response, tone: Tone, on: bool) -> Paint {
 			fill,
 			stroke: Stroke::NONE,
 			glyph: Color32::WHITE,
+		};
+	}
+	if tone == Tone::Accent {
+		let accent = ui.visuals().selection.bg_fill;
+		let fill = match (enabled, response.hovered()) {
+			(false, _) => accent.gamma_multiply(0.4),
+			(true, true) => accent.gamma_multiply(1.2),
+			(true, false) => accent,
+		};
+		return Paint {
+			fill,
+			stroke: Stroke::NONE,
+			glyph: ui.visuals().selection.stroke.color,
 		};
 	}
 	let resting =

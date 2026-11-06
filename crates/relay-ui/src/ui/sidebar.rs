@@ -5,6 +5,7 @@
 use egui::{self, Align, Layout, RichText, Sense, Ui};
 
 use crate::format::link_label;
+use crate::icons::{Icon, page_icon};
 use crate::layout::Page;
 use crate::model::Link;
 use crate::theme;
@@ -17,6 +18,9 @@ use crate::tr;
 
 /// Height of one navigation entry.
 const ENTRY_HEIGHT: f32 = 36.0;
+/// Room for an entry icon, and its glyph size.
+const ICON_SLOT: f32 = 22.0;
+const ICON_SIZE: f32 = 18.0;
 
 pub fn show(ui: &mut Ui, page: &mut Page, logo: &egui::TextureHandle, cx: &mut Cx, incoming: bool) {
 	ui.add_space(theme::SPACE_S);
@@ -29,14 +33,20 @@ pub fn show(ui: &mut Ui, page: &mut Page, logo: &egui::TextureHandle, cx: &mut C
 	ui.add_space(theme::SPACE_L);
 	for p in Page::SIDEBAR {
 		let ring = incoming && p == Page::Calls;
-		if entry(ui, p.label(), *page == p, ring) {
+		if entry(ui, page_icon(p), p.label(), *page == p, ring) {
 			*page = p;
 		}
 	}
 	ui.with_layout(Layout::bottom_up(Align::Min), |ui| {
 		ui.add_space(theme::SPACE_S);
 		let label = Page::Settings.label().to_owned();
-		if entry(ui, &label, *page == Page::Settings, false) {
+		if entry(
+			ui,
+			page_icon(Page::Settings),
+			&label,
+			*page == Page::Settings,
+			false,
+		) {
 			*page = Page::Settings;
 		}
 		ui.separator();
@@ -83,7 +93,7 @@ fn link_state(link: Link) -> (egui::Color32, &'static str) {
 
 /// A full-width entry; `alert` marks a page with something waiting (a ringing
 /// call). Returns whether it was clicked.
-fn entry(ui: &mut Ui, label: &str, selected: bool, alert: bool) -> bool {
+fn entry(ui: &mut Ui, icon: Icon, label: &str, selected: bool, alert: bool) -> bool {
 	let size = egui::vec2(ui.available_width(), ENTRY_HEIGHT);
 	let (rect, response) = ui.allocate_exact_size(size, Sense::click());
 	response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, label));
@@ -97,16 +107,24 @@ fn entry(ui: &mut Ui, label: &str, selected: bool, alert: bool) -> bool {
 			egui::StrokeKind::Inside,
 		);
 	}
+	ui.painter().text(
+		egui::pos2(
+			rect.min.x + theme::SPACE_M + ICON_SLOT / 2.0,
+			rect.center().y,
+		),
+		egui::Align2::CENTER_CENTER,
+		icon.codepoint(),
+		icon.font(ICON_SIZE),
+		visuals.text_color(),
+	);
+	let text_x = rect.min.x + theme::SPACE_M + ICON_SLOT + theme::SPACE_M;
 	let galley = ui.painter().layout(
 		label.to_owned(),
 		egui::TextStyle::Button.resolve(ui.style()),
 		visuals.text_color(),
-		rect.width() - 2.0 * theme::SPACE_M - 14.0,
+		rect.max.x - text_x - theme::SPACE_M - 14.0,
 	);
-	let pos = egui::pos2(
-		rect.min.x + theme::SPACE_M,
-		rect.center().y - galley.size().y / 2.0,
-	);
+	let pos = egui::pos2(text_x, rect.center().y - galley.size().y / 2.0);
 	ui.painter().galley(pos, galley, visuals.text_color());
 	if alert {
 		ui.painter().circle_filled(

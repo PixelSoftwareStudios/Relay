@@ -6,6 +6,7 @@ mod phone;
 
 use phone::{Drawn, Phone};
 use relay_ui::i18n::Language;
+use relay_ui::icons::Icon;
 use relay_ui::layout::Page;
 use relay_ui::model::ConnectionView;
 
@@ -57,7 +58,7 @@ fn answer(phone: &Phone) {
 }
 
 fn open_body(drawn: &Drawn) -> bool {
-	has(drawn, "Share this string")
+	has(drawn, "Share this address")
 }
 
 #[tokio::test]
@@ -83,7 +84,11 @@ async fn the_section_is_collapsed_with_people_but_copy_stays() {
 		assert!(has(&drawn, "Connect a device"));
 		assert!(!open_body(&drawn), "desktop={desktop}: {:?}", drawn.labels);
 		assert!(!has(&drawn, "Scan this code"));
-		assert!(has(&drawn, "Copy address"), "{:?}", drawn.labels);
+		assert!(
+			phone::has_icon(&drawn, Icon::Copy),
+			"Copy address stays: {:?}",
+			drawn.labels
+		);
 		assert!(has(&drawn, "Add a device by address"));
 	}
 }
@@ -93,7 +98,7 @@ async fn copy_address_copies_the_connection_string_in_both_states() {
 	for peers in [false, true] {
 		let mut phone = people(true, Language::En, peers);
 		phone.page(Page::Connect);
-		phone.click_label("Copy address");
+		phone.click_icon(Icon::Copy);
 		assert_eq!(
 			*phone.shell.copied.lock().unwrap(),
 			vec![ADDRESS.to_owned()]

@@ -6,6 +6,9 @@
 
 use egui::{self, RichText, Ui};
 
+use crate::icons::{
+	Icon, icon_button, icon_label, icon_label_enabled, icon_label_red, icon_toggle,
+};
 use crate::layout::Page;
 use crate::theme;
 use crate::viewmodel::PeerRow;
@@ -21,7 +24,7 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 		kit::card(ui, |ui| {
 			ui.label(RichText::new(tr!("contacts-empty-title")).size(theme::TEXT_HEADING));
 			kit::help(ui, tr!("contacts-empty-help"));
-			if ui.button(tr!("contacts-go-connect")).clicked() {
+			if icon_label(ui, Icon::Connect, tr!("contacts-go-connect")).clicked() {
 				cx.local.goto = Some(Page::Connect);
 			}
 		});
@@ -57,15 +60,17 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 					}
 				});
 			});
-			button_row(ui, |ui| {
-				let call = ui.add_enabled(row.can_call, egui::Button::new(tr!("peer-call")));
+			ui.horizontal_wrapped(|ui| {
+				let call = icon_label_enabled(ui, row.can_call, Icon::Call, tr!("peer-call"));
 				if call.clicked() {
 					let id = row.peer_id.clone();
 					cx.actions.run(|c| async move { c.start_call(&id).await });
 				}
 				if full && row.known {
-					ui.menu_button(tr!("contact-more"), |ui| {
-						if ui.button(tr!("forget-device")).clicked() {
+					favorite_toggle(ui, row, cx);
+					let more = icon_button(ui, Icon::More, tr!("contact-more"));
+					egui::Popup::menu(&more).show(|ui| {
+						if icon_label_red(ui, Icon::Trash, tr!("forget-device")).clicked() {
 							cx.local.forget_confirm = Some(row.peer_id.clone());
 							ui.close();
 						}
@@ -86,6 +91,21 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 	if cx.local.focus_contact.as_deref() == Some(row.peer_id.as_str()) {
 		ui.scroll_to_rect(card.response.rect, Some(egui::Align::Center));
 		cx.local.focus_contact = None;
+	}
+}
+
+/// The star: filled when the device is a favorite. The tooltip names what a
+/// press does. The engine refuses a seventh favorite; the error banner says so.
+fn favorite_toggle(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
+	let (icon, tip) = if row.favorite {
+		(Icon::StarFilled, tr!("contact-favorite-remove"))
+	} else {
+		(Icon::Star, tr!("contact-favorite-add"))
+	};
+	if icon_toggle(ui, row.favorite, icon, tip).clicked() {
+		let (id, on) = (row.peer_id.clone(), !row.favorite);
+		cx.actions
+			.run(|c| async move { c.set_favorite(&id, on).await });
 	}
 }
 

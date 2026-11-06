@@ -8,9 +8,9 @@ channel-listed = listado
 channel-password = contraseña
 channel-invite-only = solo con invitación
 channel-summary = { $role } · { $flags } · { $peers ->
-        [one] { $peers } par en común
-        [many] { $peers } de pares en común
-       *[other] { $peers } pares en común
+        [one] { $peers } dispositivo en común
+        [many] { $peers } de dispositivos en común
+       *[other] { $peers } dispositivos en común
     }
 channel-invite = Invitar…
 channel-leave-yes = Sí, salir
@@ -22,7 +22,7 @@ invite-uses = { $count ->
        *[other] { $count } usos
     }
 invite-create = Crear invitación
-invite-token-note = Token de invitación (secreto). Quien lo tenga puede unirse hasta que caduque o se agote:
+invite-token-note = Código de invitación (mantenlo en secreto). Quien lo tenga puede unirse hasta que caduque o se agote:
 channel-create-heading = Crear un canal
 channel-name-hint = Nombre del canal
 channel-listed-label = Listado: mostrar el nombre en los dispositivos de los miembros
@@ -30,8 +30,8 @@ channel-password-label = Pedir contraseña para unirse
 channel-invite-only-label = Solo con invitación
 password-hint = Contraseña
 channel-join-heading = Unirse a un canal
-channel-join-note = Pega un token de invitación, o un id de canal con su contraseña.
-channel-join-hint = RLYI1… o id de canal
+channel-join-note = Pega un código de invitación, o un id de canal con su contraseña.
+channel-join-hint = Código de invitación o id de canal
 password-optional-hint = Contraseña (no hace falta con una invitación)
 privacy-none = Los ajustes de privacidad aparecen cuando el daemon está conectado.
 privacy-inbound-anyone = Cualquiera en la red
@@ -43,16 +43,16 @@ privacy-visibility = Visibilidad en la red
 invite-ttl-hour = 1 hora
 invite-ttl-day = 1 día
 invite-ttl-week = 7 días
-connection-none = El daemon no informó una cadena de conexión.
-connection-share = Comparte esta cadena para que te llamen desde otro equipo de tu red:
+connection-none = Relay no encontró una dirección para compartir. Comprueba que esté en ejecución y vuelve a intentarlo.
+connection-share = Comparte esta dirección para que otro dispositivo de tu red pueda llamarte:
 connection-addresses = Direcciones: { $addresses } · puerto { $port }
 connection-fingerprint = Huella digital { $fingerprint }
-connection-warning = Cualquiera con esta cadena puede llamarte; no otorga confianza ni acceso al micrófono.
-connection-qr-too-long = La cadena de conexión es demasiado larga para un código QR.
+connection-warning = Cualquiera con esta dirección puede llamarte. No le da confianza ni acceso a tu micrófono.
+connection-qr-too-long = La dirección es demasiado larga para un código QR.
 channel-hidden = oculto
 channels-none-help = Crea un canal para hablar con varias personas a la vez, o únete a uno con una invitación.
 connection-copy = Copiar dirección
-connection-error-next = Comprueba que el daemon esté en ejecución y vuelve a intentarlo.
+connection-error-next = Comprueba que Relay se esté ejecutando en segundo plano y vuelve a intentarlo.
 connection-qr-help = Escanea este código con otro dispositivo para que te llame.
 privacy-who-rings-help = Decide quién puede iniciar una llamada contigo.
 privacy-visibility-help = Los dispositivos ocultos aún pueden recibir llamadas con su cadena de conexión.
@@ -71,5 +71,5 @@ scan-trusting = Conectando y confiando…
 scan-added = { $name } se ha añadido a los contactos.
 scan-added-unnamed = El dispositivo se ha añadido a los contactos.
 scan-unreachable = No se pudo contactar con ese dispositivo. Comprueba que esté en la misma red con Relay abierto y vuelve a escanear.
-scan-mismatch = Ese dispositivo no coincide con el código (su huella es distinta), así que no se ha confiado en él.
+scan-mismatch = Ese dispositivo no coincide con el código, así que no se ha confiado en él.
 scan-trust-failed = No se pudo añadir ese dispositivo: { $reason }

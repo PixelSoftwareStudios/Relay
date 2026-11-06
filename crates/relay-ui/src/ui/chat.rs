@@ -5,6 +5,7 @@
 
 use egui::{RichText, Ui};
 
+use crate::icons::{Icon, icon_button};
 use crate::theme;
 use crate::tr;
 
@@ -75,14 +76,14 @@ fn panel(ui: &mut Ui, cx: &mut Cx, boxed: bool) {
 			} else {
 				tr!("chat-back-call")
 			};
-			close = ui.button(format!("\u{2039} {back}")).clicked();
+			close = icon_button(ui, Icon::Back, back).clicked();
 		}
 		if boxed {
 			name(ui, &target.name);
 		}
 		ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 			if boxed {
-				close = ui.button(tr!("action-close")).clicked();
+				close = icon_button(ui, Icon::Close, tr!("action-close")).clicked();
 			}
 			cx.messages.options_button(ui, cx.actions, &target.call_id);
 		});

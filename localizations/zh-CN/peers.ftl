@@ -3,7 +3,7 @@
 # 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
 
-peer-unknown = 未知对等端
+peer-unknown = 未知设备
 peer-online = 在线
 peer-unreachable = 无法连接
 peer-key = 密钥 { $fingerprint }
@@ -46,7 +46,9 @@ found-subtitle = 尚未信任 · { $fingerprint }
 contacts-empty-title = 还没有联系人
 contacts-empty-help = 联系人是你已信任的设备。在“连接”中找到设备并信任它，它就会出现在这里。
 contacts-go-connect = 前往“连接”
-contact-more = 更多
+contact-more = 更多选项
+contact-favorite-add = 添加到收藏
+contact-favorite-remove = 从收藏中移除
 peer-addresses = 地址：{ $addresses }
 home-online = 当前在线
 contact-last-seen = 最后在线：{ $when }

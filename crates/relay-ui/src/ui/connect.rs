@@ -11,6 +11,7 @@ use crate::model::ConnectionView;
 use crate::qr;
 use crate::qr_scan::{ScanError, ScanNote, ScanTrust};
 
+use super::collapsing::{ChevronSide, collapsing_header_controlled};
 use super::kit::{self, Cx};
 use super::local::Local;
 use super::nearby;
@@ -19,6 +20,7 @@ use super::visibility;
 use super::widgets::field_width;
 use super::widgets::{banner, button_row};
 use crate::actions::Actions;
+use crate::icons::{Icon, icon_button, icon_label, icon_label_enabled};
 use crate::theme;
 use crate::tr;
 use crate::viewmodel::PeerRow;
@@ -53,15 +55,15 @@ fn card(ui: &mut Ui, cx: &mut Cx, no_contacts: bool) {
 	}
 	let open = is_open(cx.local, no_contacts);
 	kit::card(ui, |ui| {
-		let header = egui::CollapsingHeader::new(
-			RichText::new(tr!("connect-title"))
-				.size(theme::TEXT_HEADING)
-				.strong(),
-		)
-		.id_salt("connect-section")
-		.open(Some(open))
-		.show(ui, |ui| body(ui, cx));
-		if header.header_response.clicked() {
+		let (_, pressed) = collapsing_header_controlled(
+			ui,
+			"connect-section",
+			tr!("connect-title"),
+			open,
+			ChevronSide::Right,
+			|ui| body(ui, cx),
+		);
+		if pressed {
 			cx.local.connect_open = Some(!open);
 		}
 		if !open {
@@ -80,7 +82,7 @@ fn collapsed(ui: &mut Ui, cx: &mut Cx) {
 	{
 		let text = info.connection_string.clone();
 		button_row(ui, |ui| {
-			if ui.button(tr!("connection-copy")).clicked() {
+			if icon_button(ui, Icon::Copy, tr!("connection-copy")).clicked() {
 				cx.actions.copy_text(&text);
 			}
 		});
@@ -93,7 +95,7 @@ fn body(ui: &mut Ui, cx: &mut Cx) {
 		Some(Err(message)) => {
 			banner(ui, &message, true);
 			kit::help(ui, tr!("connection-error-next"));
-			if ui.button(tr!("action-try-again")).clicked() {
+			if icon_label(ui, Icon::Refresh, tr!("action-try-again")).clicked() {
 				forget(cx.local);
 			}
 		}
@@ -119,10 +121,7 @@ fn scan(ui: &mut Ui, cx: &mut Cx) {
 		kit::help(ui, tr!("scan-help"));
 		let idle = !cx.local.scanning && cx.local.scan_trust != Some(ScanTrust::Working);
 		button_row(ui, |ui| {
-			if ui
-				.add_enabled(idle, egui::Button::new(tr!("connection-scan")))
-				.clicked()
-			{
+			if icon_label_enabled(ui, idle, Icon::Scan, tr!("connection-scan")).clicked() {
 				cx.local.scanning = true;
 				cx.local.scan_note = None;
 				cx.local.scan_trust = None;
@@ -195,7 +194,7 @@ fn show_info(ui: &mut Ui, actions: &Actions, info: &ConnectionView) {
 	kit::help(ui, tr!("connection-share"));
 	ui.add(egui::Label::new(RichText::new(&info.connection_string).monospace()).selectable(true));
 	button_row(ui, |ui| {
-		if ui.button(tr!("connection-copy")).clicked() {
+		if icon_button(ui, Icon::Copy, tr!("connection-copy")).clicked() {
 			actions.copy_text(&info.connection_string);
 		}
 	});
@@ -258,10 +257,7 @@ fn add_by_address(ui: &mut Ui, cx: &mut Cx) {
 					.hint_text("relay://192.168.1.20:7000#…"),
 			);
 			let ready = !local.paste.trim().is_empty() && problem.is_none();
-			if ui
-				.add_enabled(ready, egui::Button::new(tr!("peer-call")))
-				.clicked()
-			{
+			if icon_label_enabled(ui, ready, Icon::Call, tr!("peer-call")).clicked() {
 				let text = local.paste.clone();
 				cx.actions
 					.run(|c| async move { c.start_call_to(&text).await });

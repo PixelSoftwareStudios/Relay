@@ -3,7 +3,7 @@
 # invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
 # See docs/i18n.md.
 
-peer-unknown = 알 수 없는 사용자
+peer-unknown = 알 수 없는 기기
 peer-online = 온라인
 peer-unreachable = 연결할 수 없음
 peer-key = 키 { $fingerprint }
@@ -46,7 +46,9 @@ found-subtitle = 아직 신뢰 안 함 · { $fingerprint }
 contacts-empty-title = 아직 연락처가 없습니다
 contacts-empty-help = 연락처는 신뢰한 기기입니다. 연결에서 기기를 찾아 신뢰하면 여기에 표시됩니다.
 contacts-go-connect = 연결로 이동
-contact-more = 더보기
+contact-more = 옵션 더보기
+contact-favorite-add = 즐겨찾기에 추가
+contact-favorite-remove = 즐겨찾기에서 삭제
 peer-addresses = 주소: { $addresses }
 home-online = 지금 온라인
 contact-last-seen = 마지막 확인: { $when }

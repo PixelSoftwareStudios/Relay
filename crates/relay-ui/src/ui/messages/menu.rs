@@ -1,41 +1,25 @@
-//! The small menus of the chat. A three-dot button (drawn, three circles)
+//! The small menus of the chat. A kebab button (the More icon)
 //! opens an egui popup menu; the popup closes on a choice, on a click
 //! outside and on Esc.
 
-use egui::{Color32, Id, Popup, PopupCloseBehavior, Rect, Response, RichText, Sense, Ui, vec2};
+use egui::{Id, Popup, PopupCloseBehavior, Rect, Response, Sense, Ui};
 use relay_messages::markdown::{Block, Document, Inline};
 
-use crate::layout::{self, MIN_TOUCH_TARGET};
+use crate::icons::{Icon, icon_label};
 use crate::messaging::actions::Intent;
 use crate::messaging::model::{Delivery, EntryView, SessionView};
 use crate::tr;
 
-/// Side of the three-dot button on a pointer device (points).
-const DESKTOP_SIDE: f32 = 26.0;
-
-/// Side of a three-dot button: a full touch target on a touch screen.
+/// Side of a more-menu button: the icon button size (44 on touch, 32 with a pointer).
 pub fn side(ui: &Ui) -> f32 {
-	if layout::is_touch(ui) {
-		MIN_TOUCH_TARGET
-	} else {
-		DESKTOP_SIDE
-	}
+	crate::icons::hit_size(ui)
 }
 
-/// Three circles in a column, centred in `rect`.
-pub fn paint_dots(ui: &Ui, rect: Rect, color: Color32) {
-	let step = (rect.height().min(rect.width()) / 6.0).clamp(3.0, 5.0);
-	for n in [-1.0, 0.0, 1.0] {
-		let at = rect.center() + vec2(0.0, n * step);
-		ui.painter().circle_filled(at, 1.7, color);
-	}
-}
-
-/// A three-dot button in `rect`. The dots are drawn when `shown` (touch
-/// screen, or the pointer is over the row) or while its menu is open.
-/// `hover` names it.
+/// A kebab button in `rect`. The icon is drawn when `shown` (touch screen, or
+/// the pointer is over the row) or while its menu is open. `hover` names it.
 pub fn dots_button(ui: &mut Ui, id: Id, rect: Rect, shown: bool, hover: &str) -> Response {
 	let response = ui.interact(rect, id, Sense::click());
+	response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, hover));
 	let open = Popup::is_id_open(ui.ctx(), Popup::default_response_id(&response));
 	if !shown && !open {
 		return response;
@@ -50,7 +34,13 @@ pub fn dots_button(ui: &mut Ui, id: Id, rect: Rect, shown: bool, hover: &str) ->
 		let fill = visuals.widgets.hovered.weak_bg_fill;
 		ui.painter().rect_filled(rect, rect.height() / 2.0, fill);
 	}
-	paint_dots(ui, rect, color);
+	ui.painter().text(
+		rect.center(),
+		egui::Align2::CENTER_CENTER,
+		Icon::More.codepoint(),
+		Icon::More.font((rect.height() * 0.6).round()),
+		color,
+	);
 	response.on_hover_text(hover)
 }
 
@@ -80,12 +70,12 @@ pub fn message(
 ) {
 	Popup::menu(button).show(|ui| {
 		if let Some(text) = entry.text()
-			&& ui.button(tr!("msg-copy-text")).clicked()
+			&& icon_label(ui, Icon::Copy, tr!("msg-copy-text")).clicked()
 		{
 			intents.push(Intent::Copy(text.to_owned()));
 		}
 		if let Some(url) = link
-			&& ui.button(tr!("msg-copy-link")).clicked()
+			&& icon_label(ui, Icon::Copy, tr!("msg-copy-link")).clicked()
 		{
 			intents.push(Intent::Copy(url.to_owned()));
 		}
@@ -94,7 +84,7 @@ pub fn message(
 		} else {
 			tr!("msg-pin")
 		};
-		if ui.button(pin).clicked() {
+		if icon_label(ui, Icon::Pin, pin).clicked() {
 			intents.push(Intent::Pin {
 				session: session.key.clone(),
 				outgoing: entry.outgoing,
@@ -105,7 +95,7 @@ pub fn message(
 		if entry.outgoing
 			&& entry.delivery == Delivery::Failed
 			&& session.is_live()
-			&& ui.button(tr!("msg-retry")).clicked()
+			&& icon_label(ui, Icon::Refresh, tr!("msg-retry")).clicked()
 		{
 			intents.push(Intent::Retry {
 				session: session.key.clone(),
@@ -125,5 +115,5 @@ pub fn options(button: &Response, add: impl FnOnce(&mut Ui)) -> Option<egui::Inn
 
 /// A destructive menu item.
 pub fn danger(ui: &mut Ui, text: &str) -> Response {
-	ui.button(RichText::new(text).color(crate::theme::ERROR))
+	crate::icons::icon_label_red(ui, Icon::Trash, text)
 }

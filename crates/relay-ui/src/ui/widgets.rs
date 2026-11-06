@@ -3,6 +3,7 @@
 use egui::{self, Color32, Response, RichText, Ui};
 
 use crate::format::{Tone, format_dbfs};
+use crate::icons::{Icon, icon_inline};
 use crate::theme;
 use crate::tr;
 
@@ -144,13 +145,27 @@ pub fn hold_button(ui: &mut Ui, label: &str, held: bool) -> bool {
 	down
 }
 
+/// A boxed line of status: a warning or error icon, then the text.
 pub fn banner(ui: &mut Ui, text: &str, error: bool) {
-	let color = if error { theme::ERROR } else { theme::WARN };
+	let (color, icon) = if error {
+		(theme::ERROR, Icon::Error)
+	} else {
+		(theme::WARN, Icon::Warning)
+	};
+	notice(ui, icon, color, text);
+}
+
+/// A boxed line with `icon` in `color` before the text.
+pub fn notice(ui: &mut Ui, icon: Icon, color: Color32, text: &str) {
 	egui::Frame::group(ui.style())
 		.stroke(egui::Stroke::new(1.0, color))
+		.inner_margin(theme::SPACE_M)
 		.show(ui, |ui| {
 			ui.set_width(ui.available_width());
-			ui.label(RichText::new(text).color(color));
+			ui.horizontal_top(|ui| {
+				icon_inline(ui, icon, color);
+				ui.add(egui::Label::new(RichText::new(text).color(color)).wrap());
+			});
 		});
 }
 

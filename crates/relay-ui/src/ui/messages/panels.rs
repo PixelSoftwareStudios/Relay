@@ -3,6 +3,7 @@
 use egui::{RichText, Ui};
 
 use crate::actions::Actions;
+use crate::icons::{Icon, icon_label};
 use crate::messaging::actions::Intent;
 use crate::messaging::model::SessionView;
 use crate::messaging::rules::usage_label;
@@ -62,7 +63,7 @@ pub struct Options<'a> {
 /// call, export and clear, and how full the history is.
 pub fn options(ui: &mut Ui, session: &SessionView, ctl: Options<'_>, intents: &mut Vec<Intent>) {
 	ui.set_min_width(220.0);
-	if ui.button(tr!("msg-search")).clicked() {
+	if icon_label(ui, Icon::Search, tr!("msg-search")).clicked() {
 		*ctl.search_open = true;
 		ui.close();
 	}
@@ -71,7 +72,7 @@ pub fn options(ui: &mut Ui, session: &SessionView, ctl: Options<'_>, intents: &m
 		permissions(ui, session, intents)
 	});
 	ui.separator();
-	if ui.button(tr!("msg-export")).clicked() {
+	if icon_label(ui, Icon::Share, tr!("msg-export")).clicked() {
 		intents.push(super::compose::export_intent(session));
 		ui.close();
 	}

@@ -1,7 +1,7 @@
 # Relay desktop UI catalog, Russian (ru), section: People nearby.
 # See docs/i18n.md.
 
-peer-unknown = Неизвестный участник
+peer-unknown = Неизвестное устройство
 peer-online = В сети
 peer-unreachable = Недоступен
 peer-key = Ключ { $fingerprint }
@@ -44,7 +44,9 @@ found-subtitle = Пока без доверия · { $fingerprint }
 contacts-empty-title = Контактов пока нет
 contacts-empty-help = Контакт — это устройство, которому вы доверяете. Найдите устройство в разделе «Подключение» и доверьтесь ему, после этого оно появится здесь.
 contacts-go-connect = Перейти к подключению
-contact-more = Ещё
+contact-more = Другие действия
+contact-favorite-add = Добавить в избранное
+contact-favorite-remove = Убрать из избранного
 peer-addresses = Адреса: { $addresses }
 home-online = Сейчас в сети
 contact-last-seen = Был в сети: { $when }

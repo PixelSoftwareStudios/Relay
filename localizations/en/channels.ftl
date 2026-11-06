@@ -11,8 +11,8 @@ channel-listed = listed
 channel-password = password
 channel-invite-only = invite only
 channel-summary = { $role } · { $flags } · { $peers ->
-        [one] { $peers } shared peer
-       *[other] { $peers } shared peers
+        [one] { $peers } shared device
+       *[other] { $peers } shared devices
     }
 channel-invite = Invite…
 channel-leave-yes = Yes, leave
@@ -23,7 +23,7 @@ invite-uses = { $count ->
        *[other] { $count } uses
     }
 invite-create = Create invite
-invite-token-note = Invite token (secret). Anyone who has it can join until it expires or is used up:
+invite-token-note = Invite code (keep it secret). Anyone who has it can join until it expires or is used up:
 channel-create-heading = Create a channel
 channel-name-hint = Channel name
 channel-listed-label = Listed: show the name to members' devices
@@ -31,8 +31,8 @@ channel-password-label = Require a password to join
 channel-invite-only-label = Invite only
 password-hint = Password
 channel-join-heading = Join a channel
-channel-join-note = Paste an invite token, or a channel id with its password.
-channel-join-hint = RLYI1… or channel id
+channel-join-note = Paste an invite code, or a channel id with its password.
+channel-join-hint = Invite code or channel id
 password-optional-hint = Password (not needed for an invite)
 privacy-none = Privacy settings appear once the daemon is connected.
 privacy-inbound-anyone = Anyone on the network
@@ -44,16 +44,16 @@ privacy-visibility = Network visibility
 invite-ttl-hour = 1 hour
 invite-ttl-day = 1 day
 invite-ttl-week = 7 days
-connection-none = The daemon did not report a connection string.
-connection-share = Share this string to be called from another computer on your network:
+connection-none = Relay could not find an address to share. Check that it is running, then try again.
+connection-share = Share this address so another device on your network can call you:
 connection-addresses = Addresses: { $addresses } · port { $port }
 connection-fingerprint = Fingerprint { $fingerprint }
-connection-warning = Anyone with this string can ring you; it grants no trust and no microphone access.
-connection-qr-too-long = The connection string is too long for a QR code.
+connection-warning = Anyone with this address can call you. It does not make them trusted and gives no access to your microphone.
+connection-qr-too-long = The address is too long for a QR code.
 channel-hidden = hidden
 channels-none-help = Create a channel to talk with several people at once, or join one with an invite.
 connection-copy = Copy address
-connection-error-next = Check that the daemon is running, then try again.
+connection-error-next = Check that Relay is running in the background, then try again.
 connection-qr-help = Scan this code with another device to call you.
 privacy-who-rings-help = Decides who can start a call with you.
 privacy-visibility-help = Hidden devices can still be called with their connection string.
@@ -72,5 +72,5 @@ scan-trusting = Connecting and trusting…
 scan-added = Added { $name } to Contacts.
 scan-added-unnamed = Added the device to Contacts.
 scan-unreachable = Could not reach that device. Check that it is on the same network with Relay open, then scan again.
-scan-mismatch = That device does not match the code (its fingerprint is different), so it was not trusted.
+scan-mismatch = That device does not match the code, so it was not trusted.
 scan-trust-failed = Could not add that device: { $reason }

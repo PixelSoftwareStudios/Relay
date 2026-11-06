@@ -25,8 +25,37 @@ pub fn collapsing_header<R>(
 	chevron_side: ChevronSide,
 	body: impl FnOnce(&mut Ui) -> R,
 ) -> Option<R> {
+	header(ui, id, title, Some(default_open), None, chevron_side, body).0
+}
+
+/// Like [`collapsing_header`], but the caller owns the open state (`open`) and
+/// is told whether the header was pressed this frame (to store the choice).
+pub fn collapsing_header_controlled<R>(
+	ui: &mut Ui,
+	id: impl std::hash::Hash + std::fmt::Debug,
+	title: &str,
+	open: bool,
+	chevron_side: ChevronSide,
+	body: impl FnOnce(&mut Ui) -> R,
+) -> (Option<R>, bool) {
+	header(ui, id, title, None, Some(open), chevron_side, body)
+}
+
+fn header<R>(
+	ui: &mut Ui,
+	id: impl std::hash::Hash + std::fmt::Debug,
+	title: &str,
+	default_open: Option<bool>,
+	forced: Option<bool>,
+	chevron_side: ChevronSide,
+	body: impl FnOnce(&mut Ui) -> R,
+) -> (Option<R>, bool) {
 	let id = ui.make_persistent_id(id);
-	let mut state = CollapsingState::load_with_default_open(ui.ctx(), id, default_open);
+	let mut state =
+		CollapsingState::load_with_default_open(ui.ctx(), id, default_open.unwrap_or(false));
+	if let Some(open) = forced {
+		state.set_open(open);
+	}
 	let height = ui.spacing().interact_size.y.max(32.0);
 	let (rect, response) =
 		ui.allocate_exact_size(vec2(ui.available_width(), height), Sense::click());
@@ -35,7 +64,8 @@ pub fn collapsing_header<R>(
 		info.selected = Some(state.is_open());
 		info
 	});
-	if response.clicked() {
+	let pressed = response.clicked();
+	if pressed && forced.is_none() {
 		state.toggle(ui);
 	}
 	if ui.is_rect_visible(rect) {
@@ -88,5 +118,8 @@ pub fn collapsing_header<R>(
 		);
 	}
 	state.store(ui.ctx());
-	state.show_body_unindented(ui, body).map(|r| r.inner)
+	(
+		state.show_body_unindented(ui, body).map(|r| r.inner),
+		pressed,
+	)
 }

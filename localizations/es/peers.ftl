@@ -1,7 +1,7 @@
 # Relay desktop UI catalog, Spanish (es), section: People nearby.
 # Translation of localizations/en/peers.ftl; same ids and $variables. See docs/i18n.md.
 
-peer-unknown = Par desconocido
+peer-unknown = Dispositivo desconocido
 peer-online = En línea
 peer-unreachable = Inaccesible
 peer-key = Clave { $fingerprint }
@@ -44,7 +44,9 @@ found-subtitle = Sin confianza aún · { $fingerprint }
 contacts-empty-title = Aún no tienes contactos
 contacts-empty-help = Un contacto es un dispositivo en el que has confiado. Busca uno en Conectar y confía en él; después aparecerá aquí.
 contacts-go-connect = Ir a Conectar
-contact-more = Más
+contact-more = Más opciones
+contact-favorite-add = Añadir a favoritos
+contact-favorite-remove = Quitar de favoritos
 peer-addresses = Direcciones: { $addresses }
 home-online = En línea ahora
 contact-last-seen = Visto por última vez: { $when }

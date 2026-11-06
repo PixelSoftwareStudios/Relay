@@ -21,11 +21,6 @@ pub struct Cx<'a> {
 	pub messages: &'a mut MessagesUi,
 }
 
-/// Fill of a danger button (hang up, forget, quit).
-const DANGER_FILL: Color32 = Color32::from_rgb(178, 48, 42);
-/// Fill of the accept button.
-const ACCEPT_FILL: Color32 = Color32::from_rgb(34, 128, 56);
-
 /// A rounded panel that groups related controls.
 pub fn card<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
 	egui::Frame::group(ui.style())
@@ -72,11 +67,14 @@ pub fn details<R>(
 	id: impl std::hash::Hash + std::fmt::Debug,
 	add: impl FnOnce(&mut Ui) -> R,
 ) -> Option<R> {
-	egui::CollapsingHeader::new(RichText::new(crate::tr!("action-details")).small())
-		.id_salt(id)
-		.default_open(false)
-		.show(ui, add)
-		.body_returned
+	super::collapsing::collapsing_header(
+		ui,
+		id,
+		crate::tr!("action-details"),
+		false,
+		super::collapsing::ChevronSide::Left,
+		add,
+	)
 }
 
 /// A button for an act that is hard to undo.
@@ -86,12 +84,8 @@ pub fn danger_button(ui: &mut Ui, text: &str) -> Response {
 
 /// The danger button as a widget, for `add_enabled`.
 pub fn danger_button_widget(text: &str) -> egui::Button<'_> {
-	egui::Button::new(RichText::new(text).color(Color32::WHITE)).fill(DANGER_FILL)
-}
-
-/// The main button of a prompt.
-pub fn accept_button(ui: &mut Ui, text: &str) -> Response {
-	ui.add(egui::Button::new(RichText::new(text).color(Color32::WHITE).strong()).fill(ACCEPT_FILL))
+	egui::Button::new(RichText::new(text).color(Color32::WHITE))
+		.fill(super::icon_style::DANGER_FILL)
 }
 
 /// A friendly "nothing here yet" block: what is missing and what to do.

@@ -10,7 +10,8 @@ use crate::format::link_label;
 use crate::model::{AppState, Link};
 
 use super::kit;
-use super::widgets::banner;
+use super::widgets::{banner, notice};
+use crate::icons::{Icon, icon_label, icon_label_enabled};
 use crate::tr;
 
 /// The engine's code for a device that connected and waits for a trust decision.
@@ -60,12 +61,12 @@ pub fn show(ui: &mut Ui, state: &AppState, error: Option<&str>, actions: &Action
 	if let Some(e) = error {
 		banner(ui, e, true);
 		kit::help(ui, tr!("error-next"));
-		if ui.button(tr!("action-dismiss")).clicked() {
+		if icon_label(ui, Icon::Close, tr!("action-dismiss")).clicked() {
 			actions.shared.clear_error();
 		}
 	}
 	if let Some(n) = &state.notice {
-		banner(ui, n, false);
+		notice(ui, Icon::Info, super::icon_style::info_color(ui), n);
 	}
 }
 
@@ -76,7 +77,7 @@ pub(super) fn start_daemon_button(ui: &mut Ui, actions: &Actions) {
 	} else {
 		tr!("daemon-start-button")
 	};
-	if ui.add_enabled(!busy, egui::Button::new(label)).clicked() {
+	if icon_label_enabled(ui, !busy, Icon::Refresh, label).clicked() {
 		actions.start_daemon();
 	}
 }

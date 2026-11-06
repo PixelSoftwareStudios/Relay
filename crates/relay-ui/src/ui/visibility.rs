@@ -5,6 +5,7 @@
 use egui::{Color32, RichText, Ui};
 
 use crate::format::link_label;
+use crate::icons::Icon;
 use crate::model::{Advert, Inbound, Link};
 use crate::theme;
 use crate::viewmodel::{Discoverability, discoverability};
@@ -14,20 +15,23 @@ use super::widgets::button_row;
 use crate::tr;
 
 /// The chip's colour, short text and the full sentence (hover text).
-fn describe(d: Discoverability, ui: &Ui) -> (Color32, &'static str, String) {
+fn describe(d: Discoverability, ui: &Ui) -> (Color32, Icon, &'static str, String) {
 	match d {
 		Discoverability::Discoverable => (
 			theme::LIVE,
+			Icon::Eye,
 			tr!("visibility-discoverable"),
 			tr!("visibility-discoverable-help").to_owned(),
 		),
 		Discoverability::Private => (
 			ui.visuals().weak_text_color(),
+			Icon::EyeOff,
 			tr!("visibility-private"),
 			tr!("visibility-private-help").to_owned(),
 		),
 		Discoverability::NotAdvertising(link) => (
 			theme::WARN,
+			Icon::WifiOff,
 			tr!("visibility-not-advertising"),
 			not_advertising(link),
 		),
@@ -44,9 +48,9 @@ fn not_advertising(link: Link) -> String {
 
 /// A small coloured dot and the state, cut with an ellipsis when narrow.
 pub fn chip(ui: &mut Ui, d: Discoverability) {
-	let (color, text, hover) = describe(d, ui);
+	let (color, icon, text, hover) = describe(d, ui);
 	ui.horizontal(|ui| {
-		ui.label(RichText::new("\u{25CF}").color(color).small());
+		ui.label(icon.text(12.0).color(color));
 		ui.add(egui::Label::new(RichText::new(text).small().color(color)).truncate())
 			.on_hover_text(hover);
 	});
@@ -58,9 +62,9 @@ pub fn card(ui: &mut Ui, cx: &mut Cx) {
 		return;
 	};
 	kit::card(ui, |ui| {
-		let (color, text, help) = describe(d, ui);
+		let (color, icon, text, help) = describe(d, ui);
 		ui.horizontal(|ui| {
-			ui.label(RichText::new("\u{25CF}").color(color));
+			ui.label(icon.text(18.0).color(color));
 			ui.label(RichText::new(text).strong());
 		});
 		kit::help(ui, &help);

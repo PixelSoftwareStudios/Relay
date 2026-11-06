@@ -42,18 +42,18 @@ async fn the_call_card_shows_the_chat_below_it_and_toggles_it_on_desktop() {
 	let mut phone = desktop(Language::En, false);
 	let before = phone.settle();
 	assert!(has_exact(&before, "Hang up") || has(&before, "End call"));
-	assert!(!has_exact(&before, "Send"), "closed by default");
+	assert!(!phone::has_icon(&before, relay_ui::icons::Icon::Send), "closed by default");
 	phone.click_label(&chatkit::badge(&phone));
 	assert_eq!(phone.app.chat_call(), Some(ada_call().as_str()));
 	let open = phone.settle();
-	assert!(has_exact(&open, "Send"), "{:?}", open.labels);
+	assert!(phone::has_icon(&open, relay_ui::icons::Icon::Send), "{:?}", open.labels);
 	assert!(has(&open, "Message (Enter sends"), "the composer is there");
 	// The card is still on the page: the chat is part of the call, not another page.
 	assert!(has(&open, "End call"));
 	assert!(!has(&open, "Back to the call"), "no full screen on desktop");
 	phone.click_label("Messages");
 	assert_eq!(phone.app.chat_call(), None);
-	assert!(!has_exact(&phone.settle(), "Send"));
+	assert!(!phone::has_icon(&phone.settle(), relay_ui::icons::Icon::Send));
 }
 
 #[tokio::test]
@@ -64,14 +64,18 @@ async fn the_call_card_opens_a_full_screen_chat_with_a_way_back_on_a_phone() {
 	assert!(has_exact(&calls, "Contacts") && !has_exact(&calls, "Messages"));
 	phone.click_label(&chatkit::badge(&phone));
 	let chat = phone.settle();
-	assert!(has_exact(&chat, "Send"), "{:?}", chat.labels);
-	assert!(has(&chat, "Back to the call"));
+	assert!(phone::has_icon(&chat, relay_ui::icons::Icon::Send), "{:?}", chat.labels);
+	assert!(
+		phone::has_icon(&chat, relay_ui::icons::Icon::Back),
+		"a way back: {:?}",
+		chat.labels
+	);
 	assert!(!has(&chat, "End call"), "the chat replaces the page");
 	assert!(
 		!has_exact(&chat, "Contacts"),
 		"the tabs make room for the chat"
 	);
-	phone.click_label("\u{2039} Back to the call");
+	phone.click_icon(relay_ui::icons::Icon::Back);
 	assert_eq!(phone.app.chat_call(), None);
 	let back = phone.settle();
 	assert!(has(&back, "End call"));
@@ -110,14 +114,14 @@ async fn unread_messages_show_as_a_badge_and_never_open_the_chat() {
 	let badge = phone.settle();
 	assert!(has_exact(&badge, "Messages (1)"), "{:?}", badge.labels);
 	assert_eq!(phone.app.chat_call(), None);
-	assert!(!has_exact(&badge, "Send"));
+	assert!(!phone::has_icon(&badge, relay_ui::icons::Icon::Send));
 	// A message while the chat is open is read at once.
 	phone.click_label("Messages (1)");
 	incoming(&phone, 501);
 	let open = phone.settle();
-	assert!(has_exact(&open, "Send"));
-	phone.click_label("Messages");
-	assert!(has_exact(&phone.settle(), "Messages"));
+	assert!(phone::has_icon(&open, relay_ui::icons::Icon::Send));
+	phone.click_label(&chat_glyph());
+	assert!(has_exact(&phone.settle(), &chat_glyph()));
 }
 
 #[tokio::test]
@@ -125,7 +129,7 @@ async fn an_incoming_call_still_surfaces_while_the_chat_is_open() {
 	for mut phone in [desktop(Language::En, true), handset(Language::En, true)] {
 		phone.app.open_chat(&ada_call());
 		let drawn = phone.settle();
-		assert!(has_exact(&drawn, "Send"), "{:?}", drawn.labels);
+		assert!(phone::has_icon(&drawn, relay_ui::icons::Icon::Send), "{:?}", drawn.labels);
 		assert!(
 			has_exact(&drawn, "Accept") && has_exact(&drawn, "Decline"),
 			"{:?}",

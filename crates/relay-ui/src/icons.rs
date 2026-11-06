@@ -219,6 +219,18 @@ impl Icon {
 	}
 }
 
+/// The icon of a page, for the sidebar and the bottom tabs.
+pub fn page_icon(page: crate::layout::Page) -> Icon {
+	use crate::layout::Page;
+	match page {
+		Page::Calls => Icon::Call,
+		Page::Contacts => Icon::Contacts,
+		Page::Connect => Icon::Connect,
+		Page::Channels => Icon::Channels,
+		Page::Settings => Icon::Settings,
+	}
+}
+
 /// Side of an icon-only button: 44 points under touch rules, 32 with a pointer.
 pub fn hit_size(ui: &Ui) -> f32 {
 	if crate::layout::is_touch(ui) {
@@ -233,21 +245,70 @@ fn glyph_size(hit: f32) -> f32 {
 	(hit * 0.55).round()
 }
 
+/// An icon-only button as a widget, so it works with `ui.add_enabled`.
+pub struct IconButton<'a> {
+	icon: Icon,
+	tooltip: &'a str,
+	tone: Tone,
+	on: bool,
+}
+
+impl<'a> IconButton<'a> {
+	/// A plain button; the tooltip is also its accessible name.
+	pub fn new(icon: Icon, tooltip: &'a str) -> Self {
+		Self {
+			icon,
+			tooltip,
+			tone: Tone::Plain,
+			on: false,
+		}
+	}
+
+	/// Shown pressed when `on` (a toggle).
+	pub fn toggled(mut self, on: bool) -> Self {
+		self.on = on;
+		self
+	}
+
+	/// Red, for hard-to-undo acts.
+	pub fn danger(mut self) -> Self {
+		self.tone = Tone::Danger;
+		self
+	}
+
+	/// Round and filled in the accent colour (send).
+	pub fn accent(mut self) -> Self {
+		self.tone = Tone::Accent;
+		self
+	}
+}
+
+impl egui::Widget for IconButton<'_> {
+	fn ui(self, ui: &mut Ui) -> Response {
+		draw_button(ui, self.icon, self.tooltip, self.tone, self.on)
+	}
+}
+
 /// An icon-only button. The tooltip is shown on hover and is the control's
 /// accessible name, so it must say what the button does ("Copy address").
 pub fn icon_button(ui: &mut Ui, icon: Icon, tooltip: &str) -> Response {
-	draw_button(ui, icon, tooltip, Tone::Plain, false)
+	ui.add(IconButton::new(icon, tooltip))
 }
 
 /// A toggle button: `on` shows it pressed. The tooltip names the action a
 /// press would do ("Add to favorites"), and the accessible state says on or off.
 pub fn icon_toggle(ui: &mut Ui, on: bool, icon: Icon, tooltip: &str) -> Response {
-	draw_button(ui, icon, tooltip, Tone::Plain, on)
+	ui.add(IconButton::new(icon, tooltip).toggled(on))
 }
 
 /// An icon-only button for a hard-to-undo act (hang up, delete): red.
 pub fn icon_button_danger(ui: &mut Ui, icon: Icon, tooltip: &str) -> Response {
-	draw_button(ui, icon, tooltip, Tone::Danger, false)
+	ui.add(IconButton::new(icon, tooltip).danger())
+}
+
+/// A round filled icon button in the accent colour (send). Disabled, it fades.
+pub fn icon_button_accent(ui: &mut Ui, icon: Icon, tooltip: &str) -> Response {
+	ui.add(IconButton::new(icon, tooltip).accent())
 }
 
 fn draw_button(ui: &mut Ui, icon: Icon, tooltip: &str, tone: Tone, on: bool) -> Response {
@@ -265,7 +326,11 @@ fn draw_button(ui: &mut Ui, icon: Icon, tooltip: &str, tone: Tone, on: bool) -> 
 		if paint.fill != Color32::TRANSPARENT || paint.stroke.width > 0.0 {
 			painter.rect(
 				rect,
-				theme_radius(),
+				if tone == Tone::Accent {
+					egui::CornerRadius::same((side / 2.0) as u8)
+				} else {
+					theme_radius()
+				},
 				paint.fill,
 				paint.stroke,
 				egui::StrokeKind::Inside,
@@ -311,8 +376,18 @@ fn theme_gap() -> f32 {
 /// A button with an icon and a visible label, for actions whose meaning an
 /// icon alone does not carry (Call, Trust this device).
 pub fn icon_label(ui: &mut Ui, icon: Icon, text: &str) -> Response {
-	let job = icon_text_job(ui, icon, text);
-	ui.add(egui::Button::new(job))
+	ui.add(icon_label_widget(ui, icon, text))
+}
+
+/// [`icon_label`], disabled unless `enabled`.
+pub fn icon_label_enabled(ui: &mut Ui, enabled: bool, icon: Icon, text: &str) -> Response {
+	let widget = icon_label_widget(ui, icon, text);
+	ui.add_enabled(enabled, widget)
+}
+
+/// [`icon_label`] as a widget, for `ui.add_enabled`.
+pub fn icon_label_widget(ui: &Ui, icon: Icon, text: &str) -> egui::Button<'static> {
+	egui::Button::new(icon_text_job(ui, icon, text))
 }
 
 /// [`icon_label`] in the primary (accept) colour.
@@ -325,6 +400,21 @@ pub fn icon_label_primary(ui: &mut Ui, icon: Icon, text: &str) -> Response {
 pub fn icon_label_danger(ui: &mut Ui, icon: Icon, text: &str) -> Response {
 	let job = icon_text_job(ui, icon, text);
 	ui.add(egui::Button::new(job).fill(icon_style::DANGER_FILL))
+}
+
+/// A flat menu entry with an icon, its text in the error colour, for
+/// destructive choices (forget a device, clear a history).
+pub fn icon_label_red(ui: &mut Ui, icon: Icon, text: &str) -> Response {
+	let red = crate::theme::ERROR;
+	let body = egui::TextStyle::Button.resolve(ui.style());
+	let mut job = LayoutJob::default();
+	job.append(
+		&icon.codepoint().to_string(),
+		0.0,
+		TextFormat::simple(icon.font(body.size + 2.0), red),
+	);
+	job.append(text, theme_gap(), TextFormat::simple(body, red));
+	ui.add(egui::Button::new(job))
 }
 
 /// An icon drawn inline, before a line of text (status rows, banners).

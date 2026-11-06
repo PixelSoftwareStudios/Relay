@@ -5,7 +5,13 @@
 
 use egui::{FontId, Sense, Ui, text::LayoutJob, vec2};
 
+use crate::icons::page_icon;
 use crate::layout::{MIN_TOUCH_TARGET, Page};
+
+/// Height of a tab: the icon above a short label.
+const TAB_HEIGHT: f32 = MIN_TOUCH_TARGET + 8.0;
+/// Size of a tab icon (points).
+const TAB_ICON: f32 = 20.0;
 
 /// Tab label sizes tried largest first (points).
 const TAB_FONT_MAX: f32 = 13.0;
@@ -15,7 +21,7 @@ const TAB_FONT_MIN: f32 = 10.0;
 pub fn bottom_bar(ui: &mut Ui, page: &mut Page, ringing: bool) {
 	ui.columns(Page::ALL.len(), |cols| {
 		for (col, p) in cols.iter_mut().zip(Page::ALL) {
-			let size = vec2(col.available_width(), MIN_TOUCH_TARGET);
+			let size = vec2(col.available_width(), TAB_HEIGHT);
 			let (rect, response) = col.allocate_exact_size(size, Sense::click());
 			if response.clicked() {
 				*page = p;
@@ -30,8 +36,19 @@ pub fn bottom_bar(ui: &mut Ui, page: &mut Page, ringing: bool) {
 				egui::StrokeKind::Inside,
 			);
 			let galley = fitted(col, p.label(), rect.width() - 4.0, visuals.text_color());
-			let pos = rect.center() - galley.size() / 2.0;
+			let pos = egui::pos2(
+				rect.center().x - galley.size().x / 2.0,
+				rect.max.y - galley.size().y - 4.0,
+			);
 			col.painter().galley(pos, galley, visuals.text_color());
+			let icon = page_icon(p);
+			col.painter().text(
+				egui::pos2(rect.center().x, rect.min.y + 4.0 + TAB_ICON / 2.0),
+				egui::Align2::CENTER_CENTER,
+				icon.codepoint(),
+				icon.font(TAB_ICON),
+				visuals.text_color(),
+			);
 			if ringing && p == Page::Calls {
 				col.painter().circle_filled(
 					rect.right_top() + vec2(-8.0, 8.0),
@@ -39,6 +56,7 @@ pub fn bottom_bar(ui: &mut Ui, page: &mut Page, ringing: bool) {
 					crate::theme::LIVE,
 				);
 			}
+			response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, p.label()));
 			response.on_hover_text(p.label());
 		}
 	});

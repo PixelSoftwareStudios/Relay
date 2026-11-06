@@ -5,7 +5,7 @@
 //! limit appears near the limit. Instead of a box there is an explanation
 //! when sending is not possible.
 
-use egui::{Align, Color32, FontId, Layout, Margin, RichText, TextStyle, Ui, vec2};
+use egui::{Align, Layout, Margin, RichText, TextStyle, Ui, vec2};
 
 use super::dialogs::ClipFlow;
 use crate::layout::{self, MIN_TOUCH_TARGET};
@@ -92,21 +92,11 @@ pub fn editor(
 	let counter = Counter::of(draft);
 	let side = control_side(ui);
 	let gap = ui.spacing().item_spacing.x;
-	let accent = ui.visuals().selection.bg_fill;
-	let on_accent = ui.visuals().selection.stroke.color;
 	let send_label = tr!("msg-send");
-	let send_w = ui
-		.painter()
-		.layout_no_wrap(
-			send_label.to_owned(),
-			FontId::proportional(theme::TEXT_BODY_COMPACT),
-			Color32::WHITE,
-		)
-		.size()
-		.x + 2.0 * theme::SPACE_L;
+	let send_w = crate::icons::hit_size(ui);
 	let mut clicked = false;
 	ui.with_layout(Layout::left_to_right(Align::Min), |ui| {
-		attach(ui, session, clip, intents, side);
+		attach(ui, session, clip, intents);
 		let box_w = (ui.available_width() - send_w - gap).max(side);
 		let line = ui.text_style_height(&TextStyle::Body);
 		let pad = ((side - line) / 2.0).max(0.0) as i8;
@@ -140,11 +130,12 @@ pub fn editor(
 						);
 					});
 			});
-		let button = egui::Button::new(RichText::new(send_label).strong().color(on_accent))
-			.fill(accent)
-			.corner_radius(side / 2.0)
-			.min_size(vec2(send_w, side));
-		clicked = ui.add_enabled(counter.sendable(draft), button).clicked();
+		clicked = ui
+			.add_enabled(
+				counter.sendable(draft),
+				crate::icons::IconButton::new(crate::icons::Icon::Send, send_label).accent(),
+			)
+			.clicked();
 	});
 	let counter = Counter::of(draft);
 	if counter.used * 100 >= counter.limit * COUNTER_FROM_PERCENT {
@@ -176,20 +167,16 @@ pub fn editor(
 }
 
 /// The "+" button and its menu: offer a file, send the clipboard.
-fn attach(
-	ui: &mut Ui,
-	session: &SessionView,
-	clip: &mut ClipFlow,
-	intents: &mut Vec<Intent>,
-	side: f32,
-) {
-	let plus = egui::Button::new(RichText::new("+").size(theme::TEXT_HEADING).strong())
-		.corner_radius(side / 2.0)
-		.min_size(vec2(side, side));
-	let button = ui.add(plus).on_hover_text(tr!("msg-attach"));
+fn attach(ui: &mut Ui, session: &SessionView, clip: &mut ClipFlow, intents: &mut Vec<Intent>) {
+	let button = crate::icons::icon_button(ui, crate::icons::Icon::Attach, tr!("msg-attach"));
 	let blocked = files_blocked(session);
 	egui::Popup::menu(&button).show(|ui| {
-		let offer = ui.add_enabled(blocked.is_none(), egui::Button::new(tr!("msg-offer-file")));
+		let offer = crate::icons::icon_label_enabled(
+			ui,
+			blocked.is_none(),
+			crate::icons::Icon::Attach,
+			tr!("msg-offer-file"),
+		);
 		if let Some(why) = blocked {
 			offer.clone().on_disabled_hover_text(why);
 		}
@@ -198,8 +185,7 @@ fn attach(
 				session: session.key.clone(),
 			});
 		}
-		if ui
-			.button(tr!("msg-send-clipboard"))
+		if crate::icons::icon_label(ui, crate::icons::Icon::Copy, tr!("msg-send-clipboard"))
 			.on_hover_text(tr!("msg-send-clipboard-hover"))
 			.clicked()
 		{

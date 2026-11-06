@@ -98,14 +98,18 @@ async fn delivery_state_is_written_under_own_messages() {
 	assert!(has(&d, "Not delivered: the other side did not answer."));
 	assert!(has_exact(&d, "Retry"));
 	assert!(d.labels.iter().any(|l| l.ends_with("· Delivered")));
-	assert!(has_exact(&d, "Send") && has_exact(&d, "+"));
+	assert!(
+		phone::has_icon(&d, Icon::Send) && phone::has_icon(&d, Icon::Attach),
+		"{:?}",
+		d.labels
+	);
 	assert!(has(&d, "Message"));
 }
 
 #[tokio::test]
 async fn the_dots_menu_opens_copies_and_closes() {
 	let (mut phone, d) = tall();
-	let dots = squares(&d, 44.0);
+	let dots = phone::icon_rects(&d, Icon::More);
 	assert!(dots.len() >= 10, "a button per message: {}", dots.len());
 	// The first square is the chat options in the header; "Thanks!" is message 7.
 	click_at(&mut phone, dots[7].center());
@@ -126,7 +130,7 @@ async fn the_dots_menu_opens_copies_and_closes() {
 #[tokio::test]
 async fn the_menu_has_pin_link_and_retry_where_they_apply() {
 	let (mut phone, d) = tall();
-	let dots = squares(&d, 44.0);
+	let dots = phone::icon_rects(&d, Icon::More);
 	// Message 3 has a link and is pinned; message 8 failed.
 	click_at(&mut phone, dots[3].center());
 	let open = phone.settle();
@@ -155,7 +159,7 @@ async fn the_menu_has_pin_link_and_retry_where_they_apply() {
 #[tokio::test]
 async fn escape_and_a_click_outside_close_the_menu() {
 	let (mut phone, d) = tall();
-	let dots = squares(&d, 44.0);
+	let dots = phone::icon_rects(&d, Icon::More);
 	click_at(&mut phone, dots[7].center());
 	assert!(has_exact(&phone.settle(), "Copy text"));
 	click_at(&mut phone, egui::pos2(20.0, 1500.0));

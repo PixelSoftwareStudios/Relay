@@ -118,10 +118,10 @@ async fn on_a_phone_the_history_chat_is_a_screen_with_a_back() {
 		"{:?}",
 		open.labels
 	);
-	assert!(has_exact(&open, "\u{2039} Back"));
+	assert!(phone::has_icon(&open, relay_ui::icons::Icon::Back));
 	assert!(has(&open, "Kept Caller"));
 	assert!(!has_exact(&open, "Contacts"), "the tabs are out of the way");
-	phone.click_label("\u{2039} Back");
+	phone.click_icon(relay_ui::icons::Icon::Back);
 	assert_eq!(phone.app.chat_call(), None);
 	let back = phone.settle();
 	assert!(has_exact(&back, "Contacts") && has(&back, "History"));

@@ -2,7 +2,7 @@
 # Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/peers.ftl. See docs/i18n.md.
 
-peer-unknown = अज्ञात पीयर
+peer-unknown = अज्ञात डिवाइस
 peer-online = ऑनलाइन
 peer-unreachable = पहुँच से बाहर
 peer-key = कुंजी { $fingerprint }
@@ -45,7 +45,9 @@ found-subtitle = अभी भरोसा नहीं · { $fingerprint }
 contacts-empty-title = अभी कोई संपर्क नहीं
 contacts-empty-help = संपर्क वह डिवाइस है जिस पर आपने भरोसा किया है। कनेक्ट में कोई डिवाइस ढूँढें और उस पर भरोसा करें, फिर वह यहाँ दिखेगा।
 contacts-go-connect = कनेक्ट पर जाएँ
-contact-more = और
+contact-more = और विकल्प
+contact-favorite-add = पसंदीदा में जोड़ें
+contact-favorite-remove = पसंदीदा से हटाएँ
 peer-addresses = पते: { $addresses }
 home-online = अभी ऑनलाइन
 contact-last-seen = आख़िरी बार देखा गया: { $when }

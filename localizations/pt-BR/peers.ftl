@@ -1,7 +1,7 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: People nearby.
 # Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
 
-peer-unknown = Pessoa desconhecida
+peer-unknown = Dispositivo desconhecido
 peer-online = Online
 peer-unreachable = Inacessível
 peer-key = Chave { $fingerprint }
@@ -44,7 +44,9 @@ found-subtitle = Ainda sem confiança · { $fingerprint }
 contacts-empty-title = Nenhum contato ainda
 contacts-empty-help = Um contato é um dispositivo em que você confiou. Encontre um em Conectar e confie nele; depois ele aparece aqui.
 contacts-go-connect = Ir para Conectar
-contact-more = Mais
+contact-more = Mais opções
+contact-favorite-add = Adicionar aos favoritos
+contact-favorite-remove = Remover dos favoritos
 peer-addresses = Endereços: { $addresses }
 home-online = Online agora
 contact-last-seen = Visto por último: { $when }

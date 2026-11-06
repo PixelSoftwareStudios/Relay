@@ -5,6 +5,7 @@
 
 use egui::{RichText, Ui};
 
+use crate::icons::{Icon, icon_label, icon_label_primary};
 use crate::tr;
 use crate::viewmodel::PeerRow;
 
@@ -85,7 +86,7 @@ fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 		kit::help(ui, &tr!("found-trust-ask", name = row.name.as_str()));
 		ui.label(RichText::new(grouped(&row.peer_id)).monospace());
 		button_row(ui, |ui| {
-			if kit::accept_button(ui, tr!("found-trust-yes")).clicked() {
+			if icon_label_primary(ui, Icon::Check, tr!("found-trust-yes")).clicked() {
 				let id = row.peer_id.clone();
 				cx.actions.run(|c| async move { c.trust_peer(&id).await });
 				cx.local.trust_confirm = None;
@@ -96,7 +97,7 @@ fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 		});
 	} else {
 		button_row(ui, |ui| {
-			if ui.button(tr!("found-trust")).clicked() {
+			if icon_label(ui, Icon::Trust, tr!("found-trust")).clicked() {
 				cx.local.trust_confirm = Some(row.peer_id.clone());
 			}
 		});

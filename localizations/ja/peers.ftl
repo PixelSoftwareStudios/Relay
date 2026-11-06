@@ -1,7 +1,7 @@
 # Relay desktop UI catalog, Japanese (ja), section: People nearby.
 # Project Fluent. Same ids and $variables as localizations/en/peers.ftl. See docs/i18n.md.
 
-peer-unknown = 不明なピア
+peer-unknown = 不明なデバイス
 peer-online = オンライン
 peer-unreachable = 接続できません
 peer-key = 鍵 { $fingerprint }
@@ -44,7 +44,9 @@ found-subtitle = 未信頼 · { $fingerprint }
 contacts-empty-title = 連絡先はまだありません
 contacts-empty-help = 連絡先は、信頼したデバイスのことです。「接続」でデバイスを見つけて信頼すると、ここに表示されます。
 contacts-go-connect = 「接続」を開く
-contact-more = その他
+contact-more = その他のオプション
+contact-favorite-add = お気に入りに追加
+contact-favorite-remove = お気に入りから削除
 peer-addresses = アドレス: { $addresses }
 home-online = オンライン中
 contact-last-seen = 最終確認: { $when }

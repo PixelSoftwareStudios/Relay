@@ -80,15 +80,15 @@ async fn an_open_chat_closes_first() {
 async fn a_confirmation_is_dismissed_before_leaving_the_page() {
 	let mut phone = Phone::new(360.0, 800.0, Language::En);
 	phone.page(Page::Contacts);
-	phone.click_label("More");
+	phone.click_icon(relay_ui::icons::Icon::More);
 	phone.click_label("Forget this device");
 	let asking = phone.settle();
 	assert!(has(&asking, "Contacts"));
-	let shown = asking.labels.len();
+	assert!(has(&asking, "Yes, forget"), "{:?}", asking.labels);
 	assert!(phone.app.handle_back(), "the confirmation closes first");
 	assert_eq!(phone.app.page(), Page::Contacts);
 	let after = phone.settle();
-	assert_ne!(after.labels.len(), shown, "{:?}", after.labels);
+	assert!(!has(&after, "Yes, forget"), "{:?}", after.labels);
 	assert!(phone.app.handle_back());
 	assert_eq!(phone.app.page(), Page::Calls);
 }
