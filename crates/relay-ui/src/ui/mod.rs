@@ -31,7 +31,6 @@ mod nav;
 mod nearby;
 mod outdated;
 mod notice_strip;
-mod outdated;
 mod settings;
 mod sidebar;
 mod textures;
