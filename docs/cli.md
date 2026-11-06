@@ -38,6 +38,7 @@ relay trust list | verify <peer> --fingerprint <hex> | forget <fingerprint-prefi
 relay mic-test [--seconds N] [--local-playback --accept-feedback]
 relay doctor [--bundle FILE]
 relay address [--copy]                 connection string others use to call you
+relay connect --trust <relay://...>       dial a scanned connection string; trust the device as verified when its key matches
 relay call relay://ip:port#fp          call by pasted connection string
 relay privacy set [--inbound anyone|shared-channel] [--advert visible|hidden]
 relay channel create <name> [--hidden] [--invite-only] [--password|--password-stdin]
@@ -75,6 +76,7 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 
 ### Connection strings, privacy, channels, avatar
 - `relay address` prints only the engine's connection string (pipeable); `--json` adds addresses, port and fingerprint. `--copy` uses `arboard` (text only, no image codecs). If the clipboard is unavailable the string is still printed and the command exits 1 with the reason; on X11 clipboard text may vanish when `relay` exits unless a clipboard manager runs.
+- `relay connect --trust <string>` sends `ConnectAndTrust`: the string (from `relay address` on the other device, or a QR code) carries the full fingerprint, so pasting it is an out-of-band exchange. A device with another key, an unreachable address or a malformed string fails with the engine code `CONNECT_FINGERPRINT_MISMATCH`, `CONNECT_UNREACHABLE` or `CONNECT_STRING_INVALID` and trusts nothing. `--trust` is required.
 - `relay call relay://...` is checked locally with `relay_net::connect::ConnectionString` (scheme, 64-hex fingerprint, literal LAN address, no credentials or path) before anything is sent; failures exit 2. The local check admits overlay (100.64.0.0/10) addresses because the engine holds the opt-in and decides.
 - Channel passwords and invite tokens are never argv: flags are booleans that select a hidden terminal prompt (`rpassword`) or one line of stdin. `create --password` asks twice. Secrets have a redacted `Debug`, are zeroed on drop, never appear in output, errors or logs; the only secret printed is a freshly minted invite (bare token in text mode), which is the command's purpose. Channels are matched by exact name, id or unique prefix; `join` also accepts a 32-hex id.
 - `avatar set` accepts PNG, JPEG, WebP, GIF, BMP or TIFF up to 1 MiB and 2048x2048, recognised from the file's bytes (the extension is ignored), and refuses locally (exit 2) with the engine's own wording (`avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)`, `avatar rejected: unsupported or unrecognised image format ...`, `avatar rejected: avatar dimensions WxH exceed the 2048 pixel limit`); the engine stays the authority. `avatar clear` calls `ClearAvatar` (idempotent; trusted peers are sent an empty avatar hash).
