@@ -16,6 +16,7 @@ home-empty-title = Ninguém para ligar ainda
 home-empty-body = O Relay encontra sozinho os dispositivos da sua rede local. Se ninguém aparecer, adicione um dispositivo pela cadeia de conexão.
 home-add-by-address = Adicionar um dispositivo
 people-none-nearby = Nenhum dispositivo encontrado nesta rede ainda.
+people-none-nearby-help = Os dois dispositivos precisam estar no mesmo Wi-Fi com o Relay aberto. Permita o acesso à rede local ao Relay se o sistema perguntar. Alguns roteadores impedem que os dispositivos se vejam (isolamento de clientes ou rede de convidados). Se nada ajudar, use Conectar um dispositivo acima.
 people-known = Outros dispositivos confiáveis
 people-known-help = Você já confiou neles, mas eles não estão nesta rede agora.
 people-add-title = Adicionar um dispositivo pelo endereço

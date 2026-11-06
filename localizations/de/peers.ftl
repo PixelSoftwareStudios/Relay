@@ -17,6 +17,7 @@ home-empty-title = Noch niemand zum Anrufen
 home-empty-body = Relay findet Geräte in Ihrem lokalen Netzwerk von selbst. Wenn niemand erscheint, fügen Sie ein Gerät über seine Verbindungszeichenfolge hinzu.
 home-add-by-address = Gerät hinzufügen
 people-none-nearby = Im Netzwerk wurden noch keine Geräte gefunden.
+people-none-nearby-help = Beide Geräte müssen im selben WLAN sein und Relay muss geöffnet sein. Erlaube Relay den Zugriff auf das lokale Netzwerk, falls dein System danach fragt. Manche Router verhindern, dass Geräte einander sehen (Client-Isolation oder Gastnetz). Hilft nichts, nutze oben Gerät verbinden.
 people-known = Weitere vertraute Geräte
 people-known-help = Sie haben ihnen früher vertraut, aber sie sind gerade nicht in diesem Netzwerk.
 people-add-title = Gerät über Adresse hinzufügen

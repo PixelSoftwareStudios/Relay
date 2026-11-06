@@ -19,6 +19,7 @@ home-empty-title = Nobody to call yet
 home-empty-body = Relay finds devices on your local network by itself. If nobody shows up, add a device by its connection string.
 home-add-by-address = Add a device
 people-none-nearby = No devices found on this network yet.
+people-none-nearby-help = Both devices must be on the same Wi-Fi with Relay open. Allow local network access for Relay if your system asks. Some routers block devices from seeing each other (client isolation or a guest network). If nothing helps, use Connect a device above.
 people-known = Other trusted devices
 people-known-help = You have trusted these before, but they are not on this network now.
 people-add-title = Add a device by address

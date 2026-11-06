@@ -18,6 +18,7 @@ home-empty-title = 아직 전화할 상대가 없습니다
 home-empty-body = Relay는 같은 네트워크의 기기를 자동으로 찾습니다. 아무도 보이지 않으면 연결 문자열로 기기를 추가하세요.
 home-add-by-address = 기기 추가
 people-none-nearby = 이 네트워크에서 아직 기기를 찾지 못했습니다.
+people-none-nearby-help = 두 기기가 같은 Wi-Fi에 연결되어 있고 Relay가 열려 있어야 합니다. 시스템에서 요청하면 Relay의 로컬 네트워크 접근을 허용하세요. 일부 공유기는 기기끼리 서로 보이지 않게 막습니다(클라이언트 격리 또는 게스트 네트워크). 그래도 안 되면 위의 기기 연결을 사용하세요.
 people-known = 다른 신뢰하는 기기
 people-known-help = 전에 신뢰한 기기이지만 지금은 이 네트워크에 없습니다.
 people-add-title = 주소로 기기 추가

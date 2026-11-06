@@ -23,6 +23,7 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	kit::section_title(ui, tr!("home-nearby"));
 	if near.is_empty() {
 		kit::help(ui, tr!("people-none-nearby"));
+		kit::help(ui, tr!("people-none-nearby-help"));
 	}
 	for row in near {
 		self::row(ui, row, cx, true);

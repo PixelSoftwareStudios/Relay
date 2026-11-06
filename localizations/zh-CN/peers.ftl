@@ -18,6 +18,7 @@ home-empty-title = 还没有可呼叫的人
 home-empty-body = Relay 会自动发现本地网络中的设备。如果没有出现，请用连接字符串添加设备。
 home-add-by-address = 添加设备
 people-none-nearby = 此网络上还没有发现设备。
+people-none-nearby-help = 两台设备必须连接同一个 Wi-Fi，并且都已打开 Relay。如果系统询问，请允许 Relay 访问本地网络。有些路由器会阻止设备互相看到（客户端隔离或访客网络）。如果仍然不行，请使用上方的连接设备。
 people-known = 其他受信任的设备
 people-known-help = 你以前信任过这些设备，但它们现在不在此网络上。
 people-add-title = 通过地址添加设备
