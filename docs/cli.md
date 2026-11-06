@@ -36,6 +36,7 @@ relay devices list | select [--input X] [--output Y]
 relay ns set <backend>
 relay profile set --name <n>
 relay trust list | verify <peer> --fingerprint <hex> | forget <fingerprint-prefix|name>
+relay favorites [list | add <peer> | remove <peer> | move <peer> <position>]
 relay mic-test [--seconds N] [--local-playback --accept-feedback]
 relay doctor [--bundle FILE]
 relay address [--copy]                 connection string others use to call you
@@ -72,6 +73,7 @@ Targets: a peer is matched by exact id, exact name (any case), then a unique id/
 ### Consent and safety
 - `talk on` and `talk ptt` fail locally (exit 2, no request sent) without `--consent`; the flag becomes `explicit_microphone_consent`. `talk off` is always allowed.
 - `mic-test --accept-feedback` requires `--local-playback`.
+- `favorites` lists, adds, removes or moves the quick-call favorites (up to 6 trusted peers; `<peer>` is a name or id prefix as for `call`). Positions are 1-based, the order of the Calls page grid; `--json` prints `[{position, id, name, fingerprint_short, reachable}]`. It sends the whole new list with `SetFavorites`; a seventh favorite is refused with `You can have up to 6 favorites`. Source `commands/favorites.rs`, tests `tests/favorites_cmd.rs`.
 - `trust verify` needs the 64-hex SHA-256 the user compared out of band (`:` and `-` separators are fine); it sends `out_of_band_verified = true`. `forget` uses `ForgetPeer`: the argument is a hex fingerprint prefix (at least 8 digits; `:`, `-`, spaces and case are ignored, so the short form from `trust list` or its first groups work) or an exact, case-insensitive display name, tried in that order. An unknown or ambiguous argument is exit 5; ambiguity prints the candidates with their short fingerprints and changes nothing. `trust list` and `peers` show each peer's short fingerprint (`A1B2-C3D4-E5F6-0718-293A`, a hint to tell devices apart, never a verification string).
 - Call-scoped mutations first acquire the controller lease (`--takeover` sets `request_explicit_takeover`) and send its generation. Leases are not released explicitly; they expire.
 

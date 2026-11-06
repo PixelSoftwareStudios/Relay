@@ -114,6 +114,11 @@ pub enum Command {
 	ForgetPeer {
 		peer_id: Vec<u8>,
 	},
+	/// Replace the favorites by this ordered list of trusted peers (32 bytes each, first =
+	/// place 0). More than 6, a repeat or an untrusted peer is refused by the engine.
+	SetFavorites {
+		peer_ids: Vec<Vec<u8>>,
+	},
 	/// Trust a found device (32 byte key digest) after the user compared its
 	/// fingerprint. The digest is also the key the engine must see.
 	TrustPeer {

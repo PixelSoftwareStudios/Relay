@@ -17,6 +17,10 @@ fn peer(name: &str) -> Peer {
 		avatar_hash: String::new(),
 		fingerprint_short: "A1B2-C3D4".into(),
 		shared_channels: Vec::new(),
+		port: 0,
+		last_seen_unix_ms: 0,
+		favorite: false,
+		favorite_position: 0,
 	}
 }
 

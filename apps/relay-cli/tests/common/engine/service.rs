@@ -475,6 +475,19 @@ impl Engine for FakeEngine {
 	async fn clear_call_history(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_call_history".into())
 	}
+	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		{
+			let mut snapshot = self.snapshot.lock().unwrap();
+			for peer in &mut snapshot.peers {
+				let place = r.peer_ids.iter().position(|id| *id == peer.peer_id);
+				peer.favorite = place.is_some();
+				peer.favorite_position = place.unwrap_or(0) as u32;
+			}
+		}
+		let ids: Vec<String> = r.peer_ids.iter().map(|id| hex::encode(&id[..1])).collect();
+		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
+	}
 	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_avatar".into())
 	}

@@ -90,6 +90,11 @@ pub enum Command {
 	/// Peer trust decisions.
 	#[command(subcommand)]
 	Trust(TrustCommand),
+	/// The quick-call favorites: list, add, remove or move (up to 6 trusted peers).
+	Favorites {
+		#[command(subcommand)]
+		command: Option<FavoritesCommand>,
+	},
 	/// Measure the microphone level for a few seconds.
 	MicTest(MicTestArgs),
 	/// Check the setup and optionally write a redacted support bundle.
@@ -553,6 +558,30 @@ pub struct MicTestArgs {
 	#[arg(long)]
 	pub local_playback: bool,
 	/// Acknowledge the feedback warning of `--local-playback`.
+/// `relay favorites ...`
+#[derive(Debug, Subcommand)]
+pub enum FavoritesCommand {
+	/// List the favorites in order (the default).
+	List,
+	/// Make a trusted peer a favorite (up to 6).
+	Add {
+		/// Peer name or id prefix.
+		peer: String,
+	},
+	/// Remove a peer from the favorites.
+	Remove {
+		/// Peer name or id prefix.
+		peer: String,
+	},
+	/// Move a favorite to a place in the list (1 = first).
+	Move {
+		/// Peer name or id prefix.
+		peer: String,
+		/// New 1-based position.
+		position: usize,
+	},
+}
+
 	#[arg(long, requires = "local_playback")]
 	pub accept_feedback: bool,
 }

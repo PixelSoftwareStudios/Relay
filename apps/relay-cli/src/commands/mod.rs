@@ -10,6 +10,7 @@ mod controls;
 mod daemon;
 mod docs;
 mod doctor;
+mod favorites;
 mod history;
 mod hold;
 mod hotkey;

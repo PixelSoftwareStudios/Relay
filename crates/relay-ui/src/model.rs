@@ -90,6 +90,10 @@ pub struct Peer {
 	pub last_seen_unix_ms: u64,
 	/// Hex ids of channels with proven shared membership.
 	pub shared_channels: Vec<String>,
+	/// On the Calls page's favorites grid (at most 6 trusted peers).
+	pub favorite: bool,
+	/// 0-based place among the favorites; zero when not a favorite.
+	pub favorite_position: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

@@ -88,6 +88,8 @@ pub fn peer(p: &pb::Peer) -> Peer {
 			.take(32)
 			.map(hex::encode)
 			.collect(),
+		favorite: p.favorite,
+		favorite_position: p.favorite_position,
 	}
 }
 

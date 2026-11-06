@@ -364,6 +364,60 @@ impl Controller {
 			.map(drop)
 	}
 
+	/// The favorites in order, as hex ids.
+	fn favorite_ids(&self) -> Vec<String> {
+		self.hub.read(|s| {
+			let mut favorites: Vec<_> = s.peers.iter().filter(|p| p.favorite).collect();
+			favorites.sort_by_key(|p| p.favorite_position);
+			favorites.into_iter().map(|p| p.peer_id.clone()).collect()
+		})
+	}
+
+	/// Send the favorites in this order (hex ids).
+	async fn send_favorites(&self, ids: &[String]) -> Result<(), ControlError> {
+		let peer_ids = ids
+			.iter()
+			.map(|id| decode_id(id, PEER_ID_LEN, tr!("err-bad-peer-id")))
+			.collect::<Result<Vec<_>, _>>()?;
+		self.run(Command::SetFavorites { peer_ids }).await.map(drop)
+	}
+
+	/// Add a trusted peer to the end of the favorites, or remove it. Adding a seventh is
+	/// refused with "You can have up to 6 favorites"; the engine refuses an untrusted peer.
+	pub async fn set_favorite(&self, peer_id: &str, favorite: bool) -> Result<(), ControlError> {
+		decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
+		if !self
+			.hub
+			.read(|s| s.peers.iter().any(|p| p.peer_id == peer_id))
+		{
+			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
+		}
+		let mut ids = self.favorite_ids();
+		ids.retain(|id| id != peer_id);
+		if favorite {
+			if ids.len() >= 6 {
+				return Err(ControlError::Invalid(tr!("err-favorites-full")));
+			}
+			ids.push(peer_id.to_owned());
+		}
+		self.send_favorites(&ids).await
+	}
+
+	/// Move a favorite to `to_position` (0-based, clamped to the end of the list).
+	pub async fn move_favorite(
+		&self,
+		peer_id: &str,
+		to_position: usize,
+	) -> Result<(), ControlError> {
+		let mut ids = self.favorite_ids();
+		let Some(from) = ids.iter().position(|id| id == peer_id) else {
+			return Err(ControlError::Invalid(tr!("err-unknown-peer")));
+		};
+		let id = ids.remove(from);
+		ids.insert(to_position.min(ids.len()), id);
+		self.send_favorites(&ids).await
+	}
+
 	/// Trust a device found on the network, after the user compared its
 	/// fingerprint with the one the other device shows. The expected key is the
 	/// peer id itself (the key digest), so the engine refuses a mismatch.

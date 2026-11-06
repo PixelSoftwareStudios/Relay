@@ -62,7 +62,16 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		port: 47_800,
 		last_seen_unix_ms: 0,
 		shared_channels: Vec::new(),
+		favorite: false,
+		favorite_position: 0,
 	}
+}
+
+/// The peer as the favorite in place `position`.
+fn favorite(mut peer: Peer, position: u32) -> Peer {
+	peer.favorite = true;
+	peer.favorite_position = position;
+	peer
 }
 
 fn device(name: &str, direction: Direction, default: bool) -> Device {
@@ -89,9 +98,11 @@ pub fn seed() -> AppState {
 		}),
 		revision: 1,
 		peers: vec![
-			peer(1, "Ada Lovelace", Trust::Verified, true),
-			peer(2, "Grace Hopper", Trust::TofuUnverified, true),
+			favorite(peer(1, "Ada Lovelace", Trust::Verified, true), 0),
+			favorite(peer(2, "Grace Hopper", Trust::TofuUnverified, true), 1),
 			peer(3, "Alan Turing", Trust::KeyChanged, false),
+			favorite(peer(4, "Katherine Johnson", Trust::Verified, true), 2),
+			favorite(peer(5, "Margaret Hamilton", Trust::Verified, false), 3),
 		],
 		calls: vec![call(100, 1, Phase::IncomingRinging)],
 		devices: vec![
@@ -145,6 +156,43 @@ struct MockOps {
 }
 
 impl MockOps {
+	/// `SetFavorites` as the engine judges it: at most 6, none twice, trusted peers only.
+	fn set_favorites(&self, peer_ids: &[Vec<u8>]) -> Result<Outcome, EngineError> {
+		let wanted: Vec<String> = peer_ids.iter().map(hex::encode).collect();
+		let refuse = |message: &str| EngineError::Rejected {
+			code: "INVALID_REQUEST".into(),
+			message: message.into(),
+		};
+		if wanted.len() > 6 {
+			return Err(refuse("You can have up to 6 favorites"));
+		}
+		if wanted
+			.iter()
+			.enumerate()
+			.any(|(i, id)| wanted[..i].contains(id))
+		{
+			return Err(refuse("That person is already a favorite"));
+		}
+		let trusted = |id: &String| {
+			self.hub.read(|s| {
+				s.peers.iter().any(|p| {
+					p.peer_id == *id && matches!(p.trust, Trust::Verified | Trust::TofuUnverified)
+				})
+			})
+		};
+		if !wanted.iter().all(trusted) {
+			return Err(refuse("Only trusted people can be favorites"));
+		}
+		self.hub.update(|s| {
+			for peer in &mut s.peers {
+				let place = wanted.iter().position(|id| *id == peer.peer_id);
+				peer.favorite = place.is_some();
+				peer.favorite_position = place.unwrap_or(0) as u32;
+			}
+		});
+		Ok(Outcome::default())
+	}
+
 	/// A `limits.*` change: in range and not leaving the retained budget under the session one.
 	fn set_limit(&self, key: &str, value: &str) -> (SettingOutcome, &'static str) {
 		let Some(def) = DEFS.iter().find(|d| d.key == key) else {
@@ -355,6 +403,7 @@ impl Operations for MockOps {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| s.peers.retain(|p| p.peer_id != wanted));
 			}
+			Command::SetFavorites { peer_ids } => return self.set_favorites(&peer_ids),
 			Command::TrustPeer { peer_id } => {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| {

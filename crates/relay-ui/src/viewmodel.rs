@@ -54,6 +54,10 @@ pub struct PeerRow {
 	pub badges: Vec<String>,
 	/// Channels (id, name) in which this device may revoke this peer.
 	pub revocable: Vec<(String, String)>,
+	/// On the favorites grid.
+	pub favorite: bool,
+	/// 0-based place among the favorites; zero when not a favorite.
+	pub favorite_position: u32,
 }
 
 pub fn trust_label(trust: Trust) -> &'static str {
@@ -176,8 +180,20 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 				.filter(|c| c.can_admin())
 				.map(|c| (c.channel_id.clone(), c.name.clone()))
 				.collect(),
+			favorite: p.favorite,
+			favorite_position: p.favorite_position,
 		})
 		.collect()
+}
+
+/// The favorites in grid order (at most 6).
+pub fn favorites(state: &AppState) -> Vec<PeerRow> {
+	let mut rows: Vec<PeerRow> = peer_rows(state)
+		.into_iter()
+		.filter(|r| r.favorite)
+		.collect();
+	rows.sort_by_key(|r| r.favorite_position);
+	rows
 }
 
 /// Mode buttons: label, mode, and whether it needs consent first.
