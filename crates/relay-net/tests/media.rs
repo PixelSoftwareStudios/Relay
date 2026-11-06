@@ -376,6 +376,48 @@ async fn udp_loopback_path_validation_then_audio_both_directions() {
 }
 
 #[tokio::test]
+async fn path_validation_survives_lost_challenges_by_sending_again() {
+	let (a, b, ..) = endpoint_pair().await;
+	let (_a_rx, _b_rx) = (spawn_recv(&a), spawn_recv(&b));
+	let b_addr = b.local_addr().unwrap();
+	// A relay that loses the first two datagrams towards B, like a Wi-Fi link that is still
+	// resolving the neighbour, and passes everything else in both directions.
+	let relay = Arc::new(tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap());
+	let relay_addr = relay.local_addr().unwrap();
+	let task = {
+		let relay = Arc::clone(&relay);
+		tokio::spawn(async move {
+			let (mut buf, mut dropped, mut from_a) = ([0u8; 2048], 0, None);
+			loop {
+				let Ok((n, from)) = relay.recv_from(&mut buf).await else {
+					return;
+				};
+				if from == b_addr {
+					if let Some(a_addr) = from_a {
+						let _ = relay.send_to(&buf[..n], a_addr).await;
+					}
+				} else {
+					from_a = Some(from);
+					if dropped < 2 {
+						dropped += 1;
+					} else {
+						let _ = relay.send_to(&buf[..n], b_addr).await;
+					}
+				}
+			}
+		})
+	};
+	let started = Instant::now();
+	a.validate_path(relay_addr).await.unwrap();
+	assert!(
+		started.elapsed() >= Duration::from_millis(400),
+		"two sends were lost"
+	);
+	assert_eq!(a.validated_path(), Some(relay_addr));
+	task.abort();
+}
+
+#[tokio::test]
 async fn path_validation_times_out_when_nothing_answers() {
 	let (a, ..) = endpoint_pair().await;
 	let silent = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();

@@ -19,6 +19,8 @@ use crate::record::RecordKind;
 use crate::session::{SealError, SecureSession};
 
 const PATH_RESPONSES_PER_SECOND: u32 = 20;
+/// How often an unanswered path challenge is sent again.
+const PATH_CHALLENGE_RESEND: std::time::Duration = std::time::Duration::from_millis(250);
 
 #[derive(Debug, Error)]
 pub enum MediaError {
@@ -164,8 +166,18 @@ impl MediaEndpoint {
 			.lock()
 			.path
 			.begin(candidate, *session.epoch(), Instant::now());
-		let datagram = seal_probe(session, RecordKind::PathChallenge, &challenge)?;
-		self.socket.send_to(&datagram, candidate).await?;
+		// UDP is lossy and the first datagram to a neighbour can be lost while the link layer
+		// resolves its address (Wi-Fi, ARP / neighbour discovery) or while the far side is
+		// still binding the stream: the same challenge is sent again (freshly sealed, so it is
+		// no replay) until the echo arrives or the timeout runs out.
+		let resend = async {
+			let mut tick = tokio::time::interval(PATH_CHALLENGE_RESEND);
+			loop {
+				tick.tick().await;
+				let datagram = seal_probe(session, RecordKind::PathChallenge, &challenge)?;
+				self.socket.send_to(&datagram, candidate).await?;
+			}
+		};
 		let wait = async {
 			loop {
 				if self.lock().path.validated() == Some(candidate) {
@@ -176,10 +188,14 @@ impl MediaEndpoint {
 				}
 			}
 		};
-		timeout(UDP_PATH_TIMEOUT, wait)
-			.await
-			.map_err(|_| MediaError::PathTimeout)?;
-		Ok(())
+		let waited: Result<Result<(), MediaError>, _> = timeout(UDP_PATH_TIMEOUT, async {
+			tokio::select! {
+				() = wait => Ok(()),
+				failed = resend => failed,
+			}
+		})
+		.await;
+		waited.map_err(|_| MediaError::PathTimeout)?
 	}
 
 	fn audio_route(&self) -> Result<(Arc<SecureSession>, SocketAddr), MediaError> {
