@@ -99,6 +99,13 @@ impl Directory {
 		Self {
 			peers: peers.into_iter().map(|p| (p.id, p)).collect(),
 			linked: BTreeSet::new(),
+	/// Wall clock (unix ms) at which each call became connected.
+	connected: BTreeMap<relay_core::CallId, u64>,
+	/// Wall clock (unix ms) the engine last saw each peer reachable or linked.
+	seen: BTreeMap<PeerId, u64>,
+	/// Favorites in order (a subset of the trusted peers).
+	favorites: Vec<PeerId>,
+	now_ms: u64,
 			devices: devices.into_iter().map(|d| (d.id.clone(), d)).collect(),
 			warnings,
 			flagged: BTreeSet::new(),
@@ -119,6 +126,10 @@ impl Directory {
 	/// Start-up notices.
 	pub fn warnings(&self) -> Vec<relay_api::pb::Problem> {
 		self.warnings.clone()
+			connected: BTreeMap::new(),
+			seen: BTreeMap::new(),
+			favorites: Vec::new(),
+			now_ms: 0,
 	}
 
 	/// Every known peer, including linked peers discovery has not reported.
@@ -175,6 +186,10 @@ impl Directory {
 			if let Some(view) = self.peer(peer) {
 				events.push(peer_event(view));
 			}
+		}
+		if let Some(position) = self.favorites.iter().position(|id| *id == info.id) {
+			view.favorite = true;
+			view.favorite_position = position as u32;
 		}
 		events
 	}
@@ -323,6 +338,27 @@ impl PeerInfo {
 		}
 	}
 }
+	/// Replaces the favorites and reports the peers whose place changed.
+	pub fn set_favorites(&mut self, favorites: Vec<PeerId>) -> Vec<StateEvent> {
+		let moved: Vec<PeerId> = self
+			.favorites
+			.iter()
+			.chain(&favorites)
+			.filter_map(|id| {
+				let before = self.favorites.iter().position(|f| f == id);
+				let after = favorites.iter().position(|f| f == id);
+				(before != after).then_some(*id)
+			})
+			.collect::<BTreeSet<_>>()
+			.into_iter()
+			.collect();
+		self.favorites = favorites;
+		moved
+			.into_iter()
+			.filter_map(|id| self.peer(id).map(peer_event))
+			.collect()
+	}
+
 
 fn peer_event(peer: relay_api::pb::Peer) -> StateEvent {
 	StateEvent {

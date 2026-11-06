@@ -143,6 +143,14 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 	}
 }
 
+		port: info
+			.addresses
+			.iter()
+			.find_map(|a| a.parse::<std::net::SocketAddr>().ok())
+			.map_or(0, |a| u32::from(a.port())),
+		last_seen_unix_ms: 0,
+		favorite: false,
+		favorite_position: 0,
 /// A device.
 pub fn device_to_pb(device: &DeviceInfo) -> Device {
 	Device {

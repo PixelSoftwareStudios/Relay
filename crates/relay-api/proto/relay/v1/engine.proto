@@ -40,6 +40,9 @@ service Engine {
   rpc CreateInvite(CreateInviteRequest) returns (CreateInviteResponse);
   rpc RevokeChannelMember(RevokeChannelMemberRequest) returns (Operation);
   rpc SetPrivacy(SetPrivacyRequest) returns (Operation);
+  // Replaces the favorites by this ordered list of trusted peers (docs/engine.md). More than 6,
+  // a repeated or an untrusted peer FAILS the operation and changes nothing. Needs `call-control`.
+  rpc SetFavorites(SetFavoritesRequest) returns (Operation);
   rpc GetAvatar(GetAvatarRequest) returns (AvatarImage);
   rpc GetConnectionInfo(ClientContext) returns (ConnectionInfo);
   // Every preference as flat `section.key` text (for export). Needs `observe`.
@@ -189,6 +192,11 @@ message ControllerLease {
   bytes call_id = 1;
   bytes controller_client_id = 2;
   uint64 generation = 3;
+  uint32 port = 9; // peer listener port of the first local address, 0 when unknown
+  uint64 last_seen_unix_ms = 10; // last time discovery or a link showed it; 0 when never
+  // Favorites (the quick-call grid): at most 6 trusted peers in a user-chosen order.
+  bool favorite = 20;
+  uint32 favorite_position = 21; // 0-based place in the favorites; 0 and meaningless when not a favorite
   bytes lease_id = 4;
   uint32 expires_in_ms = 5;
 }
@@ -727,4 +735,11 @@ message SessionOpResult {
   bytes session_id = 2;
   MessageRef message = 3;  // the entry created or affected, when there is one
   bytes offer_id = 4;      // OfferFile: the new offer
+}
+
+// Favorites: the whole ordered list is sent, so add, remove and move are one request.
+// Peers that are not trusted, more than 6 entries or a duplicate fail with a reason.
+message SetFavoritesRequest {
+  MutationContext context = 1;
+  repeated bytes peer_ids = 2; // 32 bytes each, first = position 0
 }

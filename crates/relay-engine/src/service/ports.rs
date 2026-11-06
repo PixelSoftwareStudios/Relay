@@ -384,6 +384,15 @@ pub trait SettingsStore: Send + Sync {
 
 /// The full set of adapters the control actor drives.
 #[derive(Clone)]
+	/// The favorites in order (trusted peers only, at most 6).
+	fn favorites(&self) -> Vec<PeerId> {
+		Vec::new()
+	}
+	/// Replaces the favorites. Refused with a reason (`PortError::Invalid`) when the list has
+	/// more than 6 peers, repeats one or names a peer that is not trusted.
+	fn set_favorites(&self, _ordered: &[PeerId]) -> Result<(), PortError> {
+		Err(PortError::Unsupported("favorites"))
+	}
 pub struct Ports {
 	/// Media adapter.
 	pub media: Arc<dyn MediaControl>,

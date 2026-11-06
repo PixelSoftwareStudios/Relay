@@ -329,6 +329,9 @@ impl Engine for FakeEngine {
 	}
 	async fn set_settings(&self, r: Request<SetSettingsRequest>) -> Resp<SetSettingsResponse> {
 		self.settings.apply(r.get_ref()).map(Response::new)
+	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.settings.set_favorites(r.get_ref())))
+	}
 	}
 
 	async fn create_channel(&self, r: Request<CreateChannelRequest>) -> Resp<Operation> {

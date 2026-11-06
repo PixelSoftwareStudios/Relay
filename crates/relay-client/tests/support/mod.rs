@@ -305,6 +305,11 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		let mut keys: Vec<_> = r.values.iter().map(|(k, v)| format!("{k}={v}")).collect();
 		keys.sort();
+	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let ids: Vec<String> = r.peer_ids.iter().map(hex::encode).collect();
+		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
+	}
 		let operation = self.op(
 			r.context.as_ref(),
 			format!("set_settings {}", keys.join(",")),

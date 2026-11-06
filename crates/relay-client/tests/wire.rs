@@ -115,6 +115,9 @@ async fn every_other_command_reaches_its_rpc() {
 		Command::ForgetPeer {
 			peer_id: Vec::new(),
 			query: "kitchen".into(),
+		Command::SetFavorites {
+			peer_ids: vec![vec![0xab; 32], vec![0xcd; 32]],
+		},
 		},
 		Command::SetSettings {
 			values: vec![("hotkeys.push_to_talk".into(), "F9".into())],
@@ -153,6 +156,7 @@ async fn every_other_command_reaches_its_rpc() {
 			"forget_peer id=0 query=kitchen".into(),
 			"set_settings hotkeys.push_to_talk=F9".into(),
 			"mic_test_start".into(),
+			format!("favorites {},{}", "ab".repeat(32), "cd".repeat(32)),
 			"mic_test_stop".into(),
 			format!("trust {} oob=true", TrustState::Verified as i32),
 		]

@@ -12,6 +12,7 @@ pub struct Settings {
 	pub avatar_clears: Mutex<u32>,
 	pub forgotten: Mutex<Vec<String>>,
 	pub history: Mutex<Vec<CallHistoryEntry>>,
+	pub favorites: Mutex<Vec<Vec<u8>>>,
 }
 
 fn applied(context: Option<&MutationContext>) -> Operation {
@@ -51,6 +52,27 @@ impl Settings {
 			self.forgotten.lock().unwrap().push(body.query.clone());
 		}
 		Ok(operation)
+	}
+
+	/// The contract of `SetFavorites`: at most 6, none twice; a refusal changes nothing.
+	pub fn set_favorites(&self, body: &SetFavoritesRequest) -> Operation {
+		let mut operation = applied(body.context.as_ref());
+		let twice = body
+			.peer_ids
+			.iter()
+			.enumerate()
+			.any(|(i, id)| body.peer_ids[..i].contains(id));
+		if body.peer_ids.len() > 6 || twice {
+			operation.state = OperationState::Failed as i32;
+			operation.problem = Some(Problem {
+				code: "INVALID_REQUEST".into(),
+				message: "You can have up to 6 favorites".into(),
+				..Problem::default()
+			});
+		} else {
+			*self.favorites.lock().unwrap() = body.peer_ids.clone();
+		}
+		operation
 	}
 
 	pub fn dump(&self) -> SettingsDump {

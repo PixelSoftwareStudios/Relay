@@ -4,6 +4,7 @@ mod avatar;
 mod channels;
 mod commands;
 mod connection;
+mod favorites;
 mod forget;
 mod history;
 mod input;
@@ -30,7 +31,7 @@ use relay_api::pb::{
 	Operation, OperationState, PinMessageRequest, RegisterClientRequest, ReleaseControllerRequest,
 	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
-	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
+	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest, SetFavoritesRequest,
 	SetGlobalControlsRequest, SetMessagingSettingsRequest, SetNoiseSuppressionRequest,
 	SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest, SetSettingsRequest,
 	SetSettingsResponse, SetTransmitRouteRequest, SettingsDump, Snapshot, StartCallRequest,
@@ -427,6 +428,14 @@ impl Engine for EngineService {
 
 	async fn create_channel(
 		&self,
+	async fn set_favorites(
+		&self,
+		request: Request<SetFavoritesRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		favorites::set(self, &mutation, &body).await
+	}
+
 		request: Request<CreateChannelRequest>,
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;

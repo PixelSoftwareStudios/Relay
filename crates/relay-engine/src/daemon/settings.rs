@@ -10,6 +10,7 @@ use relay_config::prefs::{
 };
 use relay_net::discovery::sanitize_display_name;
 
+use super::favorites::FavoriteBook;
 use crate::service::RingPrefs;
 use crate::service::ports::{
 	AdvertMode, InboundPolicy, PortError, SettingsChange, SettingsStore, StoredSettings,
@@ -21,6 +22,7 @@ pub struct FileSettings {
 	store: PreferenceStore,
 	avatars: AvatarCache,
 	history: CallHistory,
+	favorites: FavoriteBook,
 	current: Mutex<Preferences>,
 	avatar: Mutex<Option<[u8; 32]>>,
 	/// Shown while the user has not chosen a name; see [`effective_name`].
@@ -77,6 +79,7 @@ impl FileSettings {
 		store: PreferenceStore,
 		avatars: AvatarCache,
 		history: CallHistory,
+		favorites: FavoriteBook,
 		loaded: Preferences,
 		default_name: Option<String>,
 	) -> Self {
@@ -85,6 +88,7 @@ impl FileSettings {
 			store,
 			avatars,
 			history,
+			favorites,
 			current: Mutex::new(loaded),
 			avatar: Mutex::new(avatar),
 			default_name,
@@ -120,6 +124,14 @@ impl FileSettings {
 }
 
 impl SettingsStore for FileSettings {
+	fn favorites(&self) -> Vec<relay_core::PeerId> {
+		self.favorites.list()
+	}
+
+	fn set_favorites(&self, ordered: &[relay_core::PeerId]) -> Result<(), PortError> {
+		self.favorites.set(ordered)
+	}
+
 	fn load(&self) -> StoredSettings {
 		let prefs = lock(&self.current);
 		let audio = &prefs.audio;

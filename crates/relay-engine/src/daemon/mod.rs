@@ -5,6 +5,7 @@ mod assemble;
 mod channel_store;
 mod env;
 mod error;
+mod favorites;
 mod glue;
 mod notice;
 mod options;
@@ -22,6 +23,7 @@ use tokio::task::JoinHandle;
 
 pub use channel_store::SqliteChannelStore;
 pub use env::Environment;
+pub use favorites::FavoriteBook;
 pub use error::DaemonError;
 pub use options::{
 	AdapterFactory, AudioSetup, BackendFactory, NetworkOptions, RunOptions, Transport,

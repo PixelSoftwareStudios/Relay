@@ -240,6 +240,7 @@ pub struct MemorySettings {
 	avatars: Mutex<Vec<([u8; 32], Vec<u8>)>>,
 	prefs: Mutex<relay_config::prefs::Preferences>,
 	history: Mutex<Vec<relay_config::history::CallRecord>>,
+	favorites: Mutex<Vec<PeerId>>,
 }
 
 /// Copies one saved preference into the typed view the engine reads live.
@@ -296,6 +297,7 @@ impl Default for MemorySettings {
 	}
 }
 
+			favorites: Mutex::default(),
 impl SettingsStore for MemorySettings {
 	fn load(&self) -> StoredSettings {
 		lock(&self.stored).clone()
@@ -307,6 +309,21 @@ impl SettingsStore for MemorySettings {
 			SettingsChange::Devices { input, output } => {
 				stored.input_device.clone_from(input);
 				stored.output_device.clone_from(output);
+	fn favorites(&self) -> Vec<PeerId> {
+		lock(&self.favorites).clone()
+	}
+	/// Keeps the list as given; whether a peer is trusted is the daemon's table to judge.
+	fn set_favorites(&self, ordered: &[PeerId]) -> Result<(), PortError> {
+		use relay_config::favorites::{DUPLICATE, FULL, MAX_FAVORITES};
+		if ordered.len() > MAX_FAVORITES {
+			return Err(PortError::Invalid(FULL.to_owned()));
+		}
+		if ordered.iter().enumerate().any(|(i, p)| ordered[..i].contains(p)) {
+			return Err(PortError::Invalid(DUPLICATE.to_owned()));
+		}
+		*lock(&self.favorites) = ordered.to_vec();
+		Ok(())
+	}
 			}
 			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
 			SettingsChange::PttReleaseDelay(ms) => stored.ptt_release_delay_ms = *ms,

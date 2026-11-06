@@ -16,6 +16,7 @@ use relay_net::identity::{Identity, PublicKey};
 
 use super::SqliteChannelStore;
 use super::error::DaemonError;
+use super::favorites::FavoriteBook;
 use super::settings::FileSettings;
 use crate::peers::{ConfigTrust, SharedTrust};
 use crate::service::{ControlHandle, GateReader};
@@ -139,6 +140,7 @@ pub(super) fn load(
 		prefs_store,
 		avatar_cache,
 		history,
+		FavoriteBook::open(&storage.database),
 		preferences.clone(),
 		default_display_name,
 	));

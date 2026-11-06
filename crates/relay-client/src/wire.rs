@@ -5,7 +5,7 @@
 use relay_api::pb::{
 	AcquireControllerRequest, CallMutation, CreateChannelRequest, DecidePeerTrustRequest,
 	ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest, MutationContext, Operation,
-	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest,
+	RevokeChannelMemberRequest, SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest,
 	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest,
 	SetSettingsRequest, SetTransmitRouteRequest, StartCallRequest, StartMicTestRequest,
 	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
@@ -237,6 +237,13 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				context: Some(context),
 				values: values.into_iter().collect(),
 			};
+		Command::SetFavorites { peer_ids } => {
+			rpc.set_favorites(SetFavoritesRequest {
+				context: Some(context),
+				peer_ids,
+			})
+			.await
+		}
 			let answer = rpc.set_settings(request).await?.into_inner();
 			return answer.operation.ok_or(ApiError::InvalidResponse(
 				"settings answer without operation",

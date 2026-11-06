@@ -175,6 +175,7 @@ impl ServiceBuilder {
 			ports.devices.devices(),
 			config.warnings,
 		);
+		directory.set_favorites(ports.settings.favorites());
 		ports.peers.profile_changed(&directory.aux.profile());
 		let ledger = Ledger::new(
 			config.limits.operation_cache_per_client,

@@ -43,6 +43,8 @@ pub enum ServiceOp {
 	ClearAvatar,
 	/// Forget a stored trust decision.
 	ForgetPeer(super::ports::PeerSelector),
+	/// Replace the favorites by this ordered list of trusted peers.
+	SetFavorites(Vec<PeerId>),
 	/// Decide a peer's trust.
 	Trust(TrustRequest),
 	/// Apply the non-domain parts of a global-controls change.

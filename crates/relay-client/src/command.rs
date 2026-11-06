@@ -180,6 +180,12 @@ pub enum Command {
 	SetSettings {
 		/// `section.key` and text value, parsed like `relay config set`.
 		values: Vec<(String, String)>,
+	/// Replace the favorites (the quick-call grid) by this ordered list of trusted peers,
+	/// each a 32-byte peer id. More than 6, a repeat or an untrusted peer fails the operation.
+	SetFavorites {
+		/// Peer ids, first = position 0.
+		peer_ids: Vec<Vec<u8>>,
+	},
 	},
 	/// Delete every call history entry on this device.
 	ClearCallHistory,
