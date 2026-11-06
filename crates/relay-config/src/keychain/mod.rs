@@ -162,6 +162,18 @@ impl Keychain {
 		})
 	}
 
+	/// Stores the identity only if the item holds none: `Ok(None)` when it was stored, the
+	/// existing bytes otherwise. One locked read-modify-write, so two starts cannot both win.
+	pub(crate) fn create_identity(&self, bytes: &[u8]) -> Result<Option<Zeroizing<Vec<u8>>>> {
+		self.update(|b| match &b.identity {
+			Some(existing) => (false, Some(Zeroizing::new(existing.bytes().to_vec()))),
+			None => {
+				b.identity = Some(SecretBytes::new(bytes));
+				(true, None)
+			}
+		})
+	}
+
 	pub(crate) fn delete_identity(&self) -> Result<()> {
 		self.update(|b| (b.identity.take().is_some(), ()))
 	}

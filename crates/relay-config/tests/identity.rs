@@ -22,8 +22,9 @@ fn secret_debug_is_redacted() {
 #[test]
 fn load_or_create_persists_once() {
 	let store = MemoryStore::default();
-	let first = load_or_create(&store, || identity(1)).unwrap();
-	let second = load_or_create(&store, || identity(2)).unwrap();
+	let (first, made) = load_or_create(&store, || Ok(identity(1))).unwrap();
+	let (second, made_again) = load_or_create(&store, || Ok(identity(2))).unwrap();
+	assert!(made && !made_again);
 	assert_eq!(first, second);
 	store.delete().unwrap();
 	assert!(store.load().unwrap().is_none());

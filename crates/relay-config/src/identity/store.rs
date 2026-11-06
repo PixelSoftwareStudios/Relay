@@ -15,22 +15,42 @@ use crate::prefs::{KeyStorage, Preferences};
 pub trait IdentityStore: Send + Sync {
 	/// Honest, user-displayable description of where the key lives.
 	fn describe(&self) -> &'static str;
+	/// `Ok(Some)` is found, `Ok(None)` is the store's definitive answer that no identity
+	/// exists, and `Err` is anything else (denied, locked, interrupted, unreadable,
+	/// malformed). Only `Ok(None)` may lead to a new identity; see [`IdentityStore::create`].
 	fn load(&self) -> Result<Option<StoredIdentity>>;
+	/// Replaces whatever is stored. Only a deliberate reset uses this.
 	fn save(&self, identity: &StoredIdentity) -> Result<()>;
 	fn delete(&self) -> Result<()>;
+	/// Stores `identity` only if none exists and returns the identity that is stored
+	/// afterwards: `identity` itself, or the one another process created first. Never
+	/// overwrites. Stores that several processes can reach override this with an atomic
+	/// create; the default suits a store only this process writes.
+	fn create(&self, identity: &StoredIdentity) -> Result<StoredIdentity> {
+		match self.load()? {
+			Some(existing) => Ok(existing),
+			None => {
+				self.save(identity)?;
+				Ok(identity.clone())
+			}
+		}
+	}
 }
 
-/// Loads the stored identity, or creates and persists one with `generate`.
+/// Loads the stored identity, or creates one with `generate` when the store says none
+/// exists. A failing store is an error: nothing is generated and nothing is written.
+/// `created` tells whether this call made the identity.
 pub fn load_or_create(
 	store: &dyn IdentityStore,
-	generate: impl FnOnce() -> StoredIdentity,
-) -> Result<StoredIdentity> {
+	generate: impl FnOnce() -> Result<StoredIdentity>,
+) -> Result<(StoredIdentity, bool)> {
 	if let Some(existing) = store.load()? {
-		return Ok(existing);
+		return Ok((existing, false));
 	}
-	let fresh = generate();
-	store.save(&fresh)?;
-	Ok(fresh)
+	let fresh = generate()?;
+	let stored = store.create(&fresh)?;
+	let created = stored == fresh;
+	Ok((stored, created))
 }
 
 /// Opens the store the preferences ask for. There is no automatic fallback:
@@ -78,6 +98,13 @@ impl IdentityStore for KeyringStore {
 
 	fn delete(&self) -> Result<()> {
 		self.keychain.delete_identity()
+	}
+
+	fn create(&self, identity: &StoredIdentity) -> Result<StoredIdentity> {
+		match self.keychain.create_identity(&identity.encode())? {
+			Some(existing) => StoredIdentity::decode(&existing),
+			None => Ok(identity.clone()),
+		}
 	}
 }
 
@@ -129,6 +156,26 @@ impl IdentityStore for InsecureFileStore {
 	fn delete(&self) -> Result<()> {
 		Ok(remove_if_exists(&self.path)?)
 	}
+
+	fn create(&self, identity: &StoredIdentity) -> Result<StoredIdentity> {
+		// Stage the whole file, then link it into place: the link fails when a file
+		// appeared meanwhile, and nobody ever sees a half-written key.
+		let staged = AtomicWrite::new(&self.path)
+			.private(true)
+			.stage(&identity.encode())?;
+		let linked = std::fs::hard_link(staged.temp_path(), &self.path);
+		let _ = remove_if_exists(staged.temp_path());
+		match linked {
+			Ok(()) => Ok(identity.clone()),
+			Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {
+				self.load()?.ok_or(ConfigError::IdentityMissing)
+			}
+			Err(e) => Err(ConfigError::Io {
+				path: self.path.clone(),
+				source: e,
+			}),
+		}
+	}
 }
 
 /// In-memory store for tests and embedding.
@@ -154,5 +201,10 @@ impl IdentityStore for MemoryStore {
 	fn delete(&self) -> Result<()> {
 		*self.slot.lock().expect("memory store poisoned") = None;
 		Ok(())
+	}
+
+	fn create(&self, identity: &StoredIdentity) -> Result<StoredIdentity> {
+		let mut slot = self.slot.lock().expect("memory store poisoned");
+		Ok(slot.get_or_insert_with(|| identity.clone()).clone())
 	}
 }
