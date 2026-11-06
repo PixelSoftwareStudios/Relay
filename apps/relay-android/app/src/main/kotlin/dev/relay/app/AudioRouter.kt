@@ -4,8 +4,11 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioDeviceInfo
 import android.media.AudioFocusRequest
+import android.media.AudioDeviceCallback
 import android.media.AudioManager
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 
 /**
@@ -19,6 +22,11 @@ class AudioRouter(context: Context) {
 	private var focus: AudioFocusRequest? = null
 	private var previousMode = AudioManager.MODE_NORMAL
 	private var active = false
+	private var current: Int? = null
+	private val devices = object : AudioDeviceCallback() {
+		override fun onAudioDevicesAdded(added: Array<out AudioDeviceInfo>) = reroute()
+		override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = reroute()
+	}
 
 	fun enter() {
 		if (active) return
@@ -37,12 +45,17 @@ class AudioRouter(context: Context) {
 		focus = request
 		val granted = audio.requestAudioFocus(request)
 		route()
+		// A headset plugged in or taken out during the call moves it. The
+		// engine reopens its streams on whatever route the system settles on.
+		audio.registerAudioDeviceCallback(devices, Handler(Looper.getMainLooper()))
 		Log.i(TAG, "audio: mode=${audio.mode} focus=$granted")
 	}
 
 	fun exit() {
 		if (!active) return
 		active = false
+		audio.unregisterAudioDeviceCallback(devices)
+		current = null
 		if (Build.VERSION.SDK_INT >= 31) audio.clearCommunicationDevice() else audio.isSpeakerphoneOn = false
 		focus?.let { audio.abandonAudioFocusRequest(it) }
 		focus = null
@@ -50,14 +63,17 @@ class AudioRouter(context: Context) {
 		Log.i(TAG, "audio: restored mode=${audio.mode}")
 	}
 
+	private fun reroute() {
+		if (active) route()
+	}
+
 	private fun route() {
 		if (Build.VERSION.SDK_INT >= 31) {
 			val devices: List<AudioDeviceInfo> = audio.availableCommunicationDevices
-			val type = AudioRoutes.choose(devices.map { it.type })
-			val device = devices.firstOrNull { it.type == type }
-			if (device != null) {
-				Log.i(TAG, "audio route: type=${device.type} set=${audio.setCommunicationDevice(device)}")
-			}
+			val type = AudioRoutes.switchTo(current, devices.map { it.type }) ?: return
+			val device = devices.firstOrNull { it.type == type } ?: return
+			current = type
+			Log.i(TAG, "audio route: type=${device.type} set=${audio.setCommunicationDevice(device)}")
 		} else {
 			val outputs = audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS).map { it.type }
 			val type = AudioRoutes.choose(outputs)

@@ -19,4 +19,15 @@ object AudioRoutes {
 
 	/** The most preferred type present in [available], or null if none is usable. */
 	fun choose(available: Collection<Int>): Int? = PREFERENCE.firstOrNull { it in available }
+
+	/**
+	 * The output to switch to when the set of devices changed during a call, or
+	 * null when the route in use is already the best one (or nothing is usable).
+	 * Plugging a headset in moves the call to it; unplugging it moves the call
+	 * back to the loudspeaker.
+	 */
+	fun switchTo(current: Int?, available: Collection<Int>): Int? {
+		val best = choose(available)
+		return if (best == current) null else best
+	}
 }

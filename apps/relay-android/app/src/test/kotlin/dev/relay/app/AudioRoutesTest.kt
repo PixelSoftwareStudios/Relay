@@ -24,4 +24,19 @@ class AudioRoutesTest {
 		assertEquals(AudioDeviceInfo.TYPE_BUILTIN_SPEAKER, AudioRoutes.choose(onlyBuiltIn))
 		assertNull(AudioRoutes.choose(listOf(AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)))
 	}
+
+	@Test
+	fun pluggingAHeadsetInMovesTheCallAndTakingItOutMovesItBack() {
+		val speaker = AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+		val wired = AudioDeviceInfo.TYPE_WIRED_HEADSET
+		assertEquals(wired, AudioRoutes.switchTo(speaker, listOf(speaker, wired)))
+		assertEquals(speaker, AudioRoutes.switchTo(wired, listOf(speaker)))
+	}
+
+	@Test
+	fun aRouteAlreadyInUseIsNotSetAgain() {
+		val speaker = AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+		assertNull(AudioRoutes.switchTo(speaker, listOf(AudioDeviceInfo.TYPE_BUILTIN_EARPIECE, speaker)))
+		assertNull(AudioRoutes.switchTo(null, listOf(AudioDeviceInfo.TYPE_BUILTIN_EARPIECE)))
+	}
 }
