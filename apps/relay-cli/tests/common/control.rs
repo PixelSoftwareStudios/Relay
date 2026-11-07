@@ -125,9 +125,6 @@ impl Control for FakeControl {
 	async fn select_devices(&mut self, input: &str, output: &str) -> Result<Operation, ApiError> {
 		self.record(format!("select_devices {input} {output}"))
 	}
-	async fn set_noise_suppression(&mut self, backend: &str) -> Result<Operation, ApiError> {
-		self.record(format!("ns {backend}"))
-	}
 	async fn set_profile(&mut self, name: &str) -> Result<Operation, ApiError> {
 		self.record(format!("profile {name}"))
 	}

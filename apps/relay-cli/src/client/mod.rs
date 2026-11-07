@@ -97,7 +97,6 @@ pub trait Control {
 	/// Select input and output devices (both ids must be set).
 	async fn select_devices(&mut self, input: &str, output: &str) -> Result<Operation, ApiError>;
 	/// Select a noise suppression backend.
-	async fn set_noise_suppression(&mut self, backend: &str) -> Result<Operation, ApiError>;
 	/// Change the display name.
 	async fn set_profile(&mut self, display_name: &str) -> Result<Operation, ApiError>;
 	/// Start the microphone test.

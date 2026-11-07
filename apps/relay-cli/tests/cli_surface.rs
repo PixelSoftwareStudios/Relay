@@ -31,7 +31,6 @@ fn every_documented_command_parses() {
 		&["talk", "ptt"],
 		&["devices", "list"],
 		&["devices", "select", "--input", "usb", "--output", "hdmi"],
-		&["ns", "set", "off"],
 		&["profile", "set", "--name", "x"],
 		&["trust", "list"],
 		&["trust", "forget", "bob"],

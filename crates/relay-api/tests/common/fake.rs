@@ -318,12 +318,6 @@ impl Engine for FakeEngine {
 	async fn select_devices(&self, _: Request<SelectDevicesRequest>) -> Resp<Operation> {
 		unsupported()
 	}
-	async fn set_noise_suppression(
-		&self,
-		_: Request<SetNoiseSuppressionRequest>,
-	) -> Resp<Operation> {
-		unsupported()
-	}
 	async fn start_mic_test(&self, _: Request<StartMicTestRequest>) -> Resp<Operation> {
 		unsupported()
 	}

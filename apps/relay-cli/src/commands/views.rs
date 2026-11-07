@@ -318,7 +318,9 @@ pub struct StatusView {
 	pub peers_online: usize,
 	pub input_device: String,
 	pub output_device: String,
+	/// `off`, or the strength: `low`, `moderate` or `high`.
 	pub noise_suppression: String,
+	pub auto_gain: bool,
 	pub muted: bool,
 	pub deafened: bool,
 	pub microphone_gain: f32,
@@ -338,7 +340,12 @@ impl StatusView {
 			peers_online: snapshot.peers.iter().filter(|p| p.reachable).count(),
 			input_device: s.input_device_id,
 			output_device: s.output_device_id,
-			noise_suppression: s.ns_backend_id,
+			noise_suppression: if s.noise_suppression_enabled {
+				s.noise_suppression_level
+			} else {
+				"off".to_owned()
+			},
+			auto_gain: s.auto_gain_enabled,
 			muted: s.global_muted,
 			deafened: s.global_deafened,
 			microphone_gain: s.microphone_gain,
@@ -384,6 +391,7 @@ impl StatusView {
 			("input", or_dash(&self.input_device).to_owned()),
 			("output", or_dash(&self.output_device).to_owned()),
 			("ns", or_dash(&self.noise_suppression).to_owned()),
+			("agc", if self.auto_gain { "on" } else { "off" }.to_owned()),
 			("audio", audio),
 		];
 		if self.calls.is_empty() {

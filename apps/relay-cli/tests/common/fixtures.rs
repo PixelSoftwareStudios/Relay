@@ -83,7 +83,8 @@ pub fn snapshot() -> Snapshot {
 			revision: 1,
 			input_device_id: "mic1".into(),
 			output_device_id: "spk1".into(),
-			ns_backend_id: "off".into(),
+			noise_suppression_enabled: true,
+			noise_suppression_level: "moderate".into(),
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			..Settings::default()

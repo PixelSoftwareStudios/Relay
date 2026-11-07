@@ -328,6 +328,11 @@ pub async fn create_open(cli: &mut RelayClient, name: &str) -> Vec<u8> {
 }
 
 pub async fn select_microphone(cli: &mut RelayClient, op: u8) {
+	// The fake microphone plays a steady tone; noise suppression (on by default) would take it
+	// out as noise, and these tests are about the rest of the media path.
+	cli.set_settings([("audio.noise_suppression", "false")])
+		.await
+		.expect("noise suppression off");
 	let devices = eventually!(
 		Some(cli.snapshot().await.expect("snapshot").devices).filter(|d| !d.is_empty())
 	);

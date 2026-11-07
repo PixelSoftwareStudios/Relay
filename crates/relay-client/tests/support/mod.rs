@@ -310,13 +310,6 @@ impl Engine for FakeEngine {
 			format!("devices {} {}", r.input_device_id, r.output_device_id),
 		)
 	}
-	async fn set_noise_suppression(
-		&self,
-		r: Request<SetNoiseSuppressionRequest>,
-	) -> Resp<Operation> {
-		let r = r.into_inner();
-		self.op(r.context.as_ref(), format!("ns {}", r.qualified_backend_id))
-	}
 	async fn start_mic_test(&self, r: Request<StartMicTestRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(r.context.as_ref(), "mic_test_start".into())

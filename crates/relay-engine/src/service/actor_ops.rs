@@ -119,14 +119,6 @@ impl Actor {
 				self.directory.aux.output_device = output;
 				self.publish_settings();
 			}
-			ServiceOp::NoiseSuppression(backend) => {
-				self.ports.media.set_noise_suppression(&backend)?;
-				self.ports
-					.settings
-					.save(&SettingsChange::NoiseBackend(backend.clone()))?;
-				self.directory.aux.noise_backend = backend;
-				self.publish_settings();
-			}
 			ServiceOp::StartMicTest { local_playback } => {
 				self.ports.media.start_mic_test(local_playback)?;
 			}

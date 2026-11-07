@@ -60,6 +60,16 @@ fn advert_to_pb(mode: ports::AdvertMode) -> AdvertMode {
 	}
 }
 
+/// The name of a noise suppression level in the API and the preference keys.
+fn level_name(level: relay_audio::dsp::NoiseLevel) -> &'static str {
+	use relay_audio::dsp::NoiseLevel;
+	match level {
+		NoiseLevel::Low => "low",
+		NoiseLevel::Moderate => "moderate",
+		NoiseLevel::High => "high",
+	}
+}
+
 fn gain_to_f32(gain: Gain) -> f32 {
 	f32::from(gain.permille()) / 1000.0
 }
@@ -196,7 +206,9 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		revision: global.settings.get(),
 		input_device_id: aux.input_device.clone(),
 		output_device_id: aux.output_device.clone(),
-		ns_backend_id: aux.noise_backend.clone(),
+		noise_suppression_enabled: aux.processing.noise_suppression,
+		noise_suppression_level: level_name(aux.processing.noise_level).to_owned(),
+		auto_gain_enabled: aux.processing.auto_gain,
 		global_muted: global.muted,
 		global_deafened: global.deafened,
 		microphone_gain: aux.microphone_gain,

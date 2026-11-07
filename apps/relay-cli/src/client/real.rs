@@ -252,13 +252,6 @@ impl Control for RealClient {
 		.await
 	}
 
-	async fn set_noise_suppression(&mut self, backend: &str) -> Result<Operation, ApiError> {
-		self.run_command(Command::SetNoiseSuppression {
-			backend: backend.to_owned(),
-		})
-		.await
-	}
-
 	async fn set_profile(&mut self, display_name: &str) -> Result<Operation, ApiError> {
 		self.run_command(Command::SetProfile {
 			display_name: display_name.to_owned(),

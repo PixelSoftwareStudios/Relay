@@ -128,7 +128,6 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		Command::Gain(args) => controls::gain(client, &args, out).await,
 		Command::Talk(args) => controls::talk(client, &args, out).await,
 		Command::Devices(cmd) => controls::devices(client, cmd, out).await,
-		Command::Ns(cmd) => controls::noise_suppression(client, cmd, out).await,
 		Command::Profile(cmd) => controls::profile(client, cmd, out).await,
 		Command::Trust(cmd) => trust::run(client, cmd, out).await,
 		Command::Favorites { command } => favorites::run(client, command, out).await,

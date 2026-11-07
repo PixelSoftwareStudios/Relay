@@ -245,8 +245,6 @@ pub enum SettingsChange {
 		/// Output device id.
 		output: String,
 	},
-	/// Qualified noise suppression backend id.
-	NoiseBackend(String),
 	/// Push-to-talk release delay in milliseconds.
 	PttReleaseDelay(u32),
 	/// Whether the desktop app starts the daemon by itself.
@@ -271,8 +269,8 @@ pub struct StoredSettings {
 	pub input_device: String,
 	/// Pinned output device id (empty when following the system default).
 	pub output_device: String,
-	/// Noise suppression backend id.
-	pub noise_backend: String,
+	/// Microphone processing: noise suppression and automatic gain.
+	pub processing: relay_audio::dsp::SonoraConfig,
 	/// Microphone gain.
 	pub microphone_gain: f32,
 	/// Playback gain.
@@ -323,8 +321,10 @@ pub trait MediaControl: Send + Sync {
 	fn telemetry(&self) -> MediaTelemetry {
 		MediaTelemetry::default()
 	}
-	/// Selects a noise suppression backend.
-	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError>;
+	/// Applies the microphone processing (noise suppression, automatic gain) to the live capture
+	/// path.
+	fn set_audio_processing(&self, config: relay_audio::dsp::SonoraConfig)
+	-> Result<(), PortError>;
 	/// Starts a local-only microphone test: the level is metered and, with
 	/// `local_playback`, heard on the user's own output. Nothing is sent to
 	/// any peer and the test ends by itself.
@@ -517,8 +517,8 @@ impl MediaControl for Unwired {
 	}
 	fn stop_media(&self, _: CallId, _: SessionId) {}
 	fn set_receive_mix(&self, _: ReceiveMix) {}
-	fn set_noise_suppression(&self, _: &str) -> Result<(), PortError> {
-		Err(PortError::Unsupported("noise suppression"))
+	fn set_audio_processing(&self, _: relay_audio::dsp::SonoraConfig) -> Result<(), PortError> {
+		Err(PortError::Unsupported("audio processing"))
 	}
 	fn start_mic_test(&self, _: bool) -> Result<(), PortError> {
 		Err(PortError::Unsupported("microphone test"))

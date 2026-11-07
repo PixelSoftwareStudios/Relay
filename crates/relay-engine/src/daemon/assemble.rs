@@ -3,6 +3,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
+use relay_audio::dsp::create_processor;
 use relay_net::discovery::sanitize_display_name;
 use relay_net::transfer::{HubConfig, TransferHub};
 use tokio::runtime::Handle;
@@ -114,7 +115,7 @@ pub(super) async fn assemble(
 	let media = MediaSystem::start(
 		media_config,
 		audio.factory(),
-		None,
+		Some(create_processor(stored.processing)),
 		peers.clone(),
 		sink,
 		runtime.clone(),

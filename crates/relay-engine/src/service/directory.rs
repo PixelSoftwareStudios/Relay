@@ -22,8 +22,8 @@ pub struct Aux {
 	pub input_device: String,
 	/// Selected output device id.
 	pub output_device: String,
-	/// Qualified noise suppression backend id.
-	pub noise_backend: String,
+	/// Microphone processing: noise suppression and automatic gain.
+	pub processing: relay_audio::dsp::SonoraConfig,
 	/// Microphone gain.
 	pub microphone_gain: f32,
 	/// Advertised display name.
@@ -64,7 +64,7 @@ impl From<StoredSettings> for Aux {
 		Self {
 			input_device: stored.input_device,
 			output_device: stored.output_device,
-			noise_backend: stored.noise_backend,
+			processing: stored.processing,
 			microphone_gain: stored.microphone_gain,
 			display_name: stored.display_name,
 			avatar: stored.avatar,

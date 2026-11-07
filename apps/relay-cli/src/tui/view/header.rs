@@ -37,10 +37,10 @@ pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 		} else {
 			"hearing"
 		},
-		if settings.ns_backend_id.is_empty() {
-			"off"
+		if settings.noise_suppression_enabled {
+			&settings.noise_suppression_level
 		} else {
-			&settings.ns_backend_id
+			"off"
 		},
 	));
 	let third = Line::from(hotkey_text(model));

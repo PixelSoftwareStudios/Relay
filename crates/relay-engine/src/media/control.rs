@@ -2,7 +2,7 @@
 
 use relay_audio::FRAME_SAMPLES;
 use relay_audio::device::{DeviceDescriptor, DeviceSelection, Direction};
-use relay_audio::dsp::{BackendKind, DspLimits, create_suppressor};
+use relay_audio::dsp::{DspLimits, SonoraConfig, create_processor};
 use relay_core::{AudioGeneration, CallId, ReceiveMix, SessionId};
 
 use super::capture_worker::CaptureCmd;
@@ -40,27 +40,20 @@ impl MediaControl for MediaSystem {
 		MediaSystem::set_receive_mix(self, mix);
 	}
 
-	/// Only `off` is selectable today: every other backend needs a qualified,
-	/// approved model, which `create_suppressor` refuses without one.
-	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError> {
-		let kind = match backend {
-			"" | "off" => BackendKind::Off,
-			"rnnoise" => BackendKind::Rnnoise,
-			"dtln" => BackendKind::Dtln,
-			other => return Err(PortError::Invalid(format!("unknown backend `{other}`"))),
-		};
-		let mut suppressor = create_suppressor(kind, None)
-			.map_err(|error| PortError::Unavailable(error.to_string()))?;
+	/// Builds the processor off the capture thread, prepares it, and hands it over; the capture
+	/// worker swaps it in between two polls. Nothing enabled installs the plain copy.
+	fn set_audio_processing(&self, config: SonoraConfig) -> Result<(), PortError> {
+		let mut processor = create_processor(config);
 		let limits = DspLimits {
 			max_block_samples: FRAME_SAMPLES,
-			max_scratch_bytes: suppressor.descriptor().max_scratch_bytes,
+			max_scratch_bytes: processor.descriptor().max_scratch_bytes,
 		};
-		suppressor
+		processor
 			.prepare(&limits)
 			.map_err(|error| PortError::Unavailable(error.to_string()))?;
 		self.inner
 			.capture
-			.push(CaptureCmd::SetSuppressor(suppressor))
+			.push(CaptureCmd::SetSuppressor(processor))
 			.map_err(|_| PortError::Unavailable("capture queue is full".to_owned()))
 	}
 

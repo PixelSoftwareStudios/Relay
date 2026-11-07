@@ -37,7 +37,7 @@ fn energy(samples: &[f32]) -> f32 {
 
 fn ns(level: NoiseLevel) -> SonoraSuppressor {
 	let mut stage = SonoraSuppressor::new(SonoraConfig {
-		noise_suppression: Some(level),
+		noise_level: level,
 		..SonoraConfig::default()
 	});
 	stage.prepare(&LIMITS).unwrap();
@@ -72,7 +72,7 @@ fn run(
 #[test]
 fn disabled_stage_is_the_plain_bit_exact_copy() {
 	let config = SonoraConfig {
-		noise_suppression: None,
+		noise_suppression: false,
 		..SonoraConfig::default()
 	};
 	assert!(config.is_bypass());
@@ -128,7 +128,8 @@ fn frames_are_ten_milliseconds_and_short_input_waits() {
 #[test]
 fn stages_are_reported_by_what_is_enabled() {
 	let all = SonoraSuppressor::new(SonoraConfig {
-		noise_suppression: Some(NoiseLevel::High),
+		noise_suppression: true,
+		noise_level: NoiseLevel::High,
 		auto_gain: true,
 		echo_cancel: true,
 	});
@@ -178,9 +179,9 @@ fn steady_noise_under_a_tone_is_reduced_more_at_higher_levels() {
 #[test]
 fn auto_gain_raises_a_quiet_voice_and_leaves_loud_audio_alone() {
 	let mut stage = SonoraSuppressor::new(SonoraConfig {
-		noise_suppression: None,
+		noise_suppression: false,
 		auto_gain: true,
-		echo_cancel: false,
+		..SonoraConfig::default()
 	});
 	stage.prepare(&LIMITS).unwrap();
 	// Voiced-like: a 120 Hz glottal pulse train shaped by formants, in 250 ms syllables.
@@ -217,11 +218,11 @@ fn auto_gain_raises_a_quiet_voice_and_leaves_loud_audio_alone() {
 
 #[test]
 fn the_declared_delay_matches_the_measured_one() {
-	for noise_suppression in [Some(NoiseLevel::Low), None] {
+	for noise_suppression in [true, false] {
 		let mut stage = SonoraSuppressor::new(SonoraConfig {
 			noise_suppression,
 			auto_gain: true,
-			echo_cancel: false,
+			..SonoraConfig::default()
 		});
 		check_delay(&mut stage);
 	}

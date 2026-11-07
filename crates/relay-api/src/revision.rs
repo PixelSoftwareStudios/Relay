@@ -3,7 +3,7 @@
 /// Bumped when the API changes in a way clients depend on (a new RPC or field the UI needs, a
 /// changed meaning). A client that sees a different number from its own build knows the
 /// running daemon is out of date.
-pub const API_REVISION: u32 = 4;
+pub const API_REVISION: u32 = 5;
 
 /// The build this binary came from: the git commit (with `-dirty` for uncommitted changes)
 /// embedded at build time, or the crate version with `-dev` when git was not available.

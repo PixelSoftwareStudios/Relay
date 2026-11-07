@@ -3,12 +3,13 @@
 use relay_io::LockExt;
 use std::sync::{Arc, Mutex, MutexGuard};
 
+use relay_audio::dsp::{self as dsp, SonoraConfig};
 use relay_audio::ringtone::RingtoneLimits;
 
 use relay_config::avatar::{AvatarCache, process_avatar};
 use relay_config::history::{CallHistory, CallRecord, NewCallRecord};
 use relay_config::prefs::{
-	self, DeviceSelection, NoiseBackend, PreferenceStore, Preferences, Profile,
+	self, DeviceSelection, NoiseLevel, PreferenceStore, Preferences, Profile,
 };
 use relay_net::discovery::sanitize_display_name;
 
@@ -35,22 +36,18 @@ pub struct FileSettings {
 	default_name: Option<String>,
 }
 
-fn backend_name(backend: NoiseBackend) -> &'static str {
-	match backend {
-		NoiseBackend::Off => "off",
-		NoiseBackend::Rnnoise => "rnnoise",
-		NoiseBackend::Dtln => "dtln",
-	}
-}
-
-fn parse_backend(name: &str) -> Result<NoiseBackend, PortError> {
-	match name {
-		"off" => Ok(NoiseBackend::Off),
-		"rnnoise" => Ok(NoiseBackend::Rnnoise),
-		"dtln" => Ok(NoiseBackend::Dtln),
-		other => Err(PortError::Invalid(format!(
-			"unknown noise backend `{other}`"
-		))),
+/// The microphone processing the saved preferences ask for.
+pub fn processing_of(audio: &prefs::Audio) -> SonoraConfig {
+	SonoraConfig {
+		noise_suppression: audio.noise_suppression,
+		noise_level: match audio.noise_suppression_level {
+			NoiseLevel::Low => dsp::NoiseLevel::Low,
+			NoiseLevel::Moderate => dsp::NoiseLevel::Moderate,
+			NoiseLevel::High => dsp::NoiseLevel::High,
+		},
+		auto_gain: audio.auto_gain,
+		// Speaker mode (WP-12) turns this on once a far-end reference is fed.
+		echo_cancel: false,
 	}
 }
 
@@ -152,7 +149,7 @@ impl SettingsStore for FileSettings {
 			display_name: effective_name(&prefs.profile.display_name, self.default_name.as_deref()),
 			input_device: explicit(audio.input_selection, &audio.preferred_input_id),
 			output_device: explicit(audio.output_selection, &audio.preferred_output_id),
-			noise_backend: backend_name(audio.noise_backend).to_owned(),
+			processing: processing_of(audio),
 			microphone_gain: audio.microphone_gain,
 			playback_gain: audio.playback_gain,
 			ptt_release_delay_ms: prefs.ptt.release_delay_ms,
@@ -202,7 +199,6 @@ impl SettingsStore for FileSettings {
 					next.audio.preferred_output_id.clone_from(output);
 				}
 			}
-			SettingsChange::NoiseBackend(name) => next.audio.noise_backend = parse_backend(name)?,
 			SettingsChange::PttReleaseDelay(ms) => next.ptt.release_delay_ms = *ms,
 			SettingsChange::AutostartDaemon(on) => next.clients.autostart_daemon = *on,
 			SettingsChange::Privacy { inbound, advert } => {

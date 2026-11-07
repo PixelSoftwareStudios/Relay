@@ -83,9 +83,6 @@ pub enum Command {
 	/// List or select audio devices.
 	#[command(subcommand)]
 	Devices(DevicesCommand),
-	/// Noise suppression.
-	#[command(subcommand)]
-	Ns(NsCommand),
 	/// Your profile as peers see it.
 	#[command(subcommand)]
 	Profile(ProfileCommand),
@@ -545,16 +542,6 @@ pub enum DevicesCommand {
 		/// Speakers or headphones.
 		#[arg(long)]
 		output: Option<String>,
-	},
-}
-
-/// `relay ns ...`
-#[derive(Debug, Subcommand)]
-pub enum NsCommand {
-	/// Select a noise suppression backend by qualified id (`off` disables).
-	Set {
-		/// Qualified backend id.
-		backend: String,
 	},
 }
 

@@ -23,7 +23,6 @@ service Engine {
   rpc SetCallControls(SetCallControlsRequest) returns (Operation);
   rpc SetGlobalControls(SetGlobalControlsRequest) returns (Operation);
   rpc SelectDevices(SelectDevicesRequest) returns (Operation);
-  rpc SetNoiseSuppression(SetNoiseSuppressionRequest) returns (Operation);
   rpc StartMicTest(StartMicTestRequest) returns (Operation);
   rpc StopMicTest(MutationContext) returns (Operation);
   rpc PreviewTone(MutationContext) returns (Operation); // plays the ring on this device's own output for 2 s
@@ -280,7 +279,7 @@ message Settings {
   uint64 revision = 1;
   string input_device_id = 2;
   string output_device_id = 3;
-  string ns_backend_id = 4;
+  reserved 4; // was ns_backend_id
   bool global_muted = 5;
   bool global_deafened = 6;
   float microphone_gain = 7;
@@ -309,6 +308,9 @@ message Settings {
   string daemon_build_revision = 30; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
   uint32 daemon_api_revision = 31;
   string ringtone_name = 32; // file name of the custom ringtone; empty when the built-in chime is used
+  bool noise_suppression_enabled = 33; // audio.noise_suppression: suppress steady background noise on the microphone
+  string noise_suppression_level = 34; // audio.noise_suppression_level: "low", "moderate" or "high"
+  bool auto_gain_enabled = 35; // audio.auto_gain: even out the microphone level (AGC2)
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -435,7 +437,6 @@ message SetGlobalControlsRequest {
   optional bool call_sounds_enabled = 11; // persisted
 }
 message SelectDevicesRequest { MutationContext context = 1; string input_device_id = 2; string output_device_id = 3; }
-message SetNoiseSuppressionRequest { MutationContext context = 1; string qualified_backend_id = 2; }
 message StartMicTestRequest {
   MutationContext context = 1;
   bool local_playback = 2;

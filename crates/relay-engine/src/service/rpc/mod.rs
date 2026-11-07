@@ -35,12 +35,11 @@ use relay_api::pb::{
 	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
-	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest,
-	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
-	SetSessionPermissionsRequest, SetSettingsRequest, SetSettingsResponse, SetTransmitModeRequest,
-	SettingsDump, Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
-	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
-	engine_server::Engine,
+	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest, SetPrivacyRequest,
+	SetProfileRequest, SetRingtoneRequest, SetSessionPermissionsRequest, SetSettingsRequest,
+	SetSettingsResponse, SetTransmitModeRequest, SettingsDump, Snapshot, StartCallRequest,
+	StartMicTestRequest, StateEnvelope, TelemetryRequest, TelemetrySnapshot, Transcript,
+	UploadAvatarRequest, WatchSessionRequest, WatchStateRequest, engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -374,14 +373,6 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		ops::select_devices(self, &mutation, &body).await
-	}
-
-	async fn set_noise_suppression(
-		&self,
-		request: Request<SetNoiseSuppressionRequest>,
-	) -> Result<Response<Operation>, Status> {
-		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
-		ops::noise_suppression(self, &mutation, &body).await
 	}
 
 	async fn start_mic_test(

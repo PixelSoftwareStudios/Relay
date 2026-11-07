@@ -163,11 +163,6 @@ pub enum Command {
 		/// Output device id.
 		output_id: String,
 	},
-	/// Select a noise suppression backend.
-	SetNoiseSuppression {
-		/// Qualified backend id.
-		backend: String,
-	},
 	/// Change the display name.
 	SetProfile {
 		/// New name.

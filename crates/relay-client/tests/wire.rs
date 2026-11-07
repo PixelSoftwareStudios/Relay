@@ -103,9 +103,6 @@ async fn every_other_command_reaches_its_rpc() {
 			input_id: "mic".into(),
 			output_id: "spk".into(),
 		},
-		Command::SetNoiseSuppression {
-			backend: "rnn".into(),
-		},
 		Command::SetProfile {
 			display_name: "Ada".into(),
 		},
@@ -156,7 +153,6 @@ async fn every_other_command_reaches_its_rpc() {
 			"set_ringtone tone.mp3 4".into(),
 			"set_ringtone reset".into(),
 			"devices mic spk".into(),
-			"ns rnn".into(),
 			"profile Ada".into(),
 			"avatar 3 image/png".into(),
 			"clear_avatar".into(),

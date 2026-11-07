@@ -83,6 +83,18 @@ impl Actor {
 								}
 							}
 						}
+						"audio.noise_suppression"
+						| "audio.noise_suppression_level"
+						| "audio.auto_gain" => match self.ports.media.set_audio_processing(stored.processing) {
+							Ok(()) => self.directory.aux.processing = stored.processing,
+							Err(error) => {
+								results.push(KeyResult {
+									key: key.clone(),
+									outcome: KeyOutcome::SavedNeedsRestart(error.to_string()),
+								});
+								continue;
+							}
+						},
 						k if k.starts_with("audio.") && !applied_elsewhere(k) => {
 							self.directory.aux.ring = stored.ring;
 						}

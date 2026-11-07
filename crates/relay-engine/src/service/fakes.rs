@@ -30,8 +30,8 @@ pub enum MediaCall {
 	Stop(CallId, SessionId),
 	/// `set_receive_mix`.
 	Mix(ReceiveMix),
-	/// `set_noise_suppression`.
-	Noise(String),
+	/// `set_audio_processing`.
+	Processing(relay_audio::dsp::SonoraConfig),
 	/// `start_mic_test`.
 	MicTestStart(bool),
 	/// `stop_mic_test`.
@@ -89,8 +89,11 @@ impl MediaControl for FakeMedia {
 	fn set_receive_mix(&self, mix: ReceiveMix) {
 		self.push(MediaCall::Mix(mix));
 	}
-	fn set_noise_suppression(&self, backend: &str) -> Result<(), PortError> {
-		self.push(MediaCall::Noise(backend.to_owned()));
+	fn set_audio_processing(
+		&self,
+		config: relay_audio::dsp::SonoraConfig,
+	) -> Result<(), PortError> {
+		self.push(MediaCall::Processing(config));
 		Ok(())
 	}
 	fn start_mic_test(&self, local_playback: bool) -> Result<(), PortError> {
@@ -267,6 +270,9 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 		"profile.display_name" => stored.display_name.clone_from(&prefs.profile.display_name),
 		"audio.microphone_gain" => stored.microphone_gain = audio.microphone_gain,
 		"audio.playback_gain" => stored.playback_gain = audio.playback_gain,
+		"audio.noise_suppression" | "audio.noise_suppression_level" | "audio.auto_gain" => {
+			stored.processing = crate::daemon::processing_of(audio);
+		}
 		"ptt.release_delay_ms" => stored.ptt_release_delay_ms = prefs.ptt.release_delay_ms,
 		"clients.autostart_daemon" => stored.autostart_daemon = prefs.clients.autostart_daemon,
 		"audio.ringtone_enabled" => ring.ringtone_enabled = audio.ringtone_enabled,
@@ -354,7 +360,6 @@ impl SettingsStore for MemorySettings {
 				stored.input_device.clone_from(input);
 				stored.output_device.clone_from(output);
 			}
-			SettingsChange::NoiseBackend(id) => stored.noise_backend.clone_from(id),
 			SettingsChange::PttReleaseDelay(ms) => stored.ptt_release_delay_ms = *ms,
 			SettingsChange::AutostartDaemon(on) => stored.autostart_daemon = *on,
 			SettingsChange::Privacy { inbound, advert } => {

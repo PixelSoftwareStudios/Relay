@@ -41,8 +41,10 @@ impl NoiseLevel {
 /// Which WebRTC stages run. The high-pass filter stays off: the chain's own stage owns it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SonoraConfig {
-	/// Noise suppression at this level; `None` leaves it off.
-	pub noise_suppression: Option<NoiseLevel>,
+	/// Suppress steady background noise.
+	pub noise_suppression: bool,
+	/// How hard it works when on; kept while it is off so a switch back restores it.
+	pub noise_level: NoiseLevel,
 	/// Adaptive digital gain (AGC2) with its limiter.
 	pub auto_gain: bool,
 	/// Echo cancellation (AEC3). Needs the far-end reference through
@@ -54,7 +56,8 @@ impl Default for SonoraConfig {
 	/// Moderate noise suppression only.
 	fn default() -> Self {
 		Self {
-			noise_suppression: Some(NoiseLevel::Moderate),
+			noise_suppression: true,
+			noise_level: NoiseLevel::Moderate,
 			auto_gain: false,
 			echo_cancel: false,
 		}
@@ -64,12 +67,12 @@ impl Default for SonoraConfig {
 impl SonoraConfig {
 	/// Nothing enabled: the stage would only copy.
 	pub fn is_bypass(&self) -> bool {
-		self.noise_suppression.is_none() && !self.auto_gain && !self.echo_cancel
+		!self.noise_suppression && !self.auto_gain && !self.echo_cancel
 	}
 
 	fn provides(&self) -> Provides {
 		let mut provides = Provides::NONE;
-		if self.noise_suppression.is_some() {
+		if self.noise_suppression {
 			provides = provides.with(StageKind::NoiseSuppress);
 		}
 		if self.auto_gain {
@@ -83,8 +86,8 @@ impl SonoraConfig {
 
 	fn name(&self) -> String {
 		let mut name = String::from("sonora");
-		if let Some(level) = self.noise_suppression {
-			name.push_str(match level {
+		if self.noise_suppression {
+			name.push_str(match self.noise_level {
 				NoiseLevel::Low => "-ns-low",
 				NoiseLevel::Moderate => "-ns",
 				NoiseLevel::High => "-ns-high",
@@ -101,8 +104,8 @@ impl SonoraConfig {
 
 	fn to_sonora(self) -> Config {
 		Config {
-			noise_suppression: self.noise_suppression.map(|level| NoiseSuppression {
-				level: level.to_sonora(),
+			noise_suppression: self.noise_suppression.then(|| NoiseSuppression {
+				level: self.noise_level.to_sonora(),
 				..NoiseSuppression::default()
 			}),
 			gain_controller2: self.auto_gain.then(|| GainController2 {
@@ -159,7 +162,7 @@ impl SonoraSuppressor {
 				hop_samples: FRAME_SAMPLES,
 				analysis_window_samples: FRAME_SAMPLES,
 				lookahead_samples: None,
-				declared_delay_samples: Some(if config.noise_suppression.is_some() {
+				declared_delay_samples: Some(if config.noise_suppression {
 					SONORA_NS_DELAY_SAMPLES
 				} else {
 					0

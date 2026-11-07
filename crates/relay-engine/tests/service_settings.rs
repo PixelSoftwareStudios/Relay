@@ -123,16 +123,11 @@ async fn keys_read_at_start_are_saved_and_say_so() {
 		&[
 			("hotkeys.push_to_talk", "Ctrl+F9"),
 			("network.transfer_port", "40123"),
-			("audio.noise_backend", "off"),
 			("audio.microphone_gain", "1.5"),
 		],
 	)
 	.await;
-	for key in [
-		"hotkeys.push_to_talk",
-		"network.transfer_port",
-		"audio.noise_backend",
-	] {
+	for key in ["hotkeys.push_to_talk", "network.transfer_port"] {
 		assert_eq!(
 			outcome(&done, key),
 			SettingOutcome::SavedNeedsRestart,
@@ -312,4 +307,56 @@ async fn messaging_keys_apply_live_and_everything_persists_across_a_restart() {
 	let name = cli.snapshot().await.unwrap().settings.unwrap().display_name;
 	assert_eq!(name, "Hall");
 	daemon.shutdown().await.unwrap();
+}
+
+#[tokio::test]
+async fn microphone_processing_defaults_on_and_changes_live() {
+	let rig = Rig::start().await;
+	let mut cli = rig.full_client("relay-cli").await;
+	let settings = cli.snapshot().await.unwrap().settings.unwrap();
+	assert!(settings.noise_suppression_enabled && !settings.auto_gain_enabled);
+	assert_eq!(settings.noise_suppression_level, "moderate");
+
+	let done = set(
+		&mut cli,
+		&[
+			("audio.noise_suppression_level", "high"),
+			("audio.auto_gain", "true"),
+		],
+	)
+	.await;
+	for (key, (o, why)) in &done {
+		assert_eq!(*o, SettingOutcome::AppliedLive as i32, "{key}: {why}");
+	}
+	let settings = cli.snapshot().await.unwrap().settings.unwrap();
+	assert!(settings.noise_suppression_enabled && settings.auto_gain_enabled);
+	assert_eq!(settings.noise_suppression_level, "high");
+
+	// Off keeps the chosen strength for the next time it is switched on.
+	set(&mut cli, &[("audio.noise_suppression", "false")]).await;
+	let settings = cli.snapshot().await.unwrap().settings.unwrap();
+	assert!(!settings.noise_suppression_enabled);
+	assert_eq!(settings.noise_suppression_level, "high");
+
+	let last = rig
+		.fakes
+		.media
+		.calls()
+		.into_iter()
+		.rev()
+		.find_map(|call| match call {
+			relay_engine::service::fakes::MediaCall::Processing(config) => Some(config),
+			_ => None,
+		})
+		.expect("the media path was told");
+	assert!(!last.noise_suppression && last.auto_gain);
+
+	let refused = cli
+		.set_settings([("audio.noise_suppression_level", "extreme")])
+		.await
+		.unwrap();
+	assert_eq!(
+		SettingOutcome::try_from(refused.results[0].outcome).unwrap(),
+		SettingOutcome::Rejected
+	);
 }

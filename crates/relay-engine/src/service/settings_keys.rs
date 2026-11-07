@@ -10,10 +10,13 @@ const SENSITIVE_KEYS: [&str; 3] = [
 ];
 
 /// Keys the running daemon applies at once (the rest are saved and read at the next start).
-const LIVE_KEYS: [&str; 25] = [
+const LIVE_KEYS: [&str; 28] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
+	"audio.noise_suppression",
+	"audio.noise_suppression_level",
+	"audio.auto_gain",
 	"audio.ringtone_enabled",
 	"audio.ringtone_volume",
 	"audio.ringback_enabled",

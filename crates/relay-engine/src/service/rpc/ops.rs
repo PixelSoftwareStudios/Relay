@@ -5,8 +5,8 @@ use std::time::Duration;
 use prost::Message;
 use relay_api::pb::{
 	DecidePeerTrustRequest, MutationContext, Operation, SelectDevicesRequest,
-	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetProfileRequest, SetRingtoneRequest,
-	StartMicTestRequest, TrustState, UploadAvatarRequest,
+	SetGlobalControlsRequest, SetProfileRequest, SetRingtoneRequest, StartMicTestRequest,
+	TrustState, UploadAvatarRequest,
 };
 use relay_core::{Command, SettingsRevision};
 use tonic::{Response, Status};
@@ -120,16 +120,6 @@ pub(super) async fn select_devices(
 		input: body.input_device_id.clone(),
 		output: body.output_device_id.clone(),
 	};
-	service_op(service, mutation, body, op).await
-}
-
-pub(super) async fn noise_suppression(
-	service: &EngineService,
-	mutation: &Mutation,
-	body: &SetNoiseSuppressionRequest,
-) -> Result<Response<Operation>, Status> {
-	bounded_id(&body.qualified_backend_id)?;
-	let op = ServiceOp::NoiseSuppression(body.qualified_backend_id.clone());
 	service_op(service, mutation, body, op).await
 }
 

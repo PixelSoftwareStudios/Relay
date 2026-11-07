@@ -8,9 +8,9 @@ mod support_daemon;
 use std::time::Duration;
 
 use relay_api::pb::{
-	AcquireControllerRequest, SelectDevicesRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetProfileRequest, StartCallRequest, StartMicTestRequest,
-	TelemetryRequest, UploadAvatarRequest, start_call_request::Target,
+	AcquireControllerRequest, SelectDevicesRequest, SetGlobalControlsRequest, SetProfileRequest,
+	StartCallRequest, StartMicTestRequest, TelemetryRequest, UploadAvatarRequest,
+	start_call_request::Target,
 };
 use relay_api::{RelayClient, WatchOptions};
 use relay_config::Paths;
@@ -92,29 +92,6 @@ async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 		.settings
 		.expect("settings");
 	assert_eq!(settings.input_device_id, mic);
-
-	// Noise suppression: off is a bypass; an unqualified backend is refused.
-	let noise = |op: u8, id: &str| SetNoiseSuppressionRequest {
-		context: Some(mctx(me.clone(), op)),
-		qualified_backend_id: id.to_owned(),
-	};
-	let request = noise(3, "off");
-	assert_applied(
-		&cli.raw()
-			.set_noise_suppression(request)
-			.await
-			.expect("rpc")
-			.into_inner(),
-	);
-	let request = noise(4, "rnnoise");
-	assert_failed(
-		&cli.raw()
-			.set_noise_suppression(request)
-			.await
-			.expect("rpc")
-			.into_inner(),
-		"UNAVAILABLE",
-	);
 
 	// Microphone gain is applied to capture and shown in settings.
 	let request = SetGlobalControlsRequest {

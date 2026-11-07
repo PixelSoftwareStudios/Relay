@@ -33,7 +33,7 @@ pub use options::{
 	AdapterFactory, AudioSetup, BackendFactory, NetworkOptions, RunOptions, Transport,
 };
 pub use ringtone::RingtoneStore;
-pub use settings::FileSettings;
+pub use settings::{FileSettings, processing_of};
 
 use crate::service::{
 	ControlHandle, EngineService, GateReader, Service, ServiceBuilder, ServiceConfig,

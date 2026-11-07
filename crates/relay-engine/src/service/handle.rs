@@ -27,8 +27,6 @@ pub enum ServiceOp {
 		/// Output device id.
 		output: String,
 	},
-	/// Select a noise suppression backend.
-	NoiseSuppression(String),
 	/// Start a microphone test.
 	StartMicTest {
 		/// Play the microphone back locally.

@@ -33,7 +33,6 @@ relay mute|deafen [on|off] [--call C]  global unless --call
 relay gain mic|playback|receive <v> [--call C]
 relay talk muted|unmuted|ptt [--call C]
 relay devices list | select [--input X] [--output Y]
-relay ns set <backend>
 relay profile set --name <n>
 relay trust list | verify <peer> --fingerprint <hex> | forget <fingerprint-prefix|name>
 relay favorites [list | add <peer> | remove <peer> | move <peer> <position>]

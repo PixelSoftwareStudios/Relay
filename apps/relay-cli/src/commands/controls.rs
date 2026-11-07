@@ -6,8 +6,7 @@ use super::resolve::{resolve_call, resolve_device};
 use super::views::DeviceList;
 use super::{Out, report};
 use crate::cli::{
-	CliError, DevicesCommand, GainArgs, GainKind, NsCommand, ProfileCommand, SwitchArgs, TalkArgs,
-	TalkMode,
+	CliError, DevicesCommand, GainArgs, GainKind, ProfileCommand, SwitchArgs, TalkArgs, TalkMode,
 };
 use crate::client::{CallControls, Control, GlobalControls};
 
@@ -155,16 +154,6 @@ pub async fn devices<C: Control>(
 		None => current.output_device_id,
 	};
 	let op = client.select_devices(&input_id, &output_id).await?;
-	report(&op, out)
-}
-
-pub async fn noise_suppression<C: Control>(
-	client: &mut C,
-	cmd: NsCommand,
-	out: &mut Out<'_>,
-) -> Result<(), CliError> {
-	let NsCommand::Set { backend } = cmd;
-	let op = client.set_noise_suppression(&backend).await?;
 	report(&op, out)
 }
 

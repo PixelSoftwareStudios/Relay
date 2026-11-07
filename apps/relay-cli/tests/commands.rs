@@ -130,15 +130,12 @@ async fn devices_select_resolves_names_and_keeps_the_other_side() {
 }
 
 #[tokio::test]
-async fn ns_and_profile_pass_through() {
+async fn profile_passes_through() {
 	let mut c = FakeControl::new();
-	run_with(&mut c, &["ns", "set", "sonora/default"], false)
-		.await
-		.unwrap();
 	run_with(&mut c, &["profile", "set", "--name", "Desk"], false)
 		.await
 		.unwrap();
-	assert_eq!(c.log, ["ns sonora/default", "profile Desk"]);
+	assert_eq!(c.log, ["profile Desk"]);
 	let err = run_with(&mut c, &["profile", "set", "--name", "  "], false)
 		.await
 		.unwrap_err();

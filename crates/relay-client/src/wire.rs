@@ -7,9 +7,9 @@ use relay_api::pb::{
 	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
 	MutationContext, Operation, ReplacePinnedKeyRequest, RevokeChannelMemberRequest,
 	SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
-	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
-	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest, SetSettingsRequest,
+	SetTransmitModeRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
+	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -233,13 +233,6 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				context: Some(context),
 				input_device_id: input_id,
 				output_device_id: output_id,
-			})
-			.await
-		}
-		Command::SetNoiseSuppression { backend } => {
-			rpc.set_noise_suppression(SetNoiseSuppressionRequest {
-				context: Some(context),
-				qualified_backend_id: backend,
 			})
 			.await
 		}
