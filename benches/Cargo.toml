@@ -10,9 +10,6 @@ publish = false
 path = "lib.rs"
 
 [features]
-# Evaluation-only audio-processing candidates; never part of the product build.
-sonora = ["relay-audio/eval-sonora"]
-nnnoiseless = ["relay-audio/eval-nnnoiseless"]
 # Pure-Rust ONNX candidates (GTCRN, DTLN); weights live in benches/models (untracked).
 neural = ["dep:tract-onnx", "dep:realfft"]
 

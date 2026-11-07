@@ -1,6 +1,6 @@
 //! Allocations per 10 ms frame for each candidate, counted by a global
 //! allocator. Needs the local weights:
-//! `cargo test --release -p relay-benches --features neural,sonora,nnnoiseless --test neural_allocs -- --ignored --nocapture`
+//! `cargo test --release -p relay-benches --features neural --test neural_allocs -- --ignored --nocapture`
 #![cfg(feature = "neural")]
 
 use relay_audio::dsp::DspLimits;

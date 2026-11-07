@@ -100,23 +100,18 @@ pub fn make_candidate(name: &str) -> Result<Candidate> {
 	};
 	match name {
 		"off" => Ok(plain(Box::<OffSuppressor>::default())),
-		#[cfg(feature = "sonora")]
 		"sonora-ns" | "sonora-ns-agc" | "sonora-ns-aec" => {
-			use relay_audio::dsp::eval::{SonoraProfile, SonoraSuppressor};
-			let profile = match name {
-				"sonora-ns" => SonoraProfile::NsOnly,
-				"sonora-ns-agc" => SonoraProfile::NsAgc,
-				_ => SonoraProfile::NsAec,
+			use relay_audio::dsp::{SonoraConfig, SonoraSuppressor};
+			let config = SonoraConfig {
+				auto_gain: name == "sonora-ns-agc",
+				echo_cancel: name == "sonora-ns-aec",
+				..SonoraConfig::default()
 			};
 			Ok(Candidate {
-				ns: Box::new(SonoraSuppressor::new(profile)),
-				feed_render: profile == SonoraProfile::NsAec,
+				ns: Box::new(SonoraSuppressor::new(config)),
+				feed_render: config.echo_cancel,
 			})
 		}
-		#[cfg(feature = "nnnoiseless")]
-		"nnnoiseless" => Ok(plain(Box::new(
-			relay_audio::dsp::eval::NnnoiselessSuppressor::new(),
-		))),
 		#[cfg(feature = "neural")]
 		other if super::neural::is_neural(other) => Ok(plain(super::neural::make(other)?)),
 		other => Err(BenchError::BackendUnavailable(other.to_owned())),
@@ -289,12 +284,7 @@ pub fn run(names: &[String], pairs: &[Pair]) -> Result<Report> {
 
 pub fn default_backends() -> Vec<String> {
 	let mut names = vec!["off".to_owned()];
-	if cfg!(feature = "sonora") {
-		names.extend(["sonora-ns", "sonora-ns-agc", "sonora-ns-aec"].map(str::to_owned));
-	}
-	if cfg!(feature = "nnnoiseless") {
-		names.push("nnnoiseless".to_owned());
-	}
+	names.extend(["sonora-ns", "sonora-ns-agc", "sonora-ns-aec"].map(str::to_owned));
 	#[cfg(feature = "neural")]
 	names.extend(super::neural::NAMES.map(str::to_owned));
 	names

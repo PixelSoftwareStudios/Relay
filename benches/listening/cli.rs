@@ -12,10 +12,9 @@ pub const USAGE: &str = "  audio-corpus listen prepare <corpus-dir> [--out DIR] 
 /// Backends worth comparing by ear that this build and the local weights
 /// can run; the ones that cannot are named on stderr.
 pub fn default_backends() -> Vec<String> {
-	const PREFERRED: [&str; 7] = [
+	const PREFERRED: [&str; 6] = [
 		"off",
 		"sonora-ns",
-		"nnnoiseless",
 		"gtcrn",
 		"dtln",
 		"fastenhancer-s",

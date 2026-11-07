@@ -86,9 +86,8 @@ rubato = "5.0.1"
 # Rust, MPL-2.0 (file-level copyleft, used unmodified; allowed for these crates in deny.toml).
 symphonia = { version = "0.5.5", default-features = false, features = ["mp3", "ogg", "vorbis", "flac", "wav", "pcm", "aac", "isomp4"] }
 bytemuck = "1"
-# Evaluation-only audio processing candidates (not default features)
+# Noise suppression, AGC2 and AEC3 (pure Rust WebRTC audio processing)
 sonora = "0.2.0"
-nnnoiseless = { version = "0.5.2", default-features = false }
 # Pure-Rust ONNX inference and FFT for the neural candidates in relay-benches
 tract-onnx = "0.23.10"
 realfft = "3.5.1"
