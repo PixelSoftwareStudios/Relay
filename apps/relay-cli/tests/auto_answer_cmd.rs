@@ -70,8 +70,7 @@ async fn status_shows_background_alert_and_auto_answer() {
 	assert!(text.contains("alert"), "{text}");
 	assert!(text.contains("auto-answer"), "{text}");
 	let json: serde_json::Value =
-		serde_json::from_str(&run_with(&mut c, &["status"], true).await.unwrap())
-			.unwrap();
+		serde_json::from_str(&run_with(&mut c, &["status"], true).await.unwrap()).unwrap();
 	assert_eq!(json["background_available"], true);
 	assert_eq!(json["call_alert"], "system");
 	assert_eq!(json["auto_answer_enabled"], true);
