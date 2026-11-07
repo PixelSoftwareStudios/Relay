@@ -46,6 +46,8 @@ pub struct Local {
 	pub release_delay_edit: Option<u32>,
 	/// In-flight drag of the ringtone volume slider.
 	pub ring_volume_edit: Option<f32>,
+	/// A ringtone file is being chosen or prepared (shared with the task that clears it).
+	pub ringtone_busy: std::sync::Arc<std::sync::atomic::AtomicBool>,
 	pub revoke_confirm: Option<(String, String)>,
 	pub leave_confirm: Option<String>,
 	/// The "Quit daemon" confirmation is showing.

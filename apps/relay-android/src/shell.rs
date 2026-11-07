@@ -153,7 +153,9 @@ impl FilePicker for AndroidShell {
 				}
 				PickOutcome::Cancelled => Ok(None),
 				PickOutcome::Failed { reason } => Err(reason),
-				PickOutcome::File { .. } => Err("unexpected file result".to_owned()),
+				PickOutcome::File { .. } | PickOutcome::Audio { .. } => {
+					Err("unexpected file result".to_owned())
+				}
 			}
 		})
 	}
@@ -166,7 +168,24 @@ impl FilePicker for AndroidShell {
 				PickOutcome::File { path } => Ok(Some(path.into())),
 				PickOutcome::Cancelled => Ok(None),
 				PickOutcome::Failed { reason } => Err(reason),
-				PickOutcome::Image { .. } => Err("unexpected image result".to_owned()),
+				PickOutcome::Image { .. } | PickOutcome::Audio { .. } => {
+					Err("unexpected image result".to_owned())
+				}
+			}
+		})
+	}
+
+	/// The system document picker for an audio file (`ACTION_OPEN_DOCUMENT`, no storage
+	/// permission). Kotlin reads at most `ringtone_pick::PICK_MAX_BYTES`; the engine decodes.
+	fn pick_audio(&self) -> BoxFuture<'_, Result<Option<PickedFile>, String>> {
+		Box::pin(async {
+			match self.pick(PickKind::Audio).await {
+				PickOutcome::Audio { name, bytes } => Ok(Some(PickedFile { name, bytes })),
+				PickOutcome::Cancelled => Ok(None),
+				PickOutcome::Failed { reason } => Err(reason),
+				PickOutcome::Image { .. } | PickOutcome::File { .. } => {
+					Err("unexpected picker result".to_owned())
+				}
 			}
 		})
 	}

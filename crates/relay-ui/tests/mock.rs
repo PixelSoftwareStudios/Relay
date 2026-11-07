@@ -100,12 +100,12 @@ async fn mock_ring_settings_round_trip() {
 	let (ctl, hub) = rig().await;
 	let s = hub.state().settings.unwrap();
 	assert!(s.ringtone_enabled && s.ringback_enabled && s.call_sounds_enabled);
-	assert!((s.ringtone_volume - 0.7).abs() < 1e-6);
-	ctl.set_ring_preferences(Some(false), Some(0.4), None, Some(false))
+	assert!((s.ringtone_volume - 0.4).abs() < 1e-6);
+	ctl.set_ring_preferences(Some(false), Some(0.25), None, Some(false))
 		.await
 		.unwrap();
 	let s = hub.state().settings.unwrap();
 	assert!(!s.ringtone_enabled && s.ringback_enabled && !s.call_sounds_enabled);
-	assert!((s.ringtone_volume - 0.4).abs() < 1e-6);
+	assert!((s.ringtone_volume - 0.25).abs() < 1e-6);
 	ctl.preview_tone().await.unwrap();
 }

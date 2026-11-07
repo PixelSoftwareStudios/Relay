@@ -323,6 +323,29 @@ impl Controller {
 		self.run(Command::PreviewTone).await.map(drop)
 	}
 
+	/// Uses `data` (an audio file the user chose) as this device's ringtone. The engine decodes
+	/// it within its limits; a refusal comes back as a friendly, translated error.
+	pub async fn set_ringtone(&self, file_name: &str, data: Vec<u8>) -> Result<(), ControlError> {
+		if data.is_empty() {
+			return Err(ControlError::Invalid(tr!("ringtone-err-empty")));
+		}
+		let session = self.slot.get().ok_or(ControlError::NotConnected)?;
+		session
+			.ops
+			.run(Command::SetRingtone {
+				file_name: file_name.to_owned(),
+				data,
+			})
+			.await
+			.map(drop)
+			.map_err(crate::ringtone_words::control_error)
+	}
+
+	/// Goes back to the built-in ring and deletes the stored one.
+	pub async fn reset_ringtone(&self) -> Result<(), ControlError> {
+		self.run(Command::ResetRingtone).await.map(drop)
+	}
+
 	/// Whether this app starts the daemon by itself. The daemon stores it.
 	pub async fn set_autostart(&self, enabled: bool) -> Result<(), ControlError> {
 		self.run(Command::SetAutostart { enabled }).await.map(drop)

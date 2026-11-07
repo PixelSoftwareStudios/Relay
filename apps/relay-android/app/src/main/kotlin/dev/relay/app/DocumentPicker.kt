@@ -12,8 +12,8 @@ import java.io.File
 import java.util.concurrent.Executors
 
 /**
- * The system document picker (Storage Access Framework) for the profile image
- * and for file offers. The picker returns content URIs, never paths: images are
+ * The system document picker (Storage Access Framework) for the profile image,
+ * the ringtone and file offers. The picker returns content URIs, never paths: images are
  * read here after a size check, files are copied into the app cache and the
  * engine reads the copy.
  */
@@ -43,7 +43,12 @@ class DocumentPicker(private val activity: AppCompatActivity) {
 			return
 		}
 		request = id to kind
-		launcher?.launch(if (kind == PickKind.IMAGE) arrayOf("image/*") else arrayOf("*/*"))
+		val types = when (kind) {
+			PickKind.IMAGE -> arrayOf("image/*")
+			PickKind.AUDIO -> arrayOf("audio/*", "application/ogg")
+			PickKind.FILE -> arrayOf("*/*")
+		}
+		launcher?.launch(types)
 			?: complete(id, PickOutcome.Failed("The file picker is not ready."))
 	}
 
@@ -58,6 +63,7 @@ class DocumentPicker(private val activity: AppCompatActivity) {
 		val picked = try {
 			when (kind) {
 				PickKind.IMAGE -> Documents.readImage(name, size) { resolver.openInputStream(uri) }
+				PickKind.AUDIO -> Documents.readAudio(name, size) { resolver.openInputStream(uri) }
 				PickKind.FILE -> Documents.copyFile(name, cache) { resolver.openInputStream(uri) }
 			}
 		} catch (e: java.io.IOException) {
@@ -65,6 +71,7 @@ class DocumentPicker(private val activity: AppCompatActivity) {
 		}
 		return when (picked) {
 			is PickedDocument.Image -> PickOutcome.Image(picked.name, picked.bytes)
+			is PickedDocument.Audio -> PickOutcome.Audio(picked.name, picked.bytes)
 			is PickedDocument.Copied -> PickOutcome.File(picked.path)
 			is PickedDocument.Refused -> PickOutcome.Failed(picked.message)
 		}

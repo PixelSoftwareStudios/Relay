@@ -40,6 +40,8 @@ pub mod ptt_target;
 pub mod qr;
 pub mod qr_scan;
 pub mod relay_link;
+pub mod ringtone_pick;
+pub mod ringtone_words;
 pub mod setting_save;
 pub mod setting_support;
 pub mod shell;

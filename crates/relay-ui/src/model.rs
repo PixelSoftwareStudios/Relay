@@ -187,6 +187,8 @@ pub struct Settings {
 	pub ringback_enabled: bool,
 	/// Connect and hang-up blips.
 	pub call_sounds_enabled: bool,
+	/// File name of the custom ringtone on this device; empty for the built-in chime.
+	pub ringtone_name: String,
 	/// Finished calls are recorded in the call history.
 	pub history_enabled: bool,
 	/// Changes whenever the engine adds to or clears the call history.

@@ -25,6 +25,14 @@ pub trait FilePicker: Send + Sync {
 	/// `Ok(None)` when the user cancelled; `Err` carries a message for the UI.
 	fn pick_image(&self) -> BoxFuture<'_, Result<Option<PickedFile>, String>>;
 
+	/// Native "choose an audio file" dialog for the ringtone. The shell reads the file (after
+	/// checking its size against `ringtone_pick::PICK_MAX_BYTES`) and returns its bytes with the
+	/// file name; the engine decodes it. `Ok(None)` when cancelled. The default is the stub for
+	/// shells that cannot pick one.
+	fn pick_audio(&self) -> BoxFuture<'_, Result<Option<PickedFile>, String>> {
+		Box::pin(async { Err(tr!("ringtone-err-no-picker").to_owned()) })
+	}
+
 	/// Native "choose a folder" dialog, for downloading a received file. The
 	/// daemon writes into the folder, so a real absolute path is returned.
 	/// `Ok(None)` when cancelled.

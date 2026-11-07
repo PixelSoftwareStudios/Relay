@@ -258,6 +258,8 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			call_sounds_enabled,
 		},
 		Command::PreviewTone => WireCommand::PreviewTone,
+		Command::SetRingtone { file_name, data } => WireCommand::SetRingtone { file_name, data },
+		Command::ResetRingtone => WireCommand::ResetRingtone,
 		Command::SelectDevices {
 			input_id,
 			output_id,

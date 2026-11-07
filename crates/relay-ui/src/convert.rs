@@ -192,6 +192,7 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		ringtone_volume: s.ringtone_volume,
 		ringback_enabled: s.ringback_enabled,
 		call_sounds_enabled: s.call_sounds_enabled,
+		ringtone_name: s.ringtone_name.clone(),
 		history_enabled: s.history_enabled,
 		history_revision: s.history_revision,
 		default_transmit_mode: mode(s.default_transmit_mode),

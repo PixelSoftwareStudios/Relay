@@ -138,9 +138,10 @@ pub fn seed() -> AppState {
 			ptt_release_delay_ms: 200,
 			autostart_daemon: true,
 			ringtone_enabled: true,
-			ringtone_volume: 0.7,
+			ringtone_volume: 0.4,
 			ringback_enabled: true,
 			call_sounds_enabled: true,
+			ringtone_name: String::new(),
 			history_enabled: true,
 			history_revision: 0,
 			default_transmit_mode: Mode::PushToTalk,
@@ -325,6 +326,16 @@ impl Operations for MockOps {
 				}
 			}),
 			Command::PreviewTone => {}
+			Command::SetRingtone { file_name, .. } => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.ringtone_name = file_name;
+				}
+			}),
+			Command::ResetRingtone => self.hub.update(|s| {
+				if let Some(g) = s.settings.as_mut() {
+					g.ringtone_name.clear();
+				}
+			}),
 			Command::SetAutostart { enabled } => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {
 					g.autostart_daemon = enabled;

@@ -47,6 +47,27 @@ class DocumentsTest {
 	}
 
 	@Test
+	fun aRingtoneWithinTheLimitIsReadWithItsNameCleaned() {
+		val bytes = ByteArray(5000) { 3 }
+		val picked = Documents.readAudio("../my tone.mp3", 5000L) { ByteArrayInputStream(bytes) }
+		assertTrue(picked is PickedDocument.Audio && picked.bytes.size == 5000 && picked.name == "my tone.mp3")
+	}
+
+	@Test
+	fun aRingtoneOverTheCapIsRefusedBeforeReadingAndAnUnknownSizeIsStillCapped() {
+		var opened = false
+		val refused = Documents.readAudio("big.wav", Documents.AUDIO_MAX_BYTES + 1L) {
+			opened = true
+			ByteArrayInputStream(ByteArray(0))
+		}
+		assertTrue(refused is PickedDocument.Refused)
+		assertEquals(false, opened)
+		val huge = ByteArray(Documents.AUDIO_MAX_BYTES + 10)
+		assertTrue(Documents.readAudio("big.wav", null) { ByteArrayInputStream(huge) } is PickedDocument.Refused)
+		assertTrue(Documents.readAudio("empty.wav", null) { ByteArrayInputStream(ByteArray(0)) } is PickedDocument.Refused)
+	}
+
+	@Test
 	fun filesAreCopiedUnderTheCacheDirectory() {
 		val dir = tmp.newFolder("picked")
 		val picked = Documents.copyFile("../notes.txt", dir) { ByteArrayInputStream("hi".toByteArray()) }

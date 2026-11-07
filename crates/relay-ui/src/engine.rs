@@ -104,6 +104,13 @@ pub enum Command {
 	},
 	/// Play the ring on the daemon's own output for about two seconds.
 	PreviewTone,
+	/// Use an audio file as this device's incoming-call ringtone.
+	SetRingtone {
+		file_name: String,
+		data: Vec<u8>,
+	},
+	/// Go back to the built-in ring.
+	ResetRingtone,
 	/// Whether the app starts the daemon by itself (stored by the daemon).
 	SetAutostart {
 		enabled: bool,

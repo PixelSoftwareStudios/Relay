@@ -6,6 +6,7 @@ import java.io.InputStream
 /** Result of reading a picked document, with no Android types. */
 sealed interface PickedDocument {
 	data class Image(val name: String, val bytes: ByteArray) : PickedDocument
+	data class Audio(val name: String, val bytes: ByteArray) : PickedDocument
 	data class Copied(val path: String) : PickedDocument
 	data class Refused(val message: String) : PickedDocument
 }
@@ -14,6 +15,9 @@ sealed interface PickedDocument {
 object Documents {
 	/** The same limit as the UI's `AVATAR_MAX_BYTES`. */
 	const val IMAGE_MAX_BYTES = 1024 * 1024
+
+	/** The most audio the UI hands to the engine (`ringtone_pick::PICK_MAX_BYTES`); the engine applies the user's own limit. */
+	const val AUDIO_MAX_BYTES = 8 * 1024 * 1024
 
 	fun safeName(raw: String?): String {
 		val base = (raw ?: "file").substringAfterLast('/').substringAfterLast('\\')
@@ -34,6 +38,22 @@ object Documents {
 				return PickedDocument.Refused("That image is larger than 1 MiB or empty.")
 			}
 			return PickedDocument.Image(safeName(name), bytes)
+		}
+	}
+
+	/** Reads a ringtone after checking [size] (when known); the engine decodes and judges it. */
+	fun readAudio(name: String?, size: Long?, open: () -> InputStream?): PickedDocument {
+		val tooBig = "That file is larger than 8 MiB or empty."
+		if (size != null && (size <= 0 || size > AUDIO_MAX_BYTES)) {
+			return PickedDocument.Refused(tooBig)
+		}
+		val stream = open() ?: return PickedDocument.Refused("Could not open that file.")
+		stream.use {
+			val bytes = it.readNBytes(AUDIO_MAX_BYTES + 1)
+			if (bytes.isEmpty() || bytes.size > AUDIO_MAX_BYTES) {
+				return PickedDocument.Refused(tooBig)
+			}
+			return PickedDocument.Audio(safeName(name), bytes)
 		}
 	}
 

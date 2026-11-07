@@ -14,6 +14,8 @@ use crate::tr;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Unit {
 	Mib,
+	Kib,
+	Seconds,
 	Entries,
 	Days,
 	Transfers,
@@ -25,6 +27,8 @@ impl Unit {
 	pub fn text(self) -> &'static str {
 		match self {
 			Self::Mib => tr!("limits-unit-mib"),
+			Self::Kib => tr!("limits-unit-kib"),
+			Self::Seconds => tr!("limits-unit-seconds"),
 			Self::Entries => tr!("limits-unit-entries"),
 			Self::Days => tr!("limits-unit-days"),
 			Self::Transfers => tr!("limits-unit-transfers"),
@@ -44,7 +48,7 @@ pub struct Def {
 }
 
 /// Number of limits.
-pub const COUNT: usize = 7;
+pub const COUNT: usize = 9;
 
 /// Every limit, in display order.
 pub const DEFS: [Def; COUNT] = [
@@ -97,6 +101,20 @@ pub const DEFS: [Def; COUNT] = [
 		max: 20,
 		default: 3,
 	},
+	Def {
+		key: "limits.ringtone_max_kib",
+		unit: Unit::Kib,
+		min: 64,
+		max: 8192,
+		default: 1024,
+	},
+	Def {
+		key: "limits.ringtone_max_seconds",
+		unit: Unit::Seconds,
+		min: 2,
+		max: 120,
+		default: 30,
+	},
 ];
 
 impl Def {
@@ -109,6 +127,8 @@ impl Def {
 			"limits.history_max_entries" => tr!("limits-entries-label"),
 			"limits.history_max_age_days" => tr!("limits-age-label"),
 			"limits.messages_retained_calls" => tr!("limits-calls-label"),
+			"limits.ringtone_max_kib" => tr!("limits-ringtone-size-label"),
+			"limits.ringtone_max_seconds" => tr!("limits-ringtone-length-label"),
 			_ => tr!("limits-transfers-label"),
 		}
 	}
@@ -122,6 +142,8 @@ impl Def {
 			"limits.history_max_entries" => tr!("limits-entries-help"),
 			"limits.history_max_age_days" => tr!("limits-age-help"),
 			"limits.messages_retained_calls" => tr!("limits-calls-help"),
+			"limits.ringtone_max_kib" => tr!("limits-ringtone-size-help"),
+			"limits.ringtone_max_seconds" => tr!("limits-ringtone-length-help"),
 			_ => tr!("limits-transfers-help"),
 		}
 	}

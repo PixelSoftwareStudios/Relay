@@ -100,6 +100,10 @@ impl FilePicker for DesktopShell {
 		})
 	}
 
+	fn pick_audio(&self) -> BoxFuture<'_, Result<Option<PickedFile>, String>> {
+		Box::pin(crate::ringtone_file::pick_audio())
+	}
+
 	fn pick_directory(&self, title: &str) -> BoxFuture<'_, Result<Option<PathBuf>, String>> {
 		let dialog = rfd::AsyncFileDialog::new().set_title(title).pick_folder();
 		Box::pin(dialog_path(dialog))

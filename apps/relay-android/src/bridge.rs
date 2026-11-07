@@ -81,6 +81,9 @@ pub enum PickKind {
 	Image,
 	/// Any file to offer to a peer; Kotlin copies it into the app cache.
 	File,
+	/// An audio file for the ringtone; Kotlin checks the size, reads the bytes and the engine
+	/// decodes them. Nothing is stored by the picker.
+	Audio,
 }
 
 /// How a picker request ended.
@@ -89,6 +92,7 @@ pub enum PickOutcome {
 	Cancelled,
 	Image { name: String, bytes: Vec<u8> },
 	File { path: String },
+	Audio { name: String, bytes: Vec<u8> },
 	Failed { reason: String },
 }
 

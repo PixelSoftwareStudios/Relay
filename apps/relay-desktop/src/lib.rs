@@ -11,4 +11,5 @@ pub mod notify;
 pub mod options;
 pub mod prefs;
 pub mod ptt;
+pub mod ringtone_file;
 pub mod tray;

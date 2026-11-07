@@ -15,6 +15,7 @@ mod privacy;
 mod profile;
 mod ptt;
 mod ring;
+mod ringtone;
 mod saved;
 mod startup;
 
