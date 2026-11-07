@@ -12,12 +12,11 @@ import androidx.core.app.ServiceCompat
 /**
  * Foreground service of type `microphone`, alive exactly while a call is.
  * It keeps the process (and so the in-process engine) running with the screen
- * off, holds the Wi-Fi locks, puts audio in call mode and offers mute and
+ * off, holds the Wi-Fi locks, keeps the call audio state (mode, focus, route) held and offers mute and
  * hang-up on the notification. The engine itself is not in the service: it
  * lives in the process, and the service only anchors it.
  */
 class CallService : Service() {
-	private lateinit var audio: AudioRouter
 	private val listener: (CallInfo) -> Unit = { info ->
 		if (info.active) {
 			getSystemService(NotificationManager::class.java)
@@ -27,9 +26,8 @@ class CallService : Service() {
 
 	override fun onCreate() {
 		super.onCreate()
-		audio = AudioRouter(this)
 		RelayRuntime.locks.hold(OWNER)
-		audio.enter()
+		RelayRuntime.callAudio.hold(OWNER)
 		RelayRuntime.addCallListener(listener)
 	}
 
@@ -56,7 +54,7 @@ class CallService : Service() {
 
 	override fun onDestroy() {
 		RelayRuntime.removeCallListener(listener)
-		audio.exit()
+		RelayRuntime.callAudio.drop(OWNER)
 		RelayRuntime.locks.drop(OWNER)
 		RelayRuntime.serviceStopped()
 		super.onDestroy()

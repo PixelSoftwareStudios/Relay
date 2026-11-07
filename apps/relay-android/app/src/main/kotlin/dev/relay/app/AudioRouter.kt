@@ -9,6 +9,7 @@ import android.media.AudioManager
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Log
 
 /**
@@ -28,11 +29,27 @@ class AudioRouter(context: Context) {
 		override fun onAudioDevicesRemoved(removed: Array<out AudioDeviceInfo>) = reroute()
 	}
 
+	/**
+	 * Mode and route are in place when this returns: the engine opens its
+	 * stream right after, and either change would disconnect it. Focus and the
+	 * headset callback are not needed for that, so they follow on the main
+	 * thread instead of delaying the first sound.
+	 */
+	@Synchronized
 	fun enter() {
 		if (active) return
 		active = true
+		val started = SystemClock.elapsedRealtime()
 		previousMode = audio.mode
 		audio.mode = AudioManager.MODE_IN_COMMUNICATION
+		route()
+		Log.i(TAG, "audio: mode=${audio.mode} route set in ${SystemClock.elapsedRealtime() - started} ms")
+		Handler(Looper.getMainLooper()).post { finishEnter() }
+	}
+
+	@Synchronized
+	private fun finishEnter() {
+		if (!active) return
 		val request = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
 			.setAudioAttributes(
 				AudioAttributes.Builder()
@@ -44,17 +61,17 @@ class AudioRouter(context: Context) {
 			.build()
 		focus = request
 		val granted = audio.requestAudioFocus(request)
-		route()
 		// A headset plugged in or taken out during the call moves it. The
 		// engine reopens its streams on whatever route the system settles on.
 		audio.registerAudioDeviceCallback(devices, Handler(Looper.getMainLooper()))
-		Log.i(TAG, "audio: mode=${audio.mode} focus=$granted")
+		Log.i(TAG, "audio: focus=$granted")
 	}
 
+	@Synchronized
 	fun exit() {
 		if (!active) return
 		active = false
-		audio.unregisterAudioDeviceCallback(devices)
+		runCatching { audio.unregisterAudioDeviceCallback(devices) }
 		current = null
 		if (Build.VERSION.SDK_INT >= 31) audio.clearCommunicationDevice() else audio.isSpeakerphoneOn = false
 		focus?.let { audio.abandonAudioFocusRequest(it) }
@@ -63,6 +80,7 @@ class AudioRouter(context: Context) {
 		Log.i(TAG, "audio: restored mode=${audio.mode}")
 	}
 
+	@Synchronized
 	private fun reroute() {
 		if (active) route()
 	}

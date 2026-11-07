@@ -7,6 +7,7 @@
 
 uniffi::setup_scaffolding!();
 
+mod audio_session;
 mod back;
 mod bridge;
 mod ffi;

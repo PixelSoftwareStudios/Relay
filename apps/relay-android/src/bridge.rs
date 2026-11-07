@@ -142,6 +142,12 @@ pub trait HostBridge: Send + Sync {
 	/// The call changed. Kotlin starts or stops the foreground service and
 	/// asks for the microphone permission when a call begins without it.
 	fn call_changed(&self, summary: CallSummary);
+	/// The engine's audio streams are about to open (`true`) or the last one
+	/// is gone (`false`). Kotlin enters or leaves the call audio state
+	/// (mode, focus, route) and returns only once it is in place, so the
+	/// stream that opens next is not disconnected by it. Called from the
+	/// engine's audio device thread.
+	fn audio_streams_wanted(&self, wanted: bool);
 	/// Show the system microphone dialog (the UI's "Allow microphone").
 	fn request_microphone(&self);
 	/// Open this app's page in the system settings.

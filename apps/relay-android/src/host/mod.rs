@@ -37,6 +37,7 @@ use relay_ui::{messaging, supervisor};
 use tokio::runtime::{Handle, Runtime};
 use tokio::task::JoinHandle;
 
+use crate::audio_session::AudioSession;
 use crate::bridge::{CallSummary, EngineConfig, EngineError, FoundService, HostBridge};
 use crate::sealed::{KeystoreSealer, SealedIdentityStore, SealedVault};
 use crate::shell::AndroidShell;
@@ -110,7 +111,7 @@ impl Host {
 			paths.data_dir().join("channel-sealed"),
 			sealer,
 		)));
-		options.audio = audio_setup();
+		options.audio = audio_setup(bridge.clone());
 		options.default_display_name.clone_from(&config.default_display_name);
 		options.network.discovery = Some(DiscoverySetup {
 			advertise: true,
@@ -344,15 +345,30 @@ impl Host {
 	}
 }
 
+/// Tells Kotlin when audio streams are wanted (see `audio_session`).
+struct BridgeSession(Arc<dyn HostBridge>);
+
+impl AudioSession for BridgeSession {
+	fn streams_wanted(&self, wanted: bool) {
+		self.0.audio_streams_wanted(wanted);
+	}
+}
+
 #[cfg(target_os = "android")]
-fn audio_setup() -> AudioSetup {
-	AudioSetup::Backend(Box::new(|| {
-		Box::new(relay_audio::device::AAudioBackend::new())
+fn audio_setup(bridge: Arc<dyn HostBridge>) -> AudioSetup {
+	AudioSetup::Backend(Box::new(move || {
+		let mut backend = crate::audio_session::SessionBackend::new(
+			relay_audio::device::AAudioBackend::new(),
+			Arc::new(BridgeSession(bridge)),
+		);
+		// The first output of a process is the slow one; pay for it now, not at the first ring.
+		backend.warm();
+		Box::new(backend)
 	}))
 }
 
 #[cfg(not(target_os = "android"))]
-fn audio_setup() -> AudioSetup {
+fn audio_setup(_bridge: Arc<dyn HostBridge>) -> AudioSetup {
 	AudioSetup::Cpal
 }
 

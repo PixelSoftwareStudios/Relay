@@ -36,6 +36,10 @@ object RelayRuntime {
 	lateinit var locks: NetworkLocks
 		private set
 
+	/** The phone's call audio state (mode, focus, route), see [LingeringHold]. */
+	lateinit var callAudio: LingeringHold
+		private set
+
 	@Volatile
 	var engine: RelayEngine? = null
 		private set
@@ -58,6 +62,19 @@ object RelayRuntime {
 	fun init(application: Application) {
 		app = application
 		locks = NetworkLocks(application)
+		val router = AudioRouter(application)
+		callAudio = LingeringHold(
+			target = object : Releasable {
+				override fun acquire() = router.enter()
+				override fun release() = router.exit()
+			},
+			scheduler = Scheduler { delay, task ->
+				val run = Runnable { task() }
+				main.postDelayed(run, delay)
+				val cancel: () -> Unit = { main.removeCallbacks(run) }
+				cancel
+			},
+		)
 		worker.execute { startEngine() }
 	}
 

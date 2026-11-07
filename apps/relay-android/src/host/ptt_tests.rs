@@ -69,6 +69,7 @@ impl Rig {
 			trust: PeerTrust::TofuUnverified,
 			reachable: true,
 			avatar: None,
+			key_change: None,
 		};
 		control.peers_changed(vec![info]).await.unwrap();
 		let peer_hex = hex::encode([PEER; 32]);

@@ -220,7 +220,9 @@ impl AudioBackend for AAudioBackend {
 				AudioCallbackResult::Continue
 			}))
 			.error_callback(Box::new(move |_, error| report(&on_error, error)));
+		let opening = std::time::Instant::now();
 		let stream = builder.open_stream().map_err(backend_err)?;
+		let open_ms = u64::try_from(opening.elapsed().as_millis()).unwrap_or(u64::MAX);
 		// Low latency means a buffer of a few bursts: two bursts absorb the
 		// render worker's 10 ms schedule without the default's deep queue.
 		let burst = stream.frames_per_burst();
@@ -231,6 +233,7 @@ impl AudioBackend for AAudioBackend {
 			mode = ?stream.performance_mode(),
 			burst,
 			buffer = ?sized,
+			open_ms,
 			"AAudio playback opened"
 		);
 		Ok(PlaybackStream {

@@ -185,6 +185,11 @@ Order in `handle_back` (`crates/relay-ui/src/ui/back.rs`): an open dialog or inl
 - The engine has never been run on Android; only linked.
 - Gradle/Kotlin toolchain: not available here, so the shell design is paper only.
 
+## Audio state and the first ring
+
+The foreground service no longer enters the call audio state on its own. `AudioRouter` (mode, focus, route) is driven by `LingeringHold`, whose owners are the engine's open audio streams ("streams", told by Rust through `HostBridge::audio_streams_wanted` before the first stream opens, synchronously) and the call service ("service"); it lets go 1.5 s after the last owner. Why and what the user sees: `docs/audio.md`, "Android: call audio state before the first stream". JVM tests: `LingeringHoldTest`; Rust tests with the fake backend: `audio_session::tests`.
+
+
 ## Release file name
 
 The release APK is `relay-<version>-android-arm64-v8a.apk` (`just android-apk` writes the same name into `dist/android/`; with other ABIs the name lists them, for example `-android-arm64-v8a-x86_64`). The name states the ABI so a user can tell it is the right one: arm64-v8a is 64-bit ARM, which nearly every phone sold since about 2016 uses. 32-bit ARM and x86 phones are not shipped; the release notes say so.

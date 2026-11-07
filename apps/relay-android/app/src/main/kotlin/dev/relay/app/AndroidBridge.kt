@@ -72,6 +72,11 @@ class AndroidBridge(private val context: Context) : HostBridge {
 		RelayRuntime.onCallChanged(CallInfo(summary.active, summary.incoming, summary.muted, summary.peer))
 	}
 
+	override fun audioStreamsWanted(wanted: Boolean) {
+		// Returns once the call audio state is in place: the engine opens its stream next.
+		if (wanted) RelayRuntime.callAudio.hold("streams") else RelayRuntime.callAudio.drop("streams")
+	}
+
 	override fun requestMicrophone() {
 		MainActivity.current?.let { activity -> activity.runOnUiThread { activity.askForMicrophone() } }
 	}

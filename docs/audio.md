@@ -163,6 +163,44 @@ The first part of each ring used to stutter. Causes, all fixed:
   the output is attached, with the 10 ms fade-in. Looping stays inside the player:
   there is no stream restart between ring cycles.
 
+### Android: call audio state before the first stream
+
+On a phone the ring was the laggy one, and the desktop path was not the difference: the desktop
+does not keep a stream warm either (only the outgoing `Prewarm` above). Android's difference is
+that entering the call audio state (`MODE_IN_COMMUNICATION`, audio focus, `setCommunicationDevice`)
+makes the system disconnect every open stream. That state used to be entered by the foreground
+service, which starts a moment after the call appears, so the ring's output was opened first,
+disconnected underneath the ring, and only came back through the reconnect policy (first retry
+after 20 ms, then 100, 250, 500 ms while the route settles). The ring began late or stuttered.
+
+Now the order is fixed (`apps/relay-android/src/audio_session.rs`, `LingeringHold.kt`):
+
+- `SessionBackend` wraps `AAudioBackend`. Before the first stream (either direction) opens it
+  calls `HostBridge::audio_streams_wanted(true)`, which returns only when Kotlin has entered the
+  mode, focus and route, so the stream that opens next is not disconnected by them. When the last
+  stream is gone it calls it with `false`.
+- Kotlin holds the state through `LingeringHold` while the engine has a stream open or the call
+  service runs, and for 1.5 s after the last owner lets go. A reopen on a route change
+  (`Reconnect`, `OutputRestored` are untouched) and the step from ring to call therefore never
+  leave and re-enter the mode.
+- `SessionBackend::warm` opens the default output once when the engine starts and drops it without
+  starting it: the first AAudio open of a process loads the library and connects to the audio
+  server, which used to be paid at the first ring. It makes no sound, takes no focus and uses
+  no microphone, so there is no microphone indicator.
+- The call audio state is deliberately **not** held while the app is merely open: it pauses the
+  user's music (focus) and routes media volume to call volume, which is not acceptable for an idle
+  app. A stream held open and silent from the foreground would be disconnected by the mode change
+  anyway, so it would not make the ring earlier.
+
+What the user sees: nothing new at idle. During a ring or a call the phone is in call mode (call
+volume, other audio paused), as before; a settings microphone test or ring preview enters it for
+its duration plus 1.5 s. The microphone is still opened only when a call needs it, so the system
+microphone indicator appears only then.
+
+Logged on the device (`adb logcat -s relay`): `output warmed up` (ms), `output opened`
+(`session_ms` is the time the call state took, `open_ms` the AAudio open) and the existing
+`AAudio playback opened`.
+
 The sounds are `include_bytes!` raw PCM decoded once in `TonePlayer::new`; the
 callback side only copies and scales (`tones_are_the_embedded_raw_pcm_decoded_once`),
 and tone render, mix, FIFO write and callback pull allocate nothing

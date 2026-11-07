@@ -46,6 +46,8 @@ impl HostBridge for FakeBridge {
 	fn scan_qr(&self, request_id: u64) {
 		self.scans.lock().unwrap().push(request_id);
 	}
+	fn audio_streams_wanted(&self, _wanted: bool) {}
+
 	fn call_changed(&self, summary: CallSummary) {
 		self.calls.lock().unwrap().push(summary);
 	}
