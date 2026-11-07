@@ -102,22 +102,20 @@ async fn the_called_engine_answers_in_the_default_push_to_talk_mode() {
 		.expect("call")
 		.into_inner()
 		.call_id;
-	let on_a = eventually!(
-		call_in(&mut a.cli, &call)
-			.await
-			.filter(|c| c.auto_answered && c.state != CallState::IncomingRinging as i32)
-	);
-	assert_eq!(
-		on_a.transmit.expect("transmit").mode,
-		TransmitMode::PushToTalk as i32,
-		"the default call mic state, not an open mic"
-	);
+	// The default mode applies when the call connects.
 	let live = eventually!(
 		call_in(&mut a.cli, &call)
 			.await
 			.filter(|c| c.state == CallState::Connected as i32)
 	);
-	assert!(!live.transmit.unwrap().effective_transmitting);
+	assert!(live.auto_answered);
+	let transmit = live.transmit.expect("transmit");
+	assert_eq!(
+		transmit.mode,
+		TransmitMode::PushToTalk as i32,
+		"the default call mic state, not an open mic"
+	);
+	assert!(!transmit.effective_transmitting);
 	// The caller sees an ordinary call that was picked up.
 	let on_b = call_in(&mut b.cli, &call).await.expect("call on b");
 	assert!(!on_b.auto_answered);
