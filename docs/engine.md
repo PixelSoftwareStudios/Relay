@@ -49,9 +49,8 @@ and plug in through the port traits below.
   `MUTED` withdraws it. Starting a call or accepting one never authorizes the microphone by
   itself; a new call starts in `calls.default_transmit_mode` (default `push_to_talk`, a
   user setting applied live when the call connects, through the same route change and gate
-  rules, so no audio captured before the change is ever sent). `ptt.enabled = false`
-  rejects `PUSH_TO_TALK` (`PTT_DISABLED`), turns a push-to-talk default into `muted`
-  (`Settings.effective_default_transmit_mode`) and mutes calls already in push-to-talk.
+  rules, so no audio captured before the change is ever sent). Push-to-talk has no
+  on/off setting: it can always be chosen, and `calls.default_transmit_mode` decides the start mode.
   Audio is verified end to end by `tests/audio_flow.rs`: two whole engines on loopback with
   real sockets, Noise links, Opus and RTP, a synthetic tone as the microphone and a recording
   speaker, after a manual dial plus trust on first use. UDP path challenges are sent again
@@ -306,6 +305,7 @@ Writing goes through `SettingsStore::record_call` (default `Unsupported`; `FileS
   `latency_estimate_method` is `unmeasured`; with one it is `control_keepalive_rtt`. It is a TCP
   probe that queues behind signaling, so it overstates the UDP media path and is never turned
   into a mouth-to-ear figure: jitter and `estimated_mouth_to_ear_ms` stay unset.
+- `PeerControl::peers` (the peer list the service publishes) includes every stored contact, linked or not: `publish_snapshot` adds the trusted fingerprints that have neither a link nor a discovery record, with the stored name, the remembered addresses and `callable = false`, so Contacts never loses a trusted device because it is offline (it used to list only devices with a link). Forgetting removes it at the next loop turn. Test: `tests/peers_offline_contacts.rs`.
 - The microphone test is local only. It meters the capture path and, with
   `local_playback` (which needs `confirmed_feedback_warning`), plays the microphone on the
   user's own output through a one-frame-deep monitor queue. It adds no sender and touches no
