@@ -3,4 +3,23 @@
 	<string name="scan_hint">Наведите камеру на QR-код другого устройства</string>
 	<string name="scan_torch">Фонарик</string>
 	<string name="scan_cancel">Отмена</string>
+	<string name="channel_availability">Доступность</string>
+	<string name="channel_availability_description">Показывается, пока Relay ждёт звонков в этой сети.</string>
+	<string name="availability_active">Relay доступен в этой сети</string>
+	<string name="availability_waiting">Relay ждёт Wi-Fi или локальную сеть</string>
+	<string name="availability_pause">Пауза</string>
+	<string name="channel_incoming">Входящие звонки</string>
+	<string name="channel_incoming_ring">Входящие звонки (звонок и вибрация)</string>
+	<string name="channel_incoming_vibrate">Входящие звонки (вибрация)</string>
+	<string name="channel_incoming_silent">Входящие звонки (без звука)</string>
+	<string name="channel_auto_answer">Автоответ</string>
+	<string name="channel_open">Требуется действие</string>
+	<string name="incoming_title">Входящий звонок</string>
+	<string name="call_unknown_peer">Звонок Relay</string>
+	<string name="accept">Принять</string>
+	<string name="decline">Отклонить</string>
+	<string name="auto_answered">Отвечено автоматически: %1$s</string>
+	<string name="end_call">Завершить звонок</string>
+	<string name="open_for_microphone">Откройте Relay, чтобы разрешить микрофон</string>
+	<string name="open_to_enable">Откройте Relay, чтобы снова стать доступным</string>
 </resources>

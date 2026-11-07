@@ -3,4 +3,23 @@
 	<string name="scan_hint">Aponte a câmera para o código QR do outro dispositivo</string>
 	<string name="scan_torch">Lanterna</string>
 	<string name="scan_cancel">Cancelar</string>
+	<string name="channel_availability">Disponibilidade</string>
+	<string name="channel_availability_description">Mostrada enquanto o Relay espera chamadas nesta rede.</string>
+	<string name="availability_active">O Relay está disponível nesta rede</string>
+	<string name="availability_waiting">O Relay está esperando por Wi-Fi ou uma rede local</string>
+	<string name="availability_pause">Pausar</string>
+	<string name="channel_incoming">Chamadas recebidas</string>
+	<string name="channel_incoming_ring">Chamadas recebidas (toque e vibração)</string>
+	<string name="channel_incoming_vibrate">Chamadas recebidas (vibração)</string>
+	<string name="channel_incoming_silent">Chamadas recebidas (silencioso)</string>
+	<string name="channel_auto_answer">Atendida automaticamente</string>
+	<string name="channel_open">Ação necessária</string>
+	<string name="incoming_title">Chamada recebida</string>
+	<string name="call_unknown_peer">Chamada do Relay</string>
+	<string name="accept">Atender</string>
+	<string name="decline">Recusar</string>
+	<string name="auto_answered">Atendida automaticamente: %1$s</string>
+	<string name="end_call">Encerrar chamada</string>
+	<string name="open_for_microphone">Abra o Relay para permitir o microfone</string>
+	<string name="open_to_enable">Abra o Relay para ficar disponível novamente</string>
 </resources>

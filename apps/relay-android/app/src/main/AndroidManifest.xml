@@ -12,6 +12,12 @@
 	<uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
 	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+	<!-- Long-lived availability service. connectedDevice needs one of the network permissions, CHANGE_WIFI_MULTICAST_STATE above. -->
+	<uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+	<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+	<uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+	<uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+	<uses-permission android:name="android.permission.VIBRATE" />
 
 	<uses-feature android:name="android.hardware.microphone" android:required="true" />
 	<uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -50,5 +56,23 @@
 			android:name=".CallService"
 			android:exported="false"
 			android:foregroundServiceType="microphone" />
+
+		<service
+			android:name=".AvailabilityService"
+			android:exported="false"
+			android:foregroundServiceType="connectedDevice" />
+
+		<receiver
+			android:name=".BootReceiver"
+			android:exported="true">
+			<intent-filter>
+				<action android:name="android.intent.action.BOOT_COMPLETED" />
+				<action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+			</intent-filter>
+		</receiver>
+
+		<receiver
+			android:name=".CallActionReceiver"
+			android:exported="false" />
 	</application>
 </manifest>

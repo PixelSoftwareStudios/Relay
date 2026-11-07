@@ -3,4 +3,23 @@
 	<string name="scan_hint">もう一方のデバイスのQRコードにカメラを向けてください</string>
 	<string name="scan_torch">ライト</string>
 	<string name="scan_cancel">キャンセル</string>
+	<string name="channel_availability">応答可能状態</string>
+	<string name="channel_availability_description">Relay がこのネットワークで通話を待ち受けている間に表示されます。</string>
+	<string name="availability_active">Relay はこのネットワークで応答可能です</string>
+	<string name="availability_waiting">Relay は Wi-Fi またはローカルネットワークを待っています</string>
+	<string name="availability_pause">一時停止</string>
+	<string name="channel_incoming">着信</string>
+	<string name="channel_incoming_ring">着信（着信音とバイブ）</string>
+	<string name="channel_incoming_vibrate">着信（バイブ）</string>
+	<string name="channel_incoming_silent">着信（サイレント）</string>
+	<string name="channel_auto_answer">自動応答</string>
+	<string name="channel_open">操作が必要です</string>
+	<string name="incoming_title">着信</string>
+	<string name="call_unknown_peer">Relay 通話</string>
+	<string name="accept">応答</string>
+	<string name="decline">拒否</string>
+	<string name="auto_answered">自動応答しました: %1$s</string>
+	<string name="end_call">通話を終了</string>
+	<string name="open_for_microphone">マイクを許可するには Relay を開いてください</string>
+	<string name="open_to_enable">この端末を再び応答可能にするには Relay を開いてください</string>
 </resources>

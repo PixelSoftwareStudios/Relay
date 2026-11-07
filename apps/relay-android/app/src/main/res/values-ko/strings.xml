@@ -3,4 +3,23 @@
 	<string name="scan_hint">다른 기기의 QR 코드에 카메라를 맞추세요</string>
 	<string name="scan_torch">손전등</string>
 	<string name="scan_cancel">취소</string>
+	<string name="channel_availability">수신 가능 상태</string>
+	<string name="channel_availability_description">Relay가 이 네트워크에서 통화를 기다리는 동안 표시됩니다.</string>
+	<string name="availability_active">Relay가 이 네트워크에서 수신 가능합니다</string>
+	<string name="availability_waiting">Relay가 Wi-Fi 또는 로컬 네트워크를 기다리는 중입니다</string>
+	<string name="availability_pause">일시중지</string>
+	<string name="channel_incoming">수신 전화</string>
+	<string name="channel_incoming_ring">수신 전화(벨소리와 진동)</string>
+	<string name="channel_incoming_vibrate">수신 전화(진동)</string>
+	<string name="channel_incoming_silent">수신 전화(무음)</string>
+	<string name="channel_auto_answer">자동 응답</string>
+	<string name="channel_open">조치 필요</string>
+	<string name="incoming_title">수신 전화</string>
+	<string name="call_unknown_peer">Relay 통화</string>
+	<string name="accept">수락</string>
+	<string name="decline">거절</string>
+	<string name="auto_answered">자동으로 응답함: %1$s</string>
+	<string name="end_call">통화 종료</string>
+	<string name="open_for_microphone">마이크를 허용하려면 Relay를 여세요</string>
+	<string name="open_to_enable">이 기기를 다시 수신 가능하게 하려면 Relay를 여세요</string>
 </resources>

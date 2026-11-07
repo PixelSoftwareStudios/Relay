@@ -1,12 +1,15 @@
 package dev.relay.app
 
 import android.content.ClipData
+import android.content.ActivityNotFoundException
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.util.Log
+import androidx.core.app.NotificationManagerCompat
 import uniffi.relay_android.CallSummary
 import uniffi.relay_android.HostBridge
 import uniffi.relay_android.HostException
@@ -69,7 +72,41 @@ class AndroidBridge(private val context: Context) : HostBridge {
 	}
 
 	override fun callChanged(summary: CallSummary) {
-		RelayRuntime.onCallChanged(CallInfo(summary.active, summary.incoming, summary.muted, summary.peer))
+		RelayRuntime.onCallChanged(CallInfo(summary.active, summary.incoming, summary.muted, summary.peer, summary.autoAnswered))
+	}
+
+	override fun backgroundChanged(available: Boolean, alert: String) {
+		RelayRuntime.onBackgroundChanged(available, alert)
+	}
+
+	override fun requestBatteryExemption() {
+		runCatching {
+			val step = RelayRuntime.exemption.next(RelayRuntime.batteryExempt())
+			val package_ = Uri.fromParts("package", context.packageName, null)
+			val intent = when (step) {
+				ExemptionStep.NOTHING -> return
+				ExemptionStep.DIALOG -> Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, package_)
+				ExemptionStep.SETTINGS_LIST -> Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+			}
+			try {
+				context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+			} catch (e: ActivityNotFoundException) {
+				// Some builds lack the dialog: the list is always there.
+				context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+			}
+		}.onFailure { Log.w(TAG, "battery exemption request failed", it) }
+	}
+
+	override fun requestNotifications() {
+		val step = notificationStep(Build.VERSION.SDK_INT, RelayRuntime.notifications.state, NotificationManagerCompat.from(context).areNotificationsEnabled())
+		when (step) {
+			NotificationStep.NOTHING -> Unit
+			NotificationStep.DIALOG -> MainActivity.current?.let { it.runOnUiThread { it.askForNotifications() } }
+			NotificationStep.SETTINGS -> runCatching {
+				val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+				context.startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+			}.onFailure { Log.w(TAG, "notification settings failed", it) }
+		}
 	}
 
 	override fun audioStreamsWanted(wanted: Boolean) {

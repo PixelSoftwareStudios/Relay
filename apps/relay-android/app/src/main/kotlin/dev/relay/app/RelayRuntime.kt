@@ -4,7 +4,14 @@ import android.app.Application
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.ConnectivityManager
+import android.net.Network
+import android.net.NetworkCapabilities
+import android.net.NetworkRequest
 import android.os.Build
+import android.os.PowerManager
+import android.os.Vibrator
+import androidx.core.app.NotificationManagerCompat
 import android.provider.Settings
 import android.os.Handler
 import android.os.Looper
@@ -30,6 +37,10 @@ object RelayRuntime {
 	private val pending = mutableListOf<(RelayEngine) -> Unit>()
 	private val callListeners = mutableListOf<(CallInfo) -> Unit>()
 	private val policy = ServicePolicy()
+	private val availabilityPolicy = AvailabilityPolicy()
+	private val availabilityListeners = mutableListOf<(Availability) -> Unit>()
+	private val incomingPolicy = IncomingPolicy()
+	private val autoNotice = AutoAnswerNotice()
 
 	lateinit var app: Application
 		private set
@@ -39,6 +50,30 @@ object RelayRuntime {
 	/** The phone's call audio state (mode, focus, route), see [LingeringHold]. */
 	lateinit var callAudio: LingeringHold
 		private set
+
+	lateinit var prefs: AvailabilityPrefs
+		private set
+	lateinit var notifier: IncomingCallNotifier
+		private set
+	lateinit var exemption: ExemptionPrompt
+		private set
+
+	/** What the availability service is doing; [Availability.OFF] when it is not running. */
+	@Volatile
+	var availability: Availability = Availability.OFF
+		private set
+
+	/** `calls.alert`, as the engine last said. */
+	@Volatile
+	var alert: CallAlert = CallAlert.SYSTEM
+		private set
+
+	/** A Relay screen is on show (the activity is started). */
+	@Volatile
+	var visible: Boolean = false
+		private set
+
+	private var onLan = false
 
 	@Volatile
 	var engine: RelayEngine? = null
@@ -62,6 +97,10 @@ object RelayRuntime {
 	fun init(application: Application) {
 		app = application
 		locks = NetworkLocks(application)
+		prefs = AvailabilityPrefs(application)
+		notifier = IncomingCallNotifier(application)
+		exemption = ExemptionPrompt({ prefs.exemptionAsked }, { prefs.exemptionAsked = true })
+		watchLan(application)
 		val router = AudioRouter(application)
 		callAudio = LingeringHold(
 			target = object : Releasable {
@@ -112,6 +151,7 @@ object RelayRuntime {
 			// A restarted engine starts with nothing known about the permission.
 			started.setMicrophone(microphone.state.access().toState())
 			started.setScanner(app.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
+			started.setAvailable(availability == Availability.ACTIVE)
 			queued.forEach { it(started) }
 			Log.i(TAG, "engine ready")
 		} catch (e: Exception) {
@@ -137,14 +177,169 @@ object RelayRuntime {
 		main.post {
 			synchronized(callListeners) { callListeners.toList() }.forEach { it(info) }
 			reevaluate()
+			reevaluateAlerts()
 		}
 	}
+
+	/** The engine reported `background.available` and `calls.alert` (from a Rust thread). */
+	fun onBackgroundChanged(enabled: Boolean, alertName: String) {
+		main.post {
+			prefs.enabled = enabled
+			alert = CallAlert.parse(alertName)
+			reevaluateAvailability()
+		}
+	}
+
+	/** The activity is started or stopped. */
+	fun setVisible(value: Boolean) {
+		visible = value
+		if (value) {
+			// Opening the app ends a Pause and tells the user nothing needs opening.
+			prefs.paused = false
+			notifier.cancelOpenRelayNeeded()
+			exemption.resumed()
+		}
+		main.post {
+			reevaluateAvailability()
+			reevaluateAlerts()
+			reevaluate()
+		}
+	}
+
+	/** Shows or withdraws the incoming-call and answered-automatically notifications. */
+	fun reevaluateAlerts() {
+		val info = call
+		when (val action = incomingPolicy.decide(info, visible, alert, notifier.canFullScreen())) {
+			is IncomingAction.Show -> notifier.show(info, action.plan, action.fullScreen, microphone.granted)
+			IncomingAction.Cancel -> notifier.cancelIncoming()
+			IncomingAction.None -> Unit
+		}
+		if (autoNotice.changed(info)) {
+			notifier.autoAnswered(info, autoAnswerNotification(microphone.granted))
+		}
+		if (!info.active) notifier.cancelAutoAnswered()
+	}
+
+	fun addAvailabilityListener(listener: (Availability) -> Unit) = synchronized(availabilityListeners) { availabilityListeners += listener }
+
+	fun removeAvailabilityListener(listener: (Availability) -> Unit) = synchronized(availabilityListeners) { availabilityListeners -= listener }
+
+	/** Starts, changes or stops the availability service. Main thread only. */
+	fun reevaluateAvailability(fromBoot: Boolean = false) {
+		val input = AvailabilityInput(prefs.enabled ?: false, prefs.paused, onLan)
+		when (val action = availabilityPolicy.decide(input)) {
+			is AvailabilityAction.Start -> {
+				availability = action.state
+				try {
+					ContextCompat.startForegroundService(app, Intent(app, AvailabilityService::class.java))
+					notifier.cancelOpenRelayNeeded()
+				} catch (e: RuntimeException) {
+					// Android 12+ refuses a start from the background; ask the user to open the app.
+					Log.w(TAG, "availability service refused (boot=$fromBoot)", e)
+					availabilityPolicy.stoppedBySystem()
+					availability = Availability.OFF
+					notifier.openRelayNeeded()
+				}
+			}
+			is AvailabilityAction.Change -> {
+				availability = action.state
+				synchronized(availabilityListeners) { availabilityListeners.toList() }.forEach { it(action.state) }
+			}
+			AvailabilityAction.Stop -> {
+				availability = Availability.OFF
+				app.stopService(Intent(app, AvailabilityService::class.java))
+			}
+			AvailabilityAction.None -> Unit
+		}
+	}
+
+	/** The Pause button of the availability notification. */
+	fun pauseAvailability() {
+		prefs.paused = true
+		main.post { reevaluateAvailability() }
+	}
+
+	fun availabilityStopped() {
+		availabilityPolicy.stoppedBySystem()
+		availability = Availability.OFF
+	}
+
+	/** Tracks Wi-Fi and Ethernet; the availability service waits without them. */
+	private fun watchLan(application: Application) {
+		val connectivity = application.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+		onLan = Lan.anyLan(
+			connectivity.allNetworks.mapNotNull { connectivity.getNetworkCapabilities(it) }.map { it.transports() },
+		)
+		val live = mutableSetOf<Network>()
+		fun changed() {
+			val now = live.isNotEmpty()
+			main.post {
+				if (now != onLan) {
+					onLan = now
+					reevaluateAvailability()
+				}
+			}
+		}
+		val callback = object : ConnectivityManager.NetworkCallback() {
+			override fun onAvailable(network: Network) {
+				synchronized(live) { live += network }
+				changed()
+			}
+
+			override fun onLost(network: Network) {
+				synchronized(live) { live -= network }
+				changed()
+			}
+		}
+		for (transport in intArrayOf(NetworkCapabilities.TRANSPORT_WIFI, NetworkCapabilities.TRANSPORT_ETHERNET)) {
+			runCatching {
+				connectivity.registerNetworkCallback(
+					NetworkRequest.Builder().addTransportType(transport).build(),
+					callback,
+				)
+			}.onFailure { Log.w(TAG, "network callback failed", it) }
+		}
+	}
+
+	private fun NetworkCapabilities.transports(): Set<Lan.Transport> = buildSet {
+		if (hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) add(Lan.Transport.WIFI)
+		if (hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) add(Lan.Transport.ETHERNET)
+		if (hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR)) add(Lan.Transport.CELLULAR)
+		if (hasTransport(NetworkCapabilities.TRANSPORT_VPN)) add(Lan.Transport.VPN)
+	}
+
+	/**
+	 * Tells the UI what it asks about per frame: the battery exemption, whether
+	 * notifications show and whether there is a vibrator. Cheap enough to call on
+	 * every resume and every recheck.
+	 */
+	fun pushPlatformState() {
+		val exempt = runCatching { batteryExempt() }.getOrDefault(true)
+		val notify = NotificationManagerCompat.from(app).areNotificationsEnabled()
+		val vibrate = (app.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator)?.hasVibrator() == true
+		whenReady {
+			it.setBatteryExempt(exempt)
+			it.setNotificationsAllowed(notify)
+			it.setCanVibrate(vibrate)
+		}
+	}
+
+	/** Whether Android lets Relay run unrestricted in the background. */
+	fun batteryExempt(): Boolean =
+		(app.getSystemService(Context.POWER_SERVICE) as PowerManager).isIgnoringBatteryOptimizations(app.packageName)
 
 	/** Starts, refreshes or stops the foreground service for the current call. */
 	fun reevaluate() {
 		val context: Context = app
-		when (val action = policy.decide(call, microphone.granted)) {
-			is ServiceAction.Start -> ContextCompat.startForegroundService(context, Intent(context, CallService::class.java))
+		when (val action = policy.decide(call, microphone.granted, visible)) {
+			is ServiceAction.Start -> try {
+				ContextCompat.startForegroundService(context, Intent(context, CallService::class.java))
+			} catch (e: RuntimeException) {
+				// A microphone service cannot start from the background (an auto-answered call): ask to open the app.
+				Log.w(TAG, "call service refused", e)
+				policy.stoppedBySystem()
+				notifier.autoAnswered(call, AutoAnswerNotification.NEEDS_MICROPHONE)
+			}
 			is ServiceAction.Stop -> context.stopService(Intent(context, CallService::class.java))
 			ServiceAction.NeedMicrophone -> MainActivity.current?.askForMicrophone()
 			is ServiceAction.Update, ServiceAction.None -> Unit
@@ -155,6 +350,11 @@ object RelayRuntime {
 
 	/** Closing the app ends the call and takes the engine off the LAN. */
 	fun shutdown() {
+		if (availability != Availability.OFF) {
+			// Availability keeps the engine: closing the app only ends the call.
+			whenReady { it.hangUp() }
+			return
+		}
 		main.post { app.stopService(Intent(app, CallService::class.java)) }
 		worker.execute {
 			val running = synchronized(pending) { engine.also { engine = null } }

@@ -3,4 +3,23 @@
 	<string name="scan_hint">将相机对准另一台设备的二维码</string>
 	<string name="scan_torch">手电筒</string>
 	<string name="scan_cancel">取消</string>
+	<string name="channel_availability">可用状态</string>
+	<string name="channel_availability_description">Relay 在此网络上等待来电时显示。</string>
+	<string name="availability_active">Relay 在此网络上可接听</string>
+	<string name="availability_waiting">Relay 正在等待 Wi-Fi 或本地网络</string>
+	<string name="availability_pause">暂停</string>
+	<string name="channel_incoming">来电</string>
+	<string name="channel_incoming_ring">来电（响铃并振动）</string>
+	<string name="channel_incoming_vibrate">来电（振动）</string>
+	<string name="channel_incoming_silent">来电（静音）</string>
+	<string name="channel_auto_answer">自动接听</string>
+	<string name="channel_open">需要操作</string>
+	<string name="incoming_title">来电</string>
+	<string name="call_unknown_peer">Relay 通话</string>
+	<string name="accept">接听</string>
+	<string name="decline">拒绝</string>
+	<string name="auto_answered">已自动接听：%1$s</string>
+	<string name="end_call">结束通话</string>
+	<string name="open_for_microphone">打开 Relay 以允许使用麦克风</string>
+	<string name="open_to_enable">打开 Relay 以重新使此设备可接听</string>
 </resources>

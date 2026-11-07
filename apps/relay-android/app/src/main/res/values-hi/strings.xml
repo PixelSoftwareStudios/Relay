@@ -3,4 +3,23 @@
 	<string name="scan_hint">दूसरे डिवाइस के QR कोड पर कैमरा रखें</string>
 	<string name="scan_torch">टॉर्च</string>
 	<string name="scan_cancel">रद्द करें</string>
+	<string name="channel_availability">उपलब्धता</string>
+	<string name="channel_availability_description">जब तक Relay इस नेटवर्क पर कॉल की प्रतीक्षा करता है, तब तक दिखता है।</string>
+	<string name="availability_active">Relay इस नेटवर्क पर उपलब्ध है</string>
+	<string name="availability_waiting">Relay को Wi-Fi या स्थानीय नेटवर्क का इंतज़ार है</string>
+	<string name="availability_pause">रोकें</string>
+	<string name="channel_incoming">आने वाली कॉल</string>
+	<string name="channel_incoming_ring">आने वाली कॉल (रिंग और कंपन)</string>
+	<string name="channel_incoming_vibrate">आने वाली कॉल (कंपन)</string>
+	<string name="channel_incoming_silent">आने वाली कॉल (मौन)</string>
+	<string name="channel_auto_answer">अपने आप उठाई गई</string>
+	<string name="channel_open">कार्रवाई ज़रूरी</string>
+	<string name="incoming_title">आने वाली कॉल</string>
+	<string name="call_unknown_peer">Relay कॉल</string>
+	<string name="accept">उठाएँ</string>
+	<string name="decline">अस्वीकार करें</string>
+	<string name="auto_answered">अपने आप उठाई गई कॉल: %1$s</string>
+	<string name="end_call">कॉल समाप्त करें</string>
+	<string name="open_for_microphone">माइक्रोफ़ोन की अनुमति देने के लिए Relay खोलें</string>
+	<string name="open_to_enable">इस डिवाइस को फिर उपलब्ध करने के लिए Relay खोलें</string>
 </resources>

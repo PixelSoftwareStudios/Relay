@@ -3,4 +3,23 @@
 	<string name="scan_hint">Richte die Kamera auf den QR-Code des anderen Geräts</string>
 	<string name="scan_torch">Taschenlampe</string>
 	<string name="scan_cancel">Abbrechen</string>
+	<string name="channel_availability">Erreichbarkeit</string>
+	<string name="channel_availability_description">Wird angezeigt, solange Relay in diesem Netzwerk auf Anrufe wartet.</string>
+	<string name="availability_active">Relay ist in diesem Netzwerk erreichbar</string>
+	<string name="availability_waiting">Relay wartet auf WLAN oder ein lokales Netzwerk</string>
+	<string name="availability_pause">Pausieren</string>
+	<string name="channel_incoming">Eingehende Anrufe</string>
+	<string name="channel_incoming_ring">Eingehende Anrufe (Klingeln und Vibrieren)</string>
+	<string name="channel_incoming_vibrate">Eingehende Anrufe (Vibrieren)</string>
+	<string name="channel_incoming_silent">Eingehende Anrufe (lautlos)</string>
+	<string name="channel_auto_answer">Automatisch angenommen</string>
+	<string name="channel_open">Aktion erforderlich</string>
+	<string name="incoming_title">Eingehender Anruf</string>
+	<string name="call_unknown_peer">Relay-Anruf</string>
+	<string name="accept">Annehmen</string>
+	<string name="decline">Ablehnen</string>
+	<string name="auto_answered">Automatisch angenommen: %1$s</string>
+	<string name="end_call">Anruf beenden</string>
+	<string name="open_for_microphone">Relay öffnen, um das Mikrofon zu erlauben</string>
+	<string name="open_to_enable">Relay öffnen, um dieses Gerät wieder erreichbar zu machen</string>
 </resources>

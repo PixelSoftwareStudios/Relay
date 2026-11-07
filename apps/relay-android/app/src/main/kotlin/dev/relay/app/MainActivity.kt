@@ -1,6 +1,7 @@
 package dev.relay.app
 
 import android.Manifest
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
@@ -53,7 +54,27 @@ class MainActivity : GameActivity() {
 		InsetsTracker(window.decorView).attach()
 		readPermissions()
 		requestMissingPermissions()
+		handleCallIntent(intent)
 	}
+
+	override fun onNewIntent(intent: Intent) {
+		super.onNewIntent(intent)
+		handleCallIntent(intent)
+	}
+
+	/** Opened from a call notification: show over the lock screen, and answer when Accept was tapped. */
+	private fun handleCallIntent(intent: Intent?) {
+		if (intent?.getBooleanExtra(EXTRA_FROM_CALL, false) != true) return
+		setShowWhenLocked(true)
+		setTurnScreenOn(true)
+		if (intent.getBooleanExtra(EXTRA_ANSWER, false)) {
+			intent.removeExtra(EXTRA_ANSWER)
+			// The microphone question comes first; the answer follows once it is granted.
+			if (microphone().granted) RelayRuntime.whenReady { it.answer() } else pendingAnswer = true
+		}
+	}
+
+	private var pendingAnswer = false
 
 	/**
 	 * While the microphone is missing and the app is visible (a split-screen
@@ -72,6 +93,7 @@ class MainActivity : GameActivity() {
 		super.onStart()
 		handler.postDelayed(recheck, RECHECK_MS)
 		RelayRuntime.locks.hold(OWNER)
+		RelayRuntime.setVisible(true)
 		nsd.start()
 		RelayRuntime.whenReady { it.setForeground(true) }
 		readPermissions()
@@ -89,6 +111,10 @@ class MainActivity : GameActivity() {
 		RelayRuntime.whenReady { it.setForeground(false) }
 		nsd.stop()
 		RelayRuntime.locks.drop(OWNER)
+		RelayRuntime.setVisible(false)
+		// The call screen shows over the lock screen only for the call that asked for it.
+		setShowWhenLocked(false)
+		setTurnScreenOn(false)
 		super.onStop()
 	}
 
@@ -133,6 +159,7 @@ class MainActivity : GameActivity() {
 		ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED
 
 	private fun readPermissions() {
+		RelayRuntime.pushPlatformState()
 		microphone().checked(granted(Manifest.permission.RECORD_AUDIO))
 		notifications().checked(Build.VERSION.SDK_INT < 33 || granted(Manifest.permission.POST_NOTIFICATIONS))
 	}
@@ -151,12 +178,21 @@ class MainActivity : GameActivity() {
 
 	private fun onMicrophoneResult(granted: Boolean) {
 		microphone().result(granted, shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO))
+		if (granted && pendingAnswer) RelayRuntime.whenReady { it.answer() }
+		pendingAnswer = false
+	}
+
+	/** The UI's "allow notifications": the system dialog when Android will still show it. */
+	fun askForNotifications() {
+		if (Build.VERSION.SDK_INT >= 33 && notifications().shouldRequest()) requestMissingPermissions()
 	}
 
 	companion object {
 		private const val TAG = "relay"
 		private const val OWNER = "activity"
 		private const val RECHECK_MS = 3000L
+		const val EXTRA_FROM_CALL = "dev.relay.app.FROM_CALL"
+		const val EXTRA_ANSWER = "dev.relay.app.ANSWER"
 
 		@Volatile
 		var current: MainActivity? = null
