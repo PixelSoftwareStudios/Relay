@@ -57,6 +57,15 @@ fn answer(phone: &Phone) {
 		}));
 }
 
+/// The frames after a collapse, with the time its animation needs.
+async fn closed(phone: &mut Phone) -> Drawn {
+	for _ in 0..4 {
+		phone.settle();
+		tokio::time::sleep(std::time::Duration::from_millis(150)).await;
+	}
+	phone.settle()
+}
+
 fn open_body(drawn: &Drawn) -> bool {
 	has(drawn, "Share this address")
 }
@@ -77,33 +86,28 @@ async fn the_section_is_open_with_nobody_known() {
 }
 
 #[tokio::test]
-async fn the_section_is_collapsed_with_people_but_copy_stays() {
+async fn the_section_is_open_with_people_too_and_collapses_without_a_copy_button() {
 	for desktop in [true, false] {
 		let mut phone = people(desktop, Language::En, true);
 		let drawn = phone.page(Page::Connect);
-		assert!(has(&drawn, "Connect a device"));
-		assert!(!open_body(&drawn), "desktop={desktop}: {:?}", drawn.labels);
-		assert!(!has(&drawn, "Scan this code"));
-		assert!(has(&drawn, "Copy address"), "{:?}", drawn.labels);
+		assert!(open_body(&drawn), "desktop={desktop}: {:?}", drawn.labels);
+		phone.click_label("Connect a device");
+		let drawn = closed(&mut phone).await;
+		assert!(!open_body(&drawn), "{:?}", drawn.labels);
+		assert!(!has(&drawn, "Copy address"), "{:?}", drawn.labels);
 		assert!(has(&drawn, "Add a device by address"));
 	}
 }
 
 #[tokio::test]
-async fn copy_address_copies_the_connection_string_in_both_states() {
-	for peers in [false, true] {
-		let mut phone = people(true, Language::En, peers);
-		phone.page(Page::Connect);
-		if peers {
-			phone.click_label("Copy address");
-		} else {
-			phone.click_icon(Icon::Copy);
-		}
-		assert_eq!(
-			*phone.shell.copied.lock().unwrap(),
-			vec![ADDRESS.to_owned()]
-		);
-	}
+async fn copy_address_copies_the_connection_string() {
+	let mut phone = people(true, Language::En, false);
+	phone.page(Page::Connect);
+	phone.click_icon(Icon::Copy);
+	assert_eq!(
+		*phone.shell.copied.lock().unwrap(),
+		vec![ADDRESS.to_owned()]
+	);
 }
 
 #[tokio::test]
@@ -111,7 +115,10 @@ async fn the_users_choice_is_kept_across_pages() {
 	let mut phone = people(true, Language::En, true);
 	phone.page(Page::Connect);
 	phone.click_label("Connect a device");
-	let drawn = phone.settle();
+	assert!(!open_body(&closed(&mut phone).await));
+	phone.click_label("Connect a device");
+	answer(&phone);
+	let drawn = closed(&mut phone).await;
 	assert!(open_body(&drawn) && has(&drawn, "Scan this code"));
 	phone.page(Page::Calls);
 	// Leaving the page dropped the string; the daemon answers again on return.

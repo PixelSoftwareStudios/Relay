@@ -1,8 +1,7 @@
 //! The Connect page: the devices found nearby (not trusted yet), then
 //! "Connect a device": how others reach this device (the address, its QR
 //! code, Scan on phones) and the field for another device's address. The
-//! address section is open while there are no contacts and collapsed
-//! afterwards, unless the user chose.
+//! address section is open unless the user collapsed it.
 
 use egui::{self, RichText, Ui};
 use relay_client::connection::{self, ConnectionStringProblem};
@@ -28,10 +27,9 @@ use crate::viewmodel::PeerRow;
 /// Pixels per QR module.
 const QR_SCALE: usize = 4;
 
-/// Whether the section shows its body: the user's choice, else open exactly
-/// when there are no contacts yet.
-pub fn is_open(local: &Local, no_contacts: bool) -> bool {
-	local.connect_open.unwrap_or(no_contacts)
+/// Whether the section shows its body: the user's choice, else open.
+pub fn is_open(local: &Local) -> bool {
+	local.connect_open.unwrap_or(true)
 }
 
 pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
@@ -42,18 +40,18 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	let found: Vec<&PeerRow> = rows.iter().filter(|r| !r.known && !r.blocked).collect();
 	nearby::section(ui, &found, cx);
 	kit::gap(ui);
-	card(ui, cx, !rows.iter().any(|r| r.known));
+	card(ui, cx);
 	kit::gap(ui);
 	add_by_address(ui, cx);
 }
 
 /// The "Connect a device" card.
-fn card(ui: &mut Ui, cx: &mut Cx, no_contacts: bool) {
+fn card(ui: &mut Ui, cx: &mut Cx) {
 	if !cx.local.connection_requested {
 		cx.local.connection_requested = true;
 		cx.actions.fetch_connection();
 	}
-	let open = is_open(cx.local, no_contacts);
+	let open = is_open(cx.local);
 	kit::card(ui, |ui| {
 		let (_, pressed) = collapsing_header_controlled(
 			ui,
@@ -66,26 +64,9 @@ fn card(ui: &mut Ui, cx: &mut Cx, no_contacts: bool) {
 		if pressed {
 			cx.local.connect_open = Some(!open);
 		}
-		if !open {
-			collapsed(ui, cx);
-		}
 	});
 	if !open {
 		cx.local.qr = None;
-	}
-}
-
-/// The collapsed section: Copy address stays one click away.
-fn collapsed(ui: &mut Ui, cx: &mut Cx) {
-	if let Some(Ok(info)) = &cx.local.connection
-		&& !info.connection_string.is_empty()
-	{
-		let text = info.connection_string.clone();
-		button_row(ui, |ui| {
-			if icon_label(ui, Icon::Copy, tr!("connection-copy")).clicked() {
-				cx.actions.copy_text(&text);
-			}
-		});
 	}
 }
 
