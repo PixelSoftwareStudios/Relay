@@ -10,6 +10,8 @@
 
 mod assets;
 
+use std::sync::Arc;
+
 use rtrb::{Consumer, Producer, RingBuffer};
 use thiserror::Error;
 
@@ -17,13 +19,15 @@ use thiserror::Error;
 pub const FADE_SAMPLES: usize = 480;
 /// Pending control commands the player can hold.
 pub const COMMAND_CAPACITY: usize = 32;
+/// Custom rings that can wait for the player (and be handed back to the control side).
+const RING_SWAPS: usize = 4;
 
 /// An embedded sound.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Sound {
-	/// Incoming-call ring; loop period 2.0 s.
+	/// Incoming-call ring (a soft two-note chime); loop period 4.0 s.
 	Ring = 0,
-	/// Outgoing-call ringback; loop period 3.0 s.
+	/// Outgoing-call ringback (two slow swells); loop period 4.0 s.
 	Ringback = 1,
 	/// Falling one-shot blip.
 	CallEnd = 2,
@@ -67,6 +71,8 @@ enum Command {
 /// Control handle; keep exactly one (it is the queue's only producer).
 pub struct ToneControl {
 	tx: Producer<Command>,
+	ring_tx: Producer<Option<Arc<[f32]>>>,
+	retired_rx: Consumer<Arc<[f32]>>,
 }
 
 impl ToneControl {
@@ -97,6 +103,14 @@ impl ToneControl {
 		self.send(Command::SetMuted(muted))
 	}
 
+	/// Replace the incoming-call ring with `ring` (48 kHz mono, already faded and padded with
+	/// its pause; its length is the loop period) or restore the built-in chime with `None`.
+	/// The previous buffer is handed back here, never freed on the real-time side.
+	pub fn set_custom_ring(&mut self, ring: Option<Arc<[f32]>>) -> Result<(), ToneError> {
+		while self.retired_rx.pop().is_ok() {}
+		self.ring_tx.push(ring).map_err(|_| ToneError::QueueFull)
+	}
+
 	fn send(&mut self, command: Command) -> Result<(), ToneError> {
 		self.tx.push(command).map_err(|_| ToneError::QueueFull)
 	}
@@ -121,6 +135,9 @@ struct Active {
 /// Plays one tone at a time into the mix.
 pub struct TonePlayer {
 	rx: Consumer<Command>,
+	ring_rx: Consumer<Option<Arc<[f32]>>>,
+	retired_tx: Producer<Arc<[f32]>>,
+	custom: Option<Arc<[f32]>>,
 	sounds: [Vec<f32>; 4],
 	active: Option<Active>,
 	pending: Option<(Sound, bool, f32)>,
@@ -135,9 +152,14 @@ impl TonePlayer {
 	/// Decode every sound once and create the control handle.
 	pub fn new() -> (Self, ToneControl) {
 		let (tx, rx) = RingBuffer::new(COMMAND_CAPACITY);
+		let (ring_tx, ring_rx) = RingBuffer::new(RING_SWAPS);
+		let (retired_tx, retired_rx) = RingBuffer::new(RING_SWAPS + 2);
 		let sounds = Sound::ALL.map(|s| assets::decode(s.bytes()));
 		let player = Self {
 			rx,
+			ring_rx,
+			retired_tx,
+			custom: None,
 			sounds,
 			active: None,
 			pending: None,
@@ -147,7 +169,14 @@ impl TonePlayer {
 			muted: false,
 			mute_env: 1.0,
 		};
-		(player, ToneControl { tx })
+		(
+			player,
+			ToneControl {
+				tx,
+				ring_tx,
+				retired_rx,
+			},
+		)
 	}
 
 	pub fn state(&self) -> ToneState {
@@ -165,8 +194,29 @@ impl TonePlayer {
 	/// Applies queued control commands without rendering, so an idle owner can
 	/// tell whether a tone was just started.
 	pub fn poll_commands(&mut self) {
+		self.take_rings();
 		while let Ok(command) = self.rx.pop() {
 			self.apply(command);
+		}
+	}
+
+	/// Installs the newest custom ring; the old buffer goes back to the control side so no
+	/// memory is freed here (if that queue were ever full it is leaked rather than freed).
+	fn take_rings(&mut self) {
+		while let Ok(next) = self.ring_rx.pop() {
+			if let Some(old) = std::mem::replace(&mut self.custom, next)
+				&& let Err(rtrb::PushError::Full(old)) = self.retired_tx.push(old)
+			{
+				std::mem::forget(old);
+			}
+		}
+	}
+
+	/// Samples of `sound` and its loop period (the custom ring replaces the built-in one).
+	fn data(&self, sound: Sound) -> (&[f32], usize) {
+		match (&self.custom, sound) {
+			(Some(ring), Sound::Ring) => (ring, ring.len()),
+			_ => (&self.sounds[sound.index()], sound.period_samples()),
 		}
 	}
 
@@ -178,9 +228,7 @@ impl TonePlayer {
 	/// Drain commands and ADD the tone to `out` (mono, 48 kHz). Safe to call
 	/// from an audio callback.
 	pub fn render_into(&mut self, out: &mut [f32]) {
-		while let Ok(command) = self.rx.pop() {
-			self.apply(command);
-		}
+		self.poll_commands();
 		let step = 1.0 / FADE_SAMPLES as f32;
 		for dst in out.iter_mut() {
 			if self.active.is_none() {
@@ -196,13 +244,13 @@ impl TonePlayer {
 			let mute_target = if self.muted { 0.0 } else { 1.0 };
 			self.mute_env = approach(self.mute_env, mute_target, step);
 
-			let data = &self.sounds[a.sound.index()];
+			let (data, period) = self.data(a.sound);
 			let sample = data.get(a.position).copied().unwrap_or(0.0);
 			*dst += sample * self.gain * self.env * self.mute_env;
 
 			a.position += 1;
 			let mut done = a.stopping && self.env <= 0.0;
-			if a.position >= a.sound.period_samples() {
+			if a.position >= period {
 				if a.looping {
 					a.position = 0;
 				} else {

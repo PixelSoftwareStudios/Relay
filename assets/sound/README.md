@@ -9,10 +9,10 @@ Loop periods (trailing silence) are defined in `crates/relay-audio/src/tones/`.
 
 | File | Use |
 |---|---|
-| `ring.raw` | incoming-call ring (E5/A5 cadence, 2.0 s period) |
-| `ringback.raw` | outgoing-call ringback (dual-tone double burst, 3.0 s period) |
-| `call-end.raw` | one-shot falling blip |
-| `connected.raw` | one-shot rising blip |
+| `ring.raw` | incoming-call ring (soft E4/B4 chime, peak -12 dBFS, 4.0 s period) |
+| `ringback.raw` | outgoing-call ringback (two slow 350/440 Hz swells, peak -12 dBFS, 4.0 s period) |
+| `call-end.raw` | one-shot falling blip (peak -14 dBFS) |
+| `connected.raw` | one-shot rising blip (peak -14 dBFS) |
 
 Regenerate from this directory: `rustc -O --edition 2024 generate.rs -o /tmp/gen && /tmp/gen`.
 

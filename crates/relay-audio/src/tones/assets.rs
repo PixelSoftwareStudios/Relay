@@ -36,8 +36,8 @@ impl Sound {
 	/// One-shots return their own length.
 	pub fn period_samples(self) -> usize {
 		match self {
-			Sound::Ring => 2 * RATE,
-			Sound::Ringback => 3 * RATE,
+			Sound::Ring => 4 * RATE,
+			Sound::Ringback => 4 * RATE,
 			Sound::CallEnd | Sound::Connected => self.bytes().len() / 2,
 		}
 	}

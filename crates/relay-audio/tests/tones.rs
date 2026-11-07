@@ -151,12 +151,12 @@ fn volume_bounds_and_scaling() {
 	assert!(c.start(Sound::Ring, true, 0.0).is_ok());
 	assert_eq!(peak(&render(&mut p, 9600)), 0.0);
 	c.set_volume(1.0).unwrap();
-	let full = peak(&render(&mut p, 9600));
-	c.set_volume(0.5).unwrap();
-	render(&mut p, 960);
-	let half = peak(&render(&mut p, 9600));
-	assert!(full <= 0.5 + 1e-3 && full > 0.3);
-	assert!(half < full * 0.8);
+	let full = peak(&render(&mut p, 48_000));
+	let (mut p2, mut c2) = new();
+	c2.start(Sound::Ring, true, 0.5).unwrap();
+	let half = peak(&render(&mut p2, 48_000));
+	assert!(full <= 0.25 + 1e-3 && full > 0.2);
+	assert!((half - full * 0.5).abs() < 1e-3);
 }
 
 #[test]
