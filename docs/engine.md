@@ -375,7 +375,8 @@ preferences changed, or a preview runs) and sends the resulting `ToneCommand`s t
 `SettingsChange::Ring` / `Aux.ring` carry `audio.ringtone_enabled`,
 `audio.ringtone_volume`, `audio.ringback_enabled` and `audio.call_sounds_enabled`;
 `SetGlobalControls` changes them (`ServiceOp::Controls.ring`), persists, publishes
-`Settings` and the next sync applies the change to a playing tone. `PreviewTone`
+`Settings` and the next sync applies the change to a playing tone. `SetRingtone`
+(`ServiceOp::Ringtone` / `ResetRingtone`: store through `SettingsStore::store_ringtone`, then `MediaControl::set_ringtone`; at start the stored ring is handed to the media port) sets a device-local custom ring, see `docs/audio.md`. `PreviewTone`
 (`ServiceOp::PreviewTone`) arms a 2 s test ring; the actor wakes at its deadline.
 The actor stops any tone at shutdown. Tests: `tone_driver`, `service_tones` (fake
 media records tone commands: no ring unattended, ring with a client, stop on
