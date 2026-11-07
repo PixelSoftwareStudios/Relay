@@ -62,8 +62,9 @@ async fn channel_members_get_independent_calls_and_no_cross_audio() {
 	wait_state(&mut b.cli, &to_b, CallState::Connected).await;
 	wait_state(&mut c.cli, &to_c, CallState::Connected).await;
 
-	// Connected and silent: shared membership did not consent to any microphone.
-	settle(500).await;
+	// Connected and silent: shared membership did not consent to any microphone. The local
+	// connect chime (about 270 ms) is the device's own sound, so let it finish first.
+	settle(900).await;
 	for side in [&a, &b, &c] {
 		assert!(rms(&tail(side, 300)) < 1e-4, "nobody consented yet");
 	}

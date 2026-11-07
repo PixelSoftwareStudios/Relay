@@ -224,6 +224,9 @@ async fn connected_pair() -> (Side, Side, Vec<u8>) {
 	);
 	wait_state(&mut a.cli, &call, CallState::Connected).await;
 	wait_state(&mut b.cli, &call, CallState::Connected).await;
+	// Each device plays its own connect chime (about 270 ms). That is the device's sound, not
+	// call audio, so let it finish before a test listens for silence.
+	tokio::time::sleep(Duration::from_millis(400)).await;
 	(a, b, call)
 }
 

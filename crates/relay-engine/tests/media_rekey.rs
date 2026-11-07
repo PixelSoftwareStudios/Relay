@@ -36,14 +36,26 @@ async fn audio_continues_after_the_link_session_is_replaced() {
 	.await;
 	let before = a.media.media_epoch(b.id).expect("a media socket exists");
 
-	// The link dialled by the lower fingerprint survives an election, so that
-	// side replaces the session.
+	// The link dialled by the lower fingerprint survives an election, so that side
+	// replaces the session. A dials the first link. When A is the lower side, a second
+	// link dialled by A ties on the dialler, the higher random epoch wins, and the
+	// replacement happens only about half the time, so A dials until one takes over.
 	let a_is_lower = a.identity.fingerprint().as_bytes() < b.identity.fingerprint().as_bytes();
+	let replaced = |a: &Node, b: &Node| {
+		a.media.media_epoch(b.id).is_some_and(|e| e != before)
+			&& b.media.media_epoch(a.id).is_some_and(|e| e != before)
+	};
 	if a_is_lower {
-		a.peers
-			.dial(b.peers.local_addr(), Some(b.id))
-			.await
-			.unwrap();
+		for _ in 0..12 {
+			a.peers
+				.dial(b.peers.local_addr(), Some(b.id))
+				.await
+				.unwrap();
+			run_for(&mut a, &mut b, Duration::from_millis(400)).await;
+			if replaced(&a, &b) {
+				break;
+			}
+		}
 	} else {
 		b.peers
 			.dial(a.peers.local_addr(), Some(a.id))
@@ -54,10 +66,7 @@ async fn audio_continues_after_the_link_session_is_replaced() {
 		&mut a,
 		&mut b,
 		"both media sockets follow the new session",
-		|a, b| {
-			a.media.media_epoch(b.id).is_some_and(|e| e != before)
-				&& b.media.media_epoch(a.id).is_some_and(|e| e != before)
-		},
+		replaced,
 	)
 	.await;
 
