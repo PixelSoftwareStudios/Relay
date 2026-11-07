@@ -23,7 +23,7 @@ TARGETS = {
     "x86_64-unknown-linux-gnu": "linux-x64",
     "aarch64-unknown-linux-gnu": "linux-arm64",
 }
-ANDROID_SUFFIX = "android-arm64"
+ANDROID_SUFFIX = "android-arm64-v8a"
 # relay-desktop is the window; relay and relayd are the headless pair (docs/packaging.md).
 CLI_PROGRAMS = ("relay", "relayd")
 DESKTOP_PROGRAMS = ("relay-desktop",) + CLI_PROGRAMS
@@ -235,7 +235,8 @@ def release_notes(version, changes):
     apk = f"relay-{version}-{ANDROID_SUFFIX}.apk"
     return "\n".join([
         changes, "", "## Downloads", "", *rows, "",
-        f"Android (arm64): `{apk}`, debug-signed, installable by sideloading.", "",
+        f"Android: `{apk}` for 64-bit ARM phones (arm64-v8a, nearly every phone sold since about "
+        "2016), debug-signed, installable by sideloading. Other ABIs (32-bit ARM, x86) are not shipped.", "",
         "These builds are not code-signed or notarized: macOS apps are ad-hoc signed (open them "
         "once with right-click, Open) and Windows installers are unsigned (SmartScreen warns).", "",
         "Verify downloads with `sha256sum --check --ignore-missing SHA256SUMS.txt` "

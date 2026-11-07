@@ -15,10 +15,11 @@ for the headless pair (`relay`, `relayd`). Platforms: `windows-x64`, `windows-ar
 | Windows | `.msi`, `-portable.zip` | `.zip` |
 | macOS | `.dmg`, `-update.zip` (the raw `Relay.app`, for self-updating) | `.tar.gz` |
 | Linux | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` | `.tar.gz` |
-| Android | `relay-<version>-android-arm64.apk` | |
+| Android | `relay-<version>-android-arm64-v8a.apk` | |
 
 23 assets plus `SHA256SUMS.txt`. Nothing is code-signed or notarized: macOS apps are ad-hoc signed,
-Windows installers are unsigned, the APK is debug-signed.
+Windows installers are unsigned, the APK is debug-signed. The APK is arm64-v8a only (64-bit ARM, nearly
+every phone since about 2016); the name says so, and the release notes repeat it.
 
 ## Build and publish
 

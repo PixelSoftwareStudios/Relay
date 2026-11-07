@@ -280,10 +280,10 @@ jobs:
           "ndk;28.2.13676358"
       - run: just android-apk
       - name: Name and checksum the APK
-        run: python scripts/packaging/package_android.py --version ${{ needs.version.outputs.version }} --apk dist/android/relay-v${{ needs.version.outputs.version }}.apk --output release
+        run: python scripts/packaging/package_android.py --version ${{ needs.version.outputs.version }} --apk dist/android/relay-${{ needs.version.outputs.version }}-android-arm64-v8a.apk --output release
       - uses: actions/upload-artifact@v7
         with:
-          name: relay-${{ needs.version.outputs.version }}-android-arm64
+          name: relay-${{ needs.version.outputs.version }}-android-arm64-v8a
           path: release/*
           if-no-files-found: error
           compression-level: 0

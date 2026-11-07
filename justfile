@@ -16,7 +16,7 @@ android-setup:
 	rustup target add aarch64-linux-android x86_64-linux-android
 	cargo install cargo-ndk --locked
 
-# Build a debug-signed APK (arm64 phones) into dist/android/relay-v<version>.apk.
+# Build a debug-signed APK (arm64 phones) into dist/android/relay-<version>-android-<abis>.apk (arm64-v8a by default).
 # Pass ABIs to include the x86_64 emulator too: just android-apk arm64-v8a,x86_64
 android-apk abis="arm64-v8a":
 	#!/usr/bin/env bash
@@ -33,12 +33,13 @@ android-apk abis="arm64-v8a":
 	rm -f apps/relay-android/app/build/outputs/apk/debug/app-debug.apk
 	(cd apps/relay-android && ./gradlew assembleDebug -Prelay.version="{{version}}" -Prelay.abis="{{abis}}")
 	mkdir -p dist/android
-	cp apps/relay-android/app/build/outputs/apk/debug/app-debug.apk "dist/android/relay-v{{version}}.apk"
-	echo "dist/android/relay-v{{version}}.apk"
+	apk="dist/android/relay-{{version}}-android-{{replace(abis, ",", "-")}}.apk"
+	cp apps/relay-android/app/build/outputs/apk/debug/app-debug.apk "$apk"
+	echo "$apk"
 
 # Build the APK and install it on the connected phone (USB or wireless debugging), then launch it.
 android-install abis="arm64-v8a": (android-apk abis)
-	adb install -r "dist/android/relay-v{{version}}.apk"
+	adb install -r "dist/android/relay-{{version}}-android-{{replace(abis, ",", "-")}}.apk"
 	adb shell am start -n dev.relay.app/.MainActivity
 
 # One-time: cargo install cargo-nextest --locked. The real-clock tests are throttled in .config/nextest.toml.

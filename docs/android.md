@@ -184,3 +184,7 @@ Order in `handle_back` (`crates/relay-ui/src/ui/back.rs`): an open dialog or inl
 - Security review of the Keystore wrapping scheme: not designed in detail.
 - The engine has never been run on Android; only linked.
 - Gradle/Kotlin toolchain: not available here, so the shell design is paper only.
+
+## Release file name
+
+The release APK is `relay-<version>-android-arm64-v8a.apk` (`just android-apk` writes the same name into `dist/android/`; with other ABIs the name lists them, for example `-android-arm64-v8a-x86_64`). The name states the ABI so a user can tell it is the right one: arm64-v8a is 64-bit ARM, which nearly every phone sold since about 2016 uses. 32-bit ARM and x86 phones are not shipped; the release notes say so.

@@ -25,7 +25,7 @@ class AndroidTests(unittest.TestCase):
     def test_apk_is_renamed_and_checksummed(self):
         apk = self.apk("AndroidManifest.xml", "lib/arm64-v8a/librelay.so")
         target = android.package(self.version, apk, self.root / "out")
-        self.assertEqual(target.name, f"relay-{self.version}-android-arm64.apk")
+        self.assertEqual(target.name, f"relay-{self.version}-android-arm64-v8a.apk")
         self.assertTrue(target.with_name(target.name + ".sha256").is_file())
 
     def test_wrong_contents_are_refused(self):
