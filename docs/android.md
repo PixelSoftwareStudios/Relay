@@ -191,6 +191,16 @@ Order in `handle_back` (`crates/relay-ui/src/ui/back.rs`): an open dialog or inl
 The foreground service no longer enters the call audio state on its own. `AudioRouter` (mode, focus, route) is driven by `LingeringHold`, whose owners are the engine's open audio streams ("streams", told by Rust through `HostBridge::audio_streams_wanted` before the first stream opens, synchronously) and the call service ("service"); it lets go 1.5 s after the last owner. Why and what the user sees: `docs/audio.md`, "Android: call audio state before the first stream". JVM tests: `LingeringHoldTest`; Rust tests with the fake backend: `audio_session::tests`.
 
 
+## Background availability, call alert and auto-answer (shell work)
+
+The engine side is done (`docs/decisions.md`, "background availability and auto-answer"; settings in `docs/config.md`; API in `docs/api.md`, revision 6). The Android shell has to:
+
+- **Foreground service for availability.** While `Settings.background_available` is true, run a foreground service (type `microphone` is only for calls; use `connectedDevice`/`dataSync` or the type the target SDK allows for a LAN-listening service, with a persistent low-importance notification "Relay is available") that holds a state watch on the in-process engine, so the engine counts as attached: it advertises, listens and rings. Acquire a `WifiManager.MulticastLock` and a Wi-Fi lock (and a partial wake lock only while a call rings or is live) so NSD and the listener survive doze on the LAN. Stop it when the setting turns off or the device leaves the LAN.
+- **Battery-optimization exemption.** Offer (never force) `ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` and the OEM background settings page from the Settings text for this switch; say plainly that without it Android may stop the service.
+- **Call alert.** Read `Settings.call_alert`: `system` follows the ringer mode and Do Not Disturb (the notification channel's default behaviour), `ring_and_vibrate`, `vibrate` and `silent` override it on the incoming-call channel (full-screen intent, vibration pattern, sound). The engine ringtone player already stays quiet for `vibrate` and `silent`, so the shell only adds the vibration.
+- **Auto-answer.** On `StateEvent.auto_answered` and while `Call.auto_answered` is true show a heads-up notification "Answered automatically: <name>" and a persistent in-call indicator; keep the microphone foreground-service type for the call. The state of the mic is whatever `Call.transmit` says (push-to-talk by default); do not open it.
+- **Boot.** Restart the service after boot or app update when the setting is on (`RECEIVE_BOOT_COMPLETED`).
+
 ## Release file name
 
 The release APK is `relay-<version>-android-arm64-v8a.apk` (`just android-apk` writes the same name into `dist/android/`; with other ABIs the name lists them, for example `-android-arm64-v8a-x86_64`). The name states the ABI so a user can tell it is the right one: arm64-v8a is 64-bit ARM, which nearly every phone sold since about 2016 uses. 32-bit ARM and x86 phones are not shipped; the release notes say so.

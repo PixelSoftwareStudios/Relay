@@ -249,6 +249,21 @@ settings events. The peers adapter learns the profile through `PeerControl::prof
   redialling. The directory emits `Removed{kind:"peer"}` and re-reads the peer list.
   `Peer.fingerprint_short` is `Fingerprint::short()` of the peer id.
 
+## Auto-answer
+
+`service/actor_auto.rs` (`Actor::sync_auto_answer`, run after every message and tick). An `IncomingRinging` call
+whose caller passes `may_auto_answer` (`calls.auto_answer_enabled`, `Directory::may_auto_answer`: flagged, label
+`Verified` in the peer list, link up; no other live call; a client attached) is scheduled `AUTO_ANSWER_DELAY`
+(1.5 s) ahead and checked again when due. It then acquires the controller lease for the first attached client and
+runs the ordinary `AcceptCall`, so the domain, the default call mode and the media path are exactly those of a hand
+answer. The call is noted in `Directory` (`Call.auto_answered`), `ToneDriver::force_chime` makes its connect blip play
+with call sounds off, and an `AutoAnswered` event is published. The flag set lives in `SettingsStore::auto_answer` /
+`set_auto_answer` (the `auto_answer` table; `MemorySettings` keeps it in memory), is refreshed into the directory at
+start, after forget, replace-key and trust decisions and on each peer-list update. `calls.alert` reaches the tone
+driver as `ToneInput::ring_audible`. Tests: `service_auto_answer` (fake adapters: delay, event, default mode,
+unverified/unflagged/key-changed/blocked, kill switch, decline wins, busy), `service_auto_answer_pair` (two engines),
+`service_call_settings`, `tone_driver`. Rationale and threat model: `docs/decisions.md`.
+
 ## Settings by key
 
 `GetSettings` returns `SettingsStore::all()` (`relay_config::prefs::flat::all`: every settable

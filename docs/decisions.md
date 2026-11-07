@@ -2,6 +2,51 @@
 
 Short records of choices that changed or are easy to forget. Newest first.
 
+## Decision: background availability and auto-answer
+
+Status: accepted (engine and settings built; the Android service, the desktop tray and the UI are the
+shells' work, see `docs/android.md` and `docs/desktop.md`).
+
+Two features share one aim: a device can stay reachable and answer without anyone touching it.
+
+- **Background availability** (`background.available`, default on). The daemon already advertises and listens
+  while a client is attached; the setting asks the OS shells to keep a client attached (Android foreground
+  service, desktop tray, a CLI-started daemon) while no window is open and the device is on the LAN. The engine
+  only stores and publishes it; it starts no service itself.
+- **Call alert** (`calls.alert`: `system` default, `ring_and_vibrate`, `vibrate`, `silent`). `system` follows the OS
+  or phone profile (ringer mode, Do Not Disturb); the others override it. The engine ringtone player rings for
+  `system` and `ring_and_vibrate` only; vibration belongs to the Android shell. On a desktop `vibrate` is silent.
+- **Auto-answer**, per contact (`SetPeerAutoAnswer`), plus a global switch `calls.auto_answer_enabled` (default on).
+
+Threat model of auto-answer. Answering opens a call, which can open the local microphone, for someone other than
+the person at the device. What it must not allow: an attacker, a stranger, a device that merely has the same name,
+or a once-trusted contact whose key changed getting an open line. What it gives an attacker who does hold a
+verified contact's key (a stolen unlocked device): a call that connects without a tap, in the user's own default
+call mic state, announced and audible.
+
+Controls, all enforced in the engine (`service/actor_auto.rs`), none left to a UI:
+
+1. Opt-in per contact, off by default, and only for a contact stored as `verified` (the safety code was compared out
+   of band). A TOFU contact cannot be switched on (the store refuses) and a TOFU label is ignored at call time.
+2. The flag is a row that references the contact's trust row, so forgetting, blocking or replacing the pinned key
+   deletes it in the same statement. A key-changed device is a different identity and never matches.
+3. Checked twice, when the call starts ringing and again when the delay is over: the global switch is on, the
+   caller is flagged and labelled verified, the link is the authenticated one for that key, no other call is live,
+   and a client is attached to own the call. Anything else keeps ringing as today.
+4. Not a bypass of privacy: the inbound policy, hidden advert mode and blocking act before a call can ring, so
+   a device that is private or not accepting calls refuses as it always did.
+5. A fixed 1.5 s delay with the ring and notification running, so the local user can decline first (a decline in
+   that window wins).
+6. The call connects like an accepted one: the mic state is `calls.default_transmit_mode` (push-to-talk by
+   default), never forced open and not a separate mode.
+7. Audible and visible: the connect chime plays even when call sounds are off, `Call.auto_answered` stays true for
+   the life of the call and an `AutoAnswered` state event is sent once, so shells show a persistent indicator and
+   a notification.
+8. Kill switch: `calls.auto_answer_enabled = false` ignores every flag at once (flags are kept), live.
+
+Not done: the call history does not mark auto-answered calls (it would need a column; the live `Call` carries the
+flag). The first ring of an auto-answered call is also what wakes a phone; that part is the shell's.
+
 ## Decision: sonora
 
 Status: accepted. Replaces the earlier plan to pick a noise-suppression backend from a speech corpus (the
