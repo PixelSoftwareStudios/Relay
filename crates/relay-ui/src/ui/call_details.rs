@@ -29,28 +29,38 @@ pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 		kit::help(ui, tr!("details-waiting"));
 		return;
 	};
-	egui::Grid::new(("call-details", &card.call_id))
+	table(ui, ("call-details", &card.call_id), rows(&s));
+	kit::details(ui, ("call-details-more", &card.call_id), |ui| {
+		table(ui, ("call-details-more-grid", &card.call_id), more_rows(&s));
+	});
+}
+
+/// The label and value pairs. With a pointer they sit in two columns; under touch rules (a
+/// narrow screen) each value goes under its label, so a long word in any language can never
+/// push the card wider than the screen.
+fn table(
+	ui: &mut Ui,
+	id: impl std::hash::Hash + std::fmt::Debug,
+	rows: Vec<(&'static str, String)>,
+) {
+	if crate::layout::is_touch(ui) {
+		for (label, value) in rows {
+			ui.add(egui::Label::new(RichText::new(label).weak()).wrap());
+			ui.add(egui::Label::new(value).wrap());
+			ui.add_space(theme::SPACE_S);
+		}
+		return;
+	}
+	egui::Grid::new(id)
 		.num_columns(2)
 		.spacing([theme::SPACE_L, theme::SPACE_S])
 		.show(ui, |ui| {
-			for (label, value) in rows(&s) {
+			for (label, value) in rows {
 				ui.label(RichText::new(label).weak());
 				ui.add(egui::Label::new(value).wrap());
 				ui.end_row();
 			}
 		});
-	kit::details(ui, ("call-details-more", &card.call_id), |ui| {
-		egui::Grid::new(("call-details-more-grid", &card.call_id))
-			.num_columns(2)
-			.spacing([theme::SPACE_L, theme::SPACE_S])
-			.show(ui, |ui| {
-				for (label, value) in more_rows(&s) {
-					ui.label(RichText::new(label).weak());
-					ui.add(egui::Label::new(value).wrap());
-					ui.end_row();
-				}
-			});
-	});
 }
 
 /// Ctrl/Cmd+Shift+D: open the panel of the first live call, or close it.
