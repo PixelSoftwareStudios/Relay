@@ -23,3 +23,6 @@ tray-active =
 tray-idle = Relay: ожидание
 tray-show = Показать Relay
 tray-quit = Выйти из приложения (демон продолжит работу)
+tray-status-available = Доступно
+tray-status-unavailable = Недоступно
+tray-stay-available = Оставаться доступным в фоне

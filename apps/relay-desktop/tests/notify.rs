@@ -3,7 +3,10 @@
 
 use std::sync::{Arc, Mutex};
 
-use relay_desktop::notify::{Dispatcher, IncomingTracker, Notifier, NotifySink, caller_name};
+use relay_desktop::notify::{
+	Announcement, Dispatcher, IncomingTracker, Kind, Notifier, NotifySink, Reply, caller_name,
+	reply_for, text,
+};
 use relay_ui::emitter::{Sink, TraySummary};
 use relay_ui::model::{AppState, Call, Link, Meters, Peer, Phase, Transmit, Trust};
 
@@ -24,6 +27,7 @@ fn peer(name: &str) -> Peer {
 		key_changed: false,
 		previous_peer_id: String::new(),
 		previous_fingerprint_short: String::new(),
+		auto_answer: false,
 	}
 }
 
@@ -47,6 +51,7 @@ fn call(id: &str, phase: Phase) -> Call {
 		controlled_by_me: false,
 		controller_generation: 0,
 		connected_at_unix_ms: 0,
+		auto_answered: false,
 	}
 }
 
@@ -183,4 +188,44 @@ fn the_sink_forwards_state_and_notifies_off_the_emitter_thread() {
 	}
 	assert_eq!(*fake.shown.lock().unwrap(), ["Ada"]);
 	assert_eq!(*inner.states.lock().unwrap(), 2);
+}
+
+#[test]
+fn an_auto_answered_call_is_announced_once_after_its_ring() {
+	let mut tracker = IncomingTracker::default();
+	let ringing = state("Ada", vec![call("c1", Phase::IncomingRinging)]);
+	assert_eq!(tracker.announcements(&ringing, true, false).len(), 1);
+	let mut answered = call("c1", Phase::Connected);
+	answered.auto_answered = true;
+	let live = state("Ada", vec![answered]);
+	let found = tracker.announcements(&live, true, false);
+	assert_eq!(found.len(), 1);
+	assert_eq!(found[0].kind, Kind::AutoAnswered);
+	assert_eq!(found[0].caller, "Ada");
+	assert!(tracker.announcements(&live, true, false).is_empty());
+	assert_eq!(text(&found[0]).1, "Answered automatically: Ada");
+}
+
+#[test]
+fn an_auto_answer_seen_with_the_window_in_front_is_not_announced_later() {
+	let mut tracker = IncomingTracker::default();
+	let mut answered = call("c1", Phase::Connected);
+	answered.auto_answered = true;
+	let live = state("Ada", vec![answered]);
+	assert!(tracker.announcements(&live, true, true).is_empty());
+	assert!(tracker.announcements(&live, true, false).is_empty());
+}
+
+#[test]
+fn notification_actions_map_to_replies() {
+	assert_eq!(reply_for("accept"), Some(Reply::Accept));
+	assert_eq!(reply_for("decline"), Some(Reply::Decline));
+	assert_eq!(reply_for("default"), Some(Reply::Open));
+	assert_eq!(reply_for("__closed"), None);
+	let a = Announcement {
+		call_id: "c".into(),
+		caller: "Ada".into(),
+		kind: Kind::Ringing,
+	};
+	assert_eq!(text(&a).1, "Ada");
 }

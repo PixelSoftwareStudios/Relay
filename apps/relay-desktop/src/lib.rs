@@ -3,6 +3,7 @@
 //! or inference lives here; the daemon owns all of it.
 
 pub mod app;
+pub mod background;
 pub mod host;
 pub mod hotkey;
 pub mod login;

@@ -3,3 +3,7 @@
 
 notification-title = Chamada recebida no Relay
 notification-unknown-caller = Chamador desconhecido
+notification-accept = Aceitar
+notification-decline = Recusar
+notification-open = Abrir
+notification-auto-answered = Atendida automaticamente: { $name }

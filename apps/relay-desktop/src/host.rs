@@ -14,6 +14,7 @@ use relay_ui::microphone::MicrophoneAccess;
 use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
 
+use crate::background::Background;
 use crate::hotkey::HotkeyShared;
 use crate::microphone::{MicrophoneGate, System};
 use crate::options::DesktopOptions;
@@ -32,6 +33,8 @@ pub struct DesktopShell {
 	/// Push-to-talk presses; without it the hold button and the key are not offered.
 	ptt: Option<Arc<PttControl>>,
 	hotkey: Arc<HotkeyShared>,
+	/// `background.available` as last seen; closing hides to the tray only while it is on.
+	background: Arc<Background>,
 }
 
 impl DesktopShell {
@@ -49,7 +52,14 @@ impl DesktopShell {
 			focused: AtomicBool::new(false),
 			ptt: None,
 			hotkey: Arc::default(),
+			background: Arc::default(),
 		}
+	}
+
+	/// Share the background-availability state that the sink keeps current.
+	pub fn with_background(mut self, background: Arc<Background>) -> Self {
+		self.background = background;
+		self
 	}
 
 	/// Offer push-to-talk: the hold button presses through `ptt` and the
@@ -188,7 +198,7 @@ impl Shell for DesktopShell {
 	}
 
 	fn hides_to_tray(&self) -> bool {
-		self.tray.load(Ordering::Acquire)
+		self.tray.load(Ordering::Acquire) && self.background.enabled()
 	}
 
 	/// Re-read the permission each time the window gains focus: the user may have

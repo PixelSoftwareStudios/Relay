@@ -5,3 +5,7 @@
 
 notification-title = Relay 수신 통화
 notification-unknown-caller = 알 수 없는 발신자
+notification-accept = 수락
+notification-decline = 거절
+notification-open = 열기
+notification-auto-answered = 자동으로 응답함: { $name }

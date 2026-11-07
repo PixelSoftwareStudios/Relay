@@ -19,3 +19,6 @@ tray-active =
 tray-idle = Relay: 대기 중
 tray-show = Relay 열기
 tray-quit = 이 앱 종료 (데몬은 계속 실행)
+tray-status-available = 연결 가능
+tray-status-unavailable = 연결 불가
+tray-stay-available = 백그라운드에서 계속 연결 가능 상태 유지

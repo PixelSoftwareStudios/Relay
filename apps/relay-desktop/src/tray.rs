@@ -2,13 +2,17 @@
 //! On Linux the app builds no tray: `tray-icon` needs a GTK main loop there,
 //! which this client does not run, so closing the window quits the app.
 
-use tray_icon::menu::{Menu, MenuEvent, MenuItem};
+use std::sync::Arc;
+
+use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 
 use relay_ui::actions::Actions;
 use relay_ui::emitter::{TrayState, TraySummary};
 use relay_ui::imaging::decode_for_texture;
 use relay_ui::tr;
+
+use crate::background::{Background, TrayFacts};
 
 /// Monochrome template glyphs. macOS draws the `@2x` pair on Retina screens
 /// and tints template images itself; other platforms use the 1x glyphs.
@@ -48,6 +52,9 @@ fn icon_for(state: TrayState) -> Option<Icon> {
 pub struct Tray {
 	icon: TrayIcon,
 	status: MenuItem,
+	availability: MenuItem,
+	stay: CheckMenuItem,
+	facts: TrayFacts,
 	show: MenuItem,
 	quit: MenuItem,
 	shown: TrayState,
@@ -61,12 +68,32 @@ impl Tray {
 		// The summary differs when the language changed, so the menu follows it.
 		self.show.set_text(tr!("tray-show"));
 		self.quit.set_text(tr!("tray-quit"));
+		self.stay.set_text(tr!("tray-stay-available"));
+		self.availability.set_text(availability_text(self.facts));
 		if summary.icon != self.shown
 			&& let Some(icon) = icon_for(summary.icon)
 		{
 			let _ = set_tray_icon(&self.icon, icon);
 			self.shown = summary.icon;
 		}
+	}
+}
+
+impl Tray {
+	/// Redraw the availability line and the check item from the facts.
+	pub fn set_facts(&mut self, facts: TrayFacts) {
+		self.facts = facts;
+		self.availability.set_text(availability_text(facts));
+		self.stay.set_checked(facts.background);
+	}
+}
+
+/// The status line under the tooltip: whether this device can be reached right now.
+pub fn availability_text(facts: TrayFacts) -> &'static str {
+	if facts.available {
+		tr!("tray-status-available")
+	} else {
+		tr!("tray-status-unavailable")
 	}
 }
 
@@ -92,15 +119,39 @@ fn with_glyph(builder: TrayIconBuilder, icon: Icon) -> TrayIconBuilder {
 }
 
 /// Build the tray on the UI thread. Failure is non-fatal.
-pub fn build(actions: &Actions) -> Option<Tray> {
+///
+/// `set_background` asks the engine to store `background.available`; the check mark follows
+/// the setting as it comes back, not the click.
+pub fn build(
+	actions: &Actions,
+	background: Arc<Background>,
+	set_background: Arc<dyn Fn(bool) + Send + Sync>,
+) -> Option<Tray> {
 	if cfg!(not(any(target_os = "macos", target_os = "windows"))) {
 		return None;
 	}
 	let status = MenuItem::with_id("status", "Relay", false, None);
 	let show = MenuItem::with_id("show", tr!("tray-show"), true, None);
 	let quit = MenuItem::with_id("quit", tr!("tray-quit"), true, None);
+	let facts = background.facts();
+	let availability = MenuItem::with_id("availability", availability_text(facts), false, None);
+	let stay = CheckMenuItem::with_id(
+		"stay",
+		tr!("tray-stay-available"),
+		true,
+		facts.background,
+		None,
+	);
 	let menu = Menu::new();
-	menu.append_items(&[&status, &show, &quit]).ok()?;
+	menu.append_items(&[
+		&status,
+		&availability,
+		&PredefinedMenuItem::separator(),
+		&stay,
+		&show,
+		&quit,
+	])
+	.ok()?;
 	let builder = TrayIconBuilder::new()
 		.with_tooltip("Relay")
 		.with_menu(Box::new(menu))
@@ -112,6 +163,11 @@ pub fn build(actions: &Actions) -> Option<Tray> {
 	let a = actions.clone();
 	MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id.0.as_str() {
 		"show" => a.show_window(),
+		"stay" => {
+			set_background(!background.enabled());
+			background.mark_stale();
+			a.shell.request_repaint();
+		}
 		// The tray can outlive a hidden window that never repaints, so exit directly.
 		"quit" => std::process::exit(0),
 		_ => {}
@@ -130,6 +186,9 @@ pub fn build(actions: &Actions) -> Option<Tray> {
 	Some(Tray {
 		icon,
 		status,
+		availability,
+		stay,
+		facts,
 		show,
 		quit,
 		shown: TrayState::Idle,

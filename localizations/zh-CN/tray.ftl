@@ -19,3 +19,6 @@ tray-active =
 tray-idle = Relay：空闲
 tray-show = 显示 Relay
 tray-quit = 退出此应用（守护进程继续运行）
+tray-status-available = 可接听
+tray-status-unavailable = 不可接听
+tray-stay-available = 在后台保持可用

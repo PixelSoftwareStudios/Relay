@@ -21,3 +21,6 @@ tray-active =
 tray-idle = Relay: inativo
 tray-show = Mostrar o Relay
 tray-quit = Sair deste app (o daemon continua em execução)
+tray-status-available = Disponível
+tray-status-unavailable = Indisponível
+tray-stay-available = Continuar disponível em segundo plano

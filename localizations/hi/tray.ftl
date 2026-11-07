@@ -20,3 +20,6 @@ tray-active =
 tray-idle = Relay: निष्क्रिय
 tray-show = Relay दिखाएँ
 tray-quit = इस ऐप से बाहर निकलें (डेमन चलता रहेगा)
+tray-status-available = उपलब्ध
+tray-status-unavailable = अनुपलब्ध
+tray-stay-available = बैकग्राउंड में उपलब्ध रहें

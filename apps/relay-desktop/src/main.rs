@@ -1,15 +1,17 @@
 use std::sync::Arc;
 
 use relay_desktop::app::DesktopApp;
+use relay_desktop::background::{Background, BackgroundSink};
 use relay_desktop::host::DesktopShell;
 use relay_desktop::hotkey::{self, HotkeyHost, HotkeyShared};
 use relay_desktop::login::LoginItem;
-use relay_desktop::notify::{Dispatcher, NotifySink, SystemNotifier};
+use relay_desktop::notify::{Dispatcher, NotifySink, Reply, Responder, SystemNotifier};
 use relay_desktop::options::DesktopOptions;
 use relay_desktop::prefs::DesktopPrefs;
 use relay_desktop::ptt::PttControl;
 use relay_desktop::tray;
 use relay_ui::actions::{Actions, Shared, ShellSink};
+use relay_ui::background_settings::KEY_BACKGROUND;
 use relay_ui::controller::{Controller, SessionSlot};
 use relay_ui::daemon_control;
 use relay_ui::emitter::{self, Cadence};
@@ -79,8 +81,10 @@ fn main() -> eframe::Result {
 				Box::new(|| resolve_endpoint().map_err(|e| e.to_string())),
 			));
 			let hotkey_state = Arc::new(HotkeyShared::default());
+			let background = Arc::new(Background::default());
 			let host = Arc::new(
 				DesktopShell::new(ctx.clone(), options.clone())
+					.with_background(background.clone())
 					.with_push_to_talk(ptt.clone(), hotkey_state.clone()),
 			);
 			// The system prompt appears now, not at the first call.
@@ -100,12 +104,21 @@ fn main() -> eframe::Result {
 				shared: shared.clone(),
 				shell,
 			});
-			let (switch, front) = (options.clone(), host.clone());
-			let sink = Arc::new(NotifySink::new(
-				shell_sink,
-				dispatcher,
-				Arc::new(move || switch.notify_incoming()),
-				Arc::new(move || front.in_front()),
+			let (switch, front, repaint) = (options.clone(), host.clone(), host.clone());
+			let respond = notification_replies(&actions);
+			let notify = Arc::new(
+				NotifySink::new(
+					shell_sink,
+					dispatcher,
+					Arc::new(move || switch.notify_incoming()),
+					Arc::new(move || front.in_front()),
+				)
+				.with_responder(respond),
+			);
+			let sink = Arc::new(BackgroundSink::new(
+				notify,
+				background.clone(),
+				Arc::new(move || repaint.request_repaint()),
 			));
 			runtime.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			if mock_mode {
@@ -154,7 +167,7 @@ fn main() -> eframe::Result {
 					supervisor::supervise(engine, hub, slot, shell, autostart).await;
 				});
 			}
-			let tray = tray::build(&actions);
+			let tray = tray::build(&actions, background.clone(), set_background(&actions));
 			host.set_tray(tray.is_some());
 			let app = RelayApp::new(actions.clone(), &ctx);
 			// Created here, on the main thread, where the OS key must be registered.
@@ -165,8 +178,36 @@ fn main() -> eframe::Result {
 				runtime.handle().clone(),
 			);
 			Ok(Box::new(DesktopApp::new(
-				app, actions, tray, hotkeys, runtime,
+				app, actions, tray, background, hotkeys, runtime,
 			)))
 		}),
 	)
+}
+
+/// Accept, Decline and click-to-open from a notification, run on the runtime.
+fn notification_replies(actions: &Actions) -> Responder {
+	let actions = actions.clone();
+	Arc::new(move |call_id: &str, reply: Reply| {
+		let (controller, id) = (actions.controller.clone(), call_id.to_owned());
+		match reply {
+			Reply::Open => actions.show_window(),
+			Reply::Accept => {
+				actions.show_window();
+				actions.runtime.spawn(async move {
+					let _ = controller.accept_call(&id).await;
+				});
+			}
+			Reply::Decline => {
+				actions.runtime.spawn(async move {
+					let _ = controller.decline_call(&id).await;
+				});
+			}
+		}
+	})
+}
+
+/// The tray's "Stay available in the background" item stores `background.available`.
+fn set_background(actions: &Actions) -> Arc<dyn Fn(bool) + Send + Sync> {
+	let actions = actions.clone();
+	Arc::new(move |on| actions.save_setting(KEY_BACKGROUND, on.to_string()))
 }

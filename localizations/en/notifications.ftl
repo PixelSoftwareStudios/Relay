@@ -6,3 +6,7 @@
 
 notification-title = Incoming Relay call
 notification-unknown-caller = Unknown caller
+notification-accept = Accept
+notification-decline = Decline
+notification-open = Open
+notification-auto-answered = Answered automatically: { $name }

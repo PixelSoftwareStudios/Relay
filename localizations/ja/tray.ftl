@@ -17,3 +17,6 @@ tray-active =
 tray-idle = Relay: 待機中
 tray-show = Relay を表示
 tray-quit = このアプリを終了(デーモンは動作を続けます)
+tray-status-available = 応答可能
+tray-status-unavailable = 応答不可
+tray-stay-available = バックグラウンドで応答可能な状態を保つ
