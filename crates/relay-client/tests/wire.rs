@@ -163,6 +163,7 @@ async fn every_other_command_reaches_its_rpc() {
 			"clear_call_history".into(),
 			"forget_peer id=0 query=kitchen".into(),
 			format!("favorites {},{}", "ab".repeat(32), "cd".repeat(32)),
+			"auto_answer ab true".into(),
 			"set_settings hotkeys.push_to_talk=F9".into(),
 			"mic_test_start".into(),
 			"mic_test_stop".into(),
