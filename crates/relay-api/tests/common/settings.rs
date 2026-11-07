@@ -13,6 +13,7 @@ pub struct Settings {
 	pub forgotten: Mutex<Vec<String>>,
 	pub history: Mutex<Vec<CallHistoryEntry>>,
 	pub favorites: Mutex<Vec<Vec<u8>>>,
+	pub auto_answer: Mutex<Vec<(Vec<u8>, bool)>>,
 }
 
 fn applied(context: Option<&MutationContext>) -> Operation {
@@ -52,6 +53,25 @@ impl Settings {
 			self.forgotten.lock().unwrap().push(body.query.clone());
 		}
 		Ok(operation)
+	}
+
+	/// `SetPeerAutoAnswer`: recorded as sent; a peer id of the wrong length is refused.
+	pub fn set_auto_answer(&self, body: &SetPeerAutoAnswerRequest) -> Operation {
+		let mut operation = applied(body.context.as_ref());
+		if body.peer_id.len() == 32 {
+			self.auto_answer
+				.lock()
+				.unwrap()
+				.push((body.peer_id.clone(), body.enabled));
+		} else {
+			operation.state = OperationState::Failed as i32;
+			operation.problem = Some(Problem {
+				code: "INVALID_REQUEST".into(),
+				message: "malformed peer id".into(),
+				..Problem::default()
+			});
+		}
+		operation
 	}
 
 	/// The contract of `SetFavorites`: at most 6, none twice; a refusal changes nothing.

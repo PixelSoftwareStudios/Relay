@@ -348,6 +348,9 @@ impl Engine for FakeEngine {
 	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
 		Ok(Response::new(self.settings.set_favorites(r.get_ref())))
 	}
+	async fn set_peer_auto_answer(&self, r: Request<SetPeerAutoAnswerRequest>) -> Resp<Operation> {
+		Ok(Response::new(self.settings.set_auto_answer(r.get_ref())))
+	}
 	async fn list_call_history(&self, r: Request<ListCallHistoryRequest>) -> Resp<CallHistoryPage> {
 		Ok(Response::new(self.settings.list_history(r.get_ref())))
 	}

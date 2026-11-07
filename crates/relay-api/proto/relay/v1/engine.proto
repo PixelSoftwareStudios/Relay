@@ -47,6 +47,8 @@ service Engine {
   // Replaces the favorites by this ordered list of trusted peers (docs/engine.md). More than 6,
   // a repeated or an untrusted peer FAILS the operation and changes nothing. Needs `call-control`.
   rpc SetFavorites(SetFavoritesRequest) returns (Operation);
+  // Per-contact auto-answer; only a verified contact can be switched on.
+  rpc SetPeerAutoAnswer(SetPeerAutoAnswerRequest) returns (Operation);
   rpc CreateChannel(CreateChannelRequest) returns (Operation);
   rpc JoinChannel(JoinChannelRequest) returns (Operation);
   rpc LeaveChannel(LeaveChannelRequest) returns (Operation);
@@ -229,6 +231,9 @@ message Peer {
   // Favorites (the quick-call grid): at most 6 trusted peers in a user-chosen order.
   bool favorite = 20;
   uint32 favorite_position = 21; // 0-based place in the favorites; 0 and meaningless when not a favorite
+  // Auto-answer: incoming calls from this contact are answered after a short delay (the
+  // stored flag; it only takes effect for a verified contact while calls.auto_answer_enabled).
+  bool auto_answer = 40;
   // Key change: the device presented a key other than the pinned one and was refused. The
   // peer_id and fingerprint_short above are then those of the NEW key.
   bool key_changed = 30;
@@ -274,6 +279,9 @@ message Call {
   // Engine wall clock when the call became connected (path validated); 0 while not connected.
   // Show durations as now - connected_at_unix_ms so both ends and every client agree.
   uint64 connected_at_unix_ms = 12;
+  // The engine answered this incoming call by itself (auto-answer); a client shows a
+  // persistent "answered automatically" indicator for as long as the call lives.
+  bool auto_answered = 13;
 }
 message Settings {
   uint64 revision = 1;
@@ -311,6 +319,9 @@ message Settings {
   bool noise_suppression_enabled = 33; // audio.noise_suppression: suppress steady background noise on the microphone
   string noise_suppression_level = 34; // audio.noise_suppression_level: "low", "moderate" or "high"
   bool auto_gain_enabled = 35; // audio.auto_gain: even out the microphone level (AGC2)
+  bool background_available = 36; // background.available: stay reachable with no window open; read by the OS shells
+  string call_alert = 37; // calls.alert: "system", "ring_and_vibrate", "vibrate" or "silent"
+  bool auto_answer_enabled = 38; // calls.auto_answer_enabled: global switch; false ignores every per-contact flag
 }
 message Snapshot {
   bytes engine_incarnation = 1;
@@ -328,6 +339,9 @@ message WatchStateRequest {
   repeated bytes call_filter = 3;
   bool include_peers = 4;
 }
+// The engine answered an incoming call from a contact with auto-answer on. Sent once, when
+// it connects the call, so shells can raise a notification.
+message AutoAnswered { bytes call_id = 1; bytes peer_id = 2; string peer_name = 3; }
 message ResyncRequired { uint64 current_revision = 1; string reason = 2; }
 message Removed { bytes id = 1; string kind = 2; }
 message StateEvent {
@@ -340,6 +354,7 @@ message StateEvent {
     Removed removed = 6;
     Problem warning = 7;
     ChannelInfo channel = 8;
+    AutoAnswered auto_answered = 9;
   }
 }
 message StateEnvelope {
@@ -857,6 +872,12 @@ message SessionOpResult {
   bytes session_id = 2;
   MessageRef message = 3;  // the entry created or affected, when there is one
   bytes offer_id = 4;      // OfferFile: the new offer
+}
+
+message SetPeerAutoAnswerRequest {
+  MutationContext context = 1;
+  bytes peer_id = 2; // 32 bytes
+  bool enabled = 3; // on is refused unless the contact is verified
 }
 
 // Favorites: the whole ordered list is sent, so add, remove and move are one request.

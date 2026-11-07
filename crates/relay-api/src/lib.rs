@@ -4,6 +4,7 @@
 //! conversion to validated domain values belongs to the engine crate.
 
 mod client;
+mod client_autoanswer;
 mod client_ext;
 mod client_favorites;
 mod client_messages;
