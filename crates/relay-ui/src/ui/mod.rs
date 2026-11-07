@@ -7,6 +7,7 @@
 //! compact layout with bottom tabs. Messages are not a page: the chat of a
 //! call opens from its call card or its history row (see `chat`).
 
+mod auto_answer;
 mod back;
 mod banners;
 mod call_card;

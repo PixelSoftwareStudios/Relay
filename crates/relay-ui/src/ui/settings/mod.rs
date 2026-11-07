@@ -7,6 +7,7 @@
 
 mod advanced;
 mod audio;
+mod background;
 mod calls;
 mod hotkey;
 mod language;

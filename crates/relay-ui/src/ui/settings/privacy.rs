@@ -38,6 +38,10 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	} else {
 		kit::help(ui, tr!("privacy-none"));
 	}
+	if let Some(settings) = &cx.state.settings {
+		super::background::auto_answer(ui, settings, cx);
+		kit::gap(ui);
+	}
 	kit::card(ui, |ui| {
 		kit::card_title(ui, tr!("privacy-messages"));
 		super::super::messages::privacy_toggle(ui, cx.actions);

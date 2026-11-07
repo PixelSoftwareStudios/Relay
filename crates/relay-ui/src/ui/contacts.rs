@@ -51,6 +51,8 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 		kit::card(ui, |ui| {
 			head(ui, row, cx, full);
 			if full {
+				super::auto_answer::badge(ui, row);
+				super::auto_answer::ask(ui, cx, row);
 				forget_ask(ui, cx, row);
 				block_ask(ui, cx, row);
 				ui.add_space(theme::SPACE_S);
@@ -109,6 +111,7 @@ fn head(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 fn menu(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	let more = icon_button(ui, Icon::More, tr!("contact-more"));
 	kit::menu(&more, |ui| {
+		super::auto_answer::menu_entry(ui, cx, row);
 		if icon_label_red(ui, Icon::Trash, tr!("forget-device")).clicked() {
 			cx.local.forget_confirm = Some(row.peer_id.clone());
 			ui.close();

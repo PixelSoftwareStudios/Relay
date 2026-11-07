@@ -9,7 +9,7 @@ use crate::setting_save::{KEY_DEFAULT_MODE, mode_text};
 
 use super::super::kit::{self, Cx};
 use super::super::widgets::combo;
-use super::{ring, saved};
+use super::{background, ring, saved};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
@@ -18,6 +18,8 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		return;
 	};
 	let actions = cx.actions;
+	background::availability(ui, settings, cx);
+	kit::gap(ui);
 	kit::card(ui, |ui| {
 		let label = |v: Inbound| match v {
 			Inbound::Anyone => tr!("privacy-inbound-anyone"),
@@ -41,6 +43,8 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		kit::card_title(ui, tr!("calls-sounds"));
 		ring::ring_controls(ui, settings, actions, cx.local);
 	});
+	kit::gap(ui);
+	background::alert(ui, settings, cx);
 	if let Some(options) = actions.shell.host_options() {
 		kit::gap(ui);
 		kit::card(ui, |ui| {

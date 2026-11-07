@@ -70,6 +70,13 @@ fn header(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 				} else {
 					sub.weak()
 				});
+				if card.call.auto_answered {
+					ui.label(
+						RichText::new(tr!("call-auto-answered"))
+							.small()
+							.color(theme::LIVE),
+					);
+				}
 			});
 			ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
 				kebab_left = menu(ui, card, cx);
