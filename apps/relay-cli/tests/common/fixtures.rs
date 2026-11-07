@@ -86,7 +86,6 @@ pub fn snapshot() -> Snapshot {
 			ns_backend_id: "off".into(),
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
-			ptt_enabled: true,
 			..Settings::default()
 		}),
 		warnings: Vec::new(),

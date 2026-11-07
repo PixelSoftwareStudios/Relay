@@ -178,19 +178,6 @@ fn choosing_a_mode_is_the_consent_and_needs_no_question() {
 }
 
 #[test]
-fn push_to_talk_is_skipped_in_the_cycle_while_it_is_switched_off() {
-	let mut m = model();
-	m.snapshot.settings.as_mut().unwrap().ptt_enabled = false;
-	assert_eq!(
-		handle_key(&mut m, key('t')),
-		Some(TuiCommand::Route {
-			call_id: CALL.to_vec(),
-			mode: TransmitMode::Unmuted,
-		})
-	);
-}
-
-#[test]
 fn closing_the_microphone_needs_no_prompt_and_drops_a_held_ptt() {
 	let mut m = model();
 	m.snapshot.calls[0].transmit.as_mut().unwrap().mode = TransmitMode::Unmuted as i32;

@@ -11,7 +11,6 @@ use phone::{Drawn, Phone};
 use relay_ui::capabilities::SettingsCategory;
 use relay_ui::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
 use relay_ui::i18n::Language;
-use relay_ui::model::Mode;
 
 /// An engine that records the settings it is given and answers with `outcome`.
 struct Ops {
@@ -79,80 +78,6 @@ async fn settle_until(phone: &mut Phone, text: &str) -> Drawn {
 }
 
 #[tokio::test]
-async fn the_ptt_switch_is_on_by_default_and_shows_what_the_daemon_said() {
-	let (mut phone, ops) = rig(
-		SettingsCategory::PushToTalk,
-		SettingOutcome::AppliedLive,
-		"",
-		|_| {},
-	);
-	let drawn = phone.settle();
-	assert!(has(&drawn, "Enable push-to-talk"), "{:?}", drawn.labels);
-	assert!(
-		!drawn
-			.labels
-			.iter()
-			.any(|l| l.starts_with("Push-to-talk is off"))
-	);
-	phone.click_label("Enable push-to-talk");
-	settle_until(&mut phone, "Saved.").await;
-	assert_eq!(
-		*ops.sent.lock().unwrap(),
-		[("ptt.enabled".to_owned(), "false".to_owned())]
-	);
-}
-
-#[tokio::test]
-async fn with_ptt_off_the_hotkey_and_delay_are_greyed_with_an_explanation() {
-	let (mut phone, _ops) = rig(
-		SettingsCategory::PushToTalk,
-		SettingOutcome::AppliedLive,
-		"",
-		|s| s.ptt_enabled = false,
-	);
-	let drawn = phone.settle();
-	assert!(
-		drawn
-			.labels
-			.iter()
-			.any(|l| l.starts_with("Push-to-talk is off.")),
-		"{:?}",
-		drawn.labels
-	);
-	assert!(has(&drawn, "Push-to-talk release delay"));
-	// The slider is there but cannot be used: only the switch is tappable besides the chrome.
-	let (_, delay) = drawn
-		.named
-		.iter()
-		.find(|(t, _)| t == "Push-to-talk release delay")
-		.unwrap();
-	assert!(
-		!drawn
-			.tappable
-			.iter()
-			.any(|r| r.min.y > delay.max.y && r.min.y < delay.max.y + 90.0),
-		"the delay slider is disabled"
-	);
-}
-
-#[tokio::test]
-async fn a_rejected_switch_says_why_and_what_to_do() {
-	let (mut phone, _ops) = rig(
-		SettingsCategory::PushToTalk,
-		SettingOutcome::Rejected,
-		"invalid: cannot be changed during a call",
-		|_| {},
-	);
-	phone.click_label("Enable push-to-talk");
-	let drawn = settle_until(
-		&mut phone,
-		"Could not save this: cannot be changed during a call. Try again.",
-	)
-	.await;
-	assert!(!drawn.labels.iter().any(|l| l.contains("invalid:")));
-}
-
-#[tokio::test]
 async fn the_default_mode_selector_sends_the_key_and_explains_each_choice() {
 	let (mut phone, ops) = rig(
 		SettingsCategory::Calls,
@@ -177,28 +102,6 @@ async fn the_default_mode_selector_sends_the_key_and_explains_each_choice() {
 			"calls.default_transmit_mode".to_owned(),
 			"unmuted".to_owned()
 		)]
-	);
-}
-
-#[tokio::test]
-async fn with_ptt_off_the_fallback_mode_is_named() {
-	let (mut phone, _ops) = rig(
-		SettingsCategory::Calls,
-		SettingOutcome::AppliedLive,
-		"",
-		|s| {
-			s.ptt_enabled = false;
-			s.effective_default_transmit_mode = Mode::Muted;
-		},
-	);
-	let drawn = phone.settle();
-	assert!(
-		has(
-			&drawn,
-			"Push-to-talk is off, so calls start in this mode instead: Muted."
-		),
-		"{:?}",
-		drawn.labels
 	);
 }
 

@@ -38,11 +38,6 @@ async fn find_target<C: Control>(
 		Ok(snapshot) => snapshot,
 		Err(err) => return (None, TargetStatus::Denied(err.to_string())),
 	};
-	// Followed live: with push-to-talk off no call is bound, so the key sends nothing and a
-	// held lease is released. (The OS registration itself is dropped at the next start.)
-	if snapshot.settings.as_ref().is_some_and(|s| !s.ptt_enabled) {
-		return (None, TargetStatus::PttOff);
-	}
 	let call = match connected(&snapshot).as_slice() {
 		[] => return (None, TargetStatus::NoCall),
 		[one] => (*one).clone(),

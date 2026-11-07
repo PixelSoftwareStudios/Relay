@@ -70,9 +70,6 @@ pub enum Reject {
 	/// The route description is inconsistent.
 	#[error("invalid transmit route")]
 	InvalidRoute,
-	/// Push-to-talk is switched off (`ptt.enabled`), so it cannot be chosen.
-	#[error("push-to-talk is disabled")]
-	PttDisabled,
 	/// The call is not active, so no transmit authority applies.
 	#[error("call is not active")]
 	CallNotActive,

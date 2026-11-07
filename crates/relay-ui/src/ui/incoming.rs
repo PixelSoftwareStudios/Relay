@@ -94,7 +94,7 @@ fn join_note(cx: &Cx) -> &'static str {
 		.state
 		.settings
 		.as_ref()
-		.map_or(Mode::PushToTalk, |s| s.effective_default_transmit_mode);
+		.map_or(Mode::PushToTalk, |s| s.default_transmit_mode);
 	match mode {
 		Mode::Muted => tr!("incoming-join-muted"),
 		Mode::Unmuted => tr!("incoming-join-unmuted"),

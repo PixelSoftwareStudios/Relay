@@ -133,18 +133,6 @@ async fn each_mode_button_sends_its_own_mode() {
 	));
 }
 
-#[tokio::test]
-async fn push_to_talk_is_hidden_while_the_setting_is_off() {
-	let (mut phone, _ops) = rig_with(false, Mode::Muted, |s| {
-		s.settings.as_mut().unwrap().ptt_enabled = false;
-	});
-	let drawn = phone.settle();
-	assert!(has(&drawn, "Muted") && has(&drawn, "Unmuted"));
-	assert!(!has(&drawn, "Push to talk"), "{:?}", drawn.labels);
-	let (mut phone, _ops) = rig(Mode::Muted);
-	assert!(has(&phone.settle(), "Push to talk"));
-}
-
 fn hold_button(drawn: &Drawn) -> egui::Rect {
 	*drawn
 		.tappable
@@ -355,11 +343,7 @@ async fn the_incoming_prompt_says_the_mode_the_call_will_start_in() {
 	] {
 		let mut phone = Phone::new(360.0, 1000.0, Language::En);
 		let mut state = phone::busy_state();
-		state
-			.settings
-			.as_mut()
-			.unwrap()
-			.effective_default_transmit_mode = mode;
+		state.settings.as_mut().unwrap().default_transmit_mode = mode;
 		phone.show_state(&state);
 		let drawn = phone.page(Page::Calls);
 		assert!(has(&drawn, line), "{line}: {:?}", drawn.labels);

@@ -295,8 +295,6 @@ pub struct StoredSettings {
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects.
 	pub default_transmit_mode: relay_core::RouteMode,
-	/// Push-to-talk may be chosen and used.
-	pub ptt_enabled: bool,
 }
 
 /// Capture, playback and per-call media resources.

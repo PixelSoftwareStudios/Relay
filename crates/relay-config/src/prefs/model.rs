@@ -290,10 +290,6 @@ pub struct Calls {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Ptt {
-	/// Push-to-talk may be used: the global hotkey is registered, the talk button is
-	/// offered and `push_to_talk` can be chosen as a transmit mode. Off: a default of
-	/// `push_to_talk` falls back to `muted` and calls in that mode become muted.
-	pub enabled: bool,
 	/// How long the transmit gate stays open after an ordinary key release, so the
 	/// end of a sentence is not clipped. `0` closes at once.
 	pub release_delay_ms: u32,
@@ -305,7 +301,6 @@ pub const MAX_RELEASE_DELAY_MS: u32 = 2000;
 impl Default for Ptt {
 	fn default() -> Self {
 		Self {
-			enabled: true,
 			release_delay_ms: 200,
 		}
 	}

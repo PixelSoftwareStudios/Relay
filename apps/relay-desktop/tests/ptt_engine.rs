@@ -145,7 +145,7 @@ impl Desk {
 		desk.connect_call().await;
 		desk.controller.set_ptt_release_delay(0).await.unwrap();
 		desk.shell.hotkey_accelerator(KEY);
-		desk.host().sync(true);
+		desk.host().sync();
 		desk
 	}
 
@@ -422,13 +422,13 @@ async fn ending_the_call_releases_a_held_key() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn the_key_follows_the_setting_and_ptt_enabled() {
+async fn the_key_follows_the_setting() {
 	let mut desk = Desk::start().await;
 	desk.choose(Mode::PushToTalk).await;
 
 	// A new key is registered again (the fake backend allows one start at a time).
 	desk.shell.hotkey_accelerator("Ctrl+Shift+F9");
-	desk.host().sync(true);
+	desk.host().sync();
 	assert_eq!(
 		desk.shell.hotkey_state(),
 		HotkeyState::Registered("Ctrl+Shift+F9".into())
@@ -438,22 +438,12 @@ async fn the_key_follows_the_setting_and_ptt_enabled() {
 
 	// Rebinding while held releases at once.
 	desk.shell.hotkey_accelerator(KEY);
-	desk.host().sync(true);
+	desk.host().sync();
 	desk.expect_gate(false, "rebinding released the key").await;
-
-	// Turning push-to-talk off unregisters; the fake keyboard has no listener.
-	desk.host().sync(false);
-	assert_eq!(desk.shell.hotkey_state(), HotkeyState::Off);
-	assert!(!desk.keyboard.send(HotkeyEvent::Pressed));
-	desk.host().sync(true);
-	assert_eq!(
-		desk.shell.hotkey_state(),
-		HotkeyState::Registered(KEY.into())
-	);
 
 	// An empty key turns it off too.
 	desk.shell.hotkey_accelerator("");
-	desk.host().sync(true);
+	desk.host().sync();
 	assert_eq!(desk.shell.hotkey_state(), HotkeyState::Off);
 	assert!(desk.keys.state() == HotkeyState::Off);
 }

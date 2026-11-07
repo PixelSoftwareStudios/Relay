@@ -306,11 +306,9 @@ message Settings {
   bool history_enabled = 25; // finished calls are recorded in the call history (history.enabled)
   uint64 history_revision = 26; // changes whenever an entry is added or the history is cleared; refetch then
   TransmitMode default_transmit_mode = 27; // calls.default_transmit_mode as saved
-  TransmitMode effective_default_transmit_mode = 28; // what a new call gets (differs when ptt is off)
-  bool ptt_enabled = 29; // ptt.enabled: push-to-talk may be chosen
-  string ringtone_name = 32; // file name of the custom ringtone; empty when the built-in chime is used
   string daemon_build_revision = 30; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
   uint32 daemon_api_revision = 31;
+  string ringtone_name = 32; // file name of the custom ringtone; empty when the built-in chime is used
 }
 message Snapshot {
   bytes engine_incarnation = 1;

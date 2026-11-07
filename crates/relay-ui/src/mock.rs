@@ -145,8 +145,6 @@ pub fn seed() -> AppState {
 			history_enabled: true,
 			history_revision: 0,
 			default_transmit_mode: Mode::PushToTalk,
-			effective_default_transmit_mode: Mode::PushToTalk,
-			ptt_enabled: true,
 			daemon_build_revision: relay_api::BUILD_REVISION.into(),
 			daemon_api_revision: relay_api::API_REVISION,
 			display_name: "Me".into(),

@@ -22,9 +22,6 @@ impl State {
 			return Err(Reject::InvalidRoute);
 		}
 		let id = self.authorize(client, call, lease)?;
-		if route.mode == RouteMode::PushToTalk && !self.globals.ptt_enabled {
-			return Err(Reject::PttDisabled);
-		}
 		let entry = self.calls.get_mut(&id).ok_or(Reject::UnknownCall(call))?;
 		entry.route_chosen = true;
 		if route == entry.route {
@@ -47,20 +44,11 @@ impl State {
 		Ok(Reply::Done)
 	}
 
-	/// The default mode a connecting call gets: push-to-talk becomes muted while it is switched
-	/// off. Muted is the fallback because it can never open the microphone by surprise.
-	fn effective_default(&self) -> RouteMode {
-		match self.globals.default_route {
-			RouteMode::PushToTalk if !self.globals.ptt_enabled => RouteMode::Muted,
-			mode => mode,
-		}
-	}
-
 	/// Applies the default mode to a call that just became active, unless the user already
 	/// chose one. The route generation advances and the gate is published with the new route,
 	/// so audio captured before this point is never sent (RT-02).
 	pub(crate) fn apply_default_route(&mut self, id: CallId) {
-		let mode = self.effective_default();
+		let mode = self.globals.default_route;
 		let Some(entry) = self.calls.get(&id) else {
 			return;
 		};
@@ -78,21 +66,9 @@ impl State {
 		self.mark_dirty(id);
 	}
 
-	/// Stores the call defaults; switching push-to-talk off mutes the calls that use it.
-	pub(super) fn set_call_defaults(&mut self, mode: RouteMode, ptt_enabled: bool) -> OpResult {
+	/// Stores the default mode of calls that connect from now on.
+	pub(super) fn set_call_defaults(&mut self, mode: RouteMode) -> OpResult {
 		self.globals.default_route = mode;
-		self.globals.ptt_enabled = ptt_enabled;
-		if !ptt_enabled {
-			let ids: Vec<CallId> = self
-				.calls
-				.values()
-				.filter(|c| c.route.mode == RouteMode::PushToTalk)
-				.map(|c| c.id)
-				.collect();
-			for id in ids {
-				self.reset_route(id, InputFault::RouteChanged);
-			}
-		}
 		Ok(Reply::Done)
 	}
 

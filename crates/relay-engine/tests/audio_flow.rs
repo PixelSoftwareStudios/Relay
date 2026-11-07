@@ -182,62 +182,6 @@ async fn the_default_mode_is_applied_when_a_call_connects_and_follows_the_settin
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
-async fn push_to_talk_off_rejects_the_mode_and_falls_back_to_muted() {
-	let (mut a, b, call) = connected_pair().await;
-	route(&mut a.cli, 50, &call, TransmitMode::Unmuted).await;
-	hears(&b, TONE_A, TONE_B).await;
-
-	let answer = a
-		.cli
-		.set_settings([("ptt.enabled", "false")])
-		.await
-		.expect("set");
-	assert_eq!(
-		answer.results[0].outcome,
-		relay_api::pb::SettingOutcome::AppliedLive as i32
-	);
-	let settings = a
-		.cli
-		.snapshot()
-		.await
-		.expect("snapshot")
-		.settings
-		.expect("settings");
-	assert!(!settings.ptt_enabled);
-	// The saved default is push-to-talk; what a new call gets is muted.
-	assert_eq!(
-		settings.default_transmit_mode,
-		TransmitMode::PushToTalk as i32
-	);
-	assert_eq!(
-		settings.effective_default_transmit_mode,
-		TransmitMode::Muted as i32
-	);
-
-	// Choosing push-to-talk is refused with a reason; unmuted calls are left alone.
-	let generation = controller_of(&call_in(&mut a.cli, &call).await.expect("call")).generation;
-	let request = relay_api::pb::SetTransmitModeRequest {
-		context: Some(ctx(&a.cli, 70)),
-		call_id: call.clone(),
-		controller_generation: generation,
-		mode: TransmitMode::PushToTalk as i32,
-		authorize_background_open_mic: false,
-	};
-	let op = a
-		.cli
-		.raw()
-		.set_transmit_mode(request)
-		.await
-		.expect("rpc")
-		.into_inner();
-	assert_failed(&op, "PTT_DISABLED");
-	assert_eq!(mode_of(&mut a, &call).await, TransmitMode::Unmuted);
-
-	a.daemon.shutdown().await.expect("a stops");
-	b.daemon.shutdown().await.expect("b stops");
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn a_fresh_profile_records_history_and_starts_calls_in_push_to_talk() {
 	let a = side(TONE_A).await;
 	let mut cli = a.cli;
@@ -249,7 +193,11 @@ async fn a_fresh_profile_records_history_and_starts_calls_in_push_to_talk() {
 		"history is on by default"
 	);
 	assert_eq!(value("calls.default_transmit_mode"), Some("push_to_talk"));
-	assert_eq!(value("ptt.enabled"), Some("true"));
+	assert_eq!(
+		value("ptt.enabled"),
+		None,
+		"push-to-talk has no on/off setting"
+	);
 	let settings = cli
 		.snapshot()
 		.await
@@ -257,9 +205,8 @@ async fn a_fresh_profile_records_history_and_starts_calls_in_push_to_talk() {
 		.settings
 		.expect("settings");
 	assert!(settings.history_enabled);
-	assert!(settings.ptt_enabled);
 	assert_eq!(
-		settings.effective_default_transmit_mode,
+		settings.default_transmit_mode,
 		TransmitMode::PushToTalk as i32
 	);
 	assert!(!cli.daemon_revision().build.is_empty() && cli.daemon_revision().api > 0);

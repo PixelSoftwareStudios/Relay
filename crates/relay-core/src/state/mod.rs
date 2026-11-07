@@ -42,7 +42,6 @@ pub(crate) struct Globals {
 	pub ptt_release_delay: Duration,
 	/// Mode a call starts in when it connects (see `SystemEvent::CallDefaults`).
 	pub default_route: crate::call::RouteMode,
-	pub ptt_enabled: bool,
 	pub settings: SettingsRevision,
 }
 
@@ -129,7 +128,6 @@ impl State {
 				output_gain: Gain::UNITY,
 				ptt_release_delay: limits.ptt_release_delay,
 				default_route: crate::call::RouteMode::Muted,
-				ptt_enabled: true,
 				settings: SettingsRevision::ZERO,
 			},
 			session: SessionFlags::default(),

@@ -274,7 +274,6 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 		"audio.ringback_enabled" => ring.ringback_enabled = audio.ringback_enabled,
 		"audio.call_sounds_enabled" => ring.call_sounds_enabled = audio.call_sounds_enabled,
 		"history.enabled" => stored.history_enabled = prefs.history.enabled,
-		"ptt.enabled" => stored.ptt_enabled = prefs.ptt.enabled,
 		"calls.default_transmit_mode" => {
 			stored.default_transmit_mode = match prefs.calls.default_transmit_mode {
 				p::TransmitModePref::Muted => relay_core::RouteMode::Muted,
@@ -308,7 +307,6 @@ impl Default for MemorySettings {
 				playback_gain: 1.0,
 				history_enabled: true,
 				default_transmit_mode: relay_core::RouteMode::Muted,
-				ptt_enabled: true,
 				..StoredSettings::default()
 			}),
 			avatars: Mutex::default(),

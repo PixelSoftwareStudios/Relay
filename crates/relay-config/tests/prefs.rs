@@ -28,7 +28,6 @@ fn first_run_gives_safe_defaults_without_notices() {
 		loaded.preferences.calls.default_transmit_mode,
 		TransmitModePref::PushToTalk
 	);
-	assert!(loaded.preferences.ptt.enabled);
 	// A fresh profile records call history.
 	assert!(loaded.preferences.history.enabled);
 	assert!(!loaded.preferences.diagnostics.record_raw_audio);
@@ -104,18 +103,21 @@ fn get_and_set_are_typed_and_validated() {
 	store.set("audio.noise_backend", "rnnoise").unwrap();
 	store.set("audio.preferred_input_id", "123").unwrap();
 	store.set("calls.default_transmit_mode", "unmuted").unwrap();
-	store.set("ptt.enabled", "false").unwrap();
+	store.set("ptt.release_delay_ms", "300").unwrap();
 	let prefs = store.load().unwrap().preferences;
 	assert_eq!(prefs.audio.microphone_gain, 2.5);
 	assert_eq!(prefs.audio.preferred_input_id, "123");
 	assert_eq!(prefs.calls.default_transmit_mode, TransmitModePref::Unmuted);
-	assert!(!prefs.ptt.enabled);
+	assert_eq!(prefs.ptt.release_delay_ms, 300);
 	assert_eq!(store.get("audio.preferred_input_id").unwrap(), "123");
 
 	assert!(store.set("audio.microphone_gain", "99").is_err());
 	assert!(store.set("audio.microphone_gain", "loud").is_err());
 	assert!(store.set("calls.default_transmit_mode", "loud").is_err());
-	assert!(store.set("ptt.enabled", "maybe").is_err());
+	assert!(
+		store.set("ptt.enabled", "true").is_err(),
+		"the switch is gone"
+	);
 	assert!(store.set("audio.nope", "1").is_err());
 	assert!(store.set("config_version", "9").is_err());
 	assert!(store.get("nope").is_err());

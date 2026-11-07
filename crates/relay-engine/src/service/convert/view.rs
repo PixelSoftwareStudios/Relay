@@ -214,8 +214,6 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		history_enabled: aux.history_enabled,
 		history_revision: aux.history_revision,
 		default_transmit_mode: mode_to_pb(aux.default_transmit_mode) as i32,
-		effective_default_transmit_mode: mode_to_pb(aux.effective_default()) as i32,
-		ptt_enabled: aux.ptt_enabled,
 		daemon_build_revision: relay_api::BUILD_REVISION.to_owned(),
 		daemon_api_revision: relay_api::API_REVISION,
 		ptt_release_delay_ms: u32::try_from(global.ptt_release_delay.as_millis())

@@ -32,7 +32,6 @@ pub fn problem_of(reject: &Reject) -> Problem {
 		Reject::ControllerHeld { .. } => ("CONTROLLER_HELD", false, "explicit_takeover"),
 		Reject::InvalidRoute => ("INVALID_ROUTE", false, ""),
 		Reject::CallNotActive => ("CALL_NOT_ACTIVE", true, "wait_for_connected"),
-		Reject::PttDisabled => ("PTT_DISABLED", false, "enable_push_to_talk"),
 		Reject::RouteNotAuthorized => ("ROUTE_NOT_AUTHORIZED", false, "set_push_to_talk_route"),
 		Reject::SessionBlocked => ("SESSION_BLOCKED", true, "unlock"),
 		Reject::StaleSequence { .. } => ("STALE_SEQUENCE", false, ""),

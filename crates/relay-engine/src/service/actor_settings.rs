@@ -14,13 +14,11 @@ fn applied_elsewhere(key: &str) -> bool {
 }
 
 impl Actor {
-	/// Tells the domain the call defaults. They apply to calls that connect from now on, and
-	/// switching push-to-talk off mutes the calls that use it.
+	/// Tells the domain the call defaults. They apply to calls that connect from now on.
 	pub(super) fn send_call_defaults(&mut self) {
 		let aux = &self.directory.aux;
 		let input = Input::System(SystemEvent::CallDefaults {
 			mode: aux.default_transmit_mode,
-			ptt_enabled: aux.ptt_enabled,
 		});
 		let _ = self.run_input(input);
 	}
@@ -64,8 +62,7 @@ impl Actor {
 						"history.enabled" => {
 							self.directory.aux.history_enabled = stored.history_enabled;
 						}
-						"ptt.enabled" | "calls.default_transmit_mode" => {
-							self.directory.aux.ptt_enabled = stored.ptt_enabled;
+						"calls.default_transmit_mode" => {
 							self.directory.aux.default_transmit_mode = stored.default_transmit_mode;
 							defaults = true;
 						}

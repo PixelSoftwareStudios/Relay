@@ -563,13 +563,7 @@ async fn calls_screenshots() {
 			&dir.join(format!("calls-{name}-details-more.png")),
 		);
 		phone.size.y = h;
-		let mut off = phone::busy_state();
-		off.settings.as_mut().unwrap().ptt_enabled = false;
-		off.settings
-			.as_mut()
-			.unwrap()
-			.effective_default_transmit_mode = Mode::Muted;
-		for (tag, state) in [("on", phone::busy_state()), ("off", off)] {
+		for (tag, state) in [("on", phone::busy_state())] {
 			phone.show_state(&state);
 			for category in [
 				SettingsCategory::Profile,

@@ -57,7 +57,7 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 }
 
 /// "Default when a call connects": muted, unmuted or push to talk, each with a line saying what
-/// it means. While push-to-talk is off its choice is greyed and the real fallback is named.
+/// it means.
 fn default_mode(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
 	kit::card(ui, |ui| {
 		kit::card_title(ui, tr!("calls-default-mode"));
@@ -74,21 +74,12 @@ fn default_mode(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
 			(Mode::PushToTalk, tr!("mode-ptt"), tr!("calls-default-ptt")),
 		];
 		for (mode, label, help) in options {
-			let usable = mode != Mode::PushToTalk || settings.ptt_enabled;
-			ui.add_enabled_ui(usable && !busy, |ui| {
+			ui.add_enabled_ui(!busy, |ui| {
 				if ui.radio(chosen == mode, label).clicked() && chosen != mode {
 					saved::save(cx, KEY_DEFAULT_MODE, mode_text(mode).to_owned());
 				}
 			});
 			kit::help(ui, help);
-		}
-		if settings.effective_default_transmit_mode != chosen {
-			let fallback = match settings.effective_default_transmit_mode {
-				Mode::Muted => tr!("mode-muted"),
-				Mode::Unmuted => tr!("mode-unmuted"),
-				Mode::PushToTalk => tr!("mode-ptt"),
-			};
-			kit::help(ui, &tr!("calls-default-fallback", mode = fallback));
 		}
 		saved::answer(ui, cx, KEY_DEFAULT_MODE);
 	});

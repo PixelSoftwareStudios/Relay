@@ -17,8 +17,7 @@ use super::widgets::{hold_button, meter, tone_color};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
-	let ptt_on = cx.state.settings.as_ref().is_none_or(|s| s.ptt_enabled);
-	choice(ui, card, cx.actions, ptt_on);
+	choice(ui, card, cx.actions);
 	let t = &card.transmit;
 	ui.add_space(theme::SPACE_S);
 	ui.label(
@@ -47,9 +46,8 @@ pub fn show(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 	}
 }
 
-/// The segmented control: one button per mode, the active one filled. Push to talk is left
-/// out while the setting is off (unless the call is in it, so the state is never hidden).
-fn choice(ui: &mut Ui, card: &CallCard, actions: &Actions, ptt_on: bool) {
+/// The segmented control: one button per mode, the active one filled.
+fn choice(ui: &mut Ui, card: &CallCard, actions: &Actions) {
 	let current = card.call.transmit.mode;
 	let modes: Vec<(Mode, Icon, &str)> = [
 		(Mode::Muted, Icon::MicOff, tr!("mode-muted")),
@@ -57,7 +55,6 @@ fn choice(ui: &mut Ui, card: &CallCard, actions: &Actions, ptt_on: bool) {
 		(Mode::PushToTalk, Icon::PushToTalk, tr!("mode-ptt")),
 	]
 	.into_iter()
-	.filter(|(m, _, _)| *m != Mode::PushToTalk || ptt_on || current == Mode::PushToTalk)
 	.collect();
 	let gap = ui.spacing().item_spacing.x;
 	let width = (ui.available_width() - gap * (modes.len() as f32 - 1.0)) / modes.len() as f32;

@@ -179,7 +179,6 @@ impl SettingsStore for FileSettings {
 				prefs::TransmitModePref::Unmuted => relay_core::RouteMode::Unmuted,
 				prefs::TransmitModePref::PushToTalk => relay_core::RouteMode::PushToTalk,
 			},
-			ptt_enabled: prefs.ptt.enabled,
 		}
 	}
 

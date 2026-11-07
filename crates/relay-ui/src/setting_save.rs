@@ -7,7 +7,6 @@ use crate::engine::SettingResult;
 use crate::model::Mode;
 
 /// Push-to-talk may be chosen.
-pub const KEY_PTT_ENABLED: &str = "ptt.enabled";
 /// The mode a call starts in once it connects.
 pub const KEY_DEFAULT_MODE: &str = "calls.default_transmit_mode";
 

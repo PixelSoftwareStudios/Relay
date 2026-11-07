@@ -195,10 +195,6 @@ pub struct Settings {
 	pub history_revision: u64,
 	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
 	pub default_transmit_mode: Mode,
-	/// What a new call really gets: differs from the default when push-to-talk is off.
-	pub effective_default_transmit_mode: Mode,
-	/// Push-to-talk may be chosen (`ptt.enabled`).
-	pub ptt_enabled: bool,
 	/// Git commit of the running daemon (with `-dirty` or `-dev` markers).
 	pub daemon_build_revision: String,
 	/// API revision of the running daemon.

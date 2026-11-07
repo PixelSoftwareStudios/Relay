@@ -151,14 +151,7 @@ fn cycle_route(model: &mut Model) -> Option<TuiCommand> {
 	};
 	let call_id = call.call_id.clone();
 	let current = call.transmit.as_ref().map_or(0, |t| t.mode);
-	// With push-to-talk switched off in the settings it is skipped in the cycle.
-	let ptt_on = model
-		.snapshot
-		.settings
-		.as_ref()
-		.is_none_or(|s| s.ptt_enabled);
 	let next = match TransmitMode::try_from(current) {
-		Ok(TransmitMode::Muted) if !ptt_on => TransmitMode::Unmuted,
 		Ok(TransmitMode::Muted) => TransmitMode::PushToTalk,
 		Ok(TransmitMode::PushToTalk) => TransmitMode::Unmuted,
 		_ => TransmitMode::Muted,

@@ -94,8 +94,6 @@ pub enum TargetStatus {
 	Ambiguous,
 	/// The engine refused control of the call.
 	Denied(String),
-	/// Push-to-talk is switched off (`ptt.enabled`); the key does nothing until it is on.
-	PttOff,
 }
 
 impl Display for TargetStatus {
@@ -105,7 +103,6 @@ impl Display for TargetStatus {
 			Self::Call(id) => write!(f, "call {}", id.chars().take(8).collect::<String>()),
 			Self::Ambiguous => f.write_str("several calls; end all but one"),
 			Self::Denied(why) => write!(f, "control denied: {why}"),
-			Self::PttOff => f.write_str("push-to-talk is off in the settings"),
 		}
 	}
 }

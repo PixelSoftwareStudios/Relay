@@ -44,22 +44,11 @@ pub struct Aux {
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
 	pub default_transmit_mode: relay_core::RouteMode,
-	/// Push-to-talk may be used (`ptt.enabled`).
-	pub ptt_enabled: bool,
 	/// Counts changes of the call history, so clients know when to refetch.
 	pub history_revision: u64,
 }
 
 impl Aux {
-	/// What a new call really starts in: a default of push-to-talk falls back to muted while
-	/// push-to-talk is off, because muted can never open the microphone by surprise.
-	pub fn effective_default(&self) -> relay_core::RouteMode {
-		match self.default_transmit_mode {
-			relay_core::RouteMode::PushToTalk if !self.ptt_enabled => relay_core::RouteMode::Muted,
-			mode => mode,
-		}
-	}
-
 	/// What the peer adapter advertises.
 	pub fn profile(&self) -> LocalProfile {
 		LocalProfile {
@@ -86,7 +75,6 @@ impl From<StoredSettings> for Aux {
 			ringtone_name: stored.ringtone_name,
 			history_enabled: stored.history_enabled,
 			default_transmit_mode: stored.default_transmit_mode,
-			ptt_enabled: stored.ptt_enabled,
 			history_revision: 0,
 		}
 	}

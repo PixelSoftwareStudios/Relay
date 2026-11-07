@@ -53,11 +53,7 @@ impl eframe::App for DesktopApp {
 	fn logic(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
 		self.handle_close(ctx);
 		// On the main thread, where the OS hotkey is registered.
-		let ptt_enabled = self
-			.actions
-			.hub
-			.read(|s| s.settings.as_ref().is_some_and(|s| s.ptt_enabled));
-		self.hotkeys.sync(ptt_enabled);
+		self.hotkeys.sync();
 		if let (Some(tray), Some(summary)) = (&mut self.tray, self.actions.shared.take_tray()) {
 			tray.apply(&summary);
 		}

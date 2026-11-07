@@ -10,7 +10,7 @@ const SENSITIVE_KEYS: [&str; 3] = [
 ];
 
 /// Keys the running daemon applies at once (the rest are saved and read at the next start).
-const LIVE_KEYS: [&str; 26] = [
+const LIVE_KEYS: [&str; 25] = [
 	"profile.display_name",
 	"audio.microphone_gain",
 	"audio.playback_gain",
@@ -21,7 +21,6 @@ const LIVE_KEYS: [&str; 26] = [
 	"privacy.inbound_policy",
 	"privacy.advert_mode",
 	"ptt.release_delay_ms",
-	"ptt.enabled",
 	"calls.default_transmit_mode",
 	"clients.autostart_daemon",
 	"messages.enabled",

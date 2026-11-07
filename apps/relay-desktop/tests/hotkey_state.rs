@@ -37,10 +37,10 @@ fn failed(shared: &HotkeyShared) -> String {
 #[tokio::test]
 async fn nothing_is_registered_before_the_engine_has_been_asked() {
 	let (mut host, shared) = host(BackendStatus::Available);
-	host.sync(true);
+	host.sync();
 	assert_eq!(shared.state(), HotkeyState::Off);
 	shared.set_accelerator("Ctrl+Alt+Space");
-	host.sync(true);
+	host.sync();
 	assert_eq!(
 		shared.state(),
 		HotkeyState::Registered("Ctrl+Alt+Space".into())
@@ -51,7 +51,7 @@ async fn nothing_is_registered_before_the_engine_has_been_asked() {
 async fn a_session_without_global_shortcuts_says_so() {
 	let (mut host, shared) = host(BackendStatus::Unsupported("Wayland".into()));
 	shared.set_accelerator("Ctrl+Alt+Space");
-	host.sync(true);
+	host.sync();
 	assert!(
 		failed(&shared).contains("global shortcuts"),
 		"{:?}",
@@ -65,7 +65,7 @@ async fn a_missing_permission_is_not_called_unsupported() {
 		PermissionKind::InputMonitoring,
 	));
 	shared.set_accelerator("Ctrl+Alt+Space");
-	host.sync(true);
+	host.sync();
 	assert!(failed(&shared).contains("allowed"), "{:?}", shared.state());
 }
 
@@ -73,11 +73,11 @@ async fn a_missing_permission_is_not_called_unsupported() {
 async fn a_refused_key_is_not_retried_every_frame_but_a_new_key_is() {
 	let (mut host, shared) = host(BackendStatus::Unsupported("x".into()));
 	shared.set_accelerator("Ctrl+Alt+Space");
-	host.sync(true);
+	host.sync();
 	let first = shared.state();
-	host.sync(true);
+	host.sync();
 	assert_eq!(shared.state(), first);
 	shared.set_accelerator("");
-	host.sync(true);
+	host.sync();
 	assert_eq!(shared.state(), HotkeyState::Off);
 }

@@ -5,9 +5,8 @@
 //! against the event loop that eframe runs there, so [`HotkeyHost::sync`] is
 //! called from the frame logic. The wanted key comes from the
 //! `hotkeys.push_to_talk` setting ([`HotkeyShared`], filled by
-//! [`follow_settings`] and by the settings panel when the user saves) and from
-//! `ptt.enabled`; when either changes the key is unregistered and registered
-//! again. Key edges go to [`PttControl`] from a task, so they keep working with
+//! [`follow_settings`] and by the settings panel when the user saves); when it
+//! changes the key is unregistered and registered again. Key edges go to [`PttControl`] from a task, so they keep working with
 //! the window hidden. A refused registration is kept as plain words for
 //! Settings and never stops the on-screen button.
 
@@ -50,10 +49,10 @@ impl HotkeyShared {
 		changed
 	}
 
-	fn wanted(&self, ptt_enabled: bool) -> Option<String> {
+	fn wanted(&self) -> Option<String> {
 		let accelerator = self.accelerator.lock_unpoisoned().clone()?;
 		let accelerator = accelerator.trim();
-		(ptt_enabled && !accelerator.is_empty()).then(|| accelerator.to_owned())
+		(!accelerator.is_empty()).then(|| accelerator.to_owned())
 	}
 
 	pub fn state(&self) -> HotkeyState {
@@ -95,8 +94,8 @@ impl HotkeyHost {
 
 	/// Bring the registration in line with the setting. Cheap when nothing
 	/// changed; call it every frame from the main thread.
-	pub fn sync(&mut self, ptt_enabled: bool) {
-		let wanted = self.shared.wanted(ptt_enabled);
+	pub fn sync(&mut self) {
+		let wanted = self.shared.wanted();
 		if self.applied.as_ref() == Some(&wanted) {
 			return;
 		}

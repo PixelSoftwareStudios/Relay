@@ -52,8 +52,8 @@ table, route/controls), `gate` (pure policy), `command`, `effect`, `event`, `out
   after the change was applied and audio captured earlier is never sent (RT-02 still holds;
   `routing` and `defaults` tests). A call is muted until a mode applies; capture is opened
   only while a Connecting/Active call has a transmitting mode and the OS session allows it.
-- **Default mode.** `SystemEvent::CallDefaults { mode, ptt_enabled }` (sent at start and when
-  `calls.default_transmit_mode` or `ptt.enabled` change) makes each call that becomes Active
+- **Default mode.** `SystemEvent::CallDefaults { mode }` (sent at start and when
+  `calls.default_transmit_mode` changes) makes each call that becomes Active
   start in that mode unless a mode was chosen explicitly since it last (re)connected
   (`Call::route_chosen`). The default is advance consent by the user's own setting, applied
   as a normal route change with a new generation. With push-to-talk disabled, choosing it is

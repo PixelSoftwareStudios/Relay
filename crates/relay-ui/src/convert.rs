@@ -196,8 +196,6 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		history_enabled: s.history_enabled,
 		history_revision: s.history_revision,
 		default_transmit_mode: mode(s.default_transmit_mode),
-		effective_default_transmit_mode: mode(s.effective_default_transmit_mode),
-		ptt_enabled: s.ptt_enabled,
 		daemon_build_revision: s.daemon_build_revision.clone(),
 		daemon_api_revision: s.daemon_api_revision,
 		display_name: s.display_name.clone(),

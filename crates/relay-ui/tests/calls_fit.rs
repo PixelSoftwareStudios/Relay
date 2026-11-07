@@ -183,19 +183,18 @@ async fn the_settings_of_this_area_fit_in_every_language() {
 				SettingsCategory::PushToTalk,
 				SettingsCategory::Calls,
 			] {
-				for ptt in [true, false] {
+				{
 					let mut phone = if desktop {
 						Phone::desktop(w, h * 2.0, language)
 					} else {
 						Phone::new(w, h * 2.0, language)
 					};
-					let mut state = phone::busy_state();
-					state.settings.as_mut().unwrap().ptt_enabled = ptt;
+					let state = phone::busy_state();
 					phone.show_state(&state);
 					phone.app.open_settings(Some(category));
 					let drawn = phone.settle();
 					check(
-						&format!("{language:?} {w}x{h} {category:?} ptt={ptt}"),
+						&format!("{language:?} {w}x{h} {category:?}"),
 						&drawn,
 						&phone,
 						!desktop,
