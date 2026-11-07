@@ -5,6 +5,7 @@
 //! reported as a [`Notice`], microphone selection never falls back to another
 //! device, and the identity key only reaches a plaintext file if the user chose that.
 
+pub mod autoanswer;
 pub mod avatar;
 pub mod blocklist;
 pub mod channels;

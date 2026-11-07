@@ -283,14 +283,61 @@ pub enum TransmitModePref {
 	PushToTalk,
 }
 
+/// How an incoming call alerts the user. `System` follows the operating system or phone
+/// profile (ringer mode, Do Not Disturb); the others are the user's own override.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CallAlert {
+	/// Follow the system profile. On a desktop this rings.
+	#[default]
+	System,
+	/// Ring and vibrate.
+	RingAndVibrate,
+	/// Vibrate only. On a desktop, which cannot vibrate, this is silent.
+	Vibrate,
+	/// No sound and no vibration; the call still shows.
+	Silent,
+}
+
 /// Call defaults.
-#[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Calls {
 	/// The mode a call starts in when it connects (incoming accepted or outgoing). Choosing
 	/// `unmuted` or `push_to_talk` here is advance consent to send the microphone in every
 	/// call; `muted` makes every call start silent. Applies live.
 	pub default_transmit_mode: TransmitModePref,
+	/// How an incoming call alerts. Applies live; the OS shells and the ringtone player obey it.
+	pub alert: CallAlert,
+	/// Global switch for per-contact auto-answer. Off: the per-contact flags are kept but
+	/// ignored, so every call rings. Applies live.
+	pub auto_answer_enabled: bool,
+}
+
+impl Default for Calls {
+	fn default() -> Self {
+		Self {
+			default_transmit_mode: TransmitModePref::default(),
+			alert: CallAlert::default(),
+			auto_answer_enabled: true,
+		}
+	}
+}
+
+/// Staying reachable while no window is open.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Background {
+	/// Keep advertising and listening, and able to ring, while the app is closed or the
+	/// device sleeps, for as long as it is on the LAN. The engine only stores it; the OS
+	/// shells (Android service, desktop tray) read it and act.
+	pub available: bool,
+}
+
+impl Default for Background {
+	fn default() -> Self {
+		Self { available: true }
+	}
 }
 
 /// Push-to-talk behaviour.
@@ -359,6 +406,7 @@ pub struct Preferences {
 	pub hotkeys: Hotkeys,
 	pub ptt: Ptt,
 	pub calls: Calls,
+	pub background: Background,
 	pub clients: Clients,
 	pub messages: Messages,
 	pub history: History,
@@ -378,6 +426,7 @@ impl Default for Preferences {
 			hotkeys: Hotkeys::default(),
 			ptt: Ptt::default(),
 			calls: Calls::default(),
+			background: Background::default(),
 			clients: Clients::default(),
 			messages: Messages::default(),
 			history: History::default(),

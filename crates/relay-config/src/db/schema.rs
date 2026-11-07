@@ -88,6 +88,13 @@ CREATE TABLE IF NOT EXISTS favorites (
 	position INTEGER NOT NULL UNIQUE CHECK (position >= 0)
 ) WITHOUT ROWID;
 
+-- Contacts whose incoming calls are answered automatically. Only verified contacts can be
+-- listed (checked in crate::autoanswer); forgetting, blocking or replacing the key of a
+-- peer removes its trust row and with it this flag.
+CREATE TABLE IF NOT EXISTS auto_answer (
+	public_key TEXT PRIMARY KEY NOT NULL REFERENCES trust (public_key) ON DELETE CASCADE
+) WITHOUT ROWID;
+
 -- Devices the user blocked, by the digest of their key (the peer id). The name is
 -- what the device called itself when it was blocked, for the list in Settings. The count
 -- limit lives in crate::blocklist.
@@ -110,6 +117,7 @@ const TABLES: &[&str] = &[
 	"state",
 	"call_history",
 	"favorites",
+	"auto_answer",
 	"blocked",
 ];
 
