@@ -69,6 +69,8 @@ pub struct Host {
 	ptt: PttWorker,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
+	/// The availability service holds a client attached with no window.
+	available: AtomicBool,
 }
 
 impl Host {
@@ -148,6 +150,7 @@ impl Host {
 				},
 				host: weak.clone(),
 				last: Mutex::new(CallSummary::idle()),
+				background: Mutex::new(None),
 			});
 			handle.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			let ptt = PttWorker::spawn(
@@ -171,6 +174,7 @@ impl Host {
 				ptt,
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
+				available: AtomicBool::new(false),
 			}
 		});
 		*host.runtime.lock_unpoisoned() = Some(runtime);
@@ -207,9 +211,26 @@ impl Host {
 		}
 		if foreground {
 			self.attach();
-		} else if !self.in_call.load(Ordering::Acquire) {
+		} else if !self.needed_without_window() {
 			self.detach();
 		}
+	}
+
+	/// The availability service wants a client attached (or stopped wanting it).
+	/// Attached, the engine advertises, listens and rings with no window; a call
+	/// or an open window keeps the client whatever this says.
+	pub fn set_available(&self, available: bool) {
+		self.available.store(available, Ordering::Release);
+		if available {
+			self.attach();
+		} else if !self.foreground.load(Ordering::Acquire) && !self.in_call.load(Ordering::Acquire) {
+			self.detach();
+		}
+	}
+
+	/// Whether the client stays attached while no window is open.
+	fn needed_without_window(&self) -> bool {
+		self.in_call.load(Ordering::Acquire) || self.available.load(Ordering::Acquire)
 	}
 
 	/// The microphone permission is (or may now be) granted: a capture that
@@ -271,7 +292,10 @@ impl Host {
 		if !summary.active {
 			self.ptt.cancel();
 		}
-		if !summary.active && !self.foreground.load(Ordering::Acquire) {
+		if !summary.active
+			&& !self.foreground.load(Ordering::Acquire)
+			&& !self.available.load(Ordering::Acquire)
+		{
 			self.detach();
 		}
 	}
@@ -377,6 +401,7 @@ struct CallSink {
 	inner: ShellSink,
 	host: Weak<Host>,
 	last: Mutex<CallSummary>,
+	background: Mutex<Option<(bool, &'static str)>>,
 }
 
 /// What the service notification needs from the state.
@@ -395,7 +420,16 @@ pub fn summarize(state: &AppState) -> CallSummary {
 			.find(|p| p.peer_id == call.peer_id)
 			.map(|p| p.display_name.clone())
 			.unwrap_or_default(),
+		auto_answered: call.auto_answered,
 	}
+}
+
+/// The two settings Kotlin acts on: `background.available` and `calls.alert`.
+pub fn background_of(state: &AppState) -> Option<(bool, &'static str)> {
+	state
+		.settings
+		.as_ref()
+		.map(|s| (s.background_available, s.call_alert.key()))
 }
 
 impl Sink for CallSink {
@@ -410,8 +444,21 @@ impl Sink for CallSink {
 			}
 			changed
 		};
-		if let (true, Some(host)) = (changed, self.host.upgrade()) {
+		let host = self.host.upgrade();
+		if let (true, Some(host)) = (changed, host.as_ref()) {
 			host.on_call(summary);
+		}
+		let background = background_of(state);
+		if let (Some((available, alert)), Some(host)) = (background, host) {
+			let changed = {
+				let mut last = self.background.lock_unpoisoned();
+				let changed = *last != background;
+				*last = background;
+				changed
+			};
+			if changed {
+				host.bridge.background_changed(available, alert.to_owned());
+			}
 		}
 	}
 

@@ -48,6 +48,8 @@ pub struct CallSummary {
 	pub muted: bool,
 	/// The other side's display name; empty when unknown.
 	pub peer: String,
+	/// The engine connected this call by itself (auto-answer).
+	pub auto_answered: bool,
 }
 
 impl CallSummary {
@@ -57,6 +59,7 @@ impl CallSummary {
 			incoming: false,
 			muted: false,
 			peer: String::new(),
+			auto_answered: false,
 		}
 	}
 }
@@ -146,6 +149,16 @@ pub trait HostBridge: Send + Sync {
 	/// The call changed. Kotlin starts or stops the foreground service and
 	/// asks for the microphone permission when a call begins without it.
 	fn call_changed(&self, summary: CallSummary);
+	/// `background.available` or `calls.alert` changed (also sent once when the first
+	/// state arrives). `alert` is the wire name: `system`, `ring_and_vibrate`,
+	/// `vibrate` or `silent`. Kotlin starts or stops the availability service.
+	fn background_changed(&self, available: bool, alert: String);
+	/// The UI's "Allow in battery settings": the system dialog the first time, the
+	/// battery-optimization list afterwards. Never blocks.
+	fn request_battery_exemption(&self);
+	/// The UI's "Allow notifications": the permission dialog when Android still
+	/// shows it, else the app's notification settings.
+	fn request_notifications(&self);
 	/// The engine's audio streams are about to open (`true`) or the last one
 	/// is gone (`false`). Kotlin enters or leaves the call audio state
 	/// (mode, focus, route) and returns only once it is in place, so the

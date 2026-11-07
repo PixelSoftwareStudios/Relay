@@ -74,6 +74,28 @@ impl RelayEngine {
 		self.host.shell.set_scanner(available);
 	}
 
+	/// The availability service is running with a LAN (true) or not (false). While
+	/// true a client stays attached with no window, so the engine advertises,
+	/// listens and rings.
+	pub fn set_available(&self, available: bool) {
+		self.host.set_available(available);
+	}
+
+	/// Android's answer to "may Relay run unrestricted in the background".
+	pub fn set_battery_exempt(&self, exempt: bool) {
+		self.host.shell.set_battery_exempt(exempt);
+	}
+
+	/// Whether Relay's notifications are shown.
+	pub fn set_notifications_allowed(&self, allowed: bool) {
+		self.host.shell.set_notifications_allowed(allowed);
+	}
+
+	/// Whether the device has a vibrator.
+	pub fn set_can_vibrate(&self, can: bool) {
+		self.host.shell.set_can_vibrate(can);
+	}
+
 	/// Mute or unmute the microphone (notification action).
 	pub fn set_muted(&self, muted: bool) {
 		self.host.mute(muted);

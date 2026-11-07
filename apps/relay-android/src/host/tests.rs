@@ -52,6 +52,9 @@ impl HostBridge for FakeBridge {
 		self.calls.lock().unwrap().push(summary);
 	}
 	fn request_microphone(&self) {}
+	fn background_changed(&self, _available: bool, _alert: String) {}
+	fn request_battery_exemption(&self) {}
+	fn request_notifications(&self) {}
 	fn open_app_settings(&self) {}
 	fn quit_app(&self) {}
 }

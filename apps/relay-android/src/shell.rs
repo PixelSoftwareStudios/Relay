@@ -34,6 +34,15 @@ impl AtomicF32 {
 	}
 }
 
+/// 0 unknown, 1 yes, 2 no.
+fn tri(value: u8) -> Option<bool> {
+	match value {
+		1 => Some(true),
+		2 => Some(false),
+		_ => None,
+	}
+}
+
 pub struct AndroidShell {
 	bridge: Arc<dyn HostBridge>,
 	ctx: Mutex<Option<egui::Context>>,
@@ -44,6 +53,11 @@ pub struct AndroidShell {
 	right: AtomicF32,
 	keyboard: AtomicF32,
 	microphone: AtomicU8,
+	/// 0 unknown, 1 exempt, 2 restricted.
+	battery: AtomicU8,
+	/// 0 unknown, 1 allowed, 2 blocked.
+	notifications: AtomicU8,
+	vibrator: AtomicBool,
 	next_pick: AtomicU64,
 	pending: Mutex<Pending>,
 	scanner: AtomicBool,
@@ -64,6 +78,9 @@ impl AndroidShell {
 			right: AtomicF32::default(),
 			keyboard: AtomicF32::default(),
 			microphone: AtomicU8::new(MicrophoneState::Ready as u8),
+			battery: AtomicU8::new(0),
+			notifications: AtomicU8::new(0),
+			vibrator: AtomicBool::new(false),
 			next_pick: AtomicU64::new(1),
 			pending: Mutex::new(Pending::new()),
 			scanner: AtomicBool::new(false),
@@ -99,6 +116,22 @@ impl AndroidShell {
 
 	pub fn set_microphone(&self, state: MicrophoneState) {
 		self.microphone.store(state as u8, Ordering::Release);
+		self.request_repaint();
+	}
+
+	pub fn set_battery_exempt(&self, exempt: bool) {
+		self.battery.store(if exempt { 1 } else { 2 }, Ordering::Release);
+		self.request_repaint();
+	}
+
+	pub fn set_notifications_allowed(&self, allowed: bool) {
+		self.notifications
+			.store(if allowed { 1 } else { 2 }, Ordering::Release);
+		self.request_repaint();
+	}
+
+	pub fn set_can_vibrate(&self, can: bool) {
+		self.vibrator.store(can, Ordering::Release);
 		self.request_repaint();
 	}
 
@@ -263,6 +296,26 @@ impl Shell for AndroidShell {
 
 	fn open_microphone_settings(&self) {
 		self.bridge.open_app_settings();
+	}
+
+	fn battery_optimization_exempt(&self) -> Option<bool> {
+		tri(self.battery.load(Ordering::Acquire))
+	}
+
+	fn request_battery_exemption(&self) {
+		self.bridge.request_battery_exemption();
+	}
+
+	fn can_vibrate(&self) -> bool {
+		self.vibrator.load(Ordering::Acquire)
+	}
+
+	fn notifications_allowed(&self) -> Option<bool> {
+		tri(self.notifications.load(Ordering::Acquire))
+	}
+
+	fn request_notifications(&self) {
+		self.bridge.request_notifications();
 	}
 
 	fn can_scan_qr(&self) -> bool {
