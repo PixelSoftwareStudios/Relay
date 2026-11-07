@@ -170,7 +170,7 @@ pub fn editor(
 fn attach(ui: &mut Ui, session: &SessionView, clip: &mut ClipFlow, intents: &mut Vec<Intent>) {
 	let button = crate::icons::icon_button(ui, crate::icons::Icon::Attach, tr!("msg-attach"));
 	let blocked = files_blocked(session);
-	egui::Popup::menu(&button).show(|ui| {
+	crate::ui::kit::menu(&button, |ui| {
 		let offer = crate::icons::icon_label_enabled(
 			ui,
 			blocked.is_none(),

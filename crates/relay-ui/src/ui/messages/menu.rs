@@ -68,7 +68,7 @@ pub fn message(
 	link: Option<&str>,
 	intents: &mut Vec<Intent>,
 ) {
-	Popup::menu(button).show(|ui| {
+	crate::ui::kit::menu(button, |ui| {
 		if let Some(text) = entry.text()
 			&& icon_label(ui, Icon::Copy, tr!("msg-copy-text")).clicked()
 		{
@@ -110,7 +110,7 @@ pub fn message(
 pub fn options(button: &Response, add: impl FnOnce(&mut Ui)) -> Option<egui::InnerResponse<()>> {
 	Popup::menu(button)
 		.close_behavior(PopupCloseBehavior::CloseOnClickOutside)
-		.show(add)
+		.show(|ui| super::super::kit::padded(ui, add))
 }
 
 /// A destructive menu item.

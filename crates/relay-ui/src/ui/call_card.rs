@@ -96,7 +96,7 @@ fn header(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 fn menu(ui: &mut Ui, card: &CallCard, cx: &mut Cx) -> f32 {
 	let response = icon_button(ui, Icon::More, tr!("call-more"));
 	let left = response.rect.min.x;
-	egui::Popup::menu(&response).show(|ui| {
+	kit::menu(&response, |ui| {
 		if !matches!(card.phase, Phase::Connected | Phase::Interrupted) {
 			ui.label(tr!("call-more-none"));
 			return;

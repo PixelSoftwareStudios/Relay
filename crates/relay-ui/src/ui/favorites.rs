@@ -184,7 +184,7 @@ fn tile(ui: &mut Ui, row: &PeerRow, size: Vec2, cx: &mut Cx) {
 		cx.local.goto = Some(crate::layout::Page::Calls);
 		cx.actions.run(|c| async move { c.start_call(&id).await });
 	}
-	response.context_menu(|ui| menu(ui, row, cx));
+	response.context_menu(|ui| kit::padded(ui, |ui| menu(ui, row, cx)));
 }
 
 /// The press-and-hold menu of a tile.

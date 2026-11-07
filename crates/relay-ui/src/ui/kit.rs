@@ -21,6 +21,22 @@ pub struct Cx<'a> {
 	pub messages: &'a mut MessagesUi,
 }
 
+/// The room around the entries of a dropdown menu, so they do not touch its edge.
+pub fn padded<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
+	egui::Frame::new()
+		.inner_margin(egui::Margin::same(theme::SPACE_M as i8))
+		.show(ui, |ui| {
+			ui.spacing_mut().item_spacing.y = theme::SPACE_M;
+			add(ui)
+		})
+		.inner
+}
+
+/// A dropdown menu under `anchor`, with room around its entries.
+pub fn menu(anchor: &Response, add: impl FnOnce(&mut Ui)) {
+	egui::Popup::menu(anchor).show(|ui| padded(ui, add));
+}
+
 /// A rounded panel that groups related controls.
 pub fn card<R>(ui: &mut Ui, add: impl FnOnce(&mut Ui) -> R) -> R {
 	egui::Frame::group(ui.style())
