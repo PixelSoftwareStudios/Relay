@@ -182,8 +182,12 @@ Wiring (`daemon/assemble.rs`, `glue.rs`):
 - Manual targets: `ManualConnectionString` (`relay://ip:port#fingerprint`) names the peer's key,
   so the call starts at once and the dial pins that key. A bare `ManualLocalAddress` of an
   unknown peer starts a dial and answers `FAILED_PRECONDITION`; retry after the handshake.
-- Microphone gain is applied after the suppressor; noise suppression accepts `off` only (other
-  backends need a qualified model and report `UNAVAILABLE`).
+- Microphone gain is applied after the processing stage. The stage is `sonora` (`docs/audio.md`):
+  `audio.noise_suppression` (default on), `audio.noise_suppression_level` (`low`, `moderate`,
+  `high`; default `moderate`) and `audio.auto_gain` (default off) are live keys; the daemon builds the
+  processor from the saved values at start and swaps it on the capture worker when a key changes.
+  `Settings.noise_suppression_enabled`, `noise_suppression_level` and `auto_gain_enabled` report them.
+  The `SetNoiseSuppression` RPC and `ns_backend_id` no longer exist.
 - Media over an overlay: with `network.allow_overlay_manual` on, a link whose authenticated
   remote socket IP is in 100.64.0.0/10 lets media use exactly that IP (`PeerConfig::overlay_peer`,
   `LinkInfo.overlay_peer`). The offered candidate is accepted only when its IP equals the link's

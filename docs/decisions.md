@@ -2,6 +2,38 @@
 
 Short records of choices that changed or are easy to forget. Newest first.
 
+## Decision: sonora
+
+Status: accepted. Replaces the earlier plan to pick a noise-suppression backend from a speech corpus (the
+`nnnoiseless` and `eval-sonora` / `eval-nnnoiseless` scaffolding is removed; the measurements stay in
+`docs/evidence.md` as history).
+
+`sonora` (pure-Rust port of the WebRTC audio processing module, BSD-3-Clause) is the single processing
+stage of the capture path. Reasons:
+
+- One crate gives noise suppression, AGC2 and AEC3 behind one 10 ms frame interface, so the stages
+  cannot double-process and speaker mode (WP-12) needs no second library.
+- Pure Rust: no C build, no model file to vendor, hash or license-review, nothing downloaded at call time.
+- Cheap: well under a tenth of a core for a 10 ms frame, and about 7 ms (334 samples) of added delay
+  with noise suppression on, none for gain control alone (measured in `relay-audio` `tests/sonora.rs`).
+
+Shipped behaviour: noise suppression on at moderate strength, automatic gain (AGC2) off, echo
+cancellation off and not user-selectable. With everything off the stage is the plain copy, so a
+disabled stage costs nothing and is bit-exact. Settings are `audio.noise_suppression`,
+`audio.noise_suppression_level` (`low`, `moderate`, `high`) and `audio.auto_gain`, live.
+
+Caveats, stated so they are not forgotten:
+
+- No measured intelligibility gain. On the corpus sonora did not raise STOI/eSTOI at low SNR the way
+  the neural candidates did (`docs/evidence.md`); it removes steady background noise, which is what
+  most calls need, and the neural candidates remain a possible later upgrade behind the same contract.
+- sonora allocates on every frame (1 to 40 allocations measured). It therefore never runs in a device
+  callback: it runs on the capture worker thread (`relay-capture`, promoted through the `priority`
+  module), which reads the callback's bounded ring. An overrun drops audio in the callback and is
+  counted, a late poll drops the stale batch; neither blocks the callback.
+- Default-on is provisional until a listening test on real devices (`audio-corpus listen`, built-in
+  and USB microphones, a noisy room) says moderate noise suppression does not make voices thin.
+
 ## Preferences moved from TOML to SQLite
 
 Status: accepted. Supersedes the earlier design choice of plain TOML files for preferences and trust.

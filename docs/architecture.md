@@ -8,7 +8,7 @@ Relay is a LAN-only voice tool. One per-user engine process (`relayd`) owns devi
 |---|---|
 | `crates/relay-core` | Sans-IO domain: typed IDs, single-owner state, call lifecycle, routing, PTT leases |
 | `crates/relay-protocol` | Wire formats: RTP profile, jitter planner, sequence extension |
-| `crates/relay-audio` | Devices (cpal), ring buffers, resampling, Opus, mixer, noise suppression adapters |
+| `crates/relay-audio` | Devices (cpal), ring buffers, resampling, Opus, mixer, microphone processing (sonora noise suppression, AGC2, AEC3) |
 | `crates/relay-net` | mDNS discovery, trust, Noise transport, peer signaling |
 | `crates/relay-io` | OS I/O helpers: atomic and private files, advisory locks, detached spawn and logs, real clock and entropy, per-user dirs, the `FileSink` for received files. No sockets, no audio, no engine/net dependencies, `#![forbid(unsafe_code)]` |
 | `crates/relay-config` | TOML preferences, identity, avatars, diagnostics |

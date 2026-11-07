@@ -13,12 +13,12 @@ test names and missing evidence are in `docs/gates.md`.
 | 04 | Discovery, trust, secure transport | implemented, gates open (independent security review, multi-host discovery) |
 | 05 | Two-device call | implemented in-process, gates open (no two-machine run, no latency measurement) |
 | 06 | Multi-call routing, PTT leases | implemented, gates met by tests (fake devices) |
-| 07 | Noise suppression selection | evaluated on synthetic audio only; bypass is the default, selection blocked on a speech corpus |
+| 07 | Microphone processing (noise suppression, automatic gain) | implemented with `sonora` (`docs/decisions.md`): noise suppression on at moderate strength, AGC2 off, both settable live in Settings, Audio; gates open (listening test on real devices, no measured intelligibility gain) |
 | 08 | CLI, TUI, hotkeys | implemented, gates open (real key delivery per platform, engine input stream) |
 | 09 | Preferences, identity, avatars, diagnostics | implemented, gates met by tests; non-macOS credential stores untried |
 | 10 | Desktop client | implemented, gates open (resource gate unmet, never observed by a person) |
 | 11 | Qualification and release | in progress: policy, CI, fuzz targets and release plan written; no gate closed |
-| 12 | Speaker-mode AEC | not started (deferred past v1) |
+| 12 | Speaker-mode AEC | not started (deferred past v1); the sonora stage already accepts `echo_cancel` and a far-end reference through `push_render`, but nothing feeds it playback audio and no setting exposes it, so WP-12 remains: the render reference from the playback mix, its delay alignment, and a user setting |
 | 13 | Named channels (password and invite) | implemented, gates open (independent review of the PAKE composition; F-12 mitigated, residual risk documented) |
 | 14 | Session messaging and file offers | implemented in engine, CLI and desktop, gates open (real two-machine transfer) |
 | 15 | Daemon split (`relayd`), presence, call ownership, ringtone, PTT release delay | implemented, gates met by tests; autostart verified on macOS only |

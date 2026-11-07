@@ -19,11 +19,11 @@ device channels only at the output edge.
 | `convert` | sample formats, channel select/fan-out, `StreamResampler` (rubato sinc, drift clamp +/-300 ppm; `new` is always adjustable even at 48 kHz, `new_fixed` bypasses equal rates and refuses drift) |
 | `codec` | per-call Opus encoder/decoder (10 ms, mono, PLC and FEC hooks) |
 | `mixer` | per-call and master gain (capped at 2.0), sample-wise limiter, preallocated scratch |
-| `dsp` | `NoiseSuppressor` contract, `OffSuppressor`, model manifest validation, benchmark harness |
+| `dsp` | `NoiseSuppressor` contract, `OffSuppressor`, the `sonora` processing stage, model manifest validation, benchmark harness |
 | `tones` | embedded ring/ringback/blip sounds and the callback-safe `TonePlayer` (see Tones) |
 | `pipeline` | single-call loopback wiring every stage together |
 | `dsp::DspChain` | fixed-order chain: high-pass, AEC slot, NS, AGC, limiter |
-| `dsp::eval` | evaluation-only candidates (features `eval-sonora`, `eval-nnnoiseless`) |
+| `dsp::SonoraSuppressor` | the product stage: WebRTC noise suppression, AGC2 and AEC3 through `sonora`; `create_processor` returns the plain copy when nothing is on |
 
 ## Real-time rules
 
@@ -76,7 +76,26 @@ on the development Mac (`cargo test -p relay-audio --test device -- --ignored`).
 
 ## Noise suppression
 
-Only the Off baseline exists. `rnnoise` and `dtln` cargo features exist but
+The product stage is `dsp::SonoraSuppressor` (`docs/decisions.md`, "Decision: sonora"), built
+by `dsp::create_processor(SonoraConfig)`. `SonoraConfig` holds `noise_suppression` (default on),
+`noise_level` (`Low` about 6 dB, `Moderate` about 12 dB, `High` about 18 dB; default `Moderate`),
+`auto_gain` (AGC2 adaptive digital gain with its limiter, start gain 0 dB, at most +30 dB; default
+off) and `echo_cancel` (AEC3, default off). With nothing enabled `create_processor` returns the
+`OffSuppressor`, a bit-exact copy with no delay and no cost. Noise suppression adds about 7 ms
+(334 samples, `SONORA_NS_DELAY_SAMPLES`, checked against a measurement in `tests/sonora.rs`); gain
+control adds none, and the capture worker adds the declared delay to its timing ledger.
+
+sonora allocates on every frame, so it is never run in a device callback. The engine runs it on
+the capture worker thread (`relay-capture`, real-time priority through the `priority` module),
+which drains the callback's bounded ring one 10 ms frame at a time. If that worker falls behind,
+the callback drops samples and counts them (`overrun_frames`, a gap the reader reports as
+`Discontinuity::Overrun`); a poll that arrives late discards its stale batch. The callback never
+waits. A change of settings builds and prepares the new processor off the worker, queues it, and
+the worker swaps it in between two polls. Echo cancellation is wired (`push_render` takes the
+far-end frame) but stays off: nothing feeds it playback audio until speaker mode (WP-12), and no
+setting exposes it.
+
+The `rnnoise` and `dtln` cargo features exist but
 `create_suppressor` returns `DspError::BackendUnavailable` until a qualified
 artifact and runtime integration exist; no model is vendored. Manifests are
 validated against schema version 1 (`ModelManifest::from_json`), including the
@@ -270,9 +289,9 @@ control actor, after every message and tick:
 
 Neural candidates GTCRN, DTLN and FastEnhancer run through `tract-onnx` behind the `neural` feature of `relay-benches` (weights in the gitignored `benches/models`, hash-checked against committed manifests); nothing in `relay-audio` changed for them.
 
-`eval-sonora` (pure-Rust WebRTC port: NS, NS+AGC2, NS+AEC3) and
-`eval-nnnoiseless` (pure-Rust RNNoise port) are not default features and are
-not reachable from `create_suppressor`. Measured behaviour, including that
+The `sonora-ns`, `sonora-ns-agc` and `sonora-ns-aec` bench candidates build the shipped
+`SonoraSuppressor` with those stages on (the `nnnoiseless` candidate and the `eval-*` features were
+removed; its measurements remain in `docs/evidence.md`). Measured behaviour, including that
 sonora allocates per frame, is in `docs/evidence.md`. Benchmarks and the corpus
 runner live in the `relay-benches` crate (`benches/`): a deterministic builder
 for a LibriSpeech + DEMAND corpus (local, gitignored under `benches/corpus`),
@@ -281,10 +300,10 @@ cross-correlation, per-frame timing, CPU time, and a paced worker-thread test.
 
 ## Listening test
 
-`audio-corpus listen` is a blind rating test for your own headphones. It needs the built corpus (`benches/corpus/built`, see `docs/evidence.md`) and whichever candidates you build in (`--features sonora,nnnoiseless,neural`).
+`audio-corpus listen` is a blind rating test for your own headphones. It needs the built corpus (`benches/corpus/built`, see `docs/evidence.md`) and whichever candidates you build in (`--features neural` adds the neural ones; sonora is always present).
 
 ```
-cargo run --release -p relay-benches --features sonora,nnnoiseless,neural --bin audio-corpus -- \
+cargo run --release -p relay-benches --features neural --bin audio-corpus -- \
   listen prepare benches/corpus/built --utterances 4 --conditions snr00,snr10,clean --seed 42
 ```
 
