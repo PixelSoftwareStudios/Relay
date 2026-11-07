@@ -6,10 +6,11 @@ use relay_api::pb::{
 	AcquireControllerRequest, CallMutation, ConnectAndTrustRequest, CreateChannelRequest,
 	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
 	MutationContext, Operation, ReplacePinnedKeyRequest, RevokeChannelMemberRequest,
-	SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
-	SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
-	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
-	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	SelectDevicesRequest, SetCallControlsRequest, SetClientQuietRequest, SetFavoritesRequest,
+	SetGlobalControlsRequest, SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest,
+	SetRingtoneRequest, SetSettingsRequest, SetTransmitModeRequest, StartCallRequest,
+	StartMicTestRequest, TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest,
+	start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -285,6 +286,13 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 				context: Some(context),
 				peer_id,
 				enabled,
+			})
+			.await
+		}
+		Command::SetClientQuiet { quiet } => {
+			rpc.set_client_quiet(SetClientQuietRequest {
+				context: Some(context),
+				quiet,
 			})
 			.await
 		}

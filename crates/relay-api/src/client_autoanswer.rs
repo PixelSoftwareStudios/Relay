@@ -19,3 +19,15 @@ impl RelayClient {
 		Ok(self.inner.set_peer_auto_answer(request).await?.into_inner())
 	}
 }
+
+impl RelayClient {
+	/// Tell the engine this client alerts incoming calls itself (`quiet`): its ringtone stays
+	/// silent while every attached client is quiet. Lasts while this client holds a state watch.
+	pub async fn set_client_quiet(&mut self, quiet: bool) -> Result<Operation, ApiError> {
+		let request = crate::pb::SetClientQuietRequest {
+			context: Some(self.new_mutation()?),
+			quiet,
+		};
+		Ok(self.inner.set_client_quiet(request).await?.into_inner())
+	}
+}

@@ -490,6 +490,10 @@ impl Engine for FakeEngine {
 	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_avatar".into())
 	}
+	async fn set_client_quiet(&self, r: Request<SetClientQuietRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(r.context.as_ref(), format!("client_quiet {}", r.quiet))
+	}
 	async fn set_peer_auto_answer(&self, r: Request<SetPeerAutoAnswerRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		{

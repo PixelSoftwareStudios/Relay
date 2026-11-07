@@ -348,6 +348,17 @@ impl Engine for FakeEngine {
 	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
 		Ok(Response::new(self.settings.set_favorites(r.get_ref())))
 	}
+	async fn set_client_quiet(&self, r: Request<SetClientQuietRequest>) -> Resp<Operation> {
+		Ok(Response::new(Operation {
+			operation_id: r
+				.get_ref()
+				.context
+				.as_ref()
+				.map(|c| c.operation_id.clone())
+				.unwrap_or_default(),
+			..Default::default()
+		}))
+	}
 	async fn set_peer_auto_answer(&self, r: Request<SetPeerAutoAnswerRequest>) -> Resp<Operation> {
 		Ok(Response::new(self.settings.set_auto_answer(r.get_ref())))
 	}

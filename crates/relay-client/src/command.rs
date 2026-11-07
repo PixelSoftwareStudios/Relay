@@ -211,6 +211,12 @@ pub enum Command {
 		/// On or off.
 		enabled: bool,
 	},
+	/// Tell the engine this client alerts incoming calls itself (`quiet`), so its ringtone stays
+	/// silent while every attached client is quiet. Lasts while the client holds a watch.
+	SetClientQuiet {
+		/// The shell alerts on its own.
+		quiet: bool,
+	},
 	/// Change preferences by flat key while the daemon runs. Only the operation comes back;
 	/// use `RelayClient::set_settings` for the per-key outcome.
 	SetSettings {

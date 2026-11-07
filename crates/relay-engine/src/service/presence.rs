@@ -6,6 +6,12 @@
 //! while somebody is attached, and a call belongs to the attached client that
 //! controls it (see `relay_core`'s ownership rules).
 //!
+//! With `background.available` on the engine itself counts as home
+//! ([`relay_core::ClientId::HOUSE`]), so a daemon nobody watches still advertises, listens,
+//! rings and may auto-answer, and never exits as idle. A shell that alerts calls on its own
+//! marks its client quiet; the engine ringtone then stays silent while every real client is
+//! quiet.
+//!
 //! Attaching takes effect at once; detaching only after a debounce, so a TUI
 //! or window that reconnects does not make the device flicker. An engine that
 //! stays unattached with no live call for the idle-exit time asks to stop,
@@ -25,6 +31,7 @@ use tokio::time::Instant;
 #[derive(Debug, Default)]
 pub struct PresenceLink {
 	watchers: Mutex<BTreeMap<ClientId, usize>>,
+	quiet: Mutex<BTreeSet<ClientId>>,
 	notify: Notify,
 }
 
@@ -53,6 +60,24 @@ impl PresenceLink {
 		self.lock().keys().copied().collect()
 	}
 
+	/// A client says it alerts calls itself (`quiet`) or not. Remembered until the client's last
+	/// watch closes, so a shell may set it just before or after it opens its watch.
+	pub fn set_quiet(&self, client: ClientId, quiet: bool) {
+		let mut set = self.quiet.lock_unpoisoned();
+		if quiet {
+			set.insert(client);
+		} else {
+			set.remove(&client);
+		}
+		drop(set);
+		self.notify.notify_one();
+	}
+
+	/// The attached clients that alert calls themselves.
+	pub fn quiet(&self) -> BTreeSet<ClientId> {
+		self.quiet.lock_unpoisoned().clone()
+	}
+
 	/// Resolves when a watch opened or closed since the last wait.
 	pub async fn changed(&self) {
 		self.notify.notified().await;
@@ -73,6 +98,7 @@ impl Drop for Watcher {
 			*count -= 1;
 			if *count == 0 {
 				open.remove(&self.client);
+				self.link.quiet.lock_unpoisoned().remove(&self.client);
 			}
 		}
 		drop(open);

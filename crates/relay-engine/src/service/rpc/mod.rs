@@ -36,12 +36,12 @@ use relay_api::pb::{
 	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
-	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest,
-	SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
-	SetSessionPermissionsRequest, SetSettingsRequest, SetSettingsResponse, SetTransmitModeRequest,
-	SettingsDump, Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
-	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
-	engine_server::Engine,
+	SetClientQuietRequest, SetFavoritesRequest, SetGlobalControlsRequest,
+	SetMessagingSettingsRequest, SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest,
+	SetRingtoneRequest, SetSessionPermissionsRequest, SetSettingsRequest, SetSettingsResponse,
+	SetTransmitModeRequest, SettingsDump, Snapshot, StartCallRequest, StartMicTestRequest,
+	StateEnvelope, TelemetryRequest, TelemetrySnapshot, Transcript, UploadAvatarRequest,
+	WatchSessionRequest, WatchStateRequest, engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -471,6 +471,21 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		auto_answer::set(self, &mutation, &body).await
+	}
+
+	async fn set_client_quiet(
+		&self,
+		request: Request<SetClientQuietRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		self.shared.presence.set_quiet(mutation.client, body.quiet);
+		Ok(Response::new(Operation {
+			operation_id: mutation.operation.to_bytes().to_vec(),
+			state: OperationState::Applied as i32,
+			revision: 0,
+			call_id: Vec::new(),
+			problem: None,
+		}))
 	}
 
 	async fn get_settings(

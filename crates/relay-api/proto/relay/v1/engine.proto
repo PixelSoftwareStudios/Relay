@@ -49,6 +49,9 @@ service Engine {
   rpc SetFavorites(SetFavoritesRequest) returns (Operation);
   // Per-contact auto-answer; only a verified contact can be switched on.
   rpc SetPeerAutoAnswer(SetPeerAutoAnswerRequest) returns (Operation);
+  // A shell that alerts calls on its own (Android) tells the engine to keep its ringtone quiet while
+  // this client is attached. Cleared when the client's last state watch closes (docs/engine.md).
+  rpc SetClientQuiet(SetClientQuietRequest) returns (Operation);
   rpc CreateChannel(CreateChannelRequest) returns (Operation);
   rpc JoinChannel(JoinChannelRequest) returns (Operation);
   rpc LeaveChannel(LeaveChannelRequest) returns (Operation);
@@ -878,6 +881,13 @@ message SetPeerAutoAnswerRequest {
   MutationContext context = 1;
   bytes peer_id = 2; // 32 bytes
   bool enabled = 3; // on is refused unless the contact is verified
+}
+
+message SetClientQuietRequest {
+  MutationContext context = 1;
+  // true: this client alerts incoming calls itself, so the engine plays no ringtone while every
+  // attached client is quiet. false: the engine rings again.
+  bool quiet = 2;
 }
 
 // Favorites: the whole ordered list is sent, so add, remove and move are one request.
