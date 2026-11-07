@@ -180,7 +180,7 @@ async fn autostart(endpoint: &Endpoint, global: &GlobalArgs) -> Result<(), CliEr
 		replace_stale(endpoint, global).await;
 	} else {
 		eprintln!(
-			"relay: starting relayd... (it opens no microphone; while a client such as this one is attached, this device advertises on the LAN, by default with its name; `relay privacy` can hide that)"
+			"relay: starting relayd... (it opens no microphone; with background availability on, the default, it keeps running and this device advertises on the LAN, by default with its name; `relay privacy` can hide that, `relay config set background.available false` stops it after 5 minutes unused)"
 		);
 	}
 	// A daemon that answers but waits for the system's keychain prompt is waited for, never

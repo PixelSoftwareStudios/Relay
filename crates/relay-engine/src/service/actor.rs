@@ -36,7 +36,7 @@ const FEEDBACK_BUDGET: usize = 64;
 #[derive(Clone, Copy, PartialEq)]
 struct ToneKey {
 	revision: relay_core::Revision,
-	attached: bool,
+	rings: bool,
 	prefs: RingPrefs,
 	ring_audible: bool,
 }
@@ -74,6 +74,8 @@ pub(crate) struct Actor {
 	/// Incoming calls waiting to be auto-answered (`actor_auto`).
 	pub(super) auto_pending: super::actor_auto::AutoPending,
 	pub(super) auto_ops: u64,
+	/// Every real attached client alerts calls itself, so the engine ringtone stays silent.
+	quiet_only: bool,
 }
 
 impl Actor {
@@ -117,6 +119,7 @@ impl Actor {
 			recorder: Recorder::new(clock),
 			auto_pending: Default::default(),
 			auto_ops: 0,
+			quiet_only: false,
 		}
 	}
 
@@ -124,6 +127,7 @@ impl Actor {
 		// Nobody is attached yet: track presence from the start so an
 		// orphaned engine neither rings nor advertises.
 		let _ = self.run_input(Input::System(SystemEvent::TrackPresence));
+		self.attach_house();
 		self.send_call_defaults();
 		self.ports.peers.presence_changed(false);
 		loop {
@@ -173,7 +177,13 @@ impl Actor {
 	/// whether anybody is home; stops the engine when it has sat unused too long.
 	fn refresh_presence(&mut self) {
 		let now = Instant::now();
-		let attached = self.attendance.link.attached();
+		let real = self.attendance.link.attached();
+		self.quiet_only = !real.is_empty() && real.is_subset(&self.attendance.link.quiet());
+		let mut attached = real;
+		if self.directory.aux.background_available {
+			// The engine itself is home: reachable with no shell attached.
+			attached.insert(relay_core::ClientId::HOUSE);
+		}
 		let changes: Vec<(relay_core::ClientId, bool)> = attached
 			.difference(&self.reported)
 			.map(|c| (*c, true))
@@ -201,7 +211,7 @@ impl Actor {
 	fn sync_tones(&mut self) {
 		let key = ToneKey {
 			revision: self.engine.state().revision(),
-			attached: !self.reported.is_empty(),
+			rings: !self.reported.is_empty() && !self.quiet_only,
 			prefs: self.directory.aux.ring,
 			ring_audible: self.ring_audible(),
 		};
@@ -217,7 +227,7 @@ impl Actor {
 			.collect();
 		let commands = self.tones.sync(&ToneInput {
 			calls: &calls,
-			attached: key.attached,
+			attached: key.rings,
 			deafened: snapshot.global.deafened,
 			prefs: key.prefs,
 			ring_audible: key.ring_audible,

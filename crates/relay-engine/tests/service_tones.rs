@@ -82,6 +82,10 @@ async fn controls(cli: &mut RelayClient, op: u8, edit: impl FnOnce(&mut SetGloba
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn an_unattended_daemon_declines_the_invite_and_stays_silent() {
 	let rig = Rig::start().await;
+	let mut cli = rig.full_client("status").await;
+	cli.set_settings([("background.available", "false")])
+		.await
+		.expect("settings");
 	invite(&rig, 1).await;
 	settle().await;
 	assert!(tones(&rig).is_empty(), "{:?}", tones(&rig));

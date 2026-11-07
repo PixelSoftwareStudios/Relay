@@ -4,7 +4,7 @@
 //! This opens the way to the local microphone for someone else, so every condition is
 //! checked twice, when the call starts ringing and again when the delay is over: the
 //! global switch is on, the caller is flagged, stored as verified and linked by its pinned
-//! key, no other call is live, and a client is attached to own the call. The call then
+//! key, no other call is live, and someone is home (a client, or the engine itself with background availability on) to own the call. The call then
 //! connects exactly like an accepted one: the microphone state is the user's default call
 //! mode (`calls.default_transmit_mode`), never forced open. The delay is the user's window
 //! to decline; the ring, the notification and the connect chime tell everyone nearby.
@@ -15,7 +15,7 @@ use std::time::Duration;
 use relay_api::pb::{AutoAnswered, StateEvent, state_event};
 use relay_config::prefs::CallAlert;
 use relay_core::{
-	CallId, CallState, Command, Direction, Input, OperationId, PeerId, Reply, Request,
+	CallId, CallState, ClientId, Command, Direction, Input, OperationId, PeerId, Reply, Request,
 };
 use tokio::time::Instant;
 
@@ -41,9 +41,19 @@ impl Actor {
 		self.auto_pending.values().flatten().min().copied()
 	}
 
-	fn auto_operation(&mut self) -> OperationId {
+	pub(super) fn auto_operation(&mut self) -> OperationId {
 		self.auto_ops += 1;
 		OperationId::from_u128((1 << 127) | u128::from(self.auto_ops))
+	}
+
+	/// Registers the engine's own client, the owner of calls it answers by itself.
+	pub(super) fn attach_house(&mut self) {
+		let operation = self.auto_operation();
+		let _ = self.run_input(Input::Client(Request {
+			client: ClientId::HOUSE,
+			operation,
+			command: Command::Attach,
+		}));
 	}
 
 	/// Schedules, cancels and performs auto-answers to match the calls now.
@@ -96,7 +106,14 @@ impl Actor {
 	}
 
 	fn auto_answer(&mut self, call: CallId, peer: PeerId) {
-		let Some(owner) = self.reported.iter().next().copied() else {
+		// A real attached client owns the call; with none, the engine does (`ClientId::HOUSE`).
+		let Some(owner) = self
+			.reported
+			.iter()
+			.find(|c| **c != ClientId::HOUSE)
+			.or_else(|| self.reported.iter().next())
+			.copied()
+		else {
 			return;
 		};
 		// Marked first so the call's own events already carry the indicator.

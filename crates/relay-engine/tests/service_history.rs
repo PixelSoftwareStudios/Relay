@@ -186,7 +186,11 @@ async fn an_unanswered_incoming_call_is_missed_and_a_declined_one_declined() {
 async fn a_call_nobody_saw_is_not_recorded() {
 	let rig = Rig::start().await;
 	let mut cli = rig.full_client("ui").await;
-	// No client watches, so the daemon answers busy and the call never exists.
+	// No client watches and background availability is off, so the daemon answers busy and the
+	// call never exists.
+	cli.set_settings([("background.available", "false")])
+		.await
+		.expect("settings");
 	let (call, _) = invite(&rig, 1).await;
 	tokio::time::sleep(std::time::Duration::from_millis(300)).await;
 	assert!(call_in(&mut cli, &call.to_bytes()).await.is_none());

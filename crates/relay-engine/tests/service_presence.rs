@@ -28,18 +28,32 @@ const GRACE: Duration = Duration::from_millis(800);
 /// Stands in for mDNS and remembers whether the device is visible.
 #[derive(Default)]
 struct Recorder {
-	current: Mutex<Option<String>>,
+	current: Mutex<Option<(String, bool)>>,
 }
 
 impl Recorder {
 	fn visible(&self) -> bool {
 		self.current.lock().unwrap().is_some()
 	}
+
+	/// Whether what goes out is the hidden (pseudonymous) kind.
+	fn hidden(&self) -> bool {
+		self.current
+			.lock()
+			.unwrap()
+			.as_ref()
+			.is_some_and(|(_, h)| *h)
+	}
 }
 
 impl AdvertSink for Recorder {
 	fn publish(&self, advert: Option<&Advertisement>) {
-		*self.current.lock().unwrap() = advert.map(|a| a.display_name.clone());
+		*self.current.lock().unwrap() = advert.map(|a| {
+			(
+				a.display_name.clone(),
+				a.mode == relay_net::discovery::AdvertMode::Hidden,
+			)
+		});
 	}
 }
 
@@ -229,4 +243,70 @@ async fn an_attached_client_keeps_the_engine_alive_until_it_leaves() {
 		.expect("stops once nobody is attached")
 		.expect("task");
 	finished.expect("clean stop");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn with_background_on_an_unwatched_engine_advertises_and_never_idle_exits() {
+	let seen = Arc::new(Recorder::default());
+	let home = tempfile::Builder::new()
+		.prefix("rly")
+		.tempdir_in("/tmp")
+		.expect("home");
+	let socket = home.path().join("e.sock");
+	let (mut options, sim) = engine_options(home.path(), 440.0);
+	std::mem::forget(sim);
+	support_daemon::set_background(&options.paths, true);
+	tuned(Some(&seen))(&mut options);
+	options.idle_exit = Some(Duration::from_millis(500));
+	let mut host = tokio::spawn(relay_engine::daemon::run(options));
+	eventually!(socket.exists().then_some(()));
+	wait_ready(&Endpoint::Unix(socket.clone())).await;
+
+	// No client ever attaches: it is visible and outlives the idle-exit time.
+	eventually!(seen.visible().then_some(()));
+	let early = tokio::time::timeout(Duration::from_millis(1_500), &mut host).await;
+	assert!(early.is_err(), "background availability keeps it running");
+	assert!(seen.visible());
+
+	// Switching the setting off withdraws the advertisement, then the idle exit applies.
+	let mut cli = RelayClient::connect(&Endpoint::Unix(socket))
+		.await
+		.expect("connect");
+	cli.register("status", "test", &[]).await.expect("register");
+	cli.set_settings([("background.available", "false")])
+		.await
+		.expect("settings");
+	eventually!((!seen.visible()).then_some(()));
+	let finished = tokio::time::timeout(Duration::from_secs(10), host)
+		.await
+		.expect("stops once background is off")
+		.expect("task");
+	finished.expect("clean stop");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn hidden_mode_applies_to_an_unwatched_background_engine() {
+	let seen = Arc::new(Recorder::default());
+	let home = tempfile::Builder::new()
+		.prefix("rly")
+		.tempdir_in("/tmp")
+		.expect("home");
+	let socket = home.path().join("e.sock");
+	let (mut options, sim) = engine_options(home.path(), 440.0);
+	std::mem::forget(sim);
+	support_daemon::set_background(&options.paths, true);
+	{
+		let storage = relay_config::Storage::open(&options.paths).expect("storage");
+		relay_config::prefs::PreferenceStore::open(&storage.database)
+			.expect("prefs")
+			.set("privacy.advert_mode", "hidden")
+			.expect("set");
+	}
+	tuned(Some(&seen))(&mut options);
+	let host = tokio::spawn(relay_engine::daemon::run(options));
+	eventually!(socket.exists().then_some(()));
+	wait_ready(&Endpoint::Unix(socket)).await;
+	eventually!(seen.visible().then_some(()));
+	assert!(seen.hidden(), "the unwatched engine keeps the hidden kind");
+	host.abort();
 }

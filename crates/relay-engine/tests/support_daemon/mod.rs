@@ -43,7 +43,24 @@ pub fn engine_options(home: &Path, tone_hz: f32) -> (RunOptions, Sim) {
 	options.identity_store = Some(Box::new(MemoryStore::default()));
 	options.network = NetworkOptions::loopback();
 	options.audio = audio;
+	// Most tests are about client-held presence; the engine-held kind opts in.
+	// A second call for a home another engine still holds keeps what is stored.
+	if relay_config::Storage::open(&options.paths).is_ok() {
+		set_background(&options.paths, false);
+	}
 	(options, sim)
+}
+
+/// Stores `background.available` before the engine starts (the real default is on).
+pub fn set_background(paths: &Paths, available: bool) {
+	let storage = relay_config::Storage::open(paths).expect("storage");
+	relay_config::prefs::PreferenceStore::open(&storage.database)
+		.expect("prefs")
+		.set(
+			"background.available",
+			if available { "true" } else { "false" },
+		)
+		.expect("set");
 }
 
 /// A flat-colour PNG of the given size, for avatar uploads.
