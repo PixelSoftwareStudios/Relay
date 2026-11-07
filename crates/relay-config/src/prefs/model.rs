@@ -33,10 +33,10 @@ pub enum DeviceSelection {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
-pub enum NoiseBackend {
-	Off,
-	Rnnoise,
-	Dtln,
+pub enum NoiseLevel {
+	Low,
+	Moderate,
+	High,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -60,7 +60,12 @@ pub struct Audio {
 	pub preferred_input_id: String,
 	pub output_selection: DeviceSelection,
 	pub preferred_output_id: String,
-	pub noise_backend: NoiseBackend,
+	/// Suppress steady background noise on the microphone.
+	pub noise_suppression: bool,
+	/// How hard noise suppression works.
+	pub noise_suppression_level: NoiseLevel,
+	/// Even out the microphone level automatically (AGC2).
+	pub auto_gain: bool,
 	pub microphone_gain: f32,
 	pub playback_gain: f32,
 	/// Play the ring for an incoming call while a client is attached.
@@ -83,7 +88,9 @@ impl Default for Audio {
 			preferred_input_id: String::new(),
 			output_selection: DeviceSelection::SystemDefault,
 			preferred_output_id: String::new(),
-			noise_backend: NoiseBackend::Off,
+			noise_suppression: true,
+			noise_suppression_level: NoiseLevel::Moderate,
+			auto_gain: false,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			ringtone_enabled: true,

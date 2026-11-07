@@ -1,8 +1,8 @@
 mod support;
 
 use relay_config::prefs::{
-	DeviceChoice, DeviceSelection, PreferenceStore, Preferences, TransmitModePref, export_toml,
-	flat, import_toml,
+	DeviceChoice, DeviceSelection, NoiseLevel, PreferenceStore, Preferences, TransmitModePref,
+	export_toml, flat, import_toml,
 };
 use relay_config::{ConfigError, Paths};
 use support::{chosen_mic, storage};
@@ -100,12 +100,15 @@ fn get_and_set_are_typed_and_validated() {
 	let (store, _) = store(&dir);
 	assert_eq!(store.get("audio.microphone_gain").unwrap(), "1.0");
 	store.set("audio.microphone_gain", "2.5").unwrap();
-	store.set("audio.noise_backend", "rnnoise").unwrap();
+	store.set("audio.noise_suppression_level", "high").unwrap();
+	store.set("audio.auto_gain", "true").unwrap();
 	store.set("audio.preferred_input_id", "123").unwrap();
 	store.set("calls.default_transmit_mode", "unmuted").unwrap();
 	store.set("ptt.release_delay_ms", "300").unwrap();
 	let prefs = store.load().unwrap().preferences;
 	assert_eq!(prefs.audio.microphone_gain, 2.5);
+	assert_eq!(prefs.audio.noise_suppression_level, NoiseLevel::High);
+	assert!(prefs.audio.auto_gain);
 	assert_eq!(prefs.audio.preferred_input_id, "123");
 	assert_eq!(prefs.calls.default_transmit_mode, TransmitModePref::Unmuted);
 	assert_eq!(prefs.ptt.release_delay_ms, 300);
@@ -122,7 +125,7 @@ fn get_and_set_are_typed_and_validated() {
 	assert!(store.set("config_version", "9").is_err());
 	assert!(store.get("nope").is_err());
 	assert_eq!(store.load().unwrap().preferences, prefs);
-	assert!(flat::keys().contains(&"audio.noise_backend".to_owned()));
+	assert!(flat::keys().contains(&"audio.noise_suppression".to_owned()));
 	assert!(!flat::keys().contains(&"config_version".to_owned()));
 }
 
@@ -270,6 +273,25 @@ fn the_desktop_starts_the_daemon_by_default_and_can_be_told_not_to() {
 	store.set("clients.autostart_daemon", "false").unwrap();
 	assert!(!store.load().unwrap().preferences.clients.autostart_daemon);
 	assert!(store.set("clients.autostart_daemon", "sometimes").is_err());
+}
+
+#[test]
+fn noise_suppression_is_on_at_moderate_and_gain_control_is_off() {
+	let prefs = Preferences::default();
+	assert_eq!(
+		flat::get(&prefs, "audio.noise_suppression").unwrap(),
+		"true"
+	);
+	assert_eq!(
+		flat::get(&prefs, "audio.noise_suppression_level").unwrap(),
+		"moderate"
+	);
+	assert_eq!(flat::get(&prefs, "audio.auto_gain").unwrap(), "false");
+	let low = flat::set(&prefs, "audio.noise_suppression_level", "low").unwrap();
+	assert_eq!(low.audio.noise_suppression_level, NoiseLevel::Low);
+	assert!(flat::set(&prefs, "audio.noise_suppression_level", "extreme").is_err());
+	assert!(flat::set(&prefs, "audio.auto_gain", "maybe").is_err());
+	assert!(flat::keys().iter().all(|k| k != "audio.noise_backend"));
 }
 
 #[test]

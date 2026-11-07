@@ -71,7 +71,13 @@ pub fn build_bundle(input: &BundleInput<'_>) -> String {
 		"output_device = {}",
 		fingerprint(&p.audio.preferred_output_id)
 	);
-	let _ = writeln!(lines, "noise_backend = {:?}", p.audio.noise_backend);
+	let _ = writeln!(lines, "noise_suppression = {}", p.audio.noise_suppression);
+	let _ = writeln!(
+		lines,
+		"noise_suppression_level = {:?}",
+		p.audio.noise_suppression_level
+	);
+	let _ = writeln!(lines, "auto_gain = {}", p.audio.auto_gain);
 	let _ = writeln!(lines, "microphone_gain = {}", p.audio.microphone_gain);
 	let _ = writeln!(lines, "playback_gain = {}", p.audio.playback_gain);
 	let _ = writeln!(
