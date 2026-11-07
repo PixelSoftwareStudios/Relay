@@ -66,6 +66,13 @@ impl Actor {
 							self.directory.aux.default_transmit_mode = stored.default_transmit_mode;
 							defaults = true;
 						}
+						"background.available" => {
+							self.directory.aux.background_available = stored.background_available;
+						}
+						"calls.alert" => self.directory.aux.call_alert = stored.call_alert,
+						"calls.auto_answer_enabled" => {
+							self.directory.aux.auto_answer_enabled = stored.auto_answer_enabled;
+						}
 						"clients.autostart_daemon" => {
 							self.directory.aux.autostart_daemon = stored.autostart_daemon;
 						}

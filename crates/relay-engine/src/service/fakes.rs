@@ -259,6 +259,7 @@ pub struct MemorySettings {
 	prefs: Mutex<relay_config::prefs::Preferences>,
 	history: Mutex<Vec<relay_config::history::CallRecord>>,
 	favorites: Mutex<Vec<PeerId>>,
+	auto_answer: Mutex<Vec<PeerId>>,
 	ringtone: Mutex<Option<(String, std::sync::Arc<[f32]>)>>,
 }
 
@@ -280,6 +281,9 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 		"audio.ringback_enabled" => ring.ringback_enabled = audio.ringback_enabled,
 		"audio.call_sounds_enabled" => ring.call_sounds_enabled = audio.call_sounds_enabled,
 		"history.enabled" => stored.history_enabled = prefs.history.enabled,
+		"background.available" => stored.background_available = prefs.background.available,
+		"calls.alert" => stored.call_alert = prefs.calls.alert,
+		"calls.auto_answer_enabled" => stored.auto_answer_enabled = prefs.calls.auto_answer_enabled,
 		"calls.default_transmit_mode" => {
 			stored.default_transmit_mode = match prefs.calls.default_transmit_mode {
 				p::TransmitModePref::Muted => relay_core::RouteMode::Muted,
@@ -312,12 +316,15 @@ impl Default for MemorySettings {
 				microphone_gain: 1.0,
 				playback_gain: 1.0,
 				history_enabled: true,
+				background_available: true,
+				auto_answer_enabled: true,
 				default_transmit_mode: relay_core::RouteMode::Muted,
 				..StoredSettings::default()
 			}),
 			avatars: Mutex::default(),
 			history: Mutex::default(),
 			favorites: Mutex::default(),
+			auto_answer: Mutex::default(),
 			ringtone: Mutex::default(),
 			prefs: Mutex::new(relay_config::prefs::Preferences {
 				profile: relay_config::prefs::Profile {
@@ -332,6 +339,19 @@ impl Default for MemorySettings {
 impl SettingsStore for MemorySettings {
 	fn favorites(&self) -> Vec<PeerId> {
 		lock(&self.favorites).clone()
+	}
+	/// Keeps the flag as given; the verified-only rule is the daemon's table to judge and the
+	/// actor checks the live trust label again when a call arrives.
+	fn auto_answer(&self) -> Vec<PeerId> {
+		lock(&self.auto_answer).clone()
+	}
+	fn set_auto_answer(&self, peer: PeerId, on: bool) -> Result<(), PortError> {
+		let mut flags = lock(&self.auto_answer);
+		flags.retain(|p| *p != peer);
+		if on {
+			flags.push(peer);
+		}
+		Ok(())
 	}
 	/// Keeps the list as given; whether a peer is trusted is the daemon's table to judge.
 	fn set_favorites(&self, ordered: &[PeerId]) -> Result<(), PortError> {

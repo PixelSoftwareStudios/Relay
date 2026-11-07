@@ -138,6 +138,14 @@ impl SettingsStore for FileSettings {
 		self.favorites.set(ordered)
 	}
 
+	fn auto_answer(&self) -> Vec<relay_core::PeerId> {
+		self.favorites.auto_answer()
+	}
+
+	fn set_auto_answer(&self, peer: relay_core::PeerId, on: bool) -> Result<(), PortError> {
+		self.favorites.set_auto_answer(peer, on)
+	}
+
 	fn load(&self) -> StoredSettings {
 		let prefs = lock(&self.current);
 		let audio = &prefs.audio;
@@ -171,6 +179,9 @@ impl SettingsStore for FileSettings {
 			},
 			ringtone_name: lock(&self.ringtone_name).clone(),
 			history_enabled: prefs.history.enabled,
+			background_available: prefs.background.available,
+			call_alert: prefs.calls.alert,
+			auto_answer_enabled: prefs.calls.auto_answer_enabled,
 			default_transmit_mode: match prefs.calls.default_transmit_mode {
 				prefs::TransmitModePref::Muted => relay_core::RouteMode::Muted,
 				prefs::TransmitModePref::Unmuted => relay_core::RouteMode::Unmuted,

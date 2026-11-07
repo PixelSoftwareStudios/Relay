@@ -293,6 +293,12 @@ pub struct StoredSettings {
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects.
 	pub default_transmit_mode: relay_core::RouteMode,
+	/// `background.available`: stay reachable with no window open (read by the OS shells).
+	pub background_available: bool,
+	/// `calls.alert`: how an incoming call alerts.
+	pub call_alert: relay_config::prefs::CallAlert,
+	/// `calls.auto_answer_enabled`: the global auto-answer switch.
+	pub auto_answer_enabled: bool,
 }
 
 /// Capture, playback and per-call media resources.
@@ -473,6 +479,15 @@ pub trait SettingsStore: Send + Sync {
 	/// more than 6 peers, repeats one or names a peer that is not trusted.
 	fn set_favorites(&self, _ordered: &[PeerId]) -> Result<(), PortError> {
 		Err(PortError::Unsupported("favorites"))
+	}
+	/// The contacts flagged for auto-answer.
+	fn auto_answer(&self) -> Vec<PeerId> {
+		Vec::new()
+	}
+	/// Flags or unflags a contact for auto-answer. Switching on is refused with a reason
+	/// (`PortError::Invalid`) unless the contact is stored with the verified trust level.
+	fn set_auto_answer(&self, _peer: PeerId, _on: bool) -> Result<(), PortError> {
+		Err(PortError::Unsupported("auto-answer"))
 	}
 }
 

@@ -5,7 +5,7 @@
 //! what it last asked for. Tones only reach the playback mix; nothing here has
 //! a path to capture, encoders or send gates.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::Duration;
 
 use relay_audio::tones::Sound;
@@ -109,6 +109,10 @@ pub struct ToneInput<'a> {
 	pub deafened: bool,
 	/// Preferences.
 	pub prefs: RingPrefs,
+	/// The incoming ring may sound: `calls.alert` is `system` or `ring_and_vibrate`. With
+	/// `vibrate` or `silent` an incoming call never rings from this device (the shells
+	/// vibrate); the settings test ring, ringback and blips are unaffected.
+	pub ring_audible: bool,
 	/// Now.
 	pub now: Instant,
 }
@@ -130,12 +134,20 @@ pub struct ToneDriver {
 	/// The output was already warmed for the outgoing call now preparing.
 	prewarmed: bool,
 	preview_until: Option<Instant>,
+	/// Calls whose connect chime plays whatever `call_sounds_enabled` says (auto-answered
+	/// calls: the chime tells people nearby that the microphone side is live).
+	forced_chime: BTreeSet<CallId>,
 }
 
 impl ToneDriver {
 	/// Starts the settings "test ring"; it yields to any real tone.
 	pub fn preview(&mut self, now: Instant) {
 		self.preview_until = Some(now + PREVIEW_LENGTH);
+	}
+
+	/// Makes the connect chime of `call` play even with the call sounds off.
+	pub fn force_chime(&mut self, call: CallId) {
+		self.forced_chime.insert(call);
 	}
 
 	/// When the driver next needs a look even if nothing else changes.
@@ -224,6 +236,7 @@ impl ToneDriver {
 				.any(|(_, d, s)| *d == direction && *s == state)
 		};
 		if prefs.ringtone_enabled
+			&& input.ring_audible
 			&& input.attached
 			&& ringing(Direction::Incoming, CallState::IncomingRinging)
 		{
@@ -245,17 +258,21 @@ impl ToneDriver {
 	fn blip(&mut self, input: &ToneInput<'_>) -> Option<Sound> {
 		self.connected
 			.retain(|id, _| input.calls.iter().any(|(call, ..)| call == id));
+		self.forced_chime
+			.retain(|id| input.calls.iter().any(|(call, ..)| call == id));
 		let mut blip = None;
+		let mut forced = false;
 		for (id, _, state) in input.calls {
 			let connected = self.connected.entry(*id).or_insert(false);
 			if *state == CallState::Active && !*connected {
 				*connected = true;
+				forced |= self.forced_chime.remove(id);
 				blip = blip.or(Some(Sound::Connected));
 			} else if state.is_terminal() && *connected {
 				*connected = false;
 				blip = Some(Sound::CallEnd);
 			}
 		}
-		blip.filter(|_| input.prefs.call_sounds_enabled)
+		blip.filter(|_| forced || input.prefs.call_sounds_enabled)
 	}
 }

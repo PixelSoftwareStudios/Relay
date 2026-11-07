@@ -1,5 +1,6 @@
 //! The local API: `relay.v1.Engine` implemented over the control actor.
 
+mod auto_answer;
 mod avatar;
 mod call_stats;
 mod channels;
@@ -35,11 +36,12 @@ use relay_api::pb::{
 	RespondOfferRequest, RetrySessionMessageRequest, RevokeChannelMemberRequest,
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
-	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest, SetPrivacyRequest,
-	SetProfileRequest, SetRingtoneRequest, SetSessionPermissionsRequest, SetSettingsRequest,
-	SetSettingsResponse, SetTransmitModeRequest, SettingsDump, Snapshot, StartCallRequest,
-	StartMicTestRequest, StateEnvelope, TelemetryRequest, TelemetrySnapshot, Transcript,
-	UploadAvatarRequest, WatchSessionRequest, WatchStateRequest, engine_server::Engine,
+	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest,
+	SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
+	SetSessionPermissionsRequest, SetSettingsRequest, SetSettingsResponse, SetTransmitModeRequest,
+	SettingsDump, Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
+	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
+	engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -461,6 +463,14 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
 		favorites::set(self, &mutation, &body).await
+	}
+
+	async fn set_peer_auto_answer(
+		&self,
+		request: Request<SetPeerAutoAnswerRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		auto_answer::set(self, &mutation, &body).await
 	}
 
 	async fn get_settings(

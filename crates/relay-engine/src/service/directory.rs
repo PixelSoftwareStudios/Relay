@@ -44,6 +44,12 @@ pub struct Aux {
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
 	pub default_transmit_mode: relay_core::RouteMode,
+	/// `background.available`.
+	pub background_available: bool,
+	/// `calls.alert`.
+	pub call_alert: relay_config::prefs::CallAlert,
+	/// `calls.auto_answer_enabled`.
+	pub auto_answer_enabled: bool,
 	/// Counts changes of the call history, so clients know when to refetch.
 	pub history_revision: u64,
 }
@@ -75,6 +81,9 @@ impl From<StoredSettings> for Aux {
 			ringtone_name: stored.ringtone_name,
 			history_enabled: stored.history_enabled,
 			default_transmit_mode: stored.default_transmit_mode,
+			background_available: stored.background_available,
+			call_alert: stored.call_alert,
+			auto_answer_enabled: stored.auto_answer_enabled,
 			history_revision: 0,
 		}
 	}
@@ -96,6 +105,10 @@ pub struct Directory {
 	seen: BTreeMap<PeerId, u64>,
 	/// Favorites in order (a subset of the trusted peers).
 	favorites: Vec<PeerId>,
+	/// Contacts flagged for auto-answer.
+	auto_answer: BTreeSet<PeerId>,
+	/// Calls the engine answered by itself.
+	auto_answered: BTreeSet<relay_core::CallId>,
 	now_ms: u64,
 	/// Auxiliary settings.
 	pub aux: Aux,
@@ -120,6 +133,8 @@ impl Directory {
 			connected: BTreeMap::new(),
 			seen: BTreeMap::new(),
 			favorites: Vec::new(),
+			auto_answer: BTreeSet::new(),
+			auto_answered: BTreeSet::new(),
 			now_ms: 0,
 			aux,
 		}
@@ -144,6 +159,7 @@ impl Directory {
 	/// Forgets a call's bookkeeping.
 	pub fn forget_call(&mut self, call: relay_core::CallId) {
 		self.connected.remove(&call);
+		self.auto_answered.remove(&call);
 	}
 
 	/// The display name last reported for a peer, if any.
@@ -178,6 +194,7 @@ impl Directory {
 		if let Some(shared) = self.shared.get(&info.id) {
 			view.shared_channel_ids.clone_from(shared);
 		}
+		view.auto_answer = self.auto_answer.contains(&info.id);
 		if let Some(position) = self.favorites.iter().position(|id| *id == info.id) {
 			view.favorite = true;
 			view.favorite_position = position as u32;
@@ -348,6 +365,42 @@ impl Directory {
 			.into_iter()
 			.filter_map(|id| self.peer(id).map(peer_event))
 			.collect()
+	}
+
+	/// Replaces the auto-answer flags and reports the peers whose flag changed.
+	pub fn set_auto_answer(&mut self, flagged: Vec<PeerId>) -> Vec<StateEvent> {
+		let next: BTreeSet<PeerId> = flagged.into_iter().collect();
+		let moved: Vec<PeerId> = self
+			.auto_answer
+			.symmetric_difference(&next)
+			.copied()
+			.collect();
+		self.auto_answer = next;
+		moved
+			.into_iter()
+			.filter_map(|id| self.peer(id).map(peer_event))
+			.collect()
+	}
+
+	/// True when `peer` is flagged for auto-answer, is stored as verified and has a live
+	/// authenticated link: the three facts auto-answer needs about a caller.
+	pub fn may_auto_answer(&self, peer: PeerId) -> bool {
+		self.auto_answer.contains(&peer)
+			&& self.linked.contains(&peer)
+			&& self
+				.peers
+				.get(&peer)
+				.is_some_and(|p| p.trust == PeerTrust::Verified)
+	}
+
+	/// Notes that the engine answered `call` by itself.
+	pub fn note_auto_answered(&mut self, call: relay_core::CallId) {
+		self.auto_answered.insert(call);
+	}
+
+	/// Whether the engine answered `call` by itself.
+	pub fn was_auto_answered(&self, call: relay_core::CallId) -> bool {
+		self.auto_answered.contains(&call)
 	}
 
 	/// Replaces the device list and reports what changed.

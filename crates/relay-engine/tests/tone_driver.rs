@@ -22,6 +22,7 @@ fn input(
 		attached,
 		deafened,
 		prefs,
+		ring_audible: true,
 		now: Instant::now(),
 	}
 }
@@ -175,6 +176,7 @@ fn the_test_ring_lasts_two_seconds() {
 		attached: false,
 		deafened: false,
 		prefs,
+		ring_audible: true,
 		now,
 	};
 	assert_eq!(d.sync(&at(start)), [ring(0.4)]);
@@ -214,4 +216,48 @@ fn an_outgoing_call_warms_the_output_once_before_its_ringback() {
 			.sync(&input(&preparing, true, false, quiet))
 			.is_empty()
 	);
+}
+
+#[test]
+fn a_silent_or_vibrate_alert_never_rings_but_the_call_sounds_stay() {
+	let prefs = RingPrefs::default();
+	let ringing = incoming(CallState::IncomingRinging);
+	let mut d = ToneDriver::default();
+	let mut quiet = input(&ringing, true, false, prefs);
+	quiet.ring_audible = false;
+	assert!(
+		d.sync(&quiet).is_empty(),
+		"no ring with calls.alert silent or vibrate"
+	);
+	let active = incoming(CallState::Active);
+	let mut blip = input(&active, true, false, prefs);
+	blip.ring_audible = false;
+	assert!(matches!(
+		d.sync(&blip).as_slice(),
+		[ToneCommand::Start {
+			sound: Sound::Connected,
+			looping: false,
+			..
+		}]
+	));
+}
+
+#[test]
+fn a_forced_chime_plays_with_the_call_sounds_off() {
+	let prefs = RingPrefs {
+		call_sounds_enabled: false,
+		..RingPrefs::default()
+	};
+	let active = incoming(CallState::Active);
+	let mut plain = ToneDriver::default();
+	assert!(plain.sync(&input(&active, true, false, prefs)).is_empty());
+	let mut forced = ToneDriver::default();
+	forced.force_chime(CALL);
+	assert!(matches!(
+		forced.sync(&input(&active, true, false, prefs)).as_slice(),
+		[ToneCommand::Start {
+			sound: Sound::Connected,
+			..
+		}]
+	));
 }

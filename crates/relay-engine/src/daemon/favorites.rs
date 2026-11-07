@@ -1,5 +1,6 @@
 //! Favorites on disk: peer ids on the API side, trust public keys in the table.
 
+use relay_config::autoanswer::AutoAnswer;
 use relay_config::db::Database;
 use relay_config::favorites::Favorites;
 use relay_config::identity::TrustStore;
@@ -8,11 +9,12 @@ use relay_net::identity::PublicKey;
 
 use crate::service::ports::PortError;
 
-/// The `favorites` table seen through peer ids (key fingerprints).
+/// The `favorites` and `auto_answer` tables seen through peer ids (key fingerprints).
 #[derive(Debug, Clone)]
 pub struct FavoriteBook {
 	db: Database,
 	table: Favorites,
+	auto: AutoAnswer,
 }
 
 fn id_of(key: &[u8; 32]) -> PeerId {
@@ -25,6 +27,7 @@ impl FavoriteBook {
 		Self {
 			db: db.clone(),
 			table: Favorites::open(db),
+			auto: AutoAnswer::open(db),
 		}
 	}
 
@@ -53,5 +56,30 @@ impl FavoriteBook {
 		self.table
 			.set(&keys)
 			.map_err(|e| PortError::Invalid(e.to_string()))
+	}
+
+	/// The contacts flagged for auto-answer; empty when the table cannot be read.
+	pub fn auto_answer(&self) -> Vec<PeerId> {
+		self.auto
+			.list()
+			.map(|keys| keys.iter().map(id_of).collect())
+			.unwrap_or_default()
+	}
+
+	/// Flags or unflags a contact. Switching on is refused unless the contact is verified.
+	pub fn set_auto_answer(&self, peer: PeerId, on: bool) -> Result<(), PortError> {
+		let trusted =
+			TrustStore::open(&self.db).map_err(|e| PortError::Unavailable(e.to_string()))?;
+		let found = trusted.entries().iter().find_map(|entry| {
+			let key: [u8; 32] = hex::decode(&entry.public_key).ok()?.try_into().ok()?;
+			(id_of(&key) == peer).then_some(key)
+		});
+		match (found, on) {
+			(Some(key), _) => self.auto.set(&key, on),
+			// Switching off a contact that is gone has nothing to undo.
+			(None, false) => return Ok(()),
+			(None, true) => self.auto.set(&[0; 32], true),
+		}
+		.map_err(|e| PortError::Invalid(e.to_string()))
 	}
 }

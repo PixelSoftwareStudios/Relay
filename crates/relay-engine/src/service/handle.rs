@@ -64,6 +64,13 @@ pub enum ServiceOp {
 	},
 	/// Replace the favorites by this ordered list of trusted peers.
 	SetFavorites(Vec<PeerId>),
+	/// Switch auto-answer for one contact.
+	SetAutoAnswer {
+		/// The contact.
+		peer: PeerId,
+		/// On or off.
+		enabled: bool,
+	},
 	/// Decide a peer's trust.
 	Trust(TrustRequest),
 	/// Apply the non-domain parts of a global-controls change.

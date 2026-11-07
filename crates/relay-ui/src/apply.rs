@@ -88,7 +88,8 @@ impl AppState {
 				}
 			}
 			// Outcomes are awaited by the command that issued them.
-			Event::Operation(_) => {}
+			// Shells react to AutoAnswered; the call itself carries `auto_answered`.
+			Event::Operation(_) | Event::AutoAnswered(_) => {}
 		}
 	}
 

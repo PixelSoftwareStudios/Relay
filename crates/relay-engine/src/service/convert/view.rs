@@ -70,6 +70,17 @@ fn level_name(level: relay_audio::dsp::NoiseLevel) -> &'static str {
 	}
 }
 
+/// The name of a call alert mode in the API and the preference keys.
+fn alert_name(alert: relay_config::prefs::CallAlert) -> &'static str {
+	use relay_config::prefs::CallAlert;
+	match alert {
+		CallAlert::System => "system",
+		CallAlert::RingAndVibrate => "ring_and_vibrate",
+		CallAlert::Vibrate => "vibrate",
+		CallAlert::Silent => "silent",
+	}
+}
+
 fn gain_to_f32(gain: Gain) -> f32 {
 	f32::from(gain.permille()) / 1000.0
 }
@@ -115,6 +126,7 @@ pub fn call_to_pb(view: &relay_core::CallView, revision: u64, directory: &Direct
 		} else {
 			0
 		},
+		auto_answered: directory.was_auto_answered(view.id),
 	}
 }
 
@@ -161,6 +173,7 @@ pub fn peer_to_pb(info: &PeerInfo, linked: bool) -> Peer {
 		last_seen_unix_ms: 0,
 		favorite: false,
 		favorite_position: 0,
+		auto_answer: false,
 		fingerprint_short: relay_net::identity::Fingerprint::from_bytes(*info.id.as_bytes())
 			.short(),
 		key_changed: info.key_change.is_some(),
@@ -209,6 +222,9 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		noise_suppression_enabled: aux.processing.noise_suppression,
 		noise_suppression_level: level_name(aux.processing.noise_level).to_owned(),
 		auto_gain_enabled: aux.processing.auto_gain,
+		background_available: aux.background_available,
+		call_alert: alert_name(aux.call_alert).to_owned(),
+		auto_answer_enabled: aux.auto_answer_enabled,
 		global_muted: global.muted,
 		global_deafened: global.deafened,
 		microphone_gain: aux.microphone_gain,

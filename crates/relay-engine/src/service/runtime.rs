@@ -176,6 +176,7 @@ impl ServiceBuilder {
 			config.warnings,
 		);
 		directory.set_favorites(ports.settings.favorites());
+		directory.set_auto_answer(ports.settings.auto_answer());
 		if let Some((_, ring)) = ports.settings.ringtone() {
 			ports.media.set_ringtone(Some(ring));
 		}

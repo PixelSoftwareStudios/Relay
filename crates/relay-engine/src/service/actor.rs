@@ -38,6 +38,7 @@ struct ToneKey {
 	revision: relay_core::Revision,
 	attached: bool,
 	prefs: RingPrefs,
+	ring_audible: bool,
 }
 
 /// What the actor needs to follow who is attached.
@@ -62,7 +63,7 @@ pub(crate) struct Actor {
 	tone_key: Option<ToneKey>,
 	cursor: Cursor,
 	attendance: Attendance,
-	reported: BTreeSet<relay_core::ClientId>,
+	pub(super) reported: BTreeSet<relay_core::ClientId>,
 	origin: Instant,
 	inbox: mpsc::Receiver<Msg>,
 	feedback: VecDeque<Input>,
@@ -70,6 +71,9 @@ pub(crate) struct Actor {
 	messaging: Option<MessagingHandle>,
 	messaging_key: Option<relay_core::Revision>,
 	pub(super) recorder: Recorder,
+	/// Incoming calls waiting to be auto-answered (`actor_auto`).
+	pub(super) auto_pending: super::actor_auto::AutoPending,
+	pub(super) auto_ops: u64,
 }
 
 impl Actor {
@@ -111,6 +115,8 @@ impl Actor {
 			messaging,
 			messaging_key: None,
 			recorder: Recorder::new(clock),
+			auto_pending: Default::default(),
+			auto_ops: 0,
 		}
 	}
 
@@ -134,6 +140,7 @@ impl Actor {
 				() = link.changed() => {}
 			}
 			self.refresh_presence();
+			self.sync_auto_answer();
 			self.sync_tones();
 			self.sync_messaging();
 		}
@@ -155,6 +162,7 @@ impl Actor {
 			core,
 			self.attendance.presence.next_deadline(),
 			self.tones.deadline(),
+			self.auto_deadline(),
 		]
 		.into_iter()
 		.flatten()
@@ -195,6 +203,7 @@ impl Actor {
 			revision: self.engine.state().revision(),
 			attached: !self.reported.is_empty(),
 			prefs: self.directory.aux.ring,
+			ring_audible: self.ring_audible(),
 		};
 		if self.tone_key == Some(key) && !self.tones.timed() {
 			return;
@@ -211,6 +220,7 @@ impl Actor {
 			attached: key.attached,
 			deafened: snapshot.global.deafened,
 			prefs: key.prefs,
+			ring_audible: key.ring_audible,
 			now: Instant::now(),
 		});
 		for command in commands {
@@ -305,7 +315,11 @@ impl Actor {
 				let _ = reply.send(self.subscribe(after));
 			}
 			Msg::Peers(peers) => {
-				let events = self.directory.set_peers(peers);
+				let mut events = self.directory.set_peers(peers);
+				events.extend(
+					self.directory
+						.set_auto_answer(self.ports.settings.auto_answer()),
+				);
 				self.publish(events);
 			}
 			Msg::Channels { view, reply } => {

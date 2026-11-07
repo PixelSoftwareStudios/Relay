@@ -2,6 +2,7 @@
 //! implementation that talks to it.
 
 mod actor;
+mod actor_auto;
 mod actor_history;
 mod actor_ops;
 mod actor_settings;

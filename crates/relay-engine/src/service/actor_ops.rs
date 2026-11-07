@@ -167,6 +167,10 @@ impl Actor {
 					self.directory
 						.set_favorites(self.ports.settings.favorites()),
 				);
+				events.extend(
+					self.directory
+						.set_auto_answer(self.ports.settings.auto_answer()),
+				);
 				self.publish(events);
 			}
 			ServiceOp::ReplaceKey {
@@ -193,6 +197,10 @@ impl Actor {
 					self.directory
 						.set_favorites(self.ports.settings.favorites()),
 				);
+				events.extend(
+					self.directory
+						.set_auto_answer(self.ports.settings.auto_answer()),
+				);
 				self.publish(events);
 			}
 			ServiceOp::SetFavorites(ordered) => {
@@ -202,12 +210,23 @@ impl Actor {
 					.set_favorites(self.ports.settings.favorites());
 				self.publish(events);
 			}
+			ServiceOp::SetAutoAnswer { peer, enabled } => {
+				self.ports.settings.set_auto_answer(peer, enabled)?;
+				let events = self
+					.directory
+					.set_auto_answer(self.ports.settings.auto_answer());
+				self.publish(events);
+			}
 			ServiceOp::Trust(request) => {
 				self.ports.peers.decide_trust(request)?;
 				let mut events = self.directory.set_peers(self.ports.peers.peers());
 				events.extend(
 					self.directory
 						.set_favorites(self.ports.settings.favorites()),
+				);
+				events.extend(
+					self.directory
+						.set_auto_answer(self.ports.settings.auto_answer()),
 				);
 				self.publish(events);
 			}
