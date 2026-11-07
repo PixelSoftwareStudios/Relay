@@ -2,7 +2,6 @@ package dev.relay.app
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -10,28 +9,36 @@ class AlertPolicyTest {
 	private val ringing = CallInfo(active = true, incoming = true, muted = false, peer = "Laptop")
 
 	@Test
-	fun theEngineRingsForSystemAndRingAndVibrateOnly() {
-		assertTrue(AlertPolicy.engineRings(CallAlert.SYSTEM))
+	fun theShellAlertsSystemAndTheEngineRingsRingAndVibrate() {
+		assertTrue(AlertPolicy.shellAlerts(CallAlert.SYSTEM))
+		assertFalse(AlertPolicy.shellAlerts(CallAlert.RING_AND_VIBRATE))
+		assertFalse(AlertPolicy.shellAlerts(CallAlert.VIBRATE))
+		assertFalse(AlertPolicy.shellAlerts(CallAlert.SILENT))
 		assertTrue(AlertPolicy.engineRings(CallAlert.RING_AND_VIBRATE))
-		assertFalse(AlertPolicy.engineRings(CallAlert.VIBRATE))
-		assertFalse(AlertPolicy.engineRings(CallAlert.SILENT))
+		assertFalse(AlertPolicy.engineRings(CallAlert.SYSTEM))
 	}
 
 	@Test
-	fun theNotificationNeverRingsWhenTheEngineDoes() {
+	fun theEngineIsQuietExactlyWhenTheNotificationMakesTheSound() {
 		for (alert in CallAlert.entries) {
-			val plan = AlertPolicy.plan(alert)
-			assertFalse("$alert would ring twice", plan.sound)
+			assertEquals("$alert", AlertPolicy.shellAlerts(alert), AlertPolicy.plan(alert).sound)
 		}
 	}
 
 	@Test
-	fun withoutTheEngineRingTheSystemProfileIsLeftToAndroid() {
-		val system = AlertPolicy.plan(CallAlert.SYSTEM, engineRings = false)
+	fun nothingRingsTwice() {
+		for (alert in CallAlert.entries) {
+			assertFalse("$alert", AlertPolicy.shellAlerts(alert) && AlertPolicy.engineRings(alert))
+			assertFalse("$alert", AlertPolicy.plan(alert).sound && AlertPolicy.engineRings(alert))
+		}
+	}
+
+	@Test
+	fun systemLeavesTheRingerModeAndDoNotDisturbToAndroid() {
+		val system = AlertPolicy.plan(CallAlert.SYSTEM)
 		assertTrue(system.sound)
 		assertTrue(system.vibrate)
 		assertEquals("incoming_system", system.channel)
-		assertTrue(AlertPolicy.plan(CallAlert.RING_AND_VIBRATE, engineRings = false).sound)
 	}
 
 	@Test
@@ -45,19 +52,9 @@ class AlertPolicyTest {
 	}
 
 	@Test
-	fun everyDistinctBehaviourHasItsOwnChannelBecauseChannelsAreImmutable() {
-		val plans = CallAlert.entries.flatMap { listOf(AlertPolicy.plan(it, true), AlertPolicy.plan(it, false)) }
-		for (a in plans) for (b in plans) {
-			if (a.channel == b.channel) {
-				assertEquals(a.sound, b.sound)
-				assertEquals(a.vibrate, b.vibrate)
-			}
-		}
-		assertNotEquals(AlertPolicy.plan(CallAlert.SYSTEM, true).channel, AlertPolicy.plan(CallAlert.SYSTEM, false).channel)
-		assertEquals(
-			setOf("incoming_system", "incoming_system_engine", "incoming_ring_vibrate", "incoming_ring_vibrate_engine", "incoming_vibrate", "incoming_silent"),
-			plans.map { it.channel }.toSet(),
-		)
+	fun everyAlertHasItsOwnChannelBecauseChannelsAreImmutable() {
+		val ids = CallAlert.entries.map { AlertPolicy.plan(it).channel }
+		assertEquals(ids.size, ids.toSet().size)
 	}
 
 	@Test

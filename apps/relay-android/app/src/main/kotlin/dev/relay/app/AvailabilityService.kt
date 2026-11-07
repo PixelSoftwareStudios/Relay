@@ -69,8 +69,9 @@ object AvailabilityNotification {
 /**
  * Foreground service of type `connectedDevice`, alive while `background.available`
  * is on (see [AvailabilityPolicy]). It holds no engine of its own: it keeps the
- * process alive, holds the multicast and Wi-Fi locks and tells the engine a
- * client is attached, so it advertises, listens and rings with no window open.
+ * process alive and holds the multicast and Wi-Fi locks. The engine holds its own
+ * presence while `background.available` is on, so it advertises, listens and rings with
+ * no window open and no watch.
  *
  * Type choice: `connectedDevice` is the one that fits a LAN-listening peer
  * (it needs one of the network-state permissions, and `CHANGE_WIFI_MULTICAST_STATE`
@@ -105,13 +106,11 @@ class AvailabilityService : Service() {
 		getSystemService(NotificationManager::class.java)
 			.notify(AvailabilityNotification.ID, AvailabilityNotification.build(this, state))
 		if (state == Availability.ACTIVE) RelayRuntime.locks.hold(OWNER) else RelayRuntime.locks.drop(OWNER)
-		RelayRuntime.whenReady { it.setAvailable(state == Availability.ACTIVE) }
 	}
 
 	override fun onDestroy() {
 		RelayRuntime.removeAvailabilityListener(listener)
 		RelayRuntime.locks.drop(OWNER)
-		RelayRuntime.engine?.setAvailable(false)
 		RelayRuntime.availabilityStopped()
 		super.onDestroy()
 	}

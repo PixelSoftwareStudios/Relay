@@ -21,15 +21,18 @@ enum class CallAlert {
 /**
  * How the incoming-call notification alerts.
  *
- * Who makes the sound: the engine. It rings through its own audio stream
- * whenever a client is attached (the app is open or the availability service
- * runs) and the alert is `system` or `ring_and_vibrate`; that stream cannot be
- * muted per client from the shell. So the notification never rings when the
- * engine does, which would be two rings at once. The notification carries the
- * heads-up, the full-screen call screen and the vibration. When the engine is
- * not going to ring ([engineRings] false) the notification makes the sound
- * itself, which keeps the `system` profile (ringer mode, Do Not Disturb)
- * because the channel sound is left to Android.
+ * Who makes the sound is decided per alert:
+ * - `system`: the shell. The notification channel plays the default ringtone and
+ *   vibrates, and Android applies the ringer mode and Do Not Disturb. The engine
+ *   is told to stay quiet (`SetClientQuiet`), so the phone's silent mode is
+ *   respected and nothing rings twice.
+ * - `ring_and_vibrate`: the engine rings (forced, whatever the ringer mode); the
+ *   notification adds the heads-up, the call screen and vibration, no sound.
+ * - `vibrate`: the engine stays silent by its own rule; the notification vibrates.
+ * - `silent`: nothing sounds or vibrates; the notification is visual only.
+ *
+ * With a Relay screen open the engine rings through the UI's own (never quiet)
+ * client and no notification is posted.
  */
 data class AlertPlan(
 	/** Notification channel id; one per distinct behaviour because a channel's sound and vibration are fixed once created. */
@@ -41,25 +44,24 @@ data class AlertPlan(
 )
 
 object AlertPolicy {
-	/** Whether the engine's own ring is audible for this alert (mirrors the engine's `ring_audible`). */
-	fun engineRings(alert: CallAlert): Boolean =
-		alert == CallAlert.SYSTEM || alert == CallAlert.RING_AND_VIBRATE
+	/** Whether the shell alerts the call itself, so the engine must stay quiet (`SetClientQuiet(true)`). */
+	fun shellAlerts(alert: CallAlert): Boolean = alert == CallAlert.SYSTEM
 
-	fun plan(alert: CallAlert, engineRings: Boolean): AlertPlan {
-		val sound = !engineRings && (alert == CallAlert.SYSTEM || alert == CallAlert.RING_AND_VIBRATE)
+	/** Whether the engine's own ring is audible for this alert in the background. */
+	fun engineRings(alert: CallAlert): Boolean = alert == CallAlert.RING_AND_VIBRATE
+
+	fun plan(alert: CallAlert): AlertPlan {
+		val sound = shellAlerts(alert)
 		val vibrate = alert != CallAlert.SILENT
-		val base = when (alert) {
+		val channel = when (alert) {
 			CallAlert.SYSTEM -> "incoming_system"
-			CallAlert.RING_AND_VIBRATE -> "incoming_ring_vibrate"
+			// The engine makes the sound: a channel of its own with none, as channels cannot change.
+			CallAlert.RING_AND_VIBRATE -> "incoming_ring_vibrate_engine"
 			CallAlert.VIBRATE -> "incoming_vibrate"
 			CallAlert.SILENT -> "incoming_silent"
 		}
-		// A channel's sound is immutable, so a quiet variant has its own id.
-		val channel = if (engineRings && (alert == CallAlert.SYSTEM || alert == CallAlert.RING_AND_VIBRATE)) "${base}_engine" else base
 		return AlertPlan(channel, sound, vibrate)
 	}
-
-	fun plan(alert: CallAlert): AlertPlan = plan(alert, engineRings(alert))
 }
 
 /** What to do about the incoming-call notification for the current state. */

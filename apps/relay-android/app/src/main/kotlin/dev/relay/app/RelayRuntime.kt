@@ -151,7 +151,7 @@ object RelayRuntime {
 			// A restarted engine starts with nothing known about the permission.
 			started.setMicrophone(microphone.state.access().toState())
 			started.setScanner(app.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
-			started.setAvailable(availability == Availability.ACTIVE)
+			started.setQuiet(AlertPolicy.shellAlerts(alert))
 			queued.forEach { it(started) }
 			Log.i(TAG, "engine ready")
 		} catch (e: Exception) {
@@ -186,6 +186,9 @@ object RelayRuntime {
 		main.post {
 			prefs.enabled = enabled
 			alert = CallAlert.parse(alertName)
+			// The flag is per alert; the Rust side keeps it across reconnects.
+			val quiet = AlertPolicy.shellAlerts(alert)
+			whenReady { it.setQuiet(quiet) }
 			reevaluateAvailability()
 		}
 	}
