@@ -119,6 +119,10 @@ async fn every_other_command_reaches_its_rpc() {
 		Command::SetFavorites {
 			peer_ids: vec![vec![0xab; 32], vec![0xcd; 32]],
 		},
+		Command::SetPeerAutoAnswer {
+			peer_id: vec![0xab; 32],
+			enabled: true,
+		},
 		Command::SetSettings {
 			values: vec![("hotkeys.push_to_talk".into(), "F9".into())],
 		},

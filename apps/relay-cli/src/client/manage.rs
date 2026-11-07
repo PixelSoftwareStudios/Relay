@@ -100,6 +100,12 @@ pub trait Manage {
 	) -> Result<Operation, ApiError>;
 	/// Replace the favorites by this ordered list of trusted peer ids.
 	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError>;
+	/// Switch auto-answer for one contact; on is refused unless the contact is verified.
+	async fn set_peer_auto_answer(
+		&mut self,
+		peer_id: &[u8],
+		enabled: bool,
+	) -> Result<Operation, ApiError>;
 	/// One page of the call history, newest first.
 	async fn call_history(
 		&mut self,
@@ -332,6 +338,18 @@ impl Manage for RealClient {
 	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError> {
 		self.run_command(relay_client::Command::SetFavorites {
 			peer_ids: peer_ids.to_vec(),
+		})
+		.await
+	}
+
+	async fn set_peer_auto_answer(
+		&mut self,
+		peer_id: &[u8],
+		enabled: bool,
+	) -> Result<Operation, ApiError> {
+		self.run_command(relay_client::Command::SetPeerAutoAnswer {
+			peer_id: peer_id.to_vec(),
+			enabled,
 		})
 		.await
 	}

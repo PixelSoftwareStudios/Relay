@@ -85,6 +85,9 @@ pub fn snapshot() -> Snapshot {
 			output_device_id: "spk1".into(),
 			noise_suppression_enabled: true,
 			noise_suppression_level: "moderate".into(),
+			background_available: true,
+			call_alert: "system".into(),
+			auto_answer_enabled: true,
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			..Settings::default()

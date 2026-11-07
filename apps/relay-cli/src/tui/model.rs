@@ -214,6 +214,9 @@ impl Model {
 				_ => {}
 			},
 			Event::Warning(w) => push_warning(&mut snap.warnings, w),
+			Event::AutoAnswered(note) => {
+				self.status = format!("answered automatically: {}", note.peer_name);
+			}
 			Event::Operation(op) => {
 				if op.state == OperationState::Failed as i32 {
 					let problem = op.problem.unwrap_or_default();

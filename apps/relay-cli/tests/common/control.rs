@@ -299,6 +299,24 @@ impl Manage for FakeControl {
 	) -> Result<Operation, ApiError> {
 		self.record(format!("replace {} {fingerprint}", hex::encode(peer_id)))
 	}
+	async fn set_peer_auto_answer(
+		&mut self,
+		peer_id: &[u8],
+		enabled: bool,
+	) -> Result<Operation, ApiError> {
+		for peer in self
+			.snapshot
+			.peers
+			.iter_mut()
+			.filter(|p| p.peer_id == peer_id)
+		{
+			peer.auto_answer = enabled;
+		}
+		self.record(format!(
+			"auto_answer {} {enabled}",
+			hex::encode(&peer_id[..1])
+		))
+	}
 	async fn set_favorites(&mut self, peer_ids: &[Vec<u8>]) -> Result<Operation, ApiError> {
 		let ids: Vec<String> = peer_ids.iter().map(|id| hex::encode(&id[..1])).collect();
 		self.record(format!("favorites {}", ids.join(",")))

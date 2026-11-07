@@ -203,6 +203,14 @@ pub enum Command {
 		/// Peer ids, first = position 0.
 		peer_ids: Vec<Vec<u8>>,
 	},
+	/// Switch auto-answer for one contact. Switching on fails the operation unless the contact
+	/// is verified; switching off always works.
+	SetPeerAutoAnswer {
+		/// The contact's 32-byte peer id.
+		peer_id: Vec<u8>,
+		/// On or off.
+		enabled: bool,
+	},
 	/// Change preferences by flat key while the daemon runs. Only the operation comes back;
 	/// use `RelayClient::set_settings` for the per-key outcome.
 	SetSettings {

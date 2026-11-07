@@ -1,6 +1,7 @@
 //! Command implementations. Each takes a [`Control`] so tests can fake the engine.
 
 mod address;
+mod auto_answer;
 mod avatar;
 mod call;
 mod channel;
@@ -130,6 +131,7 @@ pub async fn execute<C: Control + Subscribe + Manage>(
 		Command::Devices(cmd) => controls::devices(client, cmd, out).await,
 		Command::Profile(cmd) => controls::profile(client, cmd, out).await,
 		Command::Trust(cmd) => trust::run(client, cmd, out).await,
+		Command::AutoAnswer { command } => auto_answer::run(client, command, out).await,
 		Command::Favorites { command } => favorites::run(client, command, out).await,
 		Command::MicTest(args) => mic_test::run(client, &args, out).await,
 		Command::Address(args) => address::run(client, &args, out).await,

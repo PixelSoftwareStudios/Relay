@@ -321,6 +321,12 @@ pub struct StatusView {
 	/// `off`, or the strength: `low`, `moderate` or `high`.
 	pub noise_suppression: String,
 	pub auto_gain: bool,
+	/// `background.available`: stays reachable with no window open.
+	pub background_available: bool,
+	/// `calls.alert`: `system`, `ring_and_vibrate`, `vibrate` or `silent`.
+	pub call_alert: String,
+	/// `calls.auto_answer_enabled`: the global auto-answer switch.
+	pub auto_answer_enabled: bool,
 	pub muted: bool,
 	pub deafened: bool,
 	pub microphone_gain: f32,
@@ -346,6 +352,9 @@ impl StatusView {
 				"off".to_owned()
 			},
 			auto_gain: s.auto_gain_enabled,
+			background_available: s.background_available,
+			call_alert: s.call_alert,
+			auto_answer_enabled: s.auto_answer_enabled,
 			muted: s.global_muted,
 			deafened: s.global_deafened,
 			microphone_gain: s.microphone_gain,
@@ -393,6 +402,25 @@ impl StatusView {
 			("ns", or_dash(&self.noise_suppression).to_owned()),
 			("agc", if self.auto_gain { "on" } else { "off" }.to_owned()),
 			("audio", audio),
+			(
+				"background",
+				if self.background_available {
+					"stays available"
+				} else {
+					"off"
+				}
+				.to_owned(),
+			),
+			("alert", or_dash(&self.call_alert).to_owned()),
+			(
+				"auto-answer",
+				if self.auto_answer_enabled {
+					"on"
+				} else {
+					"off"
+				}
+				.to_owned(),
+			),
 		];
 		if self.calls.is_empty() {
 			rows.push(("calls", "none".into()));

@@ -7,9 +7,9 @@ use relay_api::pb::{
 	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
 	MutationContext, Operation, ReplacePinnedKeyRequest, RevokeChannelMemberRequest,
 	SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
-	SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest, SetSettingsRequest,
-	SetTransmitModeRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
-	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	SetPeerAutoAnswerRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
+	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
+	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -277,6 +277,14 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			rpc.set_favorites(SetFavoritesRequest {
 				context: Some(context),
 				peer_ids,
+			})
+			.await
+		}
+		Command::SetPeerAutoAnswer { peer_id, enabled } => {
+			rpc.set_peer_auto_answer(SetPeerAutoAnswerRequest {
+				context: Some(context),
+				peer_id,
+				enabled,
 			})
 			.await
 		}

@@ -490,6 +490,16 @@ impl Engine for FakeEngine {
 	async fn clear_avatar(&self, r: Request<MutationContext>) -> Resp<Operation> {
 		self.op(Some(&r.into_inner()), "clear_avatar".into())
 	}
+	async fn set_peer_auto_answer(&self, r: Request<SetPeerAutoAnswerRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		{
+			let mut snapshot = self.snapshot.lock().unwrap();
+			for peer in snapshot.peers.iter_mut().filter(|p| p.peer_id == r.peer_id) {
+				peer.auto_answer = r.enabled;
+			}
+		}
+		self.op(r.context.as_ref(), format!("auto_answer {}", r.enabled))
+	}
 	async fn set_favorites(&self, r: Request<SetFavoritesRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		{

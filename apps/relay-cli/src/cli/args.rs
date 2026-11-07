@@ -94,6 +94,11 @@ pub enum Command {
 		#[command(subcommand)]
 		command: Option<FavoritesCommand>,
 	},
+	/// Contacts whose calls are answered automatically: list, on or off (verified contacts only).
+	AutoAnswer {
+		#[command(subcommand)]
+		command: Option<AutoAnswerCommand>,
+	},
 	/// Measure the microphone level for a few seconds.
 	MicTest(MicTestArgs),
 	/// Check the setup and optionally write a redacted support bundle.
@@ -584,6 +589,23 @@ pub enum TrustCommand {
 		/// Full fingerprint (64 hex digits) of the new key.
 		#[arg(long, value_name = "HEX")]
 		fingerprint: String,
+	},
+}
+
+/// `relay auto-answer ...`
+#[derive(Debug, Subcommand)]
+pub enum AutoAnswerCommand {
+	/// List the contacts that answer automatically (the default).
+	List,
+	/// Answer this verified contact's calls automatically after a short delay.
+	On {
+		/// Peer name or id prefix.
+		peer: String,
+	},
+	/// Ring for this contact's calls again.
+	Off {
+		/// Peer name or id prefix.
+		peer: String,
 	},
 }
 

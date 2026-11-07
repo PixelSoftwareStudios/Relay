@@ -365,6 +365,13 @@ impl Engine for FakeEngine {
 		let ids: Vec<String> = r.peer_ids.iter().map(hex::encode).collect();
 		self.op(r.context.as_ref(), format!("favorites {}", ids.join(",")))
 	}
+	async fn set_peer_auto_answer(&self, r: Request<SetPeerAutoAnswerRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		self.op(
+			r.context.as_ref(),
+			format!("auto_answer {} {}", hex::encode(&r.peer_id[..1]), r.enabled),
+		)
+	}
 	async fn forget_peer(&self, r: Request<ForgetPeerRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(
