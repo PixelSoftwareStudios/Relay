@@ -44,6 +44,19 @@ Controls, all enforced in the engine (`service/actor_auto.rs`), none left to a U
    a notification.
 8. Kill switch: `calls.auto_answer_enabled = false` ignores every flag at once (flags are kept), live.
 
+Addendum (engine-held presence). The first cut said the engine only stores `background.available` and a long-lived
+client keeps the daemon reachable. That left a CLI-started `relayd` with no client doing nothing, against the
+requirement that on desktop it works "if the app is in the tray or if the daemon was started from the CLI". Now the
+engine holds the presence itself: with `background.available` on and no watch, a reserved client `ClientId::HOUSE`
+counts as attached. Consequences: the daemon advertises, listens, rings and auto-answers headless; it does not
+idle-exit while the setting is on (an autostarting CLI therefore leaves a daemon running, and its stderr line says so;
+`background.available false` restores the 300 s exit and the old client-held rules). `HOUSE` owns a headless
+auto-answered call, and any client may take its lease without an explicit takeover, so a TUI or app that attaches can
+hang up, mute or push to talk. A headless `relayd` shows no notification (no shell): it rings and the call is in the
+history. Hidden mode, the block list and the inbound policy act before a call can ring and are unchanged. Also added:
+`SetClientQuiet` (API revision 7), so a shell that alerts calls itself (Android, where the engine cannot see the
+silent or vibrate profile) can keep the engine ringtone silent while it is the only attached client.
+
 Not done: the call history does not mark auto-answered calls (it would need a column; the live `Call` carries the
 flag). The first ring of an auto-answered call is also what wakes a phone; that part is the shell's.
 
