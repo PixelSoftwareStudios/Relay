@@ -718,3 +718,122 @@ async fn key_changed_screenshots() {
 		}
 	}
 }
+
+/// The Contacts card (online and offline), a history row of every outcome and the microphone
+/// test running.
+#[tokio::test]
+async fn contacts_history_and_mic_test_screenshots() {
+	use relay_ui::emitter::Sink;
+	use relay_ui::model::{HistoryDirection, HistoryEntry, HistoryOutcome, Meters, Trust};
+	let Some(dir) = std::env::var_os("RELAY_SHOTS_DIR") else {
+		return;
+	};
+	let dir = PathBuf::from(dir);
+	std::fs::create_dir_all(&dir).unwrap();
+	let now = 1_793_880_000_000u64;
+	for (name, desktop, w, h) in [("phone", false, 360.0, 800.0), ("desk", true, 720.0, 800.0)] {
+		let mut textures = Textures::default();
+		let mut phone = if desktop {
+			Phone::desktop(w, h, Language::En)
+		} else {
+			Phone::new(w, h, Language::En)
+		};
+		phone
+			.shell
+			.now_ms
+			.store(now, std::sync::atomic::Ordering::SeqCst);
+		let mut state = phone::busy_state();
+		state.calls.clear();
+		state.peers.truncate(2);
+		state.peers[0].trust = Trust::Verified;
+		state.peers[0].reachable = true;
+		state.peers[1].trust = Trust::Verified;
+		state.peers[1].reachable = false;
+		state.peers[1].last_seen_unix_ms = now - 3 * 3_600_000;
+		state.history = (1..=6u64)
+			.map(|i| HistoryEntry {
+				id: i,
+				call_id: hex::encode([i as u8; 16]),
+				peer_id: state.peers[0].peer_id.clone(),
+				peer_name: state.peers[0].display_name.clone(),
+				fingerprint_short: String::new(),
+				direction: if i % 2 == 0 {
+					HistoryDirection::Outgoing
+				} else {
+					HistoryDirection::Incoming
+				},
+				outcome: [
+					HistoryOutcome::Completed,
+					HistoryOutcome::Completed,
+					HistoryOutcome::Missed,
+					HistoryOutcome::Declined,
+					HistoryOutcome::Cancelled,
+					HistoryOutcome::Failed,
+				][i as usize - 1],
+				started_at_ms: now - i * 600_000,
+				duration_ms: 65_000 * i,
+			})
+			.collect();
+		phone.show_state(&state);
+		phone.app.set_page(Page::Contacts);
+		let _ = &mut phone;
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("round-{name}-contacts.png")),
+		);
+		phone.app.set_page(Page::Calls);
+		press(
+			&mut phone,
+			&mut textures,
+			relay_ui::i18n::t("history-heading"),
+		);
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("round-{name}-history.png")),
+		);
+		phone.actions.hub.set_visible(true);
+		phone.app.open_settings(Some(SettingsCategory::Audio));
+		press(&mut phone, &mut textures, "Start test");
+		relay_ui::actions::ShellSink {
+			shared: phone.actions.shared.clone(),
+			shell: phone.shell.clone(),
+		}
+		.meters(&Meters {
+			seq: 1,
+			microphone_dbfs: Some(-14.0),
+			calls: Vec::new(),
+		});
+		shoot(
+			&mut phone,
+			&mut textures,
+			&dir.join(format!("round-{name}-mic-test.png")),
+		);
+	}
+}
+
+/// Click the first text equal to `label`, keeping every texture update of the frames drawn.
+fn press(phone: &mut Phone, textures: &mut Textures, label: &str) {
+	for _ in 0..5 {
+		pump(phone, textures, Vec::new());
+	}
+	// The view is unchanged now, so this frame carries no texture update.
+	let drawn = phone.frame_with(Vec::new());
+	let pos = drawn
+		.named
+		.iter()
+		.find(|(t, _)| t == label)
+		.unwrap_or_else(|| panic!("no {label:?}"))
+		.1
+		.center();
+	let button = |pressed| egui::Event::PointerButton {
+		pos,
+		button: egui::PointerButton::Primary,
+		pressed,
+		modifiers: Default::default(),
+	};
+	pump(phone, textures, vec![egui::Event::PointerMoved(pos)]);
+	pump(phone, textures, vec![button(true)]);
+	pump(phone, textures, vec![button(false)]);
+}
