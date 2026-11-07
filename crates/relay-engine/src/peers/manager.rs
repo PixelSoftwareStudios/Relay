@@ -596,6 +596,34 @@ impl Actor {
 				probe: Some(Arc::clone(&entry.link.rtt)),
 			});
 		}
+		// Trusted contacts with no link and no discovery record are still listed (offline, with
+		// the name and addresses remembered), so the contact list never depends on who is
+		// reachable right now.
+		let stored = self.trust.lock().fingerprints();
+		for peer in stored {
+			if self.canonical.contains_key(&peer) {
+				continue;
+			}
+			let Some(record) = self.trust.lock().get(&peer) else {
+				continue;
+			};
+			let name = self
+				.remote_profiles
+				.get(&peer)
+				.map(|(name, _)| name.clone())
+				.unwrap_or_else(|| self.shown_name(&peer, &record.display_name));
+			list.push(PeerSnapshot {
+				id: Some(peer_id(&peer)),
+				hint: None,
+				avatar: self.remote_profiles.get(&peer).and_then(|(_, a)| *a),
+				name,
+				addresses: self.addresses.get(&peer).cloned().unwrap_or_default(),
+				linked: false,
+				callable: false,
+				trust: Some(record.state),
+				probe: None,
+			});
+		}
 		// Discovered devices without a link: name and hint only, never trusted.
 		for found in self.table.iter() {
 			let linked = found
