@@ -7,9 +7,9 @@ use relay_api::pb::{
 	DecidePeerTrustRequest, ForgetPeerRequest, JoinChannelRequest, LeaveChannelRequest,
 	MutationContext, Operation, ReplacePinnedKeyRequest, RevokeChannelMemberRequest,
 	SelectDevicesRequest, SetCallControlsRequest, SetFavoritesRequest, SetGlobalControlsRequest,
-	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetSettingsRequest,
-	SetTransmitModeRequest, StartCallRequest, StartMicTestRequest, TelemetryRequest,
-	TelemetrySnapshot, UploadAvatarRequest, start_call_request,
+	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
+	SetSettingsRequest, SetTransmitModeRequest, StartCallRequest, StartMicTestRequest,
+	TelemetryRequest, TelemetrySnapshot, UploadAvatarRequest, start_call_request,
 };
 use relay_api::{ApiError, Endpoint, RelayClient};
 use tonic::Streaming;
@@ -208,6 +208,23 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 			.await
 		}
 		Command::PreviewTone => rpc.preview_tone(context).await,
+		Command::SetRingtone { file_name, data } => {
+			rpc.set_ringtone(SetRingtoneRequest {
+				context: Some(context),
+				file_name,
+				data,
+				reset: false,
+			})
+			.await
+		}
+		Command::ResetRingtone => {
+			rpc.set_ringtone(SetRingtoneRequest {
+				context: Some(context),
+				reset: true,
+				..SetRingtoneRequest::default()
+			})
+			.await
+		}
 		Command::SelectDevices {
 			input_id,
 			output_id,

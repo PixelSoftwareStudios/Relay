@@ -221,6 +221,15 @@ impl Engine for FakeEngine {
 		let r = r.into_inner();
 		self.op(Some(&r), "preview_tone".into())
 	}
+	async fn set_ringtone(&self, r: Request<SetRingtoneRequest>) -> Resp<Operation> {
+		let r = r.into_inner();
+		let what = if r.reset {
+			"reset".to_owned()
+		} else {
+			format!("{} {}", r.file_name, r.data.len())
+		};
+		self.op(r.context.as_ref(), format!("set_ringtone {what}"))
+	}
 	async fn set_profile(&self, r: Request<SetProfileRequest>) -> Resp<Operation> {
 		let r = r.into_inner();
 		self.op(r.context.as_ref(), format!("profile {}", r.display_name))

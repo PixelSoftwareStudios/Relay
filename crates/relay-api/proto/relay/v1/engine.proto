@@ -27,6 +27,8 @@ service Engine {
   rpc StartMicTest(StartMicTestRequest) returns (Operation);
   rpc StopMicTest(MutationContext) returns (Operation);
   rpc PreviewTone(MutationContext) returns (Operation); // plays the ring on this device's own output for 2 s
+  // Sets (or, with reset, removes) this device's own incoming-call ringtone. Local to the device that runs the engine.
+  rpc SetRingtone(SetRingtoneRequest) returns (Operation);
   rpc SetProfile(SetProfileRequest) returns (Operation);
   rpc UploadAvatar(UploadAvatarRequest) returns (Operation);
   // Removes the local avatar and tells trusted peers (a Profile with an empty avatar hash).
@@ -306,6 +308,7 @@ message Settings {
   TransmitMode default_transmit_mode = 27; // calls.default_transmit_mode as saved
   TransmitMode effective_default_transmit_mode = 28; // what a new call gets (differs when ptt is off)
   bool ptt_enabled = 29; // ptt.enabled: push-to-talk may be chosen
+  string ringtone_name = 32; // file name of the custom ringtone; empty when the built-in chime is used
   string daemon_build_revision = 30; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
   uint32 daemon_api_revision = 31;
 }
@@ -444,6 +447,14 @@ message SetProfileRequest { MutationContext context = 1; string display_name = 2
 message UploadAvatarRequest {
   MutationContext context = 1;
   bytes encoded_image = 2; // bounded <=1MiB, any of PNG/JPEG/WebP/GIF/BMP/TIFF, not a local path or raw pixel array
+// An audio file (MP3, Ogg Vorbis, FLAC, WAV or AAC) to ring with on this device. The engine decodes
+// it once, off the real-time thread, within limits.ringtone_max_kib and limits.ringtone_max_seconds.
+message SetRingtoneRequest {
+  MutationContext context = 1;
+  string file_name = 2; // shown in the settings; bounded, no path
+  bytes data = 3; // the file as chosen; ignored when reset is true
+  bool reset = 4; // restore the built-in chime and delete the stored ring
+}
   string declared_media_type = 3; // do not trust without decoding validation
 }
 message DecidePeerTrustRequest {

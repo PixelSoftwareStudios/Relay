@@ -94,6 +94,11 @@ async fn every_other_command_reaches_its_rpc() {
 			call_sounds_enabled: Some(true),
 		},
 		Command::PreviewTone,
+		Command::SetRingtone {
+			file_name: "tone.mp3".into(),
+			data: vec![0; 4],
+		},
+		Command::ResetRingtone,
 		Command::SelectDevices {
 			input_id: "mic".into(),
 			output_id: "spk".into(),
@@ -148,6 +153,8 @@ async fn every_other_command_reaches_its_rpc() {
 			"global muted=None mic=None ptt_delay=None ring=Some(false)/Some(0.5)/None/Some(true)"
 				.into(),
 			"preview_tone".into(),
+			"set_ringtone tone.mp3 4".into(),
+			"set_ringtone reset".into(),
 			"devices mic spk".into(),
 			"ns rnn".into(),
 			"profile Ada".into(),

@@ -333,6 +333,9 @@ impl Engine for FakeEngine {
 	async fn preview_tone(&self, _: Request<MutationContext>) -> Resp<Operation> {
 		unsupported()
 	}
+	async fn set_ringtone(&self, _: Request<SetRingtoneRequest>) -> Resp<Operation> {
+		unsupported()
+	}
 	async fn set_profile(&self, _: Request<SetProfileRequest>) -> Resp<Operation> {
 		unsupported()
 	}

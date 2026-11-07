@@ -146,6 +146,16 @@ pub enum Command {
 	},
 	/// Play the ring on this device's own output for about two seconds.
 	PreviewTone,
+	/// Use an audio file as this device's incoming-call ringtone. The engine decodes it within
+	/// the `limits.ringtone_*` bounds and refuses what it cannot play.
+	SetRingtone {
+		/// Name shown in the settings (no path).
+		file_name: String,
+		/// The file as chosen.
+		data: Vec<u8>,
+	},
+	/// Go back to the built-in ring.
+	ResetRingtone,
 	/// Select input and output devices.
 	SelectDevices {
 		/// Input device id.
