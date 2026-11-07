@@ -59,6 +59,12 @@ impl Paths {
 		self.data_dir.join("identity.insecure.key")
 	}
 
+	/// The custom ringtone: the processed ring and the name of the file it came from. Local to
+	/// this device and never part of the preferences database.
+	pub fn ringtone_dir(&self) -> PathBuf {
+		self.data_dir.join("ringtone")
+	}
+
 	/// Used only when the user chose the INSECURE file option for secrets.
 	pub fn channel_secrets_dir(&self) -> PathBuf {
 		self.data_dir.join("channel-secrets")

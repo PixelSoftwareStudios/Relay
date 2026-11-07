@@ -274,7 +274,7 @@ fn the_desktop_starts_the_daemon_by_default_and_can_be_told_not_to() {
 fn ring_preferences_default_validate_and_round_trip() {
 	let prefs = Preferences::default();
 	assert_eq!(flat::get(&prefs, "audio.ringtone_enabled").unwrap(), "true");
-	assert_eq!(flat::get(&prefs, "audio.ringtone_volume").unwrap(), "0.7");
+	assert_eq!(flat::get(&prefs, "audio.ringtone_volume").unwrap(), "0.4");
 	assert_eq!(flat::get(&prefs, "audio.ringback_enabled").unwrap(), "true");
 	assert_eq!(
 		flat::get(&prefs, "audio.call_sounds_enabled").unwrap(),

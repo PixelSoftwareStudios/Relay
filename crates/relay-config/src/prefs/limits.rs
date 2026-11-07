@@ -28,7 +28,7 @@ pub struct LimitSpec {
 }
 
 /// Number of tweakable limits.
-pub const COUNT: usize = 7;
+pub const COUNT: usize = 9;
 
 /// Every tweakable limit, in display order.
 pub const SPECS: [LimitSpec; COUNT] = [
@@ -81,6 +81,20 @@ pub const SPECS: [LimitSpec; COUNT] = [
 		max: 20,
 		unit: "calls",
 	},
+	LimitSpec {
+		key: "limits.ringtone_max_kib",
+		default: 1024,
+		min: 64,
+		max: 8192,
+		unit: "KiB",
+	},
+	LimitSpec {
+		key: "limits.ringtone_max_seconds",
+		default: 30,
+		min: 2,
+		max: 120,
+		unit: "seconds",
+	},
 ];
 
 /// The spec of `key`, if it is a tweakable limit.
@@ -106,6 +120,10 @@ pub struct Limits {
 	pub transfer_concurrency: u32,
 	/// Most ended calls whose chat transcript is kept; `0` keeps nothing once a call ends.
 	pub messages_retained_calls: u32,
+	/// Largest custom ringtone file accepted, in KiB.
+	pub ringtone_max_kib: u32,
+	/// Longest custom ringtone accepted, in seconds.
+	pub ringtone_max_seconds: u32,
 }
 
 impl Default for Limits {
@@ -119,6 +137,8 @@ impl Default for Limits {
 			history_max_age_days: d(4),
 			transfer_concurrency: d(5),
 			messages_retained_calls: d(6),
+			ringtone_max_kib: d(7),
+			ringtone_max_seconds: d(8),
 		}
 	}
 }
@@ -134,6 +154,8 @@ impl Limits {
 			self.history_max_age_days,
 			self.transfer_concurrency,
 			self.messages_retained_calls,
+			self.ringtone_max_kib,
+			self.ringtone_max_seconds,
 		]
 	}
 
@@ -146,7 +168,17 @@ impl Limits {
 				*slot = value;
 			}
 		}
-		let [avatar, session, retained, entries, days, transfers, calls] = values;
+		let [
+			avatar,
+			session,
+			retained,
+			entries,
+			days,
+			transfers,
+			calls,
+			ring_kib,
+			ring_secs,
+		] = values;
 		Self {
 			avatar_cache_mib: avatar,
 			messages_session_mib: session,
@@ -155,6 +187,8 @@ impl Limits {
 			history_max_age_days: days,
 			transfer_concurrency: transfers,
 			messages_retained_calls: calls,
+			ringtone_max_kib: ring_kib,
+			ringtone_max_seconds: ring_secs,
 		}
 	}
 
@@ -195,6 +229,11 @@ impl Limits {
 	/// Ended chat transcripts kept.
 	pub fn retained_calls(&self) -> usize {
 		self.messages_retained_calls as usize
+	}
+
+	/// Largest custom ringtone file in bytes.
+	pub fn ringtone_max_bytes(&self) -> usize {
+		self.ringtone_max_kib as usize * 1024
 	}
 
 	/// Maximum call-history age in milliseconds.

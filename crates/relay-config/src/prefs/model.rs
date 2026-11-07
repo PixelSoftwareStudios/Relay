@@ -87,7 +87,7 @@ impl Default for Audio {
 			microphone_gain: 1.0,
 			playback_gain: 1.0,
 			ringtone_enabled: true,
-			ringtone_volume: 0.7,
+			ringtone_volume: 0.4,
 			ringback_enabled: true,
 			call_sounds_enabled: true,
 		}
