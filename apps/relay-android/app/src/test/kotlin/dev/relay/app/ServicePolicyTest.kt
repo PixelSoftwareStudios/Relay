@@ -41,4 +41,17 @@ class ServicePolicyTest {
 		policy.stoppedBySystem()
 		assertEquals(ServiceAction.Start(connected), policy.decide(connected, true))
 	}
+
+	@Test
+	fun aRingingCallWithNoScreenDoesNotStartTheMicrophoneService() {
+		assertEquals(ServiceAction.None, policy.decide(ringing, microphoneGranted = true, visible = false))
+		// Answered from the notification: the call is no longer ringing and the service starts.
+		assertEquals(ServiceAction.Start(connected), policy.decide(connected, microphoneGranted = true, visible = false))
+	}
+
+	@Test
+	fun anAutoAnsweredCallInTheBackgroundStartsTheService() {
+		val auto = connected.copy(autoAnswered = true)
+		assertEquals(ServiceAction.Start(auto), policy.decide(auto, microphoneGranted = true, visible = false))
+	}
 }

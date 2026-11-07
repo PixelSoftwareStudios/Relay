@@ -6,6 +6,8 @@ data class CallInfo(
 	val incoming: Boolean,
 	val muted: Boolean,
 	val peer: String,
+	/** The engine connected this call by itself (auto-answer). */
+	val autoAnswered: Boolean = false,
 ) {
 	companion object {
 		val IDLE = CallInfo(active = false, incoming = false, muted = false, peer = "")
@@ -36,7 +38,13 @@ class ServicePolicy {
 	private var running = false
 	private var shown: CallInfo? = null
 
-	fun decide(info: CallInfo, microphoneGranted: Boolean): ServiceAction {
+	/**
+	 * [visible]: a Relay screen is up. A call that is still ringing while none is
+	 * does not get the microphone service: Android 14 refuses to start one from the
+	 * background, and the incoming-call notification alerts instead; the service
+	 * starts when the call is answered (Accept starts it from the notification).
+	 */
+	fun decide(info: CallInfo, microphoneGranted: Boolean, visible: Boolean = true): ServiceAction {
 		if (!info.active) {
 			val was = running
 			running = false
@@ -44,6 +52,7 @@ class ServicePolicy {
 			return if (was) ServiceAction.Stop else ServiceAction.None
 		}
 		if (!running) {
+			if (info.incoming && !visible) return ServiceAction.None
 			if (!microphoneGranted) return ServiceAction.NeedMicrophone
 			running = true
 			shown = info
