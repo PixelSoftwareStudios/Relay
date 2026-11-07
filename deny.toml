@@ -50,6 +50,20 @@ allow = [
 exceptions = [
 	# File-level copyleft; used unmodified through `directories`.
 	{ allow = ["MPL-2.0"], crate = "option-ext" },
+	# File-level copyleft; the custom-ringtone decoder, used unmodified (redistributing the source of
+	# these files is all MPL-2.0 asks). Pure Rust; nothing links against GPL code.
+	{ allow = ["MPL-2.0"], crate = "symphonia" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-core" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-bundle-flac" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-bundle-mp3" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-codec-aac" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-codec-pcm" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-codec-vorbis" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-format-isomp4" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-format-ogg" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-format-riff" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-metadata" },
+	{ allow = ["MPL-2.0"], crate = "symphonia-utils-xiph" },
 	# Bundled fonts in the desktop client; attribution and font-name terms apply.
 	{ allow = ["OFL-1.1", "Ubuntu-font-1.0"], crate = "epaint_default_fonts" },
 ]

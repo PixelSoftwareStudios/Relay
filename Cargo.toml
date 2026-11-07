@@ -80,6 +80,9 @@ fs4 = { version = "1.1.0", default-features = false, features = ["sync"] }
 opus = "0.4.0"
 rtrb = "0.4.1"
 rubato = "5.0.1"
+# Decoder for the custom ringtone (settings): MP3, Ogg Vorbis, FLAC, WAV/PCM, AAC (ADTS and M4A). Pure
+# Rust, MPL-2.0 (file-level copyleft, used unmodified; allowed for these crates in deny.toml).
+symphonia = { version = "0.5.5", default-features = false, features = ["mp3", "ogg", "vorbis", "flac", "wav", "pcm", "aac", "isomp4"] }
 bytemuck = "1"
 # Evaluation-only audio processing candidates (not default features)
 sonora = "0.2.0"

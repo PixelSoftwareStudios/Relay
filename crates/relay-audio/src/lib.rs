@@ -14,6 +14,7 @@ pub mod pipeline;
 pub mod playback;
 pub mod priority;
 pub mod ring;
+pub mod ringtone;
 pub mod tones;
 
 pub use error::{AudioError, Result};

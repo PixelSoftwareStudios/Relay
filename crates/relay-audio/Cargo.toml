@@ -13,6 +13,7 @@ rtrb.workspace = true
 rubato.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+symphonia.workspace = true
 thiserror.workspace = true
 sonora = { workspace = true, optional = true }
 nnnoiseless = { workspace = true, optional = true }
@@ -46,6 +47,7 @@ eval-sonora = ["dep:sonora"]
 eval-nnnoiseless = ["dep:nnnoiseless"]
 
 [dev-dependencies]
+hound.workspace = true
 relay-testkit.workspace = true
 
 [lints]
