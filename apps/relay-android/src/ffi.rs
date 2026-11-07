@@ -74,11 +74,11 @@ impl RelayEngine {
 		self.host.shell.set_scanner(available);
 	}
 
-	/// The availability service is running with a LAN (true) or not (false). While
-	/// true a client stays attached with no window, so the engine advertises,
-	/// listens and rings.
-	pub fn set_available(&self, available: bool) {
-		self.host.set_available(available);
+	/// The shell alerts incoming calls itself (`true`: the phone's profile or the
+	/// notification does it) or not (`false`: the engine rings). Lasts across
+	/// reconnects; the engine only hears it while `background.available` is on.
+	pub fn set_quiet(&self, quiet: bool) {
+		self.host.set_quiet(quiet);
 	}
 
 	/// Android's answer to "may Relay run unrestricted in the background".

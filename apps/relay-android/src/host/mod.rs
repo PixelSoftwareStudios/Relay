@@ -37,6 +37,8 @@ use relay_ui::{messaging, supervisor};
 use tokio::runtime::{Handle, Runtime};
 use tokio::task::JoinHandle;
 
+mod quiet;
+
 use crate::audio_session::AudioSession;
 use crate::bridge::{CallSummary, EngineConfig, EngineError, FoundService, HostBridge};
 use crate::sealed::{KeystoreSealer, SealedIdentityStore, SealedVault};
@@ -69,8 +71,11 @@ pub struct Host {
 	ptt: PttWorker,
 	foreground: AtomicBool,
 	in_call: AtomicBool,
-	/// The availability service holds a client attached with no window.
-	available: AtomicBool,
+	/// `background.available` as the engine last said; the engine holds presence itself then.
+	background: AtomicBool,
+	/// The shell alerts incoming calls itself (`SetClientQuiet`).
+	quiet_wanted: AtomicBool,
+	quiet_task: Mutex<Option<JoinHandle<()>>>,
 }
 
 impl Host {
@@ -174,7 +179,9 @@ impl Host {
 				ptt,
 				foreground: AtomicBool::new(false),
 				in_call: AtomicBool::new(false),
-				available: AtomicBool::new(false),
+				background: AtomicBool::new(false),
+				quiet_wanted: AtomicBool::new(false),
+				quiet_task: Mutex::new(None),
 			}
 		});
 		*host.runtime.lock_unpoisoned() = Some(runtime);
@@ -185,6 +192,9 @@ impl Host {
 	/// Ends any call, withdraws from the LAN and stops the engine.
 	pub fn stop(&self) {
 		self.detach();
+		if let Some(running) = self.quiet_task.lock_unpoisoned().take() {
+			running.abort();
+		}
 		let Some(runtime) = self.runtime.lock_unpoisoned().take() else {
 			return;
 		};
@@ -211,26 +221,41 @@ impl Host {
 		}
 		if foreground {
 			self.attach();
-		} else if !self.needed_without_window() {
+		} else if !self.in_call.load(Ordering::Acquire) {
 			self.detach();
 		}
 	}
 
-	/// The availability service wants a client attached (or stopped wanting it).
-	/// Attached, the engine advertises, listens and rings with no window; a call
-	/// or an open window keeps the client whatever this says.
-	pub fn set_available(&self, available: bool) {
-		self.available.store(available, Ordering::Release);
-		if available {
-			self.attach();
-		} else if !self.foreground.load(Ordering::Acquire) && !self.in_call.load(Ordering::Acquire) {
-			self.detach();
-		}
+	/// The shell alerts incoming calls itself (`true`) or leaves the ring to the engine.
+	/// The engine stays silent while only quiet clients are attached.
+	pub fn set_quiet(&self, quiet: bool) {
+		self.quiet_wanted.store(quiet, Ordering::Release);
+		self.sync_quiet();
 	}
 
-	/// Whether the client stays attached while no window is open.
-	fn needed_without_window(&self) -> bool {
-		self.in_call.load(Ordering::Acquire) || self.available.load(Ordering::Acquire)
+	/// `background.available` changed. With it on the engine holds presence itself, so the
+	/// quiet client is what keeps the flag alive while no window is open; with it off no
+	/// client may stay attached for the flag.
+	fn set_background(&self, on: bool) {
+		self.background.store(on, Ordering::Release);
+		self.sync_quiet();
+	}
+
+	fn sync_quiet(&self) {
+		let wanted = self.quiet_wanted.load(Ordering::Acquire)
+			&& self.background.load(Ordering::Acquire);
+		let mut task = self.quiet_task.lock_unpoisoned();
+		match (wanted, task.is_some()) {
+			(true, false) => {
+				*task = Some(self.handle.spawn(quiet::hold(self.endpoint.clone())));
+			}
+			(false, true) => {
+				if let Some(running) = task.take() {
+					running.abort();
+				}
+			}
+			_ => {}
+		}
 	}
 
 	/// The microphone permission is (or may now be) granted: a capture that
@@ -292,10 +317,7 @@ impl Host {
 		if !summary.active {
 			self.ptt.cancel();
 		}
-		if !summary.active
-			&& !self.foreground.load(Ordering::Acquire)
-			&& !self.available.load(Ordering::Acquire)
-		{
+		if !summary.active && !self.foreground.load(Ordering::Acquire) {
 			self.detach();
 		}
 	}
@@ -457,6 +479,7 @@ impl Sink for CallSink {
 				changed
 			};
 			if changed {
+				host.set_background(available);
 				host.bridge.background_changed(available, alert.to_owned());
 			}
 		}
