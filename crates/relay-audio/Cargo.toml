@@ -8,6 +8,7 @@ license.workspace = true
 [dependencies]
 biquad.workspace = true
 cpal.workspace = true
+ogg.workspace = true
 opus.workspace = true
 rtrb.workspace = true
 rubato.workspace = true

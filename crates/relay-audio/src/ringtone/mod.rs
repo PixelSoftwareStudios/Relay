@@ -3,10 +3,11 @@
 //! [`process`] turns an uploaded file (MP3, Ogg Vorbis, FLAC, WAV/PCM, AAC) into mono 48 kHz
 //! samples ready for [`crate::tones::ToneControl::set_custom_ring`]: resampled, levelled to the
 //! built-in ring's loudness, faded in and out and followed by a pause, so looping it never
-//! clicks and never plays back to back. The result is stored as raw 16-bit PCM
-//! ([`to_pcm16`] / [`from_pcm16`]); the real-time side only ever reads the finished buffer.
+//! clicks and never plays back to back. The result is stored as Ogg Opus
+//! ([`to_stored`] / [`from_stored`]); the real-time side only ever reads the finished buffer.
 
 mod decode;
+mod stored;
 
 use std::f32::consts::PI;
 
@@ -154,26 +155,13 @@ fn fade(samples: &mut [f32]) {
 	}
 }
 
-/// Raw little-endian 16-bit mono PCM, the stored form of a processed ringtone.
-pub fn to_pcm16(samples: &[f32]) -> Vec<u8> {
-	let mut out = Vec::with_capacity(samples.len() * 2);
-	for &s in samples {
-		out.extend_from_slice(&((s.clamp(-1.0, 1.0) * 32767.0).round() as i16).to_le_bytes());
-	}
-	out
+/// The stored form of a processed ringtone: mono 48 kHz Ogg Opus. `None` if encoding fails.
+pub fn to_stored(samples: &[f32]) -> Option<Vec<u8>> {
+	stored::encode(samples)
 }
 
-/// Reads [`to_pcm16`] output back; `None` when it is empty or has an odd length.
-pub fn from_pcm16(bytes: &[u8]) -> Option<Vec<f32>> {
-	if bytes.is_empty() || !bytes.len().is_multiple_of(2) {
-		return None;
-	}
-	Some(
-		bytes
-			.as_chunks::<2>()
-			.0
-			.iter()
-			.map(|b| f32::from(i16::from_le_bytes(*b)) / 32768.0)
-			.collect(),
-	)
+/// Reads [`to_stored`] output back to exactly the samples that were stored; `None` when the
+/// bytes are not such a file.
+pub fn from_stored(bytes: &[u8]) -> Option<Vec<f32>> {
+	stored::decode(bytes)
 }

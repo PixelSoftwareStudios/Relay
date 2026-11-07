@@ -3,7 +3,7 @@
 use std::io::Cursor;
 
 use relay_audio::ringtone::{
-	PAUSE_SAMPLES, RING_PEAK, RingtoneError, RingtoneLimits, from_pcm16, process, to_pcm16,
+	PAUSE_SAMPLES, RING_PEAK, RingtoneError, RingtoneLimits, from_stored, process, to_stored,
 };
 
 const LIMITS: RingtoneLimits = RingtoneLimits {
@@ -175,15 +175,65 @@ fn bad_files_are_refused_not_played() {
 }
 
 #[test]
-fn the_stored_form_round_trips() {
+fn the_stored_form_is_small_ogg_opus_and_round_trips_exactly_in_length() {
 	let ring = process(&fixture("tone24.wav"), LIMITS).unwrap();
-	let back = from_pcm16(&to_pcm16(&ring)).unwrap();
-	assert_eq!(back.len(), ring.len());
+	let stored = to_stored(&ring).unwrap();
+	assert_eq!(&stored[..4], b"OggS");
+	assert!(stored.windows(8).any(|w| w == b"OpusHead"));
+	let seconds = ring.len() as f32 / 48_000.0;
 	assert!(
-		ring.iter()
-			.zip(&back)
-			.all(|(a, b)| (a - b).abs() < 1.0 / 32000.0)
+		stored.len() as f32 / seconds < 10_000.0,
+		"{} bytes for {seconds} s",
+		stored.len()
 	);
-	assert!(from_pcm16(&[]).is_none());
-	assert!(from_pcm16(&[1, 2, 3]).is_none());
+	let back = from_stored(&stored).unwrap();
+	assert_eq!(
+		back.len(),
+		ring.len(),
+		"the loop length is kept to the sample"
+	);
+}
+
+#[test]
+fn the_decoded_ring_keeps_its_loop_seam_and_pitch() {
+	for name in ["tone24.wav", "tone.mp3", "tone.flac"] {
+		let ring = process(&fixture(name), LIMITS).unwrap();
+		let back = from_stored(&to_stored(&ring).unwrap()).unwrap();
+		assert!(
+			back[0].abs() < 1e-4 && back[back.len() - 1].abs() < 1e-3,
+			"{name}: ends"
+		);
+		let seam = (back[back.len() - 1] - back[0]).abs();
+		assert!(seam < 1e-3, "{name}: seam {seam}");
+		let steepest = back
+			.windows(2)
+			.map(|w| (w[1] - w[0]).abs())
+			.fold(0.0, f32::max);
+		assert!(steepest < 0.03, "{name}: step {steepest}");
+		assert!(
+			peak(&back) <= RING_PEAK * 1.2,
+			"{name}: peak {}",
+			peak(&back)
+		);
+		// The audible part still resembles the source (same energy within 1.5 dB).
+		let audible = ring.len() - PAUSE_SAMPLES;
+		let rms = |x: &[f32]| (x.iter().map(|s| s * s).sum::<f32>() / x.len() as f32).sqrt();
+		let ratio = rms(&back[..audible]) / rms(&ring[..audible]);
+		assert!((0.84..1.19).contains(&ratio), "{name}: level ratio {ratio}");
+		// The pause stays a pause.
+		assert!(peak(&back[audible + 4800..]) < 2e-3, "{name}: pause");
+	}
+}
+
+#[test]
+fn only_our_own_files_load() {
+	assert!(from_stored(&[]).is_none());
+	assert!(from_stored(b"RIFFnotopus").is_none());
+	let ring = process(&fixture("tone24.wav"), LIMITS).unwrap();
+	let mut cut = to_stored(&ring).unwrap();
+	cut.truncate(cut.len() / 2);
+	assert!(
+		from_stored(&cut).is_none(),
+		"a cut-off file has no end and is refused"
+	);
 }
