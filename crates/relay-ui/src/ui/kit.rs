@@ -100,3 +100,63 @@ pub fn empty_state(ui: &mut Ui, title: &str, body: &str) {
 pub fn gap(ui: &mut Ui) {
 	ui.add_space(theme::SPACE_M);
 }
+
+/// A name that opens something when pressed (a contact): bold text with a touch-sized target
+/// (44 points high under touch rules), underlined and tinted on hover, darker while pressed.
+/// With `enabled` false it is plain bold text with nothing to press.
+pub fn name_link(ui: &mut Ui, text: &str, color: Option<Color32>, enabled: bool) -> Response {
+	let base = color.unwrap_or_else(|| ui.visuals().strong_text_color());
+	let wrap = ui.available_width();
+	if !enabled {
+		return ui.label(RichText::new(text).strong().color(base));
+	}
+	let galley = ui.painter().layout(
+		text.to_owned(),
+		egui::TextStyle::Body.resolve(ui.style()),
+		base,
+		wrap,
+	);
+	let height =
+		galley
+			.size()
+			.y
+			.max(ui.spacing().interact_size.y)
+			.max(if crate::layout::is_touch(ui) {
+				crate::layout::MIN_TOUCH_TARGET
+			} else {
+				0.0
+			});
+	let size = egui::vec2(galley.size().x.max(crate::layout::MIN_TOUCH_TARGET), height);
+	let (rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
+	response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Link, true, text));
+	if ui.is_rect_visible(rect) {
+		let tint = if response.is_pointer_button_down_on() {
+			ui.visuals().hyperlink_color.gamma_multiply(0.7)
+		} else if response.hovered() || response.has_focus() {
+			ui.visuals().hyperlink_color
+		} else {
+			base
+		};
+		let galley = ui.painter().layout(
+			text.to_owned(),
+			egui::TextStyle::Body.resolve(ui.style()),
+			tint,
+			wrap,
+		);
+		let pos = egui::pos2(rect.min.x, rect.center().y - galley.size().y / 2.0);
+		let underline = response.hovered() || response.has_focus();
+		let line = egui::Stroke::new(1.0, tint);
+		let bottom = pos.y + galley.size().y;
+		ui.painter().galley(pos, galley.clone(), tint);
+		if underline {
+			ui.painter().line_segment(
+				[
+					egui::pos2(pos.x, bottom),
+					egui::pos2(pos.x + galley.size().x, bottom),
+				],
+				line,
+			);
+		}
+	}
+	response.on_hover_cursor(egui::CursorIcon::PointingHand)
+}

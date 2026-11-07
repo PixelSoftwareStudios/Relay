@@ -24,20 +24,25 @@ async fn the_button_follows_whether_the_daemon_holds_the_transcript() {
 	let mut phone = desktop();
 	live_messages(&phone);
 	let drawn = phone.settle();
-	assert!(has_exact(&drawn, "Messages: 3000"), "{:?}", drawn.labels);
-	assert!(is_tappable(&phone, &drawn, "Messages: 3000"));
-	assert!(
-		!is_tappable(&phone, &drawn, "Messages"),
-		"the other row is off"
-	);
+	// Both rows carry the same word, in the same button style; only the one whose
+	// transcript the daemon holds can be pressed.
+	let buttons: Vec<egui::Rect> = drawn
+		.named
+		.iter()
+		.filter(|(t, _)| t == "View Messages")
+		.map(|(_, r)| *r)
+		.collect();
+	assert_eq!(buttons.len(), 2, "{:?}", drawn.labels);
+	let pressable = |r: &egui::Rect| drawn.tappable.iter().any(|t| t.contains(r.center()));
+	assert!(pressable(&buttons[0]), "the kept transcript opens");
+	assert!(!pressable(&buttons[1]), "the other row is off");
 	assert!(
 		has(&drawn, GONE),
 		"inline text says why: {:?}",
 		drawn.labels
 	);
 	// The disabled button does nothing.
-	let (_, rect) = drawn.named.iter().find(|(t, _)| t == "Messages").unwrap();
-	let pos = rect.center();
+	let pos = buttons[1].center();
 	let button = |pressed| Event::PointerButton {
 		pos,
 		button: egui::PointerButton::Primary,
@@ -59,7 +64,7 @@ async fn the_button_is_on_while_messaging_is_not_connected_yet() {
 		"nothing is known yet: {:?}",
 		drawn.labels
 	);
-	assert!(is_tappable(&phone, &drawn, "Messages"));
+	assert!(is_tappable(&phone, &drawn, "View Messages"));
 	// Opening it connects messaging, as opening any chat does.
 	assert!(!phone.actions.shared.messages.enabled());
 	phone.app.open_chat(&alan_call());
@@ -71,7 +76,7 @@ async fn the_button_is_on_while_messaging_is_not_connected_yet() {
 async fn the_button_opens_the_transcript_read_only_below_the_row() {
 	let mut phone = desktop();
 	live_messages(&phone);
-	phone.click_label("Messages: 3000");
+	phone.click_label("View Messages");
 	assert_eq!(phone.app.chat_call(), Some(alan_call().as_str()));
 	let open = phone.settle();
 	assert!(
@@ -91,7 +96,7 @@ async fn the_button_opens_the_transcript_read_only_below_the_row() {
 	);
 	// The row stays; its button closes the chat again.
 	assert!(has(&open, "Call back"));
-	phone.click_label("Messages: 3000");
+	phone.click_label("View Messages");
 	assert_eq!(phone.app.chat_call(), None);
 	// Esc closes it as well.
 	phone.app.open_chat(&alan_call());
@@ -113,7 +118,7 @@ async fn on_a_phone_the_history_chat_is_a_screen_with_a_back() {
 	phone.show_state(&history_state());
 	live_messages(&phone);
 	phone.open_history();
-	phone.click_label("Messages: 3000");
+	phone.click_label("View Messages");
 	let open = phone.settle();
 	assert!(
 		has(&open, "Read only: this call has ended."),

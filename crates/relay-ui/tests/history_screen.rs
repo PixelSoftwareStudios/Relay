@@ -147,12 +147,8 @@ async fn a_row_per_outcome_with_its_marker_time_and_length() {
 		.filter(|l| l.starts_with("11:55 AM"))
 		.count();
 	assert_eq!(times, 6, "{:?}", drawn.labels);
-	// Only the two calls that connected show a length.
-	let lengths = drawn
-		.labels
-		.iter()
-		.filter(|l| l.ends_with(" · 1:05"))
-		.count();
+	// Only the two calls that connected show a length (in its own badge).
+	let lengths = drawn.labels.iter().filter(|l| l.as_str() == "1:05").count();
 	assert_eq!(lengths, 2, "{:?}", drawn.labels);
 	assert!(!drawn.labels.contains(&"No call history yet".to_owned()));
 }
@@ -189,7 +185,7 @@ async fn call_back_is_disabled_with_the_reason_when_the_device_cannot_be_called(
 			.labels
 			.contains(&"This device cannot be called right now.".to_owned())
 	);
-	assert!(drawn.labels.contains(&"Not reachable".to_owned()));
+	assert!(drawn.labels.contains(&"Offline".to_owned()));
 	phone.click_label("Call back");
 	tokio::time::sleep(Duration::from_millis(100)).await;
 	assert!(ops.recorded().is_empty(), "{:?}", ops.recorded());

@@ -6,6 +6,7 @@ use relay_io::localtime::LocalZone;
 
 use crate::avatar::Avatar;
 use crate::history_time::{self, Relative};
+use crate::icons::Icon;
 use crate::model::{AppState, HistoryDirection, HistoryEntry, HistoryOutcome};
 use crate::tr;
 use crate::viewmodel::peer_rows;
@@ -35,6 +36,10 @@ pub struct HistoryRow {
 	pub marker: &'static str,
 	/// A call the user did not answer; drawn with emphasis.
 	pub missed: bool,
+	/// The call never connected (missed, declined, not reached, cancelled): drawn in red.
+	pub unanswered: bool,
+	/// Incoming, outgoing or unanswered, like the phone's own call log.
+	pub icon: Icon,
 	pub when: Relative,
 	/// The full local date and time with the UTC clock, for hover text.
 	pub when_hover: String,
@@ -56,6 +61,16 @@ pub fn marker(entry: &HistoryEntry) -> &'static str {
 	}
 }
 
+/// The call-log icon of an entry: an arrow in for incoming, out for outgoing, and a crossed
+/// phone for anything that never connected.
+pub fn icon(entry: &HistoryEntry) -> Icon {
+	match (entry.outcome, entry.direction) {
+		(HistoryOutcome::Completed, HistoryDirection::Incoming) => Icon::CallIncoming,
+		(HistoryOutcome::Completed, HistoryDirection::Outgoing) => Icon::CallOutgoing,
+		_ => Icon::CallMissed,
+	}
+}
+
 /// The first `shown` rows of the history, newest first, relative to `now_ms` in `zone`.
 pub fn rows(state: &AppState, shown: usize, now_ms: u64, zone: &LocalZone) -> Vec<HistoryRow> {
 	let peers = peer_rows(state);
@@ -73,6 +88,8 @@ pub fn rows(state: &AppState, shown: usize, now_ms: u64, zone: &LocalZone) -> Ve
 				avatar: peer.map(|p| p.avatar.clone()),
 				marker: marker(e),
 				missed: e.outcome == HistoryOutcome::Missed,
+				unanswered: e.outcome != HistoryOutcome::Completed,
+				icon: icon(e),
 				when: history_time::relative(now_ms, e.started_at_ms, zone),
 				when_hover: zone.hover(e.started_at_ms),
 				duration: (e.outcome == HistoryOutcome::Completed)

@@ -6,6 +6,7 @@ use std::time::Duration;
 use egui::{self, RichText, Ui};
 
 use crate::history_view::{self, Blocked, HistoryRow, PAGE};
+use crate::icons::{Icon, icon_inline};
 use crate::messaging::rules::{Kept, transcript_kept};
 use crate::theme;
 
@@ -69,7 +70,8 @@ fn body(ui: &mut Ui, cx: &mut Cx) {
 
 fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 	kit::card(ui, |ui| {
-		ui.horizontal_wrapped(|ui| {
+		let contact = is_contact(cx, &row.peer_id);
+		ui.horizontal_top(|ui| {
 			match &row.avatar {
 				Some(avatar) => {
 					let tex = cx.textures.texture(avatar, cx.actions);
@@ -77,26 +79,27 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 				}
 				None => initial(ui, &row.name),
 			}
-			ui.vertical(|ui| {
-				let name = RichText::new(&row.name).strong();
-				ui.label(if row.missed {
-					name.color(theme::ERROR)
-				} else {
-					name
-				});
-				ui.horizontal_wrapped(|ui| {
-					let marker = RichText::new(row.marker);
-					ui.label(if row.missed {
-						marker.color(theme::ERROR).strong()
-					} else {
-						marker.weak()
-					});
-					let mut detail = row.when.text();
-					if let Some(length) = &row.duration {
-						detail = format!("{detail} · {length}");
+			ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+				if let Some(length) = &row.duration {
+					duration_badge(ui, length);
+				}
+				ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+					let red = row.missed.then_some(theme::ERROR);
+					if kit::name_link(ui, &row.name, red, contact).clicked() {
+						cx.local.focus_contact = Some(row.peer_id.clone());
+						cx.local.goto = Some(crate::layout::Page::Contacts);
 					}
-					ui.label(RichText::new(detail).weak())
-						.on_hover_text(&row.when_hover);
+					ui.horizontal_wrapped(|ui| {
+						let tint = if row.unanswered {
+							theme::ERROR
+						} else {
+							ui.visuals().weak_text_color()
+						};
+						icon_inline(ui, row.icon, tint);
+						ui.label(RichText::new(row.marker).color(tint));
+						ui.label(RichText::new(row.when.text()).weak().small())
+							.on_hover_text(&row.when_hover);
+					});
 				});
 			});
 		});
@@ -116,10 +119,6 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 				cx.actions.run(|c| async move { c.start_call(&id).await });
 			}
 			messages_button(ui, row, kept, cx);
-			if is_contact(cx, &row.peer_id) && ui.button(tr!("history-open-contact")).clicked() {
-				cx.local.focus_contact = Some(row.peer_id.clone());
-				cx.local.goto = Some(crate::layout::Page::Contacts);
-			}
 		});
 		if kept == Kept::No {
 			kit::help(ui, tr!("history-messages-gone"));
@@ -132,6 +131,23 @@ fn entry(ui: &mut Ui, row: &HistoryRow, cx: &mut Cx) {
 	});
 }
 
+/// How long the call lasted: its own right-aligned pill with a clock, in a monospace face,
+/// so it cannot be read as part of the time the call happened.
+fn duration_badge(ui: &mut Ui, length: &str) {
+	let fill = ui.visuals().widgets.inactive.bg_fill;
+	egui::Frame::new()
+		.fill(fill)
+		.corner_radius(theme::CARD_RADIUS)
+		.inner_margin(egui::Margin::symmetric(8, 4))
+		.show(ui, |ui| {
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing.x = theme::SPACE_S;
+				icon_inline(ui, Icon::Clock, ui.visuals().text_color());
+				ui.label(RichText::new(length).monospace().strong());
+			});
+		});
+}
+
 /// Whether the peer is a trusted device, so Contacts has a card for it.
 fn is_contact(cx: &Cx, peer_id: &str) -> bool {
 	cx.state
@@ -140,20 +156,26 @@ fn is_contact(cx: &Cx, peer_id: &str) -> bool {
 		.any(|p| p.peer_id == peer_id && p.trust != crate::model::Trust::Unknown)
 }
 
-/// Opens or closes the read-only transcript of the call. It is off only when
-/// the daemon reports it no longer keeps that transcript; while that is not
-/// known yet (messaging is not connected) pressing it connects and finds out.
+/// Opens or closes the read-only transcript of the call. It is a normal button like Call back
+/// (highlighted only while the transcript is open) and off only when the daemon reports it no
+/// longer keeps that transcript; while that is not known yet (messaging is not connected)
+/// pressing it connects and finds out.
 fn messages_button(ui: &mut Ui, row: &HistoryRow, kept: Kept, cx: &mut Cx) {
 	let open = chat::is_open(cx.local, &row.call_id);
-	let label = match kept {
-		Kept::Yes(count) if count > 0 => tr!("history-messages-count", count = count),
-		_ => tr!("call-messages").to_owned(),
-	};
-	let response = ui.add_enabled(kept != Kept::No, egui::Button::selectable(open, label));
+	let button = egui::Button::new(tr!("history-view-messages")).selected(open);
+	let response = ui.add_enabled(kept != Kept::No, button);
 	if kept == Kept::No {
 		response.on_disabled_hover_text(tr!("history-messages-gone"));
-	} else if response.clicked() {
-		chat::toggle(cx.local, &row.call_id, &row.name, true);
+	} else {
+		let response = match kept {
+			Kept::Yes(count) if count > 0 => {
+				response.on_hover_text(tr!("history-messages-count", count = count))
+			}
+			_ => response,
+		};
+		if response.clicked() {
+			chat::toggle(cx.local, &row.call_id, &row.name, true);
+		}
 	}
 }
 
