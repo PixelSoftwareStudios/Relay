@@ -192,6 +192,11 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		ringtone_volume: s.ringtone_volume,
 		ringback_enabled: s.ringback_enabled,
 		call_sounds_enabled: s.call_sounds_enabled,
+		noise_suppression_enabled: s.noise_suppression_enabled,
+		noise_suppression_level: crate::audio_processing::NoiseLevel::from_key(
+			&s.noise_suppression_level,
+		),
+		auto_gain_enabled: s.auto_gain_enabled,
 		ringtone_name: s.ringtone_name.clone(),
 		history_enabled: s.history_enabled,
 		history_revision: s.history_revision,

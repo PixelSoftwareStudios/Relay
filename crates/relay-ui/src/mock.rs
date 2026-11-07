@@ -10,6 +10,7 @@ use async_trait::async_trait;
 use relay_client::Secret;
 use relay_io::LockExt;
 
+use crate::audio_processing::{KEY_AUTO_GAIN, KEY_NOISE_LEVEL, KEY_NOISE_SUPPRESSION, NoiseLevel};
 use crate::controller::SessionSlot;
 use crate::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
 use crate::history_settings::KEY_ENABLED as KEY_HISTORY;
@@ -141,6 +142,9 @@ pub fn seed() -> AppState {
 			ringtone_volume: 0.4,
 			ringback_enabled: true,
 			call_sounds_enabled: true,
+			noise_suppression_enabled: true,
+			noise_suppression_level: NoiseLevel::Moderate,
+			auto_gain_enabled: false,
 			ringtone_name: String::new(),
 			history_enabled: true,
 			history_revision: 0,
@@ -558,6 +562,32 @@ impl Operations for MockOps {
 						(SettingOutcome::AppliedLive, "")
 					}
 					Err(_) => (SettingOutcome::Rejected, "must be true or false"),
+				},
+				KEY_NOISE_SUPPRESSION | KEY_AUTO_GAIN => match value.parse::<bool>() {
+					Ok(on) => {
+						self.hub.update(|s| {
+							if let Some(g) = s.settings.as_mut() {
+								if key == KEY_AUTO_GAIN {
+									g.auto_gain_enabled = on;
+								} else {
+									g.noise_suppression_enabled = on;
+								}
+							}
+						});
+						(SettingOutcome::AppliedLive, "")
+					}
+					Err(_) => (SettingOutcome::Rejected, "must be true or false"),
+				},
+				KEY_NOISE_LEVEL => match NoiseLevel::ALL.into_iter().find(|l| l.key() == value) {
+					Some(level) => {
+						self.hub.update(|s| {
+							if let Some(g) = s.settings.as_mut() {
+								g.noise_suppression_level = level;
+							}
+						});
+						(SettingOutcome::AppliedLive, "")
+					}
+					None => (SettingOutcome::Rejected, "must be low, moderate or high"),
 				},
 				key if DEFS.iter().any(|d| d.key == key) => self.set_limit(key, &value),
 				_ => (SettingOutcome::Rejected, "unknown key"),

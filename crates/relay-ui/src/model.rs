@@ -187,6 +187,12 @@ pub struct Settings {
 	pub ringback_enabled: bool,
 	/// Connect and hang-up blips.
 	pub call_sounds_enabled: bool,
+	/// Noise suppression on the microphone.
+	pub noise_suppression_enabled: bool,
+	/// How hard noise suppression works (kept while it is off).
+	pub noise_suppression_level: crate::audio_processing::NoiseLevel,
+	/// Automatic gain on the microphone.
+	pub auto_gain_enabled: bool,
 	/// File name of the custom ringtone on this device; empty for the built-in chime.
 	pub ringtone_name: String,
 	/// Finished calls are recorded in the call history.

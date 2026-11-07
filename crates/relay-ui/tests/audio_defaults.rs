@@ -107,3 +107,21 @@ async fn the_mock_starts_on_the_defaults_and_pinning_replaces_them() {
 	ctl.select_devices("", "").await.unwrap();
 	assert!(hub.state().settings.unwrap().input_is_default);
 }
+
+#[test]
+fn the_processing_fields_are_read_and_an_unknown_strength_is_the_default() {
+	use relay_ui::audio_processing::NoiseLevel;
+	let read = |level: &str| {
+		convert::settings(&pb::Settings {
+			noise_suppression_enabled: true,
+			noise_suppression_level: level.into(),
+			auto_gain_enabled: true,
+			..pb::Settings::default()
+		})
+	};
+	let high = read("high");
+	assert!(high.noise_suppression_enabled && high.auto_gain_enabled);
+	assert_eq!(high.noise_suppression_level, NoiseLevel::High);
+	assert_eq!(read("low").noise_suppression_level, NoiseLevel::Low);
+	assert_eq!(read("").noise_suppression_level, NoiseLevel::Moderate);
+}

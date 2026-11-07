@@ -109,3 +109,22 @@ async fn mock_ring_settings_round_trip() {
 	assert!((s.ringtone_volume - 0.25).abs() < 1e-6);
 	ctl.preview_tone().await.unwrap();
 }
+
+#[tokio::test(start_paused = true)]
+async fn mock_microphone_processing_defaults_and_round_trips() {
+	use relay_ui::audio_processing::{NoiseLevel, ProcessingChange};
+	let (ctl, hub) = rig().await;
+	let s = hub.state().settings.unwrap();
+	assert!(s.noise_suppression_enabled && !s.auto_gain_enabled);
+	assert_eq!(s.noise_suppression_level, NoiseLevel::Moderate);
+	ctl.set_audio_processing(ProcessingChange {
+		noise_suppression: Some(false),
+		level: Some(NoiseLevel::High),
+		auto_gain: Some(true),
+	})
+	.await
+	.unwrap();
+	let s = hub.state().settings.unwrap();
+	assert!(!s.noise_suppression_enabled && s.auto_gain_enabled);
+	assert_eq!(s.noise_suppression_level, NoiseLevel::High);
+}

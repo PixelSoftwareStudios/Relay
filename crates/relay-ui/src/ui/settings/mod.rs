@@ -13,6 +13,7 @@ mod language;
 mod limits;
 mod mic_test;
 mod privacy;
+mod processing;
 mod profile;
 mod ptt;
 mod ring;

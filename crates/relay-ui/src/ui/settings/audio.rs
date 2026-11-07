@@ -67,6 +67,8 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		}
 	});
 	kit::gap(ui);
+	super::processing::card(ui, cx, settings);
+	kit::gap(ui);
 	kit::card(ui, |ui| {
 		kit::card_title(ui, tr!("audio-all-calls"));
 		button_row(ui, |ui| {
