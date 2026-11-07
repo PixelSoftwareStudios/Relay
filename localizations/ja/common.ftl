@@ -21,4 +21,3 @@ error-next = もう一度試すか、このメッセージを閉じてくださ�
 nav-contacts = 連絡先
 nav-connect = 接続
 action-view-details = 詳細を表示
-action-hide-details = 詳細を隠す

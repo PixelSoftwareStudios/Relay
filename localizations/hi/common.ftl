@@ -22,4 +22,3 @@ error-next = आप फिर से कोशिश कर सकते है�
 nav-contacts = संपर्क
 nav-connect = कनेक्ट
 action-view-details = विवरण देखें
-action-hide-details = विवरण छिपाएँ

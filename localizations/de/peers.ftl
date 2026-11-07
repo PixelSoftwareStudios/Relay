@@ -71,4 +71,3 @@ block-device = Gerät blockieren
 block-ask = { $name } blockieren? Das Gerät kann dich nicht mehr anrufen oder sehen und wird aus den Kontakten entfernt. In den Einstellungen kannst du es wieder freigeben.
 block-yes = Blockieren
 unblock = Freigeben
-peer-call-offline = Dieses Gerät ist offline. Du kannst es anrufen, sobald es wieder im Netzwerk ist.

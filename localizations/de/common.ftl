@@ -22,4 +22,3 @@ error-next = Sie können es erneut versuchen oder diese Meldung schließen.
 nav-contacts = Kontakte
 nav-connect = Verbinden
 action-view-details = Details anzeigen
-action-hide-details = Details ausblenden

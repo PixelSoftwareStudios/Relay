@@ -401,10 +401,12 @@ pub fn icon_label_enabled(ui: &mut Ui, enabled: bool, icon: Icon, text: &str) ->
 	ui.add_enabled(enabled, widget)
 }
 
-/// [`icon_label`] across the whole width, at least touch height: the main action of a card.
+/// [`icon_label`] across the whole width, centred, at least touch height: the main action of a card.
 pub fn icon_label_full(ui: &mut Ui, enabled: bool, icon: Icon, text: &str) -> Response {
 	let height = ui.spacing().interact_size.y.max(MIN_TOUCH_TARGET);
-	let widget = icon_label_widget(ui, icon, text).min_size(vec2(ui.available_width(), height));
+	let job = icon_text_job(ui, icon, text);
+	let widget = egui::Button::new((egui::Atom::grow(), job, egui::Atom::grow()))
+		.min_size(vec2(ui.available_width(), height));
 	ui.add_enabled(enabled, widget)
 }
 

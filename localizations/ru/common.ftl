@@ -21,4 +21,3 @@ error-next = Можно повторить попытку или закрыть 
 nav-contacts = Контакты
 nav-connect = Подключение
 action-view-details = Показать подробности
-action-hide-details = Скрыть подробности

@@ -21,4 +21,3 @@ error-next = Puedes intentarlo de nuevo o cerrar este mensaje.
 nav-contacts = Contactos
 nav-connect = Conectar
 action-view-details = Ver detalles
-action-hide-details = Ocultar detalles

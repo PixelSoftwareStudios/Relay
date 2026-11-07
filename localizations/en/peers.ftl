@@ -73,4 +73,3 @@ block-device = Block device
 block-ask = Block { $name }? It can no longer call you or see you, and it is removed from Contacts. You can unblock it in Settings.
 block-yes = Block
 unblock = Unblock
-peer-call-offline = This device is offline. You can call it as soon as it is back on the network.

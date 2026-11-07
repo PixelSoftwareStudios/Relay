@@ -11,6 +11,7 @@ use crate::layout::Page;
 use crate::theme;
 use crate::viewmodel::PeerRow;
 
+use super::collapsing::{ChevronSide, collapsing_header};
 use super::kit::{self, Cx};
 use super::widgets::{avatar, button_row};
 use crate::tr;
@@ -42,9 +43,9 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 }
 
 /// One device. Top row: picture, name and state, with the star and the menu at the top right
-/// (View details first, then Block and Forget). Below: the details when opened from the menu,
+/// (Block and Forget). Below: the details when opened from the menu,
 /// then Call across the full width, with room above it. An offline contact is listed all the
-/// same: Call is greyed and the line under it says why.
+/// same: Call is greyed.
 pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 	let card = ui.scope(|ui| {
 		kit::card(ui, |ui| {
@@ -52,10 +53,15 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 			if full {
 				forget_ask(ui, cx, row);
 				block_ask(ui, cx, row);
-				if cx.local.details_open.contains(&row.peer_id) {
-					ui.add_space(theme::SPACE_S);
-					peer_details(ui, row, cx);
-				}
+				ui.add_space(theme::SPACE_S);
+				collapsing_header(
+					ui,
+					("contact-details", &row.peer_id),
+					tr!("action-view-details"),
+					false,
+					ChevronSide::Left,
+					|ui| peer_details(ui, row, cx),
+				);
 			}
 			ui.add_space(theme::SPACE_XL);
 			let call = icon_label_full(ui, row.can_call, Icon::Call, tr!("peer-call"));
@@ -63,14 +69,6 @@ pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 				let id = row.peer_id.clone();
 				cx.local.goto = Some(Page::Calls);
 				cx.actions.run(|c| async move { c.start_call(&id).await });
-			}
-			if !row.can_call {
-				let why = if row.reachable {
-					tr!("peer-call-blocked")
-				} else {
-					tr!("peer-call-offline")
-				};
-				kit::help(ui, why);
 			}
 		});
 	});
@@ -107,35 +105,16 @@ fn head(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 	});
 }
 
-/// The kebab menu: View details (or Hide details) on top, then Block and Forget.
+/// The kebab menu: Forget and Block.
 fn menu(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	let more = icon_button(ui, Icon::More, tr!("contact-more"));
-	egui::Popup::menu(&more).show(|ui| {
-		details_entry(ui, cx, &row.peer_id);
+	kit::menu(&more, |ui| {
 		if icon_label_red(ui, Icon::Trash, tr!("forget-device")).clicked() {
 			cx.local.forget_confirm = Some(row.peer_id.clone());
 			ui.close();
 		}
 		block_entry(ui, cx, row);
 	});
-}
-
-/// The first menu entry of a card: opens or closes its details.
-pub(super) fn details_entry(ui: &mut Ui, cx: &mut Cx, id: &str) {
-	let open = cx.local.details_open.contains(id);
-	let text = if open {
-		tr!("action-hide-details")
-	} else {
-		tr!("action-view-details")
-	};
-	if icon_label(ui, Icon::Info, text).clicked() {
-		if open {
-			cx.local.details_open.remove(id);
-		} else {
-			cx.local.details_open.insert(id.to_owned());
-		}
-		ui.close();
-	}
 }
 
 /// The star: filled when the device is a favorite. The tooltip names what a

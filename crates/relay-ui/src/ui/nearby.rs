@@ -10,6 +10,7 @@ use crate::layout::Page;
 use crate::tr;
 use crate::viewmodel::PeerRow;
 
+use super::collapsing::{ChevronSide, collapsing_header};
 use super::kit::{self, Cx};
 use super::widgets::{avatar, button_row};
 use crate::theme;
@@ -49,8 +50,7 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 			avatar(ui, &tex, theme::AVATAR_ROW);
 			ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
 				let more = icon_button(ui, Icon::More, tr!("contact-more"));
-				egui::Popup::menu(&more).show(|ui| {
-					super::contacts::details_entry(ui, cx, &row.peer_id);
+				kit::menu(&more, |ui| {
 					super::contacts::block_entry(ui, cx, row);
 				});
 				ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
@@ -63,23 +63,28 @@ fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 						.weak(),
 					);
 					if !row.address.is_empty() {
-						ui.label(RichText::new(&row.address).weak().small().monospace());
+						ui.label(RichText::new(&row.address).weak().monospace());
 					}
 				});
 			});
 		});
 		super::contacts::block_ask(ui, cx, row);
-		if cx.local.details_open.contains(&row.peer_id) {
-			details(ui, row);
-		}
+		ui.add_space(theme::SPACE_S);
+		collapsing_header(
+			ui,
+			("found-details", &row.peer_id),
+			tr!("action-view-details"),
+			false,
+			ChevronSide::Left,
+			|ui| details(ui, row),
+		);
 		ui.add_space(theme::SPACE_L);
 		trust_row(ui, row, cx);
 	});
 }
 
-/// The technical lines of a device found on the network, shown from the card's menu.
+/// The technical lines of a device found on the network, in the card's accordion.
 fn details(ui: &mut Ui, row: &PeerRow) {
-	ui.add_space(theme::SPACE_S);
 	ui.label(
 		RichText::new(tr!(
 			"peer-key",

@@ -1,6 +1,6 @@
 //! The Contacts card: every trusted contact is listed whether or not it is online, the star and
-//! the menu sit at the top right (View details first), details open from the menu and not from
-//! an expander, and Call is a full-width button with room above it. Fits 360x800, 320x640 and a
+//! the menu sit at the top right, details sit in a View details accordion that starts closed,
+//! not in the menu, and Call is a full-width button with room above it. Fits 360x800, 320x640 and a
 //! desktop width in every language, with touch targets of at least 44 points on a phone.
 
 // The turn lock is held on purpose across awaits: the active language is process-wide.
@@ -80,7 +80,7 @@ fn pressable(drawn: &Drawn, r: egui::Rect) -> bool {
 }
 
 #[tokio::test]
-async fn an_offline_contact_is_listed_with_its_state_and_call_says_why_it_is_off() {
+async fn an_offline_contact_is_listed_with_its_state_and_a_greyed_call() {
 	let _turn = turn();
 	let mut phone = rig(false, 360.0, 1400.0, Language::En);
 	let drawn = phone.page(Page::Contacts);
@@ -99,10 +99,10 @@ async fn an_offline_contact_is_listed_with_its_state_and_call_says_why_it_is_off
 		"when it was last seen: {:?}",
 		drawn.labels
 	);
-	assert!(has(
-		&drawn,
-		"This device is offline. You can call it as soon as it is back on the network."
-	));
+	assert!(
+		!has(&drawn, "This device is offline"),
+		"no explanation under Call"
+	);
 	let calls: Vec<egui::Rect> = drawn
 		.named
 		.iter()
@@ -155,24 +155,28 @@ async fn star_and_menu_are_at_the_top_right_and_call_spans_the_card() {
 			"{w}: full width"
 		);
 		assert!(button.min.y - name.max.y >= 20.0, "{w}: room above Call");
-		assert!(
-			!has(&drawn, "Details"),
-			"{w}: no details expander in the body"
-		);
 	}
 }
 
 #[tokio::test]
-async fn view_details_is_the_first_menu_entry_and_opens_the_key_in_the_card() {
+async fn view_details_is_a_closed_accordion_and_not_in_the_menu() {
 	let _turn = turn();
 	let mut phone = rig(false, 360.0, 1400.0, Language::En);
-	phone.page(Page::Contacts);
+	let closed = phone.page(Page::Contacts);
+	assert!(has(&closed, "View details"), "{:?}", closed.labels);
+	assert!(!closed.labels.iter().any(|l| l.starts_with("Key ")));
 	phone.click_icon_nth(Icon::More, 0);
 	let menu = phone.settle();
-	let view = rect_of(&menu, "View details");
-	assert!(view.min.y < rect_of(&menu, "Forget this device").min.y);
-	assert!(view.min.y < rect_of(&menu, "Block device").min.y);
-	assert!(!menu.labels.iter().any(|l| l.starts_with("Key ")));
+	assert!(has(&menu, "Forget this device") && has(&menu, "Block device"));
+	assert_eq!(
+		menu.labels.iter().filter(|l| *l == "View details").count(),
+		closed
+			.labels
+			.iter()
+			.filter(|l| *l == "View details")
+			.count(),
+		"the menu adds no View details entry"
+	);
 	phone.click_label("View details");
 	let open = phone.settle();
 	assert!(
@@ -180,8 +184,6 @@ async fn view_details_is_the_first_menu_entry_and_opens_the_key_in_the_card() {
 		"{:?}",
 		open.labels
 	);
-	phone.click_icon_nth(Icon::More, 0);
-	assert!(has(&phone.settle(), "Hide details"));
 }
 
 #[tokio::test]

@@ -72,4 +72,3 @@ block-device = 屏蔽设备
 block-ask = 屏蔽 { $name }？它将无法再呼叫你或看到你，并会从联系人中移除。你可以在设置中解除屏蔽。
 block-yes = 屏蔽
 unblock = 解除屏蔽
-peer-call-offline = 此设备已离线。它重新连上网络后即可呼叫。
