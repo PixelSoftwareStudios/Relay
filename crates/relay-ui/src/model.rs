@@ -101,6 +101,9 @@ pub struct Peer {
 	pub previous_peer_id: String,
 	/// Short form of the pinned key; empty unless `key_changed`.
 	pub previous_fingerprint_short: String,
+	/// Calls from this contact are answered without a tap (stored flag; it acts only for a
+	/// verified contact while `Settings::auto_answer_enabled`).
+	pub auto_answer: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
@@ -130,6 +133,8 @@ pub struct Call {
 	/// Engine wall clock (unix ms) when the call became connected; zero while it is not. Show
 	/// the duration as now minus this, so both ends and every client agree.
 	pub connected_at_unix_ms: u64,
+	/// The engine answered this call itself (auto-answer); true for the whole call.
+	pub auto_answered: bool,
 	/// Lease generation needed for call mutations; not shown in the UI.
 	#[serde(skip)]
 	pub controller_generation: u64,
@@ -201,6 +206,12 @@ pub struct Settings {
 	pub history_revision: u64,
 	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
 	pub default_transmit_mode: Mode,
+	/// Stay reachable with no window open (`background.available`); the OS shells act on it.
+	pub background_available: bool,
+	/// How an incoming call alerts (`calls.alert`).
+	pub call_alert: CallAlert,
+	/// Global switch for auto-answer (`calls.auto_answer_enabled`); off ignores every contact.
+	pub auto_answer_enabled: bool,
 	/// Git commit of the running daemon (with `-dirty` or `-dev` markers).
 	pub daemon_build_revision: String,
 	/// API revision of the running daemon.
@@ -210,6 +221,44 @@ pub struct Settings {
 	pub avatar_hash: String,
 	pub inbound: Inbound,
 	pub advert: Advert,
+}
+
+/// How an incoming call alerts the user (`calls.alert`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub enum CallAlert {
+	/// Follow the phone's ringer mode and Do Not Disturb.
+	System,
+	RingAndVibrate,
+	Vibrate,
+	Silent,
+}
+
+impl CallAlert {
+	pub const ALL: [CallAlert; 4] = [
+		Self::System,
+		Self::RingAndVibrate,
+		Self::Vibrate,
+		Self::Silent,
+	];
+
+	/// The preference text.
+	pub fn key(self) -> &'static str {
+		match self {
+			Self::System => "system",
+			Self::RingAndVibrate => "ring_and_vibrate",
+			Self::Vibrate => "vibrate",
+			Self::Silent => "silent",
+		}
+	}
+
+	/// An unknown text reads as the default.
+	pub fn from_key(text: &str) -> Self {
+		Self::ALL
+			.into_iter()
+			.find(|a| a.key() == text)
+			.unwrap_or(Self::System)
+	}
 }
 
 /// Which way a past call went.

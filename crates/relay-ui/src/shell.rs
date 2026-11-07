@@ -198,4 +198,25 @@ pub trait Shell: FilePicker {
 	}
 	/// Open the OS page where the camera permission can be turned on.
 	fn open_camera_settings(&self) {}
+	/// Whether the OS lets the app run in the background without battery limits. `None`
+	/// means the question does not apply (a desktop); `Some(false)` makes the background
+	/// switch warn that calls may not ring. Called per frame, so it must be cheap.
+	fn battery_optimization_exempt(&self) -> Option<bool> {
+		None
+	}
+	/// Ask the OS to exempt the app from battery optimization (the "Allow in battery
+	/// settings" button). Never blocks; the answer arrives through
+	/// [`Shell::battery_optimization_exempt`].
+	fn request_battery_exemption(&self) {}
+	/// Whether the device can vibrate. Without it the call alert hides "Vibrate only" and
+	/// words the others for a computer.
+	fn can_vibrate(&self) -> bool {
+		false
+	}
+	/// Whether the app may post notifications. `None` when not applicable. Called per frame.
+	fn notifications_allowed(&self) -> Option<bool> {
+		None
+	}
+	/// Ask for the notification permission, or open the page where it is turned on.
+	fn request_notifications(&self) {}
 }

@@ -285,6 +285,9 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			verified: true,
 		},
 		Command::SetFavorites { peer_ids } => WireCommand::SetFavorites { peer_ids },
+		Command::SetPeerAutoAnswer { peer_id, enabled } => {
+			WireCommand::SetPeerAutoAnswer { peer_id, enabled }
+		}
 		Command::TrustPeer { peer_id } => WireCommand::DecideTrust {
 			public_key_sha256: peer_id.clone(),
 			peer_id,

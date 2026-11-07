@@ -15,6 +15,7 @@ fn call(transmit: Transmit) -> Call {
 		controlled_by_me: true,
 		controller_generation: 1,
 		connected_at_unix_ms: 0,
+		auto_answered: false,
 	}
 }
 

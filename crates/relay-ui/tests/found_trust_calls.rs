@@ -29,6 +29,7 @@ fn stranger(trust: Trust, reachable: bool) -> Peer {
 		key_changed: false,
 		previous_peer_id: String::new(),
 		previous_fingerprint_short: String::new(),
+		auto_answer: false,
 		port: 7000,
 		last_seen_unix_ms: 0,
 	}

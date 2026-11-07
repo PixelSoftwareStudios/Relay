@@ -11,6 +11,7 @@ use relay_client::Secret;
 use relay_io::LockExt;
 
 use crate::audio_processing::{KEY_AUTO_GAIN, KEY_NOISE_LEVEL, KEY_NOISE_SUPPRESSION, NoiseLevel};
+use crate::background_settings::{self, KEY_AUTO_ANSWER, KEY_BACKGROUND, KEY_CALL_ALERT};
 use crate::controller::SessionSlot;
 use crate::engine::{Command, EngineError, Operations, Outcome, SettingOutcome, SettingResult};
 use crate::history_settings::KEY_ENABLED as KEY_HISTORY;
@@ -18,8 +19,8 @@ use crate::hotkey_settings::{KEY_ACCELERATOR, KEY_RELEASE_DELAY};
 use crate::hub::Hub;
 use crate::limits_settings::{DEFS, LimitValues};
 use crate::model::{
-	Advert, AppState, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
-	Inbound, Link, Meters, Mode, Peer, Phase, Settings, Transmit, Trust,
+	Advert, AppState, Call, CallAlert, CallMeter, Channel, ConnectionView, Device, Direction,
+	EngineInfo, Inbound, Link, Meters, Mode, Peer, Phase, Settings, Transmit, Trust,
 };
 
 const MOCK_CLIENT: [u8; 16] = [7; 16];
@@ -48,6 +49,7 @@ fn call(n: u8, peer: u8, phase: Phase) -> Call {
 		controlled_by_me: true,
 		controller_generation: 1,
 		connected_at_unix_ms: 0,
+		auto_answered: false,
 	}
 }
 
@@ -76,6 +78,7 @@ fn peer(n: u8, name: &str, trust: Trust, reachable: bool) -> Peer {
 		} else {
 			String::new()
 		},
+		auto_answer: false,
 	}
 }
 
@@ -149,6 +152,9 @@ pub fn seed() -> AppState {
 			history_enabled: true,
 			history_revision: 0,
 			default_transmit_mode: Mode::PushToTalk,
+			background_available: true,
+			call_alert: CallAlert::System,
+			auto_answer_enabled: true,
 			daemon_build_revision: relay_api::BUILD_REVISION.into(),
 			daemon_api_revision: relay_api::API_REVISION,
 			display_name: "Me".into(),
@@ -205,6 +211,38 @@ impl MockOps {
 			}
 		});
 		Ok(Outcome::default())
+	}
+
+	/// One of the background, call-alert and auto-answer keys.
+	fn set_background(&self, key: &str, value: &str) -> (SettingOutcome, &'static str) {
+		let mut answer = None;
+		self.hub.update(|s| {
+			if let Some(g) = s.settings.as_mut() {
+				answer = background_settings::apply(g, key, value);
+			}
+		});
+		match answer {
+			Some(Err(why)) => (SettingOutcome::Rejected, why),
+			_ => (SettingOutcome::AppliedLive, ""),
+		}
+	}
+
+	/// `SetPeerAutoAnswer` as the engine judges it: only a verified contact can be switched on.
+	fn set_auto_answer(&self, peer_id: &[u8], enabled: bool) -> Result<Outcome, EngineError> {
+		let wanted = hex::encode(peer_id);
+		let mut result = Ok(Outcome::default());
+		self.hub
+			.update(|s| match s.peers.iter_mut().find(|p| p.peer_id == wanted) {
+				Some(p) if enabled && p.trust != Trust::Verified => {
+					result = Err(EngineError::Rejected {
+						code: "INVALID_REQUEST".into(),
+						message: "Only verified contacts can answer automatically".into(),
+					});
+				}
+				Some(p) => p.auto_answer = enabled,
+				None => {}
+			});
+		result
 	}
 
 	/// A `limits.*` change: in range and not leaving the retained budget under the session one.
@@ -449,6 +487,9 @@ impl Operations for MockOps {
 				});
 			}
 			Command::SetFavorites { peer_ids } => return self.set_favorites(&peer_ids),
+			Command::SetPeerAutoAnswer { peer_id, enabled } => {
+				return self.set_auto_answer(&peer_id, enabled);
+			}
 			Command::BlockPeer { peer_id } => {
 				let wanted = hex::encode(peer_id);
 				self.hub.update(|s| {
@@ -589,6 +630,9 @@ impl Operations for MockOps {
 					}
 					None => (SettingOutcome::Rejected, "must be low, moderate or high"),
 				},
+				KEY_BACKGROUND | KEY_CALL_ALERT | KEY_AUTO_ANSWER => {
+					self.set_background(&key, &value)
+				}
 				key if DEFS.iter().any(|d| d.key == key) => self.set_limit(key, &value),
 				_ => (SettingOutcome::Rejected, "unknown key"),
 			};

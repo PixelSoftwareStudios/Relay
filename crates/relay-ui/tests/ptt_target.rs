@@ -23,6 +23,7 @@ fn call(id: &str) -> Call {
 		profile: String::new(),
 		problem: None,
 		connected_at_unix_ms: 0,
+		auto_answered: false,
 	}
 }
 

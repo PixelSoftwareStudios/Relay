@@ -138,6 +138,12 @@ pub enum Command {
 		peer_id: Vec<u8>,
 		fingerprint: String,
 	},
+	/// Switch auto-answer for one contact (32 bytes). The engine refuses to switch it on for a
+	/// contact that is not verified.
+	SetPeerAutoAnswer {
+		peer_id: Vec<u8>,
+		enabled: bool,
+	},
 	/// Replace the favorites by this ordered list of trusted peers (32 bytes each, first =
 	/// place 0). More than 6, a repeat or an untrusted peer is refused by the engine.
 	SetFavorites {

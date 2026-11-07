@@ -65,6 +65,10 @@ pub struct PeerRow {
 	pub key_changed: bool,
 	/// Short form of the pinned key; empty unless `key_changed`.
 	pub previous_fingerprint: String,
+	/// The safety code was compared: the only trust that allows answering automatically.
+	pub verified: bool,
+	/// Calls from it are answered without a tap.
+	pub auto_answer: bool,
 }
 
 pub fn trust_label(trust: Trust) -> &'static str {
@@ -190,6 +194,8 @@ pub fn peer_rows(state: &AppState) -> Vec<PeerRow> {
 			favorite_position: p.favorite_position,
 			key_changed: p.key_changed,
 			previous_fingerprint: p.previous_fingerprint_short.clone(),
+			verified: p.trust == Trust::Verified,
+			auto_answer: p.auto_answer,
 		})
 		.collect()
 }

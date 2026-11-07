@@ -8,6 +8,7 @@ pub mod apply;
 pub mod audio_processing;
 pub mod autostart;
 pub mod avatar;
+pub mod background_settings;
 pub mod capabilities;
 pub mod channels;
 pub mod controller;

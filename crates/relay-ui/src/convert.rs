@@ -93,6 +93,7 @@ pub fn peer(p: &pb::Peer) -> Peer {
 		key_changed: p.key_changed,
 		previous_peer_id: hex::encode(&p.previous_peer_id),
 		previous_fingerprint_short: short_fingerprint(&p.previous_fingerprint_short),
+		auto_answer: p.auto_answer,
 	}
 }
 
@@ -155,6 +156,7 @@ pub fn call(c: &pb::Call, me: &[u8]) -> Call {
 		controlled_by_me: lease.is_some_and(|l| !me.is_empty() && l.controller_client_id == me),
 		controller_generation: lease.map_or(0, |l| l.generation),
 		connected_at_unix_ms: c.connected_at_unix_ms,
+		auto_answered: c.auto_answered,
 	}
 }
 
@@ -201,6 +203,9 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		history_enabled: s.history_enabled,
 		history_revision: s.history_revision,
 		default_transmit_mode: mode(s.default_transmit_mode),
+		background_available: s.background_available,
+		call_alert: crate::model::CallAlert::from_key(&s.call_alert),
+		auto_answer_enabled: s.auto_answer_enabled,
 		daemon_build_revision: s.daemon_build_revision.clone(),
 		daemon_api_revision: s.daemon_api_revision,
 		display_name: s.display_name.clone(),

@@ -40,6 +40,7 @@ fn changed_peer() -> Peer {
 		key_changed: true,
 		previous_peer_id: digest(OLD),
 		previous_fingerprint_short: "1A10-1A10-1A10-1A10-1A10".into(),
+		auto_answer: false,
 	}
 }
 

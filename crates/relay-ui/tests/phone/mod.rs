@@ -52,6 +52,13 @@ pub struct PhoneShell {
 	pub daemon_log: Mutex<Vec<&'static str>>,
 	/// A shell with a system-wide push-to-talk key, and what became of it.
 	pub hotkey: Mutex<Option<relay_ui::hotkey_settings::HotkeyState>>,
+	/// `battery_optimization_exempt` and `notifications_allowed` answers, `can_vibrate`, and how
+	/// many times the UI asked for the battery exemption and for notifications.
+	pub battery: Mutex<Option<bool>>,
+	pub notifications: Mutex<Option<bool>>,
+	pub vibrates: AtomicBool,
+	pub battery_requests: AtomicUsize,
+	pub notification_requests: AtomicUsize,
 }
 
 impl FilePicker for PhoneShell {
@@ -116,6 +123,21 @@ impl Shell for PhoneShell {
 	}
 	fn open_camera_settings(&self) {
 		self.camera_settings.fetch_add(1, Ordering::SeqCst);
+	}
+	fn battery_optimization_exempt(&self) -> Option<bool> {
+		*self.battery.lock().unwrap()
+	}
+	fn request_battery_exemption(&self) {
+		self.battery_requests.fetch_add(1, Ordering::SeqCst);
+	}
+	fn notifications_allowed(&self) -> Option<bool> {
+		*self.notifications.lock().unwrap()
+	}
+	fn request_notifications(&self) {
+		self.notification_requests.fetch_add(1, Ordering::SeqCst);
+	}
+	fn can_vibrate(&self) -> bool {
+		self.vibrates.load(Ordering::SeqCst)
 	}
 	fn can_manage_daemon(&self) -> bool {
 		self.manage_daemon.load(Ordering::SeqCst)

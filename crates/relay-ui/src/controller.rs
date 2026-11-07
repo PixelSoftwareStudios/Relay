@@ -65,6 +65,19 @@ fn trust_error(error: EngineError) -> ControlError {
 	}
 }
 
+/// The engine's refusal to switch auto-answer on for a contact that is not verified, in words;
+/// any other failure keeps the engine's own text.
+fn auto_answer_error(error: EngineError) -> ControlError {
+	match &error {
+		EngineError::Rejected { code, message }
+			if code == "INVALID_REQUEST" && message.to_lowercase().contains("verified") =>
+		{
+			ControlError::Engine(tr!("err-auto-answer-verified").to_owned())
+		}
+		_ => error.into(),
+	}
+}
+
 impl Serialize for ControlError {
 	fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
 		serializer.collect_str(self)
@@ -412,6 +425,39 @@ impl Controller {
 		})
 		.await
 		.map(drop)
+	}
+
+	/// Answer calls from this contact without a tap (or stop doing so). Only a verified contact
+	/// can be switched on; the engine refuses the rest and this says so in plain words.
+	pub async fn set_peer_auto_answer(
+		&self,
+		peer_id: &str,
+		enabled: bool,
+	) -> Result<(), ControlError> {
+		let id = decode_id(peer_id, PEER_ID_LEN, tr!("err-bad-peer-id"))?;
+		let trust = self.hub.read(|s| {
+			s.peers
+				.iter()
+				.find(|p| p.peer_id == peer_id)
+				.map(|p| p.trust)
+		});
+		match trust {
+			None => return Err(ControlError::Invalid(tr!("err-unknown-peer"))),
+			Some(t) if enabled && t != crate::model::Trust::Verified => {
+				return Err(ControlError::Invalid(tr!("err-auto-answer-verified")));
+			}
+			Some(_) => {}
+		}
+		let session = self.slot.get().ok_or(ControlError::NotConnected)?;
+		session
+			.ops
+			.run(Command::SetPeerAutoAnswer {
+				peer_id: id,
+				enabled,
+			})
+			.await
+			.map(drop)
+			.map_err(auto_answer_error)
 	}
 
 	/// Trust the new key of a contact whose key changed: `fingerprint` is what the user typed

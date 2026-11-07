@@ -179,6 +179,7 @@ fn call(id: &str, phase: relay_ui::model::Phase, mine: bool) -> relay_ui::model:
 		controlled_by_me: mine,
 		controller_generation: 1,
 		connected_at_unix_ms: 0,
+		auto_answered: false,
 	}
 }
 

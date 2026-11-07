@@ -59,6 +59,7 @@ fn changed(key_changed: bool) -> Peer {
 			String::new()
 		},
 		previous_fingerprint_short: String::new(),
+		auto_answer: false,
 	}
 }
 
