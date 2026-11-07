@@ -5,7 +5,7 @@
 
 peer-unknown = 알 수 없는 기기
 peer-online = 온라인
-peer-unreachable = 연결할 수 없음
+peer-unreachable = 오프라인
 peer-key = 키 { $fingerprint }
 peer-shared-channels = 공유 채널: { $names }
 peer-call = 통화
@@ -72,3 +72,4 @@ block-device = 기기 차단
 block-ask = { $name }을(를) 차단할까요? 이 기기는 더 이상 전화하거나 나를 볼 수 없고 연락처에서 삭제됩니다. 설정에서 차단을 해제할 수 있습니다.
 block-yes = 차단
 unblock = 차단 해제
+peer-call-offline = 이 기기는 오프라인입니다. 네트워크에 다시 연결되면 바로 전화할 수 있습니다.

@@ -6,9 +6,7 @@
 
 use egui::{self, RichText, Ui};
 
-use crate::icons::{
-	Icon, icon_button, icon_label, icon_label_enabled, icon_label_red, icon_toggle,
-};
+use crate::icons::{Icon, icon_button, icon_label, icon_label_full, icon_label_red, icon_toggle};
 use crate::layout::Page;
 use crate::theme;
 use crate::viewmodel::PeerRow;
@@ -43,62 +41,100 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	}
 }
 
-/// One device: picture, name, state and a Call button. `full` adds the menu
-/// with Forget and the technical detail behind an expander.
+/// One device. Top row: picture, name and state, with the star and the menu at the top right
+/// (View details first, then Block and Forget). Below: the details when opened from the menu,
+/// then Call across the full width, with room above it. An offline contact is listed all the
+/// same: Call is greyed and the line under it says why.
 pub fn row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
 	let card = ui.scope(|ui| {
 		kit::card(ui, |ui| {
-			ui.horizontal_wrapped(|ui| {
-				let tex = cx.textures.texture(&row.avatar, cx.actions);
-				avatar(ui, &tex, theme::AVATAR_ROW);
-				ui.vertical(|ui| {
-					ui.label(RichText::new(&row.name).strong());
-					ui.label(RichText::new(&row.subtitle).weak());
-					if row.reachable && !row.address.is_empty() {
-						ui.label(RichText::new(&row.address).weak().small().monospace());
-					} else if !row.reachable && row.last_seen_ms > 0 {
-						ui.label(
-							RichText::new(last_seen(cx, row.last_seen_ms))
-								.weak()
-								.small(),
-						);
-					}
-				});
-			});
-			ui.horizontal_wrapped(|ui| {
-				let call = icon_label_enabled(ui, row.can_call, Icon::Call, tr!("peer-call"));
-				if call.clicked() {
-					let id = row.peer_id.clone();
-					cx.local.goto = Some(Page::Calls);
-					cx.actions.run(|c| async move { c.start_call(&id).await });
-				}
-				if full && row.known {
-					favorite_toggle(ui, row, cx);
-					let more = icon_button(ui, Icon::More, tr!("contact-more"));
-					egui::Popup::menu(&more).show(|ui| {
-						if icon_label_red(ui, Icon::Trash, tr!("forget-device")).clicked() {
-							cx.local.forget_confirm = Some(row.peer_id.clone());
-							ui.close();
-						}
-						block_entry(ui, cx, row);
-					});
-				}
-			});
-			if !row.can_call && row.reachable {
-				kit::help(ui, tr!("peer-call-blocked"));
-			}
+			head(ui, row, cx, full);
 			if full {
 				forget_ask(ui, cx, row);
 				block_ask(ui, cx, row);
-				kit::details(ui, ("peer-details", &row.peer_id), |ui| {
+				if cx.local.details_open.contains(&row.peer_id) {
+					ui.add_space(theme::SPACE_S);
 					peer_details(ui, row, cx);
-				});
+				}
+			}
+			ui.add_space(theme::SPACE_XL);
+			let call = icon_label_full(ui, row.can_call, Icon::Call, tr!("peer-call"));
+			if call.clicked() {
+				let id = row.peer_id.clone();
+				cx.local.goto = Some(Page::Calls);
+				cx.actions.run(|c| async move { c.start_call(&id).await });
+			}
+			if !row.can_call {
+				let why = if row.reachable {
+					tr!("peer-call-blocked")
+				} else {
+					tr!("peer-call-offline")
+				};
+				kit::help(ui, why);
 			}
 		});
 	});
 	if cx.local.focus_contact.as_deref() == Some(row.peer_id.as_str()) {
 		ui.scroll_to_rect(card.response.rect, Some(egui::Align::Center));
 		cx.local.focus_contact = None;
+	}
+}
+
+/// Picture, name and state on the left; star and menu pinned to the top right corner.
+fn head(ui: &mut Ui, row: &PeerRow, cx: &mut Cx, full: bool) {
+	ui.horizontal_top(|ui| {
+		let tex = cx.textures.texture(&row.avatar, cx.actions);
+		avatar(ui, &tex, theme::AVATAR_ROW);
+		ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+			if full && row.known {
+				menu(ui, row, cx);
+				favorite_toggle(ui, row, cx);
+			}
+			ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+				ui.label(RichText::new(&row.name).strong());
+				ui.label(RichText::new(&row.subtitle).weak());
+				if row.reachable && !row.address.is_empty() {
+					ui.label(RichText::new(&row.address).weak().small().monospace());
+				} else if !row.reachable && row.last_seen_ms > 0 {
+					ui.label(
+						RichText::new(last_seen(cx, row.last_seen_ms))
+							.weak()
+							.small(),
+					);
+				}
+			});
+		});
+	});
+}
+
+/// The kebab menu: View details (or Hide details) on top, then Block and Forget.
+fn menu(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
+	let more = icon_button(ui, Icon::More, tr!("contact-more"));
+	egui::Popup::menu(&more).show(|ui| {
+		details_entry(ui, cx, &row.peer_id);
+		if icon_label_red(ui, Icon::Trash, tr!("forget-device")).clicked() {
+			cx.local.forget_confirm = Some(row.peer_id.clone());
+			ui.close();
+		}
+		block_entry(ui, cx, row);
+	});
+}
+
+/// The first menu entry of a card: opens or closes its details.
+pub(super) fn details_entry(ui: &mut Ui, cx: &mut Cx, id: &str) {
+	let open = cx.local.details_open.contains(id);
+	let text = if open {
+		tr!("action-hide-details")
+	} else {
+		tr!("action-view-details")
+	};
+	if icon_label(ui, Icon::Info, text).clicked() {
+		if open {
+			cx.local.details_open.remove(id);
+		} else {
+			cx.local.details_open.insert(id.to_owned());
+		}
+		ui.close();
 	}
 }
 

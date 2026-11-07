@@ -22,3 +22,5 @@ action-details = 详情
 error-next = 你可以重试，或关闭此消息。
 nav-contacts = 联系人
 nav-connect = 连接
+action-view-details = 查看详情
+action-hide-details = 隐藏详情

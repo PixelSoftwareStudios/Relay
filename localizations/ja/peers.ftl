@@ -3,7 +3,7 @@
 
 peer-unknown = 不明なデバイス
 peer-online = オンライン
-peer-unreachable = 接続できません
+peer-unreachable = オフライン
 peer-key = 鍵 { $fingerprint }
 peer-shared-channels = 共通のチャンネル: { $names }
 peer-call = 通話
@@ -70,3 +70,4 @@ block-device = デバイスをブロック
 block-ask = { $name } をブロックしますか？ 相手は発信も表示もできなくなり、連絡先から削除されます。ブロックは設定で解除できます。
 block-yes = ブロック
 unblock = ブロック解除
+peer-call-offline = このデバイスはオフラインです。ネットワークに戻ればすぐに発信できます。

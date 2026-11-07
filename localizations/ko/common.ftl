@@ -22,3 +22,5 @@ action-details = 자세히
 error-next = 다시 시도하거나 이 메시지를 닫을 수 있습니다.
 nav-contacts = 연락처
 nav-connect = 연결
+action-view-details = 자세히 보기
+action-hide-details = 자세히 숨기기

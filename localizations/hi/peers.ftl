@@ -4,7 +4,7 @@
 
 peer-unknown = अज्ञात डिवाइस
 peer-online = ऑनलाइन
-peer-unreachable = पहुँच से बाहर
+peer-unreachable = ऑफ़लाइन
 peer-key = कुंजी { $fingerprint }
 peer-shared-channels = साझा चैनल: { $names }
 peer-call = कॉल करें
@@ -71,3 +71,4 @@ block-device = डिवाइस ब्लॉक करें
 block-ask = { $name } को ब्लॉक करें? वह आपको कॉल नहीं कर सकेगा, न ही आपको देख सकेगा, और संपर्क से हट जाएगा। आप इसे सेटिंग में अनब्लॉक कर सकते हैं।
 block-yes = ब्लॉक करें
 unblock = अनब्लॉक करें
+peer-call-offline = यह डिवाइस ऑफ़लाइन है। नेटवर्क पर लौटते ही आप इसे कॉल कर सकेंगे।

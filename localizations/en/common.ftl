@@ -23,3 +23,5 @@ action-details = Details
 error-next = You can try again or dismiss this message.
 nav-contacts = Contacts
 nav-connect = Connect
+action-view-details = View details
+action-hide-details = Hide details

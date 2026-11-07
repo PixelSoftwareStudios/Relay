@@ -20,3 +20,5 @@ action-details = Подробности
 error-next = Можно повторить попытку или закрыть это сообщение.
 nav-contacts = Контакты
 nav-connect = Подключение
+action-view-details = Показать подробности
+action-hide-details = Скрыть подробности

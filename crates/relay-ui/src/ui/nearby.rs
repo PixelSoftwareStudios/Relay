@@ -44,42 +44,56 @@ pub fn grouped(peer_id: &str) -> String {
 
 fn card(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 	kit::card(ui, |ui| {
-		ui.horizontal_wrapped(|ui| {
+		ui.horizontal_top(|ui| {
 			let tex = cx.textures.texture(&row.avatar, cx.actions);
 			avatar(ui, &tex, theme::AVATAR_ROW);
-			ui.vertical(|ui| {
-				ui.label(RichText::new(&row.name).strong());
-				ui.label(
-					RichText::new(tr!(
-						"found-subtitle",
-						fingerprint = row.fingerprint.as_str()
-					))
-					.weak(),
-				);
-				if !row.address.is_empty() {
-					ui.label(RichText::new(&row.address).weak().small().monospace());
-				}
+			ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+				let more = icon_button(ui, Icon::More, tr!("contact-more"));
+				egui::Popup::menu(&more).show(|ui| {
+					super::contacts::details_entry(ui, cx, &row.peer_id);
+					super::contacts::block_entry(ui, cx, row);
+				});
+				ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+					ui.label(RichText::new(&row.name).strong());
+					ui.label(
+						RichText::new(tr!(
+							"found-subtitle",
+							fingerprint = row.fingerprint.as_str()
+						))
+						.weak(),
+					);
+					if !row.address.is_empty() {
+						ui.label(RichText::new(&row.address).weak().small().monospace());
+					}
+				});
 			});
 		});
-		trust_row(ui, row, cx);
 		super::contacts::block_ask(ui, cx, row);
-		kit::details(ui, ("found-details", &row.peer_id), |ui| {
-			ui.label(
-				RichText::new(tr!(
-					"peer-key",
-					fingerprint = grouped(&row.peer_id).as_str()
-				))
-				.monospace(),
-			);
-			kit::help(ui, tr!("peer-key-help"));
-			if !row.addresses.is_empty() {
-				ui.label(tr!("peer-addresses", addresses = row.addresses.join(", ")));
-			}
-			if row.port > 0 {
-				ui.label(tr!("peer-port", port = row.port));
-			}
-		});
+		if cx.local.details_open.contains(&row.peer_id) {
+			details(ui, row);
+		}
+		ui.add_space(theme::SPACE_L);
+		trust_row(ui, row, cx);
 	});
+}
+
+/// The technical lines of a device found on the network, shown from the card's menu.
+fn details(ui: &mut Ui, row: &PeerRow) {
+	ui.add_space(theme::SPACE_S);
+	ui.label(
+		RichText::new(tr!(
+			"peer-key",
+			fingerprint = grouped(&row.peer_id).as_str()
+		))
+		.monospace(),
+	);
+	kit::help(ui, tr!("peer-key-help"));
+	if !row.addresses.is_empty() {
+		ui.label(tr!("peer-addresses", addresses = row.addresses.join(", ")));
+	}
+	if row.port > 0 {
+		ui.label(tr!("peer-port", port = row.port));
+	}
 }
 
 /// A nearby device can be called at once; answering makes it a contact (unverified). The
@@ -109,8 +123,6 @@ fn trust_row(ui: &mut Ui, row: &PeerRow, cx: &mut Cx) {
 			if icon_label(ui, Icon::Trust, tr!("found-trust")).clicked() {
 				cx.local.trust_confirm = Some(row.peer_id.clone());
 			}
-			let more = icon_button(ui, Icon::More, tr!("contact-more"));
-			egui::Popup::menu(&more).show(|ui| super::contacts::block_entry(ui, cx, row));
 		});
 		kit::help(ui, tr!("found-call-help"));
 	}

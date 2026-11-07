@@ -6,7 +6,7 @@
 
 peer-unknown = Unknown device
 peer-online = Online
-peer-unreachable = Not reachable
+peer-unreachable = Offline
 peer-key = Key { $fingerprint }
 peer-shared-channels = Shared channels: { $names }
 peer-call = Call
@@ -73,3 +73,4 @@ block-device = Block device
 block-ask = Block { $name }? It can no longer call you or see you, and it is removed from Contacts. You can unblock it in Settings.
 block-yes = Block
 unblock = Unblock
+peer-call-offline = This device is offline. You can call it as soon as it is back on the network.

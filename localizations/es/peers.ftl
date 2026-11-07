@@ -3,7 +3,7 @@
 
 peer-unknown = Dispositivo desconocido
 peer-online = En línea
-peer-unreachable = Inaccesible
+peer-unreachable = Sin conexión
 peer-key = Clave { $fingerprint }
 peer-shared-channels = Canales compartidos: { $names }
 peer-call = Llamar
@@ -70,3 +70,4 @@ block-device = Bloquear dispositivo
 block-ask = ¿Bloquear a { $name }? Ya no podrá llamarte ni verte, y se quita de Contactos. Puedes desbloquearlo en Ajustes.
 block-yes = Bloquear
 unblock = Desbloquear
+peer-call-offline = Este dispositivo está sin conexión. Podrás llamarlo en cuanto vuelva a la red.

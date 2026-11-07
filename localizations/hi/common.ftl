@@ -21,3 +21,5 @@ action-details = विवरण
 error-next = आप फिर से कोशिश कर सकते हैं या इस संदेश को बंद कर सकते हैं।
 nav-contacts = संपर्क
 nav-connect = कनेक्ट
+action-view-details = विवरण देखें
+action-hide-details = विवरण छिपाएँ
