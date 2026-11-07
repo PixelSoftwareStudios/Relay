@@ -42,6 +42,15 @@ pub enum ServiceOp {
 	Avatar(Vec<u8>),
 	/// Remove the avatar.
 	ClearAvatar,
+	/// Use an audio file as this device's ringtone.
+	Ringtone {
+		/// File name shown in the settings.
+		name: String,
+		/// The file as chosen.
+		data: Vec<u8>,
+	},
+	/// Restore the built-in ring.
+	ResetRingtone,
 	/// Forget a stored trust decision.
 	ForgetPeer(super::ports::PeerSelector),
 	/// Replace the pinned key of a key-changed contact by its new, verified key.

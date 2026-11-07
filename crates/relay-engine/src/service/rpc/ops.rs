@@ -5,8 +5,8 @@ use std::time::Duration;
 use prost::Message;
 use relay_api::pb::{
 	DecidePeerTrustRequest, MutationContext, Operation, SelectDevicesRequest,
-	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetProfileRequest, StartMicTestRequest,
-	TrustState, UploadAvatarRequest,
+	SetGlobalControlsRequest, SetNoiseSuppressionRequest, SetProfileRequest, SetRingtoneRequest,
+	StartMicTestRequest, TrustState, UploadAvatarRequest,
 };
 use relay_core::{Command, SettingsRevision};
 use tonic::{Response, Status};
@@ -22,6 +22,8 @@ use crate::service::tones::RingUpdate;
 const MAX_NAME_CHARS: usize = 64;
 const MAX_DEVICE_ID_BYTES: usize = 512;
 const MAX_AVATAR_BYTES: usize = 1024 * 1024;
+/// Bound of one `SetRingtone` request (the largest `limits.ringtone_max_kib`).
+const MAX_RINGTONE_REQUEST_BYTES: usize = 8 * 1024 * 1024;
 const MAX_MIC_GAIN: f32 = 4.0;
 const MAX_RELEASE_DELAY_MS: u32 = 2000;
 
@@ -159,6 +161,50 @@ pub(super) async fn preview_tone(
 	body: &MutationContext,
 ) -> Result<Response<Operation>, Status> {
 	service_op(service, mutation, body, ServiceOp::PreviewTone).await
+}
+
+/// Longest file name kept for the settings line.
+const MAX_RINGTONE_NAME_BYTES: usize = 120;
+
+pub(super) async fn set_ringtone(
+	service: &EngineService,
+	mutation: &Mutation,
+	body: &SetRingtoneRequest,
+) -> Result<Response<Operation>, Status> {
+	let op = if body.reset {
+		ServiceOp::ResetRingtone
+	} else {
+		if body.data.is_empty() {
+			return Err(invalid("the ringtone file is empty").into());
+		}
+		// The engine's configured limit is the judge; this only bounds the request in memory.
+		if body.data.len() > MAX_RINGTONE_REQUEST_BYTES {
+			return Err(invalid("the ringtone file is too large").into());
+		}
+		ServiceOp::Ringtone {
+			name: ringtone_name(&body.file_name),
+			data: body.data.clone(),
+		}
+	};
+	service_op(service, mutation, body, op).await
+}
+
+/// The base name of what the client sent, without control characters, cut to a bounded length.
+fn ringtone_name(raw: &str) -> String {
+	let base = raw.rsplit(['/', '\\']).next().unwrap_or(raw);
+	let clean: String = base.chars().filter(|c| !c.is_control()).collect();
+	let mut name = String::new();
+	for c in clean.trim().chars() {
+		if name.len() + c.len_utf8() > MAX_RINGTONE_NAME_BYTES {
+			break;
+		}
+		name.push(c);
+	}
+	if name.is_empty() {
+		"ringtone".to_owned()
+	} else {
+		name
+	}
 }
 
 pub(super) async fn stop_mic_test(

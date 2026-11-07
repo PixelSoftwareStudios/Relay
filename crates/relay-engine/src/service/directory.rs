@@ -38,6 +38,8 @@ pub struct Aux {
 	pub autostart_daemon: bool,
 	/// Ring, ringback and call-sound preferences.
 	pub ring: RingPrefs,
+	/// File name of the custom ringtone; empty for the built-in chime.
+	pub ringtone_name: String,
 	/// Finished calls are recorded.
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects (`calls.default_transmit_mode`).
@@ -81,6 +83,7 @@ impl From<StoredSettings> for Aux {
 			inbound_policy: stored.inbound_policy,
 			advert_mode: stored.advert_mode,
 			ring: stored.ring,
+			ringtone_name: stored.ringtone_name,
 			history_enabled: stored.history_enabled,
 			default_transmit_mode: stored.default_transmit_mode,
 			ptt_enabled: stored.ptt_enabled,

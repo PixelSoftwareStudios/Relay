@@ -36,10 +36,11 @@ use relay_api::pb::{
 	SearchSessionRequest, SearchSessionResponse, SelectDevicesRequest, SendSessionImageRequest,
 	SendSessionMessageRequest, SessionEnvelope, SessionOpResult, SetCallControlsRequest,
 	SetFavoritesRequest, SetGlobalControlsRequest, SetMessagingSettingsRequest,
-	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetSessionPermissionsRequest,
-	SetSettingsRequest, SetSettingsResponse, SetTransmitModeRequest, SettingsDump, Snapshot,
-	StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest, TelemetrySnapshot,
-	Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest, engine_server::Engine,
+	SetNoiseSuppressionRequest, SetPrivacyRequest, SetProfileRequest, SetRingtoneRequest,
+	SetSessionPermissionsRequest, SetSettingsRequest, SetSettingsResponse, SetTransmitModeRequest,
+	SettingsDump, Snapshot, StartCallRequest, StartMicTestRequest, StateEnvelope, TelemetryRequest,
+	TelemetrySnapshot, Transcript, UploadAvatarRequest, WatchSessionRequest, WatchStateRequest,
+	engine_server::Engine,
 };
 use relay_api::{ApiLimits, CLIENT_ID_HEADER, ClientRegistry, StreamLimiter};
 use relay_core::{CallId, ClientId, Limits, Reject, Request as CoreRequest};
@@ -405,6 +406,14 @@ impl Engine for EngineService {
 	) -> Result<Response<Operation>, Status> {
 		let (mutation, body) = self.begin(request, |b| Some(b))?;
 		ops::preview_tone(self, &mutation, &body).await
+	}
+
+	async fn set_ringtone(
+		&self,
+		request: Request<SetRingtoneRequest>,
+	) -> Result<Response<Operation>, Status> {
+		let (mutation, body) = self.begin(request, |b| b.context.as_ref())?;
+		ops::set_ringtone(self, &mutation, &body).await
 	}
 
 	async fn set_profile(

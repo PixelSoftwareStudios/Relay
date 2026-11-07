@@ -96,6 +96,10 @@ impl MediaControl for MediaSystem {
 	fn tone(&self, command: ToneCommand) {
 		MediaSystem::tone(self, command);
 	}
+
+	fn set_ringtone(&self, ring: Option<std::sync::Arc<[f32]>>) {
+		MediaSystem::set_ringtone(self, ring);
+	}
 }
 
 /// The stable text id the API uses for a device.

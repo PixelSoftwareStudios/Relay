@@ -132,6 +132,18 @@ impl Actor {
 			}
 			ServiceOp::StopMicTest => self.ports.media.stop_mic_test()?,
 			ServiceOp::PreviewTone => self.tones.preview(tokio::time::Instant::now()),
+			ServiceOp::Ringtone { name, data } => {
+				let samples = self.ports.settings.store_ringtone(&name, &data)?;
+				self.ports.media.set_ringtone(Some(samples));
+				self.directory.aux.ringtone_name = name;
+				self.publish_settings();
+			}
+			ServiceOp::ResetRingtone => {
+				self.ports.settings.clear_ringtone()?;
+				self.ports.media.set_ringtone(None);
+				self.directory.aux.ringtone_name.clear();
+				self.publish_settings();
+			}
 			ServiceOp::Profile(name) => {
 				self.ports
 					.settings

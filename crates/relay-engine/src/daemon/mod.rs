@@ -10,6 +10,7 @@ mod favorites;
 mod glue;
 mod notice;
 mod options;
+mod ringtone;
 mod settings;
 mod transport;
 
@@ -31,6 +32,7 @@ pub use favorites::FavoriteBook;
 pub use options::{
 	AdapterFactory, AudioSetup, BackendFactory, NetworkOptions, RunOptions, Transport,
 };
+pub use ringtone::RingtoneStore;
 pub use settings::FileSettings;
 
 use crate::service::{

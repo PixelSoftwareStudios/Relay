@@ -210,6 +210,7 @@ pub fn settings_to_pb(global: &GlobalView, directory: &Directory) -> Settings {
 		ringtone_volume: aux.ring.ringtone_volume,
 		ringback_enabled: aux.ring.ringback_enabled,
 		call_sounds_enabled: aux.ring.call_sounds_enabled,
+		ringtone_name: aux.ringtone_name.clone(),
 		history_enabled: aux.history_enabled,
 		history_revision: aux.history_revision,
 		default_transmit_mode: mode_to_pb(aux.default_transmit_mode) as i32,

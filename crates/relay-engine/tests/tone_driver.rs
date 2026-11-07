@@ -44,7 +44,7 @@ fn ring_needs_a_ringing_invite_a_client_and_the_preference() {
 	let ringing = incoming(CallState::IncomingRinging);
 	let mut d = ToneDriver::default();
 	assert!(d.sync(&input(&ringing, false, false, prefs)).is_empty());
-	assert_eq!(d.sync(&input(&ringing, true, false, prefs)), [ring(0.7)]);
+	assert_eq!(d.sync(&input(&ringing, true, false, prefs)), [ring(0.4)]);
 	assert!(d.sync(&input(&ringing, true, false, prefs)).is_empty());
 	let accepted = incoming(CallState::Connecting);
 	assert_eq!(
@@ -107,7 +107,7 @@ fn deafen_mutes_and_stops_and_undeafen_unmutes() {
 	);
 	assert_eq!(
 		d.sync(&input(&ringing, true, false, prefs)),
-		[ToneCommand::Muted(false), ring(0.7)]
+		[ToneCommand::Muted(false), ring(0.4)]
 	);
 }
 
@@ -119,7 +119,7 @@ fn ringback_plays_while_an_outgoing_call_rings() {
 	let back = ToneCommand::Start {
 		sound: Sound::Ringback,
 		looping: true,
-		volume: 0.7,
+		volume: 0.5,
 	};
 	assert_eq!(d.sync(&input(&ringing, false, false, prefs)), [back]);
 	let connecting = [(CALL, Direction::Outgoing, CallState::Connecting)];
@@ -141,7 +141,7 @@ fn blips_follow_connect_and_hang_up_when_enabled() {
 	let blip = |sound| ToneCommand::Start {
 		sound,
 		looping: false,
-		volume: 0.7,
+		volume: 0.4,
 	};
 	let mut d = ToneDriver::default();
 	let active = incoming(CallState::Active);
@@ -177,7 +177,7 @@ fn the_test_ring_lasts_two_seconds() {
 		prefs,
 		now,
 	};
-	assert_eq!(d.sync(&at(start)), [ring(0.7)]);
+	assert_eq!(d.sync(&at(start)), [ring(0.4)]);
 	assert_eq!(
 		d.sync(&at(start + Duration::from_millis(2_100))),
 		[ToneCommand::Stop]

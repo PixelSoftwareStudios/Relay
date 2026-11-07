@@ -55,6 +55,22 @@ impl Tones {
 }
 
 impl MediaSystem {
+	/// Installs (or, with `None`, removes) the custom incoming-call ring. The samples were
+	/// prepared off the real-time thread; the player takes the buffer on its next tick.
+	pub fn set_ringtone(&self, ring: Option<std::sync::Arc<[f32]>>) {
+		let result = self
+			.inner
+			.tones
+			.control
+			.lock_unpoisoned()
+			.set_custom_ring(ring);
+		if let Err(error) = result {
+			tracing::warn!(%error, "custom ring refused");
+			return;
+		}
+		self.inner.render.wake();
+	}
+
 	/// Applies a tone command, opening the output stream for a start.
 	pub fn tone(&self, command: ToneCommand) {
 		let tones = &self.inner.tones;

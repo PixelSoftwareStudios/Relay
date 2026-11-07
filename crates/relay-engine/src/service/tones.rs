@@ -13,7 +13,7 @@ use relay_core::{CallId, CallState, Direction};
 use tokio::time::Instant;
 
 /// Ringback volume; it is not a preference.
-pub const RINGBACK_VOLUME: f32 = 0.7;
+pub const RINGBACK_VOLUME: f32 = 0.5;
 /// How long the settings "test ring" plays.
 pub const PREVIEW_LENGTH: Duration = Duration::from_secs(2);
 
@@ -60,7 +60,7 @@ impl Default for RingPrefs {
 	fn default() -> Self {
 		Self {
 			ringtone_enabled: true,
-			ringtone_volume: 0.7,
+			ringtone_volume: 0.4,
 			ringback_enabled: true,
 			call_sounds_enabled: true,
 		}

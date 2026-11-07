@@ -19,6 +19,7 @@ use relay_net::identity::{Identity, PublicKey};
 use super::SqliteChannelStore;
 use super::error::DaemonError;
 use super::favorites::FavoriteBook;
+use super::ringtone::RingtoneStore;
 use super::settings::FileSettings;
 use crate::peers::{Blocks, ConfigBlocks, ConfigTrust, SharedTrust};
 use crate::service::{ControlHandle, GateReader};
@@ -195,6 +196,7 @@ pub(super) fn finish(
 		avatar_cache,
 		history,
 		FavoriteBook::open(&storage.database),
+		RingtoneStore::new(paths.ringtone_dir()),
 		preferences.clone(),
 		default_display_name,
 	));

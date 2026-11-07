@@ -94,13 +94,13 @@ async fn the_ring_starts_with_a_client_attached_and_stops_when_the_caller_cancel
 	let (call, session) = invite(&rig, 2).await;
 	let id = call.to_bytes().to_vec();
 	wait_state(&mut cli, &id, CallState::IncomingRinging).await;
-	eventually!((tones(&rig) == [ring(0.7)]).then_some(()));
+	eventually!((tones(&rig) == [ring(0.4)]).then_some(()));
 	rig.daemon
 		.control()
 		.peer(PeerEvent::Ended { call, session })
 		.await
 		.expect("ended");
-	eventually!((tones(&rig) == [ring(0.7), ToneCommand::Stop]).then_some(()));
+	eventually!((tones(&rig) == [ring(0.4), ToneCommand::Stop]).then_some(()));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
@@ -108,7 +108,7 @@ async fn deafen_silences_the_ring_and_settings_apply_live() {
 	let rig = Rig::start().await;
 	let (mut cli, _watch) = attach(&rig).await;
 	invite(&rig, 3).await;
-	eventually!((tones(&rig) == [ring(0.7)]).then_some(()));
+	eventually!((tones(&rig) == [ring(0.4)]).then_some(()));
 
 	controls(&mut cli, 1, |r| r.ringtone_volume = Some(0.3)).await;
 	eventually!(
@@ -156,7 +156,7 @@ async fn ringback_plays_while_an_outgoing_call_rings_and_stops_on_accept() {
 	let back = ToneCommand::Start {
 		sound: Sound::Ringback,
 		looping: true,
-		volume: 0.7,
+		volume: 0.5,
 	};
 	// The output is warmed while the call prepares, then the ringback starts.
 	eventually!((tones(&rig) == [ToneCommand::Prewarm, back]).then_some(()));
@@ -192,8 +192,8 @@ async fn the_test_ring_plays_for_two_seconds_then_stops() {
 		.expect("preview")
 		.into_inner();
 	assert_applied(&operation);
-	eventually!((tones(&rig) == [ring(0.7)]).then_some(()));
+	eventually!((tones(&rig) == [ring(0.4)]).then_some(()));
 	tokio::time::sleep(std::time::Duration::from_millis(1_500)).await;
-	assert_eq!(tones(&rig), [ring(0.7)], "still ringing before two seconds");
-	eventually!((tones(&rig) == [ring(0.7), ToneCommand::Stop]).then_some(()));
+	assert_eq!(tones(&rig), [ring(0.4)], "still ringing before two seconds");
+	eventually!((tones(&rig) == [ring(0.4), ToneCommand::Stop]).then_some(()));
 }

@@ -1,7 +1,9 @@
 //! Preferences and the local avatar, persisted through `relay-config`.
 
 use relay_io::LockExt;
-use std::sync::{Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard};
+
+use relay_audio::ringtone::RingtoneLimits;
 
 use relay_config::avatar::{AvatarCache, process_avatar};
 use relay_config::history::{CallHistory, CallRecord, NewCallRecord};
@@ -11,6 +13,7 @@ use relay_config::prefs::{
 use relay_net::discovery::sanitize_display_name;
 
 use super::favorites::FavoriteBook;
+use super::ringtone::RingtoneStore;
 use crate::service::RingPrefs;
 use crate::service::ports::{
 	AdvertMode, InboundPolicy, PortError, SettingsChange, SettingsStore, StoredSettings,
@@ -23,6 +26,9 @@ pub struct FileSettings {
 	avatars: AvatarCache,
 	history: CallHistory,
 	favorites: FavoriteBook,
+	ringtone: RingtoneStore,
+	/// File name of the stored ringtone; empty for the built-in chime.
+	ringtone_name: Mutex<String>,
 	current: Mutex<Preferences>,
 	avatar: Mutex<Option<[u8; 32]>>,
 	/// Shown while the user has not chosen a name; see [`effective_name`].
@@ -80,6 +86,7 @@ impl FileSettings {
 		avatars: AvatarCache,
 		history: CallHistory,
 		favorites: FavoriteBook,
+		ringtone: RingtoneStore,
 		loaded: Preferences,
 		default_name: Option<String>,
 	) -> Self {
@@ -89,6 +96,8 @@ impl FileSettings {
 			avatars,
 			history,
 			favorites,
+			ringtone_name: Mutex::new(ringtone.name()),
+			ringtone,
 			current: Mutex::new(loaded),
 			avatar: Mutex::new(avatar),
 			default_name,
@@ -163,6 +172,7 @@ impl SettingsStore for FileSettings {
 				ringback_enabled: audio.ringback_enabled,
 				call_sounds_enabled: audio.call_sounds_enabled,
 			},
+			ringtone_name: lock(&self.ringtone_name).clone(),
 			history_enabled: prefs.history.enabled,
 			default_transmit_mode: match prefs.calls.default_transmit_mode {
 				prefs::TransmitModePref::Muted => relay_core::RouteMode::Muted,
@@ -230,6 +240,26 @@ impl SettingsStore for FileSettings {
 			.map_err(|e| PortError::Unavailable(e.to_string()))?;
 		*lock(&self.avatar) = Some(avatar.hash);
 		Ok(avatar.hash)
+	}
+
+	fn store_ringtone(&self, name: &str, data: &[u8]) -> Result<Arc<[f32]>, PortError> {
+		let limits = RingtoneLimits {
+			max_bytes: lock(&self.current).limits.ringtone_max_bytes(),
+			max_seconds: lock(&self.current).limits.ringtone_max_seconds,
+		};
+		let samples = self.ringtone.save(name, data, limits)?;
+		*lock(&self.ringtone_name) = name.to_owned();
+		Ok(samples)
+	}
+
+	fn clear_ringtone(&self) -> Result<(), PortError> {
+		self.ringtone.clear()?;
+		lock(&self.ringtone_name).clear();
+		Ok(())
+	}
+
+	fn ringtone(&self) -> Option<(String, Arc<[f32]>)> {
+		self.ringtone.load()
 	}
 
 	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {

@@ -176,6 +176,9 @@ impl ServiceBuilder {
 			config.warnings,
 		);
 		directory.set_favorites(ports.settings.favorites());
+		if let Some((_, ring)) = ports.settings.ringtone() {
+			ports.media.set_ringtone(Some(ring));
+		}
 		ports.peers.profile_changed(&directory.aux.profile());
 		let ledger = Ledger::new(
 			config.limits.operation_cache_per_client,

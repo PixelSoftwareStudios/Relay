@@ -37,6 +37,14 @@ pub enum PortError {
 	/// The adapter is temporarily unable to act.
 	#[error("unavailable: {0}")]
 	Unavailable(String),
+	/// A request refused with its own stable problem code (the text is for people).
+	#[error("{message}")]
+	Rejected {
+		/// Stable machine code, e.g. `RINGTONE_TOO_LARGE`.
+		code: &'static str,
+		/// Sanitized description.
+		message: String,
+	},
 }
 
 /// How much a peer's key is trusted, as shown to clients.
@@ -281,6 +289,8 @@ pub struct StoredSettings {
 	pub advert_mode: AdvertMode,
 	/// Ring, ringback and call-sound preferences.
 	pub ring: RingPrefs,
+	/// File name of the custom ringtone; empty for the built-in chime.
+	pub ringtone_name: String,
 	/// Finished calls are recorded in the call history.
 	pub history_enabled: bool,
 	/// The mode a call starts in when it connects.
@@ -326,6 +336,9 @@ pub trait MediaControl: Send + Sync {
 	/// Drives the tone player: ring, ringback and blips are mixed into the
 	/// local playback only and never reach a peer.
 	fn tone(&self, _command: ToneCommand) {}
+	/// Replaces the incoming-call ring with processed samples (48 kHz mono, faded, with its
+	/// pause), or restores the built-in chime with `None`. Never blocks the caller on audio.
+	fn set_ringtone(&self, _ring: Option<Arc<[f32]>>) {}
 }
 
 /// Discovery, secure links and call signaling.
@@ -435,6 +448,19 @@ pub trait SettingsStore: Send + Sync {
 	}
 	/// Bytes the avatar cache holds now, when the store knows (shown next to its limit).
 	fn avatar_cache_bytes(&self) -> Option<u64> {
+		None
+	}
+	/// Decodes, levels and stores an uploaded ringtone for this device and returns its
+	/// processed samples. Refused with `PortError::Rejected` (`RINGTONE_*`) when it cannot be one.
+	fn store_ringtone(&self, _name: &str, _data: &[u8]) -> Result<Arc<[f32]>, PortError> {
+		Err(PortError::Unsupported("ringtones"))
+	}
+	/// Deletes the stored ringtone (idempotent).
+	fn clear_ringtone(&self) -> Result<(), PortError> {
+		Err(PortError::Unsupported("ringtones"))
+	}
+	/// The stored ringtone: the name of the file it came from and its processed samples.
+	fn ringtone(&self) -> Option<(String, Arc<[f32]>)> {
 		None
 	}
 	/// Removes the local avatar (it is no longer pinned in the cache).

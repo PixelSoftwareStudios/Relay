@@ -38,6 +38,8 @@ pub enum MediaCall {
 	MicTestStop,
 	/// `tone`.
 	Tone(ToneCommand),
+	/// `set_ringtone`: the length in samples of the new ring, `None` for the built-in one.
+	Ringtone(Option<usize>),
 }
 
 /// Records every media request and accepts them all.
@@ -107,6 +109,9 @@ impl MediaControl for FakeMedia {
 	}
 	fn tone(&self, command: ToneCommand) {
 		self.push(MediaCall::Tone(command));
+	}
+	fn set_ringtone(&self, ring: Option<std::sync::Arc<[f32]>>) {
+		self.push(MediaCall::Ringtone(ring.map(|r| r.len())));
 	}
 }
 
@@ -251,6 +256,7 @@ pub struct MemorySettings {
 	prefs: Mutex<relay_config::prefs::Preferences>,
 	history: Mutex<Vec<relay_config::history::CallRecord>>,
 	favorites: Mutex<Vec<PeerId>>,
+	ringtone: Mutex<Option<(String, std::sync::Arc<[f32]>)>>,
 }
 
 /// Copies one saved preference into the typed view the engine reads live.
@@ -308,6 +314,7 @@ impl Default for MemorySettings {
 			avatars: Mutex::default(),
 			history: Mutex::default(),
 			favorites: Mutex::default(),
+			ringtone: Mutex::default(),
 			prefs: Mutex::new(relay_config::prefs::Preferences {
 				profile: relay_config::prefs::Profile {
 					display_name: "Test device".to_owned(),
@@ -368,6 +375,33 @@ impl SettingsStore for MemorySettings {
 		lock(&self.stored).avatar = Some(hash);
 		lock(&self.avatars).push((hash, encoded.to_vec()));
 		Ok(hash)
+	}
+	fn store_ringtone(&self, name: &str, data: &[u8]) -> Result<std::sync::Arc<[f32]>, PortError> {
+		use relay_audio::ringtone::{RingtoneLimits, process};
+		let limits = lock(&self.prefs).limits;
+		let samples: std::sync::Arc<[f32]> = process(
+			data,
+			RingtoneLimits {
+				max_bytes: limits.ringtone_max_bytes(),
+				max_seconds: limits.ringtone_max_seconds,
+			},
+		)
+		.map_err(|e| PortError::Rejected {
+			code: e.code(),
+			message: e.to_string(),
+		})?
+		.into();
+		lock(&self.stored).ringtone_name = name.to_owned();
+		*lock(&self.ringtone) = Some((name.to_owned(), samples.clone()));
+		Ok(samples)
+	}
+	fn clear_ringtone(&self) -> Result<(), PortError> {
+		lock(&self.stored).ringtone_name.clear();
+		*lock(&self.ringtone) = None;
+		Ok(())
+	}
+	fn ringtone(&self) -> Option<(String, std::sync::Arc<[f32]>)> {
+		lock(&self.ringtone).clone()
 	}
 	fn apply(&self, entries: &[(String, String)]) -> Result<Vec<Option<String>>, PortError> {
 		let mut prefs = lock(&self.prefs);
