@@ -11,6 +11,14 @@ use crate::model::Phase;
 use super::RelayApp;
 
 impl RelayApp {
+	/// The window is hidden: nobody sees the details or the microphone test, so the
+	/// engine's statistics stream and the test's microphone are closed.
+	pub(super) fn release_hidden(&mut self) {
+		self.local.details_call = None;
+		self.actions.stop_stats();
+		super::settings::stop_mic_test(&mut self.local, &self.actions);
+	}
+
 	/// Navigate for calls placed here whose other side answered. Runs on frames
 	/// only, so an idle app stays idle; a hidden window waits until it is shown.
 	pub(super) fn follow_calls(&mut self, ctx: &egui::Context) {

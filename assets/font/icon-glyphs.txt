@@ -55,3 +55,7 @@ BELL U+E0CE regular
 USER_PLUS U+E4D0 regular
 SIGN_OUT U+E42A regular
 DEVICES U+EBA4 regular
+ARROW_DOWN_LEFT U+E040 regular
+ARROW_UP_RIGHT U+E092 regular
+PHONE_X U+E3C4 regular
+INFINITY U+E634 regular

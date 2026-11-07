@@ -468,6 +468,7 @@ impl Operations for MockOps {
 					.update(|s| s.notice = Some("Mock: nobody to connect to.".into()));
 			}
 			Command::ClearCallHistory => self.hub.update(|s| s.history.clear()),
+			Command::StartMicTest | Command::StopMicTest => {}
 			Command::ClearAvatar => self.hub.update(|s| {
 				if let Some(g) = s.settings.as_mut() {
 					g.avatar_hash.clear();

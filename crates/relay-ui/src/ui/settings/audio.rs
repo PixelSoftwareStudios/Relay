@@ -7,7 +7,7 @@ use crate::format::{device_option_label, selected_device_text};
 use crate::model::{AppState, Device, Direction};
 
 use super::super::kit::{self, Cx};
-use super::super::widgets::{button_row, combo, gain_slider, meter};
+use super::super::widgets::{button_row, combo, gain_slider};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
@@ -53,12 +53,10 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		kit::help(ui, tr!("audio-devices-help"));
 	});
 	kit::gap(ui);
+	super::mic_test::card(ui, cx);
+	kit::gap(ui);
 	kit::card(ui, |ui| {
 		kit::card_title(ui, tr!("audio-levels"));
-		ui.horizontal_wrapped(|ui| {
-			ui.label(tr!("audio-mic-level"));
-			meter(ui, cx.meters.microphone_dbfs, tr!("audio-mic-level"));
-		});
 		let mic = cx.local.gain_edits.entry("mic".into()).or_default();
 		if let Some(g) = gain_slider(ui, mic, settings.microphone_gain, tr!("audio-mic-gain")) {
 			actions.run(|c| async move { c.set_global_controls(None, None, Some(g), None).await });

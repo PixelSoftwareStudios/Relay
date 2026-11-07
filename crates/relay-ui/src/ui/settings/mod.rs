@@ -11,6 +11,7 @@ mod calls;
 mod hotkey;
 mod language;
 mod limits;
+mod mic_test;
 mod privacy;
 mod profile;
 mod ptt;
@@ -116,10 +117,22 @@ pub fn show_compact(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 
 /// Drop what a category holds while it is not on screen (the hotkey
 /// panel's draft).
-pub fn release_unseen(local: &mut Local, shown: Option<SettingsCategory>) {
+pub fn release_unseen(
+	local: &mut Local,
+	actions: &crate::actions::Actions,
+	shown: Option<SettingsCategory>,
+) {
+	if shown != Some(SettingsCategory::Audio) {
+		mic_test::stop(local, actions);
+	}
 	if shown != Some(SettingsCategory::PushToTalk) {
 		local.hotkey.reset();
 	}
+}
+
+/// Closes the microphone test, if one runs.
+pub fn stop_mic_test(local: &mut Local, actions: &crate::actions::Actions) {
+	mic_test::stop(local, actions);
 }
 
 /// Esc: the compact layout steps back from a category to the list. Returns

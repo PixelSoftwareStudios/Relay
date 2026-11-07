@@ -30,6 +30,7 @@ pub mod inbox;
 pub mod layout;
 pub mod limits_settings;
 pub mod messaging;
+pub mod mic_test;
 pub mod microphone;
 pub mod mock;
 pub mod model;

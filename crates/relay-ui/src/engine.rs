@@ -191,6 +191,10 @@ pub enum Command {
 	},
 	/// Delete every call history entry on this device.
 	ClearCallHistory,
+	/// Open the microphone for a level-only test (nothing is sent or played).
+	StartMicTest,
+	/// Close the microphone test.
+	StopMicTest,
 }
 
 /// What a finished command yields.

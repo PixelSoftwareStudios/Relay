@@ -204,8 +204,7 @@ impl RelayApp {
 		self.follow_calls(ctx);
 		if !self.actions.shell.window_visible() {
 			// Nobody sees the details: stop the engine's statistics stream.
-			self.local.details_call = None;
-			self.actions.stop_stats();
+			self.release_hidden();
 		}
 	}
 
@@ -431,7 +430,7 @@ impl RelayApp {
 			true => self.category,
 			false => Some(settings::current(self.category, caps)),
 		});
-		settings::release_unseen(&mut self.local, shown.flatten());
+		settings::release_unseen(&mut self.local, &self.actions, shown.flatten());
 		if self.page != Page::Connect && self.local.connection_requested {
 			connect::forget(&mut self.local);
 		}

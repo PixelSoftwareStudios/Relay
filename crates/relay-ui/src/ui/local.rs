@@ -83,6 +83,10 @@ pub struct Local {
 	pub goto: Option<crate::layout::Page>,
 	/// The contact (hex peer id) the Contacts page should scroll to and show.
 	pub focus_contact: Option<String>,
+	/// Cards (Contacts, Nearby) whose details were opened from their menu.
+	/// The microphone test of Settings, Audio.
+	pub mic_test: crate::mic_test::MicTest,
+	pub details_open: std::collections::HashSet<String>,
 	/// The device (hex peer id) whose "Forget" is waiting for confirmation.
 	pub forget_confirm: Option<String>,
 	/// The device (hex peer id) whose "Block" is waiting for confirmation.

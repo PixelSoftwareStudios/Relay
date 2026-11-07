@@ -25,7 +25,7 @@ const CLIENT_NAME: &str = "relay-desktop";
 const CAPABILITIES: &[&str] = &["observe", "call-control"];
 /// Local subscriber queue; overflow ends the watch and triggers a resync.
 const WATCH_QUEUE: usize = 256;
-const METERS_HZ: u32 = 10;
+const METERS_HZ: u32 = 16;
 const STATS_HZ: u32 = 1;
 /// Entries asked of `ListCallHistory`; the engine caps the page at its own limit.
 const HISTORY_FETCH: u32 = 200;
@@ -331,6 +331,11 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			advert: advert.map(advert_to_wire),
 		},
 		Command::ClearCallHistory => WireCommand::ClearCallHistory,
+		Command::StartMicTest => WireCommand::StartMicTest {
+			local_playback: false,
+			confirmed_feedback: false,
+		},
+		Command::StopMicTest => WireCommand::StopMicTest,
 		Command::CreateInvite { .. } => return None,
 	})
 }

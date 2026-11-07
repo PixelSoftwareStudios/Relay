@@ -77,11 +77,19 @@ pub enum Icon {
 	AddContact,
 	SignOut,
 	Devices,
+	/// A call that came in (arrow down-left).
+	CallIncoming,
+	/// A call placed from this device (arrow up-right).
+	CallOutgoing,
+	/// A call nobody answered: missed, declined, cancelled or not reached.
+	CallMissed,
+	/// The infinity sign (the latin text font has none): a silent level, `-∞ dB`.
+	Infinity,
 }
 
 impl Icon {
 	/// Every icon, for tests and galleries.
-	pub const ALL: [Icon; 54] = [
+	pub const ALL: [Icon; 58] = [
 		Icon::Call,
 		Icon::HangUp,
 		Icon::Mic,
@@ -136,6 +144,10 @@ impl Icon {
 		Icon::AddContact,
 		Icon::SignOut,
 		Icon::Devices,
+		Icon::CallIncoming,
+		Icon::CallOutgoing,
+		Icon::CallMissed,
+		Icon::Infinity,
 	];
 
 	/// The glyph's codepoint in the icon font.
@@ -194,6 +206,10 @@ impl Icon {
 			Icon::AddContact => '\u{E4D0}',
 			Icon::SignOut => '\u{E42A}',
 			Icon::Devices => '\u{EBA4}',
+			Icon::CallIncoming => '\u{E040}',
+			Icon::CallOutgoing => '\u{E092}',
+			Icon::CallMissed => '\u{E3C4}',
+			Icon::Infinity => '\u{E634}',
 		}
 	}
 
@@ -382,6 +398,13 @@ pub fn icon_label(ui: &mut Ui, icon: Icon, text: &str) -> Response {
 /// [`icon_label`], disabled unless `enabled`.
 pub fn icon_label_enabled(ui: &mut Ui, enabled: bool, icon: Icon, text: &str) -> Response {
 	let widget = icon_label_widget(ui, icon, text);
+	ui.add_enabled(enabled, widget)
+}
+
+/// [`icon_label`] across the whole width, at least touch height: the main action of a card.
+pub fn icon_label_full(ui: &mut Ui, enabled: bool, icon: Icon, text: &str) -> Response {
+	let height = ui.spacing().interact_size.y.max(MIN_TOUCH_TARGET);
+	let widget = icon_label_widget(ui, icon, text).min_size(vec2(ui.available_width(), height));
 	ui.add_enabled(enabled, widget)
 }
 
