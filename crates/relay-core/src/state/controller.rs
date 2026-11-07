@@ -56,9 +56,11 @@ impl State {
 		}
 		match entry.controller {
 			Some(held) if held.holder == client => Ok(Reply::Controller(held.id)),
-			Some(held) if !takeover => Err(Reject::ControllerHeld {
-				holder: held.holder,
-			}),
+			Some(held) if !takeover && held.holder != ClientId::HOUSE => {
+				Err(Reject::ControllerHeld {
+					holder: held.holder,
+				})
+			}
 			Some(_) => {
 				self.close_leases(id, InputFault::Takeover);
 				let lease = self.grant_lease(client);

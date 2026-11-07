@@ -83,6 +83,14 @@ wide_id!(
 	/// Identifier of a local API client session.
 	ClientId
 );
+
+impl ClientId {
+	/// The engine's own client: it holds presence while background availability is on and no
+	/// shell is attached, and owns calls it answers by itself. Its controller lease can be
+	/// taken by any client without an explicit takeover. Real clients get random ids.
+	pub const HOUSE: Self = Self(u128::MAX);
+}
+
 wide_id!(
 	/// Identifier of one call session negotiated between two engines.
 	SessionId
