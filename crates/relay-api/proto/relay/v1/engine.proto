@@ -447,6 +447,8 @@ message SetProfileRequest { MutationContext context = 1; string display_name = 2
 message UploadAvatarRequest {
   MutationContext context = 1;
   bytes encoded_image = 2; // bounded <=1MiB, any of PNG/JPEG/WebP/GIF/BMP/TIFF, not a local path or raw pixel array
+  string declared_media_type = 3; // do not trust without decoding validation
+}
 // An audio file (MP3, Ogg Vorbis, FLAC, WAV or AAC) to ring with on this device. The engine decodes
 // it once, off the real-time thread, within limits.ringtone_max_kib and limits.ringtone_max_seconds.
 message SetRingtoneRequest {
@@ -454,8 +456,6 @@ message SetRingtoneRequest {
   string file_name = 2; // shown in the settings; bounded, no path
   bytes data = 3; // the file as chosen; ignored when reset is true
   bool reset = 4; // restore the built-in chime and delete the stored ring
-}
-  string declared_media_type = 3; // do not trust without decoding validation
 }
 message DecidePeerTrustRequest {
   MutationContext context = 1;
