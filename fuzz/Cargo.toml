@@ -16,6 +16,7 @@ cargo-fuzz = true
 libfuzzer-sys = "0.4"
 prost = "0.14.4"
 relay-config = { path = "../crates/relay-config" }
+relay-messages = { path = "../crates/relay-messages" }
 relay-net = { path = "../crates/relay-net" }
 relay-protocol = { path = "../crates/relay-protocol" }
 tokio = { version = "1.54.1", features = ["rt", "net", "io-util"] }
@@ -72,6 +73,48 @@ bench = false
 [[bin]]
 name = "avatar_decode"
 path = "fuzz_targets/avatar_decode.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "transfer_frame"
+path = "fuzz_targets/transfer_frame.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "image_inspect"
+path = "fuzz_targets/image_inspect.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "markdown_parse"
+path = "fuzz_targets/markdown_parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "discovery_advert"
+path = "fuzz_targets/discovery_advert.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "invite_cert"
+path = "fuzz_targets/invite_cert.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "session_msg"
+path = "fuzz_targets/session_msg.rs"
 test = false
 doc = false
 bench = false

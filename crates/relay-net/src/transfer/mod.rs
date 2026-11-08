@@ -18,6 +18,24 @@ mod token;
 
 use thiserror::Error;
 
+/// Frame codec entry points for the fuzz targets and tests; not part of the API.
+#[doc(hidden)]
+pub mod fuzzing {
+	use relay_messages::transfer::TransferMsg;
+
+	use super::{DataError, frame};
+
+	/// Decodes one data-link frame body.
+	pub fn decode_frame(body: &[u8]) -> Result<TransferMsg, DataError> {
+		frame::decode(body)
+	}
+
+	/// Encodes one data-link frame body.
+	pub fn encode_frame(msg: &TransferMsg) -> Result<Vec<u8>, DataError> {
+		frame::encode(msg)
+	}
+}
+
 pub use handshake::Ticket;
 pub use hub::{HubConfig, PendingLink, Priority, TransferHub};
 pub use link::{CloseHandle, DataLink, DataRx, DataTx, LinkParams, TransferRole};
