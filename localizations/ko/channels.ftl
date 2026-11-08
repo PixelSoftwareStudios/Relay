@@ -4,7 +4,7 @@
 # See docs/i18n.md.
 
 channels-heading = 채널
-channels-note = 채널은 누가 나를 보고 호출할 수 있는지를 정합니다. 마이크를 켜지는 않습니다.
+channels-note = 채널은 누가 나를 보고 전화할 수 있는지를 정합니다. 마이크를 켜지는 않습니다.
 channels-none = 참가 중인 채널이 없습니다.
 channel-listed = 공개 목록
 channel-password = 비밀번호
@@ -35,17 +35,17 @@ privacy-none = 데몬에 연결되면 개인정보 보호 설정이 표시됩니
 privacy-inbound-anyone = 네트워크의 누구나
 privacy-inbound-shared = 내 채널 멤버만
 privacy-who-rings = 나를 호출할 수 있는 사람
-privacy-advert-visible = 주변 기기에 표시
+privacy-advert-visible = 근처 기기에 표시
 privacy-advert-hidden = 숨김 (연결 문자열로만 접속 가능)
 privacy-visibility = 네트워크 공개 범위
 invite-ttl-hour = 1시간
 invite-ttl-day = 1일
 invite-ttl-week = 7일
 connection-none = 공유할 주소를 찾지 못했습니다. Relay가 실행 중인지 확인한 뒤 다시 시도하세요.
-connection-share = 네트워크의 다른 기기에서 호출받으려면 이 주소를 공유하세요:
+connection-share = 네트워크의 다른 기기에서 내게 전화하려면 이 주소를 공유하세요:
 connection-addresses = 주소: { $addresses } · 포트 { $port }
 connection-fingerprint = 지문 { $fingerprint }
-connection-warning = 이 주소가 있으면 누구나 나에게 전화할 수 있습니다. 신뢰받는 것도 아니고 마이크에 접근할 수도 없습니다.
+connection-warning = 이 주소가 있으면 누구나 나에게 전화할 수 있습니다. 그렇다고 신뢰받는 것은 아니며 마이크에 접근할 수도 없습니다.
 connection-qr-too-long = 주소가 너무 길어 QR 코드로 만들 수 없습니다.
 channel-hidden = 숨김
 channels-none-help = 채널을 만들어 여러 사람과 함께 이야기하거나 초대로 참가하세요.

@@ -47,4 +47,4 @@ audio-ns-level-low = 낮음
 audio-ns-level-moderate = 보통
 audio-ns-level-high = 높음
 audio-agc = 내 음량을 자동으로 고르게 맞추기
-audio-processing-help = 보내기 전에 내 목소리에 적용됩니다. 목소리가 얇거나 끊겨 들리면 꺼 두세요.
+audio-processing-help = 보내기 전에 내 목소리에 적용됩니다. 목소리가 가늘거나 끊겨 들리면 꺼 두세요.
