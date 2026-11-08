@@ -64,6 +64,16 @@ exceptions = [
 	{ allow = ["MPL-2.0"], crate = "symphonia-format-riff" },
 	{ allow = ["MPL-2.0"], crate = "symphonia-metadata" },
 	{ allow = ["MPL-2.0"], crate = "symphonia-utils-xiph" },
+	# Android workspace (apps/relay-android): the UniFFI Kotlin binding runtime and macros, file-level
+	# MPL-2.0, used unmodified; nothing links against GPL code.
+	{ allow = ["MPL-2.0"], crate = "uniffi" },
+	{ allow = ["MPL-2.0"], crate = "uniffi_core" },
+	{ allow = ["MPL-2.0"], crate = "uniffi_internal_macros" },
+	{ allow = ["MPL-2.0"], crate = "uniffi_macros" },
+	{ allow = ["MPL-2.0"], crate = "uniffi_meta" },
+	{ allow = ["MPL-2.0"], crate = "uniffi_pipeline" },
+	# Fuzz crate only (never shipped): libFuzzer's runtime is permissive (NCSA is a BSD/MIT-style licence).
+	{ allow = ["MIT", "Apache-2.0", "NCSA"], crate = "libfuzzer-sys" },
 	# Bundled fonts in the desktop client; attribution and font-name terms apply.
 	{ allow = ["OFL-1.1", "Ubuntu-font-1.0"], crate = "epaint_default_fonts" },
 ]
