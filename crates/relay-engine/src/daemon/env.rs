@@ -93,7 +93,12 @@ pub(super) fn load_identity(store: &dyn IdentityStore) -> relay_config::Result<S
 	let (identity, created) = load_or_create(store, generate_identity)?;
 	if created {
 		let fingerprint = PublicKey::from_bytes(identity.public).fingerprint();
-		tracing::info!(%fingerprint, store = store.describe(), "created a new identity");
+		tracing::info!(
+			fingerprint = fingerprint.log_tag(),
+			store = store.describe(),
+			"created a new identity"
+		);
+		tracing::debug!(%fingerprint, "new identity, full fingerprint");
 	}
 	Ok(identity)
 }

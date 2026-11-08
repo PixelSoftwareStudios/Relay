@@ -406,7 +406,7 @@ impl MediaSystem {
 		let system = self.clone();
 		self.inner.runtime.spawn(async move {
 			if let Err(error) = system.prepare_task(call, peer, session).await {
-				tracing::warn!(%error, %call, "media preparation failed");
+				tracing::warn!(%error, call = call.short(), "media preparation failed");
 				system.retire(call);
 			}
 		});

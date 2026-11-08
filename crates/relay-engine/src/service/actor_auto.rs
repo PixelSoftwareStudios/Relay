@@ -141,7 +141,12 @@ impl Actor {
 			return self.directory.forget_call(call);
 		}
 		self.tones.force_chime(call);
-		tracing::info!(%call, %peer, "incoming call answered automatically");
+		tracing::info!(
+			call = call.short(),
+			peer = peer.short(),
+			"incoming call answered automatically"
+		);
+		tracing::debug!(%call, %peer, "auto-answered call, full ids");
 		let event = AutoAnswered {
 			call_id: call.to_bytes().to_vec(),
 			peer_id: peer.as_bytes().to_vec(),

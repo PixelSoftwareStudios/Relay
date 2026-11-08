@@ -127,7 +127,7 @@ impl MediaSystem {
 			return;
 		};
 		if !endpoint.bind_stream(call.to_bytes(), remote.generation) {
-			tracing::warn!(%call, "stream binding refused");
+			tracing::warn!(call = call.short(), "stream binding refused");
 			self.set_path(call, failed_path("media stream binding refused"));
 			return;
 		}
@@ -142,7 +142,7 @@ impl MediaSystem {
 		) {
 			Ok(receiver) => receiver,
 			Err(error) => {
-				tracing::warn!(%error, %call, "receiver creation failed");
+				tracing::warn!(%error, call = call.short(), "receiver creation failed");
 				self.set_path(call, failed_path("the receiver could not be created"));
 				return;
 			}
@@ -160,7 +160,7 @@ impl MediaSystem {
 			.push(CaptureCmd::AddSender(sender))
 			.is_ok();
 		if !installed {
-			tracing::warn!(%call, "worker queue full; call not activated");
+			tracing::warn!(call = call.short(), "worker queue full; call not activated");
 			self.set_path(call, failed_path("the media workers are busy"));
 			return;
 		}
@@ -181,7 +181,7 @@ impl MediaSystem {
 					if let Some(media) = self.state().calls.get_mut(&call) {
 						media.phase = Phase::Active;
 					}
-					tracing::info!(%call, ?local, remote = %candidate, "media path validated");
+					tracing::info!(call = call.short(), ?local, remote = %candidate, "media path validated");
 					self.set_path(
 						call,
 						PathStatus {
@@ -197,7 +197,7 @@ impl MediaSystem {
 				Err(error) => last_error = format!("{candidate}: {error}"),
 			}
 		}
-		tracing::warn!(%call, reason = %last_error, "no media path could be validated");
+		tracing::warn!(call = call.short(), reason = %last_error, "no media path could be validated");
 		self.set_path(
 			call,
 			failed_path(&format!("no media path validated ({last_error})")),

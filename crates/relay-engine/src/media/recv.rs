@@ -160,7 +160,10 @@ impl CallReceiver {
 				+ self.stats.refused.load(Ordering::Relaxed)
 				== 1
 		{
-			tracing::info!(call = %self.remote.call, "first media packet received");
+			tracing::info!(
+				call = self.remote.call.short(),
+				"first media packet received"
+			);
 		}
 		let jitter_us = u64::from(self.jitter.jitter_samples()) * 1000 / 48;
 		self.stats.jitter_us.store(jitter_us, Ordering::Relaxed);

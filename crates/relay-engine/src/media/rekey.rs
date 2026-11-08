@@ -32,7 +32,10 @@ impl MediaSystem {
 				continue;
 			};
 			if link.session.needs_rekey() {
-				tracing::warn!(%peer, "link key lifetime is nearly spent; it will be replaced at the hard limit");
+				tracing::warn!(
+					peer = peer.short(),
+					"link key lifetime is nearly spent; it will be replaced at the hard limit"
+				);
 			}
 			let next = *link.session.epoch().as_bytes();
 			if next == epoch {
@@ -46,10 +49,12 @@ impl MediaSystem {
 					if let Some(media) = self.state().peers.get_mut(&peer) {
 						media.epoch = next;
 					}
-					tracing::info!(%peer, "media switched to the new link epoch");
+					tracing::info!(peer = peer.short(), "media switched to the new link epoch");
 				}
 				// The remote may not have installed its side yet; try again.
-				Err(error) => tracing::debug!(%peer, %error, "media epoch switch not complete"),
+				Err(error) => {
+					tracing::debug!(peer = peer.short(), %error, "media epoch switch not complete")
+				}
 			}
 		}
 	}

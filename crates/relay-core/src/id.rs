@@ -27,6 +27,11 @@ macro_rules! wide_id {
 			pub const fn to_bytes(self) -> [u8; 16] {
 				self.0.to_be_bytes()
 			}
+
+			/// First 8 hex digits: enough to follow one call in a log, not to identify it.
+			pub fn short(self) -> String {
+				format!("{:08x}", self.0 >> 96)
+			}
 		}
 
 		impl fmt::Display for $name {
@@ -113,6 +118,14 @@ impl DeviceKeyId {
 	/// Returns the digest bytes.
 	pub const fn as_bytes(&self) -> &[u8; 32] {
 		&self.0
+	}
+
+	/// First 8 hex digits: enough to follow one peer in a log, not to identify it.
+	pub fn short(&self) -> String {
+		self.0[..4]
+			.iter()
+			.map(|byte| format!("{byte:02x}"))
+			.collect()
 	}
 }
 

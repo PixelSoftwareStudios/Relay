@@ -413,19 +413,19 @@ impl Actor {
 				Effect::CloseCapture { generation } => self.ports.media.close_capture(generation),
 				Effect::EnsureLink { peer } => {
 					if let Err(error) = self.ports.peers.ensure_link(peer) {
-						tracing::warn!(%error, %peer, "peer link could not be requested");
+						tracing::warn!(%error, peer = peer.short(), "peer link could not be requested");
 						self.feedback
 							.push_back(Input::Peer(PeerEvent::LinkDown(peer)));
 					}
 				}
 				Effect::Peer { peer, message } => {
 					if let Err(error) = self.ports.peers.send(peer, message) {
-						tracing::warn!(%error, %peer, "peer message not sent");
+						tracing::warn!(%error, peer = peer.short(), "peer message not sent");
 					}
 				}
 				Effect::PrepareMedia { call, session } => {
 					if let Err(error) = self.ports.media.prepare_media(call, session) {
-						tracing::warn!(%error, %call, "media could not be prepared");
+						tracing::warn!(%error, call = call.short(), "media could not be prepared");
 					}
 				}
 				Effect::StopMedia { call, session } => self.ports.media.stop_media(call, session),

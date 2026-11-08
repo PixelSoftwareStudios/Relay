@@ -216,7 +216,7 @@ impl CallSender {
 		self.sequence = self.sequence.wrapping_add(1);
 		self.in_spurt = true;
 		if self.stats.sent.fetch_add(1, Ordering::Relaxed) == 0 {
-			tracing::info!(call = %self.identity.call, "first media packet sent");
+			tracing::info!(call = self.identity.call.short(), "first media packet sent");
 		}
 		self.stats
 			.last_sent_ms

@@ -41,6 +41,12 @@ impl Fingerprint {
 		group_hex(&self.0[..SHORT_BYTES], 2, '-')
 	}
 
+	/// First 8 hex digits, for log lines at INFO and above: it tells two runs apart but
+	/// does not identify a device. The whole value is logged only at DEBUG.
+	pub fn log_tag(&self) -> String {
+		hex::encode_upper(&self.0[..4])
+	}
+
 	/// Full form for out-of-band comparison: 16 groups of four hex digits.
 	/// Verification must compare this whole string, never only the short form.
 	pub fn full(&self) -> String {
