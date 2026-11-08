@@ -29,7 +29,6 @@ avatar-bad-format = Profilbild abgelehnt: nicht unterstütztes oder unbekanntes 
 avatar-zero-size = Profilbild abgelehnt: Breite oder Höhe ist null
 avatar-too-large = Profilbild abgelehnt: Die Abmessungen { $width }x{ $height } überschreiten die Grenze von { $limit } Pixeln
 avatar-undecodable = Profilbild abgelehnt: Das Bild konnte nicht dekodiert werden: { $error }
-daemon-not-found = Der Relay-Daemon ({ $binary }) wurde nicht gefunden. Installiere ihn neben dieser App oder im PATH, oder setze { $env } auf seinen Speicherort.
 daemon-start-failed = Der Relay-Daemon wurde nicht gestartet: { $reason }.
 daemon-start-failed-log = Der Relay-Daemon wurde nicht gestartet: { $reason }. Letzte Protokollzeile: { $last }
 daemon-stop-failed = Der Relay-Daemon wurde nicht beendet: { $error }

@@ -31,7 +31,6 @@ avatar-bad-format = avatar rejected: unsupported or unrecognised image format (u
 avatar-zero-size = avatar rejected: avatar has zero width or height
 avatar-too-large = avatar rejected: avatar dimensions { $width }x{ $height } exceed the { $limit } pixel limit
 avatar-undecodable = avatar rejected: avatar could not be decoded: { $error }
-daemon-not-found = Cannot find the Relay daemon ({ $binary }). Install it next to this app or on your PATH, or set { $env } to its location.
 daemon-start-failed = The Relay daemon did not start: { $reason }.
 daemon-start-failed-log = The Relay daemon did not start: { $reason }. Last log line: { $last }
 daemon-stop-failed = The Relay daemon did not stop: { $error }

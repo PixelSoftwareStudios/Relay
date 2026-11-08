@@ -28,7 +28,6 @@ avatar-bad-format = 프로필 사진이 거부됨: 지원하지 않거나 인식
 avatar-zero-size = 프로필 사진이 거부됨: 너비 또는 높이가 0입니다
 avatar-too-large = 프로필 사진이 거부됨: 크기 { $width }x{ $height }이(가) { $limit } 픽셀 제한을 초과합니다
 avatar-undecodable = 프로필 사진이 거부됨: 이미지를 디코딩할 수 없습니다: { $error }
-daemon-not-found = Relay 데몬({ $binary })을 찾을 수 없습니다. 이 앱과 같은 위치나 PATH에 설치하거나, { $env }에 위치를 지정하세요.
 daemon-start-failed = Relay 데몬을 시작하지 못했습니다: { $reason }.
 daemon-start-failed-log = Relay 데몬을 시작하지 못했습니다: { $reason }. 마지막 로그: { $last }
 daemon-stop-failed = Relay 데몬을 중지하지 못했습니다: { $error }

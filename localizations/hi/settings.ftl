@@ -29,7 +29,6 @@ avatar-bad-format = प्रोफ़ाइल तस्वीर अस्व�
 avatar-zero-size = प्रोफ़ाइल तस्वीर अस्वीकृत: तस्वीर की चौड़ाई या ऊँचाई शून्य है
 avatar-too-large = प्रोफ़ाइल तस्वीर अस्वीकृत: तस्वीर का आकार { $width }x{ $height } है, जो { $limit } पिक्सेल की सीमा से अधिक है
 avatar-undecodable = प्रोफ़ाइल तस्वीर अस्वीकृत: तस्वीर डिकोड नहीं हो सकी: { $error }
-daemon-not-found = Relay डेमन ({ $binary }) नहीं मिला। इसे इस ऐप के साथ या अपने PATH में इंस्टॉल करें, या { $env } में इसका स्थान बताएँ।
 daemon-start-failed = Relay डेमन शुरू नहीं हुआ: { $reason }।
 daemon-start-failed-log = Relay डेमन शुरू नहीं हुआ: { $reason }। लॉग की आखिरी पंक्ति: { $last }
 daemon-stop-failed = Relay डेमन बंद नहीं हुआ: { $error }

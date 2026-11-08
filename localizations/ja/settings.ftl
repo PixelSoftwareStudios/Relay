@@ -26,7 +26,6 @@ avatar-bad-format = プロフィール画像を拒否しました: 対応して�
 avatar-zero-size = プロフィール画像を拒否しました: 幅または高さが 0 です
 avatar-too-large = プロフィール画像を拒否しました: 画像サイズ { $width }x{ $height } が上限の { $limit } ピクセルを超えています
 avatar-undecodable = プロフィール画像を拒否しました: 画像をデコードできませんでした: { $error }
-daemon-not-found = Relay デーモン（{ $binary }）が見つかりません。このアプリと同じ場所か PATH 上にインストールするか、{ $env } でその場所を指定してください。
 daemon-start-failed = Relay デーモンを起動できませんでした: { $reason }。
 daemon-start-failed-log = Relay デーモンを起動できませんでした: { $reason }。最後のログ行: { $last }
 daemon-stop-failed = Relay デーモンを停止できませんでした: { $error }
