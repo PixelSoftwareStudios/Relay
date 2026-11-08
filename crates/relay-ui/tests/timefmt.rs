@@ -170,11 +170,11 @@ fn yesterday_wording_comes_from_the_catalog() {
 	for (language, expect, today) in [
 		(Language::En, "Yesterday at 6:51 PM", "Today"),
 		(Language::De, "Gestern um 18:51", "Heute"),
-		(Language::Es, "Ayer a las 18:51", "Hoy"),
+		(Language::Es, "Ayer, 18:51", "Hoy"),
 		(Language::Hi, "कल 6:51 pm", "आज"),
 		(Language::Ja, "昨日 18:51", "今日"),
 		(Language::Ko, "어제 오후 6:51", "오늘"),
-		(Language::PtBr, "Ontem às 18:51", "Hoje"),
+		(Language::PtBr, "Ontem, 18:51", "Hoje"),
 		(Language::Ru, "Вчера в 18:51", "Сегодня"),
 		(Language::ZhCn, "昨天 18:51", "今天"),
 	] {
@@ -182,6 +182,12 @@ fn yesterday_wording_comes_from_the_catalog() {
 		assert_eq!(timefmt::format(&zone, now, then), expect, "{language:?}");
 		assert_eq!(timefmt::day_label(&zone, now, now), today, "{language:?}");
 	}
+	// The comma form has no article to agree with the hour.
+	let one_am = ms(2026, 11, 5, 1, 0);
+	i18n::set_active(Language::Es);
+	assert_eq!(timefmt::format(&zone, now, one_am), "Ayer, 1:00");
+	i18n::set_active(Language::PtBr);
+	assert_eq!(timefmt::format(&zone, now, one_am), "Ontem, 01:00");
 	i18n::set_active(Language::En);
 	assert_eq!(timefmt::day_label(&zone, now, then), "Yesterday");
 	assert_eq!(
