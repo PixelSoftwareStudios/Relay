@@ -22,4 +22,5 @@
 	<string name="end_call">통화 종료</string>
 	<string name="open_for_microphone">마이크를 허용하려면 Relay를 여세요</string>
 	<string name="open_to_enable">이 기기를 다시 수신 가능하게 하려면 Relay를 여세요</string>
+	<string name="auto_answered_public">자동으로 응답함</string>
 </resources>

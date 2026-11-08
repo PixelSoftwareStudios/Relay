@@ -22,4 +22,5 @@
 	<string name="end_call">कॉल समाप्त करें</string>
 	<string name="open_for_microphone">माइक्रोफ़ोन की अनुमति देने के लिए Relay खोलें</string>
 	<string name="open_to_enable">इस डिवाइस को फिर उपलब्ध करने के लिए Relay खोलें</string>
+	<string name="auto_answered_public">अपने आप उठाई गई कॉल</string>
 </resources>

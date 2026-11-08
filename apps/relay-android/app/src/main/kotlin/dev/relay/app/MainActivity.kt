@@ -62,13 +62,25 @@ class MainActivity : GameActivity() {
 		handleCallIntent(intent)
 	}
 
-	/** Opened from a call notification: show over the lock screen, and answer when Accept was tapped. */
+	/**
+	 * Opened from a call notification: show over the lock screen, and answer when Accept was
+	 * tapped. The activity is exported, so the extras count only with this process's token.
+	 */
 	private fun handleCallIntent(intent: Intent?) {
-		if (intent?.getBooleanExtra(EXTRA_FROM_CALL, false) != true) return
+		if (intent == null) return
+		val action = RelayRuntime.callTrust.action(
+			intent.getBooleanExtra(EXTRA_FROM_CALL, false),
+			intent.getBooleanExtra(EXTRA_ANSWER, false),
+			intent.getStringExtra(EXTRA_TOKEN),
+		)
+		// Whatever it was, it is spent: a redelivered intent must not answer twice.
+		intent.removeExtra(EXTRA_ANSWER)
+		intent.removeExtra(EXTRA_TOKEN)
+		intent.removeExtra(EXTRA_FROM_CALL)
+		if (action == CallIntentAction.IGNORE) return
 		setShowWhenLocked(true)
 		setTurnScreenOn(true)
-		if (intent.getBooleanExtra(EXTRA_ANSWER, false)) {
-			intent.removeExtra(EXTRA_ANSWER)
+		if (action == CallIntentAction.SHOW_AND_ANSWER) {
 			// The microphone question comes first; the answer follows once it is granted.
 			if (microphone().granted) RelayRuntime.whenReady { it.answer() } else pendingAnswer = true
 		}
@@ -193,6 +205,7 @@ class MainActivity : GameActivity() {
 		private const val RECHECK_MS = 3000L
 		const val EXTRA_FROM_CALL = "dev.relay.app.FROM_CALL"
 		const val EXTRA_ANSWER = "dev.relay.app.ANSWER"
+		const val EXTRA_TOKEN = "dev.relay.app.TOKEN"
 
 		@Volatile
 		var current: MainActivity? = null

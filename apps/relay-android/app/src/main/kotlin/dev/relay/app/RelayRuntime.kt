@@ -51,6 +51,9 @@ object RelayRuntime {
 	lateinit var callAudio: LingeringHold
 		private set
 
+	/** Authenticates our own call notification intents to the exported activity. */
+	val callTrust = CallIntentTrust.random()
+
 	lateinit var prefs: AvailabilityPrefs
 		private set
 	lateinit var notifier: IncomingCallNotifier
@@ -99,6 +102,8 @@ object RelayRuntime {
 		locks = NetworkLocks(application)
 		prefs = AvailabilityPrefs(application)
 		notifier = IncomingCallNotifier(application)
+		// Their PendingIntents carry the token of a process that is gone.
+		notifier.cancelStale()
 		exemption = ExemptionPrompt({ prefs.exemptionAsked }, { prefs.exemptionAsked = true })
 		watchLan(application)
 		val router = AudioRouter(application)

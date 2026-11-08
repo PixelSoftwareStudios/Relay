@@ -22,4 +22,5 @@
 	<string name="end_call">Encerrar chamada</string>
 	<string name="open_for_microphone">Abra o Relay para permitir o microfone</string>
 	<string name="open_to_enable">Abra o Relay para ficar disponível novamente</string>
+	<string name="auto_answered_public">Atendida automaticamente</string>
 </resources>

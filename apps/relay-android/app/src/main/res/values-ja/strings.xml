@@ -22,4 +22,5 @@
 	<string name="end_call">通話を終了</string>
 	<string name="open_for_microphone">マイクを許可するには Relay を開いてください</string>
 	<string name="open_to_enable">この端末を再び応答可能にするには Relay を開いてください</string>
+	<string name="auto_answered_public">自動応答しました</string>
 </resources>

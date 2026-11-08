@@ -37,6 +37,13 @@ object CallNotification {
 			.setContentTitle(if (info.incoming) "Incoming call" else "In a call")
 			.setContentText(who)
 			.setCategory(NotificationCompat.CATEGORY_CALL)
+			.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+			.setPublicVersion(
+				NotificationCompat.Builder(context, CHANNEL)
+					.setSmallIcon(android.R.drawable.ic_btn_speak_now)
+					.setContentTitle(context.getString(R.string.call_unknown_peer))
+					.build(),
+			)
 			.setOngoing(true)
 			.setOnlyAlertOnce(true)
 			.setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)

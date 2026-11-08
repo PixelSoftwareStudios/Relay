@@ -38,7 +38,8 @@ class IncomingCallNotifier(private val context: Context) {
 			.setContentText(who)
 			.setCategory(NotificationCompat.CATEGORY_CALL)
 			.setPriority(NotificationCompat.PRIORITY_HIGH)
-			.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+			.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+			.setPublicVersion(publicVersion(plan.channel, context.getString(R.string.incoming_title)))
 			.setOngoing(true)
 			.setAutoCancel(false)
 			.setContentIntent(open)
@@ -55,6 +56,20 @@ class IncomingCallNotifier(private val context: Context) {
 		acquireWake()
 	}
 
+	/** What the lock screen shows: no caller name. */
+	private fun publicVersion(channel: String, title: String): Notification =
+		NotificationCompat.Builder(context, channel)
+			.setSmallIcon(android.R.drawable.ic_btn_speak_now)
+			.setContentTitle(title)
+			.setCategory(NotificationCompat.CATEGORY_CALL)
+			.build()
+
+	/** Withdraws call notifications left by an earlier process: their intents carry its token. */
+	fun cancelStale() {
+		manager.cancel(INCOMING_ID)
+		manager.cancel(AUTO_ID)
+	}
+
 	fun cancelIncoming() {
 		manager.cancel(INCOMING_ID)
 		releaseWake()
@@ -68,7 +83,8 @@ class IncomingCallNotifier(private val context: Context) {
 			.setSmallIcon(android.R.drawable.ic_btn_speak_now)
 			.setCategory(NotificationCompat.CATEGORY_CALL)
 			.setPriority(NotificationCompat.PRIORITY_HIGH)
-			.setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+			.setVisibility(NotificationCompat.VISIBILITY_PRIVATE)
+			.setPublicVersion(publicVersion(CHANNEL_AUTO, context.getString(R.string.auto_answered_public)))
 			.setSilent(true)
 		when (kind) {
 			AutoAnswerNotification.ANSWERED -> builder
@@ -171,6 +187,7 @@ class IncomingCallNotifier(private val context: Context) {
 		Intent(context, MainActivity::class.java)
 			.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
 			.putExtra(MainActivity.EXTRA_FROM_CALL, true)
+			.putExtra(MainActivity.EXTRA_TOKEN, RelayRuntime.callTrust.token)
 			.putExtra(MainActivity.EXTRA_ANSWER, answer),
 		PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
 	)
