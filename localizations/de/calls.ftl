@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: Calls: phases, transmit status, trust.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 phase-preparing = Wird vorbereitet
@@ -52,8 +52,8 @@ calls-sounds = Töne
 ring-help = Die Töne werden nur auf diesem Gerät abgespielt.
 history-heading = Verlauf
 history-empty = Noch kein Anrufverlauf
-history-empty-help = Anrufe, die Sie tätigen und erhalten, erscheinen hier.
-history-off-note = Der Anrufverlauf ist aus. Es wird nichts Neues aufgezeichnet; die Einträge unten bleiben, bis Sie sie löschen.
+history-empty-help = Anrufe, die du tätigst und erhältst, erscheinen hier.
+history-off-note = Der Anrufverlauf ist aus. Es wird nichts Neues aufgezeichnet; die Einträge unten bleiben, bis du sie löschst.
 history-incoming = Eingehend
 history-outgoing = Ausgehend
 history-missed = Verpasst
@@ -83,14 +83,14 @@ call-more = Weitere Optionen
 call-more-none = Noch nichts weiter einzustellen
 call-volume-menu = Lautstärke
 call-volume-title = Lautstärke von { $name }
-call-volume-reset = Auf 100 % zurücksetzen
+call-volume-reset = Auf 100% zurücksetzen
 details-show = Verbindungsdetails
 details-hide = Verbindungsdetails ausblenden
 incoming-join-muted = Du trittst mit ausgeschaltetem Mikrofon bei.
 incoming-join-unmuted = Du trittst mit eingeschaltetem Mikrofon bei.
 incoming-join-ptt = Du trittst im Push-to-Talk-Modus bei.
 details-title = Verbindungsdetails
-details-waiting = Warte auf den ersten Messwert …
+details-waiting = Warte auf den ersten Messwert…
 details-path = Verbindung
 details-path-ok = Funktioniert
 details-path-waiting = Warte auf das andere Gerät
@@ -122,7 +122,7 @@ stat-yes = ja
 stat-no = nein
 stat-none = keine Daten
 stat-ms = { $value } ms
-stat-percent = { $value } %
+stat-percent = { $value }%
 stat-kbps = { $value } kbit/s
 stat-ppm = { $value } ppm
 
@@ -134,7 +134,7 @@ startup-reason-unreadable = die gespeicherte Identität lässt sich nicht lesen,
 startup-failed-help = Relay braucht Zugriff auf den sicheren Speicher des Systems, um deine Identität zu schützen. Erlaube den Zugriff und versuche es erneut, oder nutze stattdessen die Dateispeicherung.
 startup-retry = Erneut versuchen
 startup-file-store = Dateispeicherung verwenden…
-startup-file-warning = Die Dateispeicherung legt deinen Identitätsschlüssel in einer einfachen Datei ab, die nur durch Dateirechte geschützt ist. Das ist weniger sicher als der sichere Speicher des Systems. Liegt dort noch kein Schlüssel, erstellt Relay eine neue Identität, und deine Kontakte müssen dieses Gerät erneut bestätigen.
+startup-file-warning = Die Dateispeicherung legt deinen Identitätsschlüssel in einer einfachen Datei ab, die nur durch Dateirechte geschützt ist. Das ist weniger sicher als der sichere Speicher des Systems. Liegt dort noch kein Schlüssel, erstellt Relay eine neue Identität, und deine Kontakte müssen dieses Gerät erneut verifizieren.
 startup-file-confirm = Dateispeicherung verwenden
 startup-cancel = Abbrechen
 call-block = Blockieren

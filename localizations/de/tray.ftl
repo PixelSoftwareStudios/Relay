@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: Tray menu and tooltip.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 tray-mock = Relay (Testdaten)

@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: Channels, privacy and the connection string.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 channels-heading = Kanäle
@@ -49,16 +49,16 @@ connection-fingerprint = Fingerabdruck { $fingerprint }
 connection-warning = Jeder mit dieser Adresse kann dich anrufen. Sie macht niemanden vertrauenswürdig und gibt keinen Zugriff auf dein Mikrofon.
 connection-qr-too-long = Die Adresse ist für einen QR-Code zu lang.
 channel-hidden = verborgen
-channels-none-help = Erstellen Sie einen Kanal, um mit mehreren Personen gleichzeitig zu sprechen, oder treten Sie mit einer Einladung bei.
+channels-none-help = Erstelle einen Kanal, um mit mehreren Personen gleichzeitig zu sprechen, oder tritt mit einer Einladung bei.
 connection-copy = Adresse kopieren
 connection-error-next = Prüfe, ob Relay im Hintergrund läuft, und versuche es dann erneut.
-connection-qr-help = Scannen Sie diesen Code mit einem anderen Gerät, damit es Sie anrufen kann.
-privacy-who-rings-help = Legt fest, wer einen Anruf mit Ihnen beginnen darf.
-privacy-visibility-help = Versteckte Geräte können weiterhin über ihre Verbindungszeichenfolge angerufen werden.
+connection-qr-help = Scanne diesen Code mit einem anderen Gerät, damit es dich anrufen kann.
+privacy-who-rings-help = Legt fest, wer einen Anruf mit dir beginnen darf.
+privacy-visibility-help = Verborgene Geräte können weiterhin über ihre Verbindungszeichenfolge angerufen werden.
 privacy-messages = Nachrichten
 privacy-trusted = Vertraute Geräte
-privacy-trusted-none = Sie vertrauen noch keinem Gerät.
-privacy-trusted-help = Vergessen Sie ein Gerät, um ihm nicht mehr zu vertrauen.
+privacy-trusted-none = Du vertraust noch keinem Gerät.
+privacy-trusted-help = Vergiss ein Gerät, um ihm nicht mehr zu vertrauen.
 connection-scan = QR-Code scannen
 scan-wrong = Dieser QR-Code ist keine Relay-Adresse.
 scan-camera-denied = Relay braucht die Kamera, um einen Code zu scannen. Erlaube sie und versuche es erneut.

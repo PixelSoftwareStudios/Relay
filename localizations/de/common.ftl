@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: Shared words and buttons.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 action-cancel = Abbrechen
@@ -18,7 +18,7 @@ header-engine = Engine { $version }
 action-dismiss = Verwerfen
 action-back = Zurück
 action-details = Details
-error-next = Sie können es erneut versuchen oder diese Meldung schließen.
+error-next = Du kannst es erneut versuchen oder diese Meldung schließen.
 nav-contacts = Kontakte
 nav-connect = Verbinden
 action-view-details = Details anzeigen

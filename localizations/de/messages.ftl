@@ -1,10 +1,10 @@
 # Relay desktop UI catalog, German (de), section: Messages panel.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 problem-messages-disabled = Nachrichten sind im Daemon ausgeschaltet.
 problem-session-not-found = Dieser Anruf hat (nicht mehr) eine Nachrichtensitzung.
-problem-session-ended = Der Anruf ist beendet; der Verlauf ist schreibgeschützt.
+problem-session-ended = Der Anruf ist beendet; der Chatverlauf ist schreibgeschützt.
 problem-session-permission-off = Das ist für diesen Anruf ausgeschaltet (beide Seiten müssen es erlauben).
 problem-peer-unavailable = Die Gegenseite ist gerade nicht erreichbar.
 problem-text-invalid = Dieser Text kann nicht gesendet werden (Steuer- oder unsichtbare Zeichen).
@@ -12,7 +12,7 @@ problem-text-too-long = Diese Nachricht ist länger als 4096 Bytes.
 problem-image-invalid = Dieses Bild kann nicht gesendet werden.
 problem-image-too-large = Dieses Bild ist zu groß, um direkt gesendet zu werden; biete es als Datei an.
 problem-history-full = Der Nachrichtenverlauf dieses Anrufs ist voll. Exportiere ihn und lösche ihn.
-problem-rate-limited = Langsam: zu viele Nachrichten.
+problem-rate-limited = Langsamer: zu viele Nachrichten.
 problem-too-many-offers = Zu viele Dateiangebote in diesem Anruf.
 problem-message-not-found = Diese Nachricht kann jetzt nicht geändert werden.
 problem-offer-not-found = Dieses Dateiangebot kann jetzt nicht geändert werden.
@@ -55,7 +55,7 @@ offer-warn-cap = Überschreitet die Angebotsgrenze dieses Daemons von { $cap } M
 counter-bytes = { $used } / { $limit } Bytes
 blocked-not-connected = Nicht mit dem Daemon verbunden, daher kann nichts gesendet werden.
 blocked-daemon-off = Nachrichten sind im Daemon ausgeschaltet (messages.enabled = false).
-blocked-call-ended = Dieser Anruf wurde beendet. Der Verlauf ist schreibgeschützt.
+blocked-call-ended = Dieser Anruf wurde beendet. Der Chatverlauf ist schreibgeschützt.
 blocked-messages-off = Nachrichten sind für diesen Anruf ausgeschaltet. Beide Seiten setzen dies durch: Schalte sie unten ein, und die Gegenseite muss sie ebenfalls erlauben.
 blocked-history-full = Der Nachrichtenverlauf dieses Anrufs ist voll. Es wird nichts automatisch gelöscht: Exportiere ihn und lösche ihn, um fortzufahren.
 files-blocked-ended = Der Anruf wurde beendet.
@@ -104,7 +104,7 @@ chat-read-only = Nur lesbar: Dieser Anruf ist beendet.
 msg-search-hint = Diesen Anruf durchsuchen
 msg-pinned-filter = Angeheftet
 msg-export = Exportieren…
-msg-loading = Verlauf wird geladen…
+msg-loading = Chatverlauf wird geladen…
 dlg-link-title = Diesen Link öffnen?
 dlg-link-connect = Dein Browser verbindet sich mit:
 dlg-link-display = Angezeigt wird er als: { $display }
@@ -118,9 +118,9 @@ dlg-clip-call = { $name } (Anruf { $tag })
 dlg-clip-send-to = An { $name } senden
 dlg-clip-bytes = { $size } Bytes aus der Zwischenablage:
 dlg-clip-shortened = (hier gekürzt; der gesamte Text wird gesendet)
-dlg-clear-title = Diesen Verlauf löschen?
+dlg-clear-title = Diesen Chatverlauf löschen?
 dlg-clear-live = Dadurch werden die Nachrichten des laufenden Anrufs auf diesem Gerät geleert.
-dlg-clear-ended = Dadurch wird der Verlauf des beendeten Anrufs von diesem Gerät entfernt.
+dlg-clear-ended = Dadurch wird der Chatverlauf des beendeten Anrufs von diesem Gerät entfernt.
 dlg-clear-note = Die Gegenseite behält ihre eigene Kopie. Exportiere zuerst, wenn du ihn behalten möchtest.
 dlg-clear-yes = Löschen
 offer-summary = { $size } · { $type } · BLAKE3 { $hash }
@@ -138,13 +138,13 @@ offer-approve-preview = Vorschau genehmigen
 offer-approve-preview-hover = Teilt bis zu 100 Textzeilen aus dieser Datei
 offer-refuse-preview = Vorschau verweigern
 msg-gate-off = Nachrichten sind in dieser App ausgeschaltet. Wenn du sie einschaltest, kann diese App über den Daemon Text, Bilder und Dateiangebote deiner Anrufe lesen und senden.
-msg-gate-memory = Es wird nichts auf dem Datenträger gespeichert: Verläufe liegen im Arbeitsspeicher des Daemons und enden mit ihm.
+msg-gate-memory = Es wird nichts auf dem Datenträger gespeichert: Chatverläufe liegen im Arbeitsspeicher des Daemons und enden mit ihm.
 msg-gate-enable = Nachrichten einschalten
 msg-gate-connecting = Verbindung zum Daemon wird aufgebaut…
 problem-permission-denied = Der Daemon hat dieser App die Berechtigung für Nachrichten nicht erteilt.
-msg-gate-policy = Verläufe sind privat für die Personen im Anruf, daher kann sie nur ein Client lesen, der die Berechtigung anfordert. Prüfe die Client-Richtlinie des Daemons; diese App fragt alle 30 Sekunden erneut an.
+msg-gate-policy = Chatverläufe sind privat für die Personen im Anruf, daher kann sie nur ein Client lesen, der die Berechtigung anfordert. Prüfe die Client-Richtlinie des Daemons; diese App fragt alle 30 Sekunden erneut an.
 msg-gate-disconnected = Nicht mit dem Daemon verbunden, daher sind Nachrichten nicht verfügbar.
-msg-gate-daemon-off-note = Es werden keine Nachrichten gesendet oder empfangen. Vorhandene Verläufe bleiben lesbar.
+msg-gate-daemon-off-note = Es werden keine Nachrichten gesendet oder empfangen. Vorhandene Chatverläufe bleiben lesbar.
 msg-gate-daemon-enable = Im Daemon einschalten
 msg-perms-heading = Berechtigungen für diesen Anruf
 msg-perm-messages = Nachrichten erlauben
@@ -153,7 +153,7 @@ msg-perms-host = Du hast diesen Anruf gestartet, daher wird deine Auswahl an die
 msg-perms-guest = Die Gegenseite hat diesen Anruf gestartet. Deine Änderung bleibt auf diesem Gerät, und die nächste Änderung der Gegenseite ersetzt sie.
 msg-perms-note = Beide Daemons setzen dies durch: Eine Seite, die etwas ausgeschaltet hat, lehnt es ab, unabhängig davon, was die App der Gegenseite anzeigt. Das Ausschalten verhindert neue Einträge, löscht aber keine vorhandenen. { $who }
 msg-privacy-label = Dieser App erlauben, Anrufnachrichten zu lesen und zu senden
-msg-privacy-note = Gibt dieser App die Nachrichtenberechtigung des Daemons über eine separate Verbindung: Sie kann den Verlauf jedes Anrufs lesen, Text, Bilder und Dateiangebote senden und Dateien speichern, die du annimmst. Sie wird beim ersten Öffnen von „Nachrichten“ eingeschaltet. Beim Ausschalten wird die Verbindung getrennt und alles vergessen, was die App hält; der Daemon behält seine eigene Kopie, bis der Anrufverlauf gelöscht wird oder der Daemon beendet wird.
+msg-privacy-note = Gibt dieser App die Nachrichtenberechtigung des Daemons über eine separate Verbindung: Sie kann den Chatverlauf jedes Anrufs lesen, Text, Bilder und Dateiangebote senden und Dateien speichern, die du annimmst. Sie wird beim ersten Öffnen von „Nachrichten“ eingeschaltet. Beim Ausschalten wird die Verbindung getrennt und alles vergessen, was die App hält; der Daemon behält seine eigene Kopie, bis der Anrufverlauf gelöscht wird oder der Daemon beendet wird.
 md-link-hover =
     Host: { $host }
     Es öffnet sich nichts ohne deine Bestätigung.

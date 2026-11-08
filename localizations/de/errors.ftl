@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: Errors the UI words itself.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 err-not-connected = nicht mit dem Relay-Daemon verbunden
@@ -8,15 +8,15 @@ err-gain = die Verstärkung muss eine endliche Zahl zwischen 0 und 4 sein
 err-bad-call-id = ungültige Anruf-ID
 err-unknown-call = unbekannter Anruf
 err-no-lease = die Engine hat keine Steuerungsberechtigung zurückgegeben
-err-bad-peer-id = ungültige Peer-ID
-err-unknown-peer = unbekannter Peer
+err-bad-peer-id = ungültige Geräte-ID
+err-unknown-peer = unbekanntes Gerät
 err-ring-volume = die Klingeltonlautstärke muss zwischen 0 und 1 liegen
 err-unknown-device = unbekanntes oder nicht verfügbares Audiogerät
 err-display-name = der Anzeigename muss aus 1 bis 64 druckbaren Zeichen bestehen
 err-avatar-media-type = das Profilbild braucht einen Medientyp
 conn-scheme = Eine Verbindungszeichenfolge beginnt mit relay://
-err-invite-malformed = dieses Einladungstoken ist ungültig
-err-join-target = gib ein Einladungstoken oder eine Kanal-ID mit 32 Zeichen ein
+err-invite-malformed = dieser Einladungscode ist ungültig
+err-join-target = gib einen Einladungscode oder eine Kanal-ID mit 32 Zeichen ein
 err-bad-channel-id = ungültige Kanal-ID
 err-unknown-channel = unbekannter Kanal
 err-channel-name = der Kanalname muss aus 1 bis 32 druckbaren Zeichen bestehen
@@ -26,7 +26,7 @@ err-invite-admin-only = nur Besitzer oder Admins können Einladungen erstellen
 err-invite-range = Gültigkeitsdauer oder Anzahl der Verwendungen der Einladung liegt außerhalb des zulässigen Bereichs
 err-no-invite = die Engine hat keine Einladung zurückgegeben
 err-revoke-admin-only = nur Besitzer oder Admins können Mitglieder entfernen
-err-not-member = dieser Peer ist kein nachgewiesenes Mitglied des Kanals
+err-not-member = dieses Gerät ist kein nachgewiesenes Mitglied des Kanals
 err-nothing-to-change = nichts zu ändern
 err-bad-avatar-hash = ungültiger Hash des Profilbilds
 conn-missing-fingerprint = Der Verbindungszeichenfolge fehlt der Teil #fingerprint.

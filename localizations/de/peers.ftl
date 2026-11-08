@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, German (de), section: People nearby.
-# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Peer, Kanal, Einladung,
+# German catalog. Terms: Anruf, auflegen, stummschalten, Push-to-Talk, Gerät, Kanal, Einladung,
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 peer-unknown = Unbekanntes Gerät
@@ -9,26 +9,26 @@ peer-key = Schlüssel { $fingerprint }
 peer-shared-channels = Gemeinsame Kanäle: { $names }
 peer-call = Anrufen
 revoke-ask = { $name } aus { $channel } entfernen?
-revoke-yes = Ja, entziehen
+revoke-yes = Ja, entfernen
 revoke-keep = Behalten
 revoke-from = Aus { $channel } entfernen
 home-nearby = In der Nähe
 people-none-nearby = Im Netzwerk wurden noch keine Geräte gefunden.
 people-none-nearby-help = Beide Geräte müssen im selben WLAN sein und Relay muss geöffnet sein. Erlaube Relay den Zugriff auf das lokale Netzwerk, falls dein System danach fragt. Manche Router verhindern, dass Geräte einander sehen (Client-Isolation oder Gastnetz). Hilft nichts, nutze unten Gerät verbinden.
 people-add-title = Gerät über Adresse hinzufügen
-people-add-help = Fügen Sie die Adresse ein, die das andere Gerät unter Gerät verbinden anzeigt.
+people-add-help = Füge die Adresse ein, die das andere Gerät unter Gerät verbinden anzeigt.
 peer-call-blocked = Dieses Gerät kann gerade nicht angerufen werden.
 peer-no-key = Für dieses Gerät wurde noch kein Schlüssel gesehen.
-peer-key-help = Vergleichen Sie diesen Schlüssel mit dem auf dem anderen Gerät, um sicher zu sein, mit wem Sie sprechen.
+peer-key-help = Vergleiche diesen Schlüssel mit dem auf dem anderen Gerät, um sicher zu sein, mit wem du sprichst.
 forget-device = Dieses Gerät vergessen
-forget-ask = { $name } vergessen? Das Gerät ist dann nicht mehr vertraut.
+forget-ask = { $name } vergessen? Dem Gerät wird dann nicht mehr vertraut.
 forget-yes = Ja, vergessen
-sidebar-you = Sie
+sidebar-you = Du
 connect-title = Gerät verbinden
 visibility-discoverable = Auffindbar
 visibility-discoverable-help = Geräte im selben Netzwerk können dieses Gerät sehen und anrufen.
 visibility-private = Privat
-visibility-private-help = Dieses Gerät ist im Netzwerk verborgen. Nur wer Ihre Adresse hat, kann Sie anrufen.
+visibility-private-help = Dieses Gerät ist im Netzwerk verborgen. Nur wer deine Adresse hat, kann dich anrufen.
 visibility-not-advertising = Nicht auffindbar
 visibility-not-advertising-reason = Nicht auffindbar: { $reason }
 visibility-go-private = Privat schalten
@@ -41,7 +41,7 @@ found-trust-cancel = Jetzt nicht
 found-subtitle = Noch nicht vertraut · { $fingerprint }
 contacts-empty-title = Noch keine Kontakte
 contacts-empty-help = Ein Kontakt ist ein Gerät, dem du vertraust. Suche eines unter Verbinden und vertraue ihm, dann erscheint es hier.
-contacts-go-connect = Zu Verbinden
+contacts-go-connect = Verbinden öffnen
 contact-more = Weitere Optionen
 peer-addresses = Adressen: { $addresses }
 contact-last-seen = Zuletzt gesehen: { $when }
@@ -53,7 +53,7 @@ contact-favorite-remove = Aus Favoriten entfernen
 contact-key-changed-label = Sicherheitsschlüssel geändert
 keychange-title = Der Sicherheitsschlüssel von { $name } hat sich geändert
 keychange-body = Das passiert meist, wenn Relay auf diesem Gerät neu installiert oder zurückgesetzt wurde. Anrufe sind gesperrt, bis du den Schlüssel erneut bestätigst.
-keychange-scan = Ihren QR-Code scannen
+keychange-scan = QR-Code des Geräts scannen
 keychange-compare = Vergleichen und neuem Schlüssel vertrauen
 keychange-remove = Kontakt entfernen
 keychange-remove-ask = { $name } aus deinen Kontakten entfernen? Dem Gerät wird dann nicht mehr vertraut.
