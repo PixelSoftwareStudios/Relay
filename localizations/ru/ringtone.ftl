@@ -1,12 +1,12 @@
 # Relay desktop UI catalog, Russian (ru), section: Ringtone (choose, reset and preview the incoming-call ring). Same ids and $variables as localizations/en/ringtone.ftl. See docs/i18n.md.
 
 ringtone-title = Рингтон
-ringtone-default-name = Встроенный перезвон
+ringtone-default-name = Встроенная мелодия
 ringtone-current = Текущий рингтон: { $name }
 ringtone-busy = Рингтон подготавливается…
 ringtone-choose = Выбрать файл…
 ringtone-choose-hover = Выберите аудиофайл (MP3, Ogg, FLAC, WAV или AAC) для звонка на этом устройстве.
-ringtone-reset = Использовать встроенный перезвон
+ringtone-reset = Использовать встроенную мелодию
 ringtone-help = Рингтон звучит только на этом устройстве. Файл копируется в приложение и никому не отправляется. Ограничения размера и длительности находятся в разделе «Хранилище и ограничения».
 ringtone-err-empty = Этот файл пуст.
 ringtone-err-too-large = Этот файл слишком велик для рингтона. Выберите файл поменьше или увеличьте ограничение в разделе «Хранилище и ограничения».

@@ -137,5 +137,5 @@ startup-file-warning = При хранении в файле ключ идент
 startup-file-confirm = Хранить в файле
 startup-cancel = Отмена
 call-block = Заблокировать
-incoming-unknown = Ещё не в контактах (ключ { $fingerprint }). Если вы ответите, Relay добавит его в Контакты как непроверенное, так как вы не сверяли отпечаток.
+incoming-unknown = Ещё не в контактах (ключ { $fingerprint }). Если вы ответите, Relay добавит его в «Контакты» как непроверенное, так как вы не сверяли отпечаток.
 history-view-messages = Открыть сообщения
