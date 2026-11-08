@@ -1,8 +1,7 @@
-//! Text, display-name and file-name sanitization.
+//! Text and file-name sanitization. Display names are sanitized in one place only,
+//! `relay_net::discovery::sanitize_display_name` (NFKC, confusables, marks, markup).
 
-use crate::limits::{
-	MAX_DISPLAY_NAME_BYTES, MAX_EXTENSION_BYTES, MAX_FILE_NAME_BYTES, MAX_TEXT_BYTES,
-};
+use crate::limits::{MAX_EXTENSION_BYTES, MAX_FILE_NAME_BYTES, MAX_TEXT_BYTES};
 
 /// Why message text was refused.
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
@@ -79,19 +78,6 @@ pub fn sanitize_with_limit(input: &str, max: usize) -> Result<String, TextError>
 		return Err(TextError::Empty);
 	}
 	Ok(out)
-}
-
-/// Strips controls and format characters, collapses whitespace and bounds the length.
-pub fn sanitize_display_name(input: &str) -> String {
-	let cleaned: String = input
-		.chars()
-		.filter(|c| !c.is_control() && !is_format_char(*c))
-		.collect();
-	let joined = cleaned.split_whitespace().collect::<Vec<_>>().join(" ");
-	// Truncation can expose a trailing space, so trim again to stay idempotent.
-	truncate_chars(&joined, MAX_DISPLAY_NAME_BYTES)
-		.trim_end()
-		.to_owned()
 }
 
 fn truncate_chars(s: &str, max: usize) -> String {

@@ -11,11 +11,11 @@ use std::time::{Duration, Instant};
 use relay_api::pb::{self, SessionOpResult, session_event};
 use relay_core::{CallId, PeerId};
 use relay_messages::rate::TokenBucket;
-use relay_messages::sanitize::sanitize_display_name;
 use relay_messages::{
 	HistoryManager, PeerFingerprint, PeerRef, Permissions, SessionId, SessionInfo, SessionStore,
 	store::StoreAction,
 };
+use relay_net::discovery::sanitize_display_name;
 use relay_net::identity::Fingerprint;
 use relay_net::transfer::TransferHub;
 use tokio::sync::{mpsc, watch};

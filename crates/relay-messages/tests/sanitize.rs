@@ -69,16 +69,6 @@ fn text_limits_and_empty() {
 }
 
 #[test]
-fn display_names_are_stripped_not_refused() {
-	assert_eq!(
-		sanitize_display_name("Al\u{202E}ice\u{200B}  Smith\n"),
-		"Alice Smith"
-	);
-	assert_eq!(sanitize_display_name(&"é".repeat(100)).len(), 64);
-	assert_eq!(sanitize_display_name("\u{202E}\u{0}"), "");
-}
-
-#[test]
 fn file_name_table() {
 	let cases: &[(&str, &str)] = &[
 		("report.pdf", "report.pdf"),
@@ -160,26 +150,13 @@ proptest! {
 	}
 
 	#[test]
-	fn display_names_are_bounded(s in "\\PC{0,300}") {
-		let n = sanitize_display_name(&s);
-		prop_assert!(n.len() <= 64);
-		prop_assert!(!n.chars().any(|c| c.is_control() || is_format_char(c)));
-		prop_assert_eq!(sanitize_display_name(&n), n);
-	}
-
-	#[test]
 	fn unicode_whitespace_cases_are_idempotent(s in WS) {
-		let d = sanitize_display_name(&s);
-		prop_assert_eq!(sanitize_display_name(&d), d.clone());
-		prop_assert!(d == d.trim() && d.len() <= 64);
 		let f = sanitize_file_name(&s);
 		prop_assert_eq!(sanitize_file_name(f.as_str()), f);
 		if let Ok(t) = sanitize_text(&s) {
 			prop_assert_eq!(sanitize_text(&t), Ok(t.clone()));
 		}
 		let long = format!("{s}{}", "é ".repeat(40));
-		let d = sanitize_display_name(&long);
-		prop_assert_eq!(sanitize_display_name(&d), d);
 		let f = sanitize_file_name(&format!("{long}.{s}"));
 		prop_assert_eq!(sanitize_file_name(f.as_str()), f);
 	}
