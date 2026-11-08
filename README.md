@@ -93,7 +93,9 @@ All commands, flags, `--json` output and exit codes are in [docs/cli.md](docs/cl
 
 **Android.** Install the APK, grant microphone (and notification) permission, and open the app. Both
 phones must be on the same Wi-Fi. See [docs/android.md](docs/android.md) for what has and has not been
-tested on real hardware.
+tested on real hardware. The app has no telemetry, no analytics and no Google services; it asks for
+`INTERNET` only because Android requires it for any network socket, including the local-network ones.
+The permissions and the build-time check for this are listed in [docs/android.md](docs/android.md).
 
 ## How it works
 

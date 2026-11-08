@@ -273,6 +273,8 @@ Loader and macro, compared with Flare (Signal client for GTK/Rust, gettext throu
 
 ## Android QR scanning is CameraX plus ML Kit's bundled model
 
+(Superseded: now ZXing core, see the record at the top.)
+
 Need: a Scan button under the QR code (People page) that reads the other device's `relay://` connection string. The scanned text takes the same check as a pasted string (`relay_client::connection::check`), only fills the address field, and never trusts or dials by itself.
 
 Options compared (versions as pinned or documented at the time of writing):
@@ -295,3 +297,11 @@ Options compared:
 The glyph source for the subset is the `res/` folder of the egui-phosphor 0.14.0 crate (the unmodified upstream Phosphor TTFs); nothing from that crate is linked. Licence: MIT, text shipped as `assets/font/LICENSE-phosphor.txt` next to the OFL files (`docs/release.md`); it is not a crate, so `cargo deny` does not see it and `deny.toml` needs no change.
 
 Rules: an icon stands alone only where its meaning is universal (mute, send, close, back, search, copy, more, star); every icon-only control has a tooltip that is also its accessible name; actions whose meaning is not universal (Call, Hang up, Trust this device) keep a visible label beside the icon. Icon buttons are 44 points with touch style and 32 with a pointer.
+
+## Inbound connections must be on-link, and strangers get ring budgets
+
+Need (SR-01, SR-04, SR-11, SR-12 of `docs/reviews/security-review-2026-11.md`): "LAN-only" meant "private address", so any routed private network (VPN, campus, carrier) reached the pre-authentication handshake, and a free key was enough to ring a user without bound. No change may show in a home or office LAN on Wi-Fi or Ethernet.
+
+Decision: `relay_net::InboundScope` admits a TCP connection or UDP path challenge only if it arrived on an interface the discovery `InterfacePolicy` accepts (tunnel, VPN, container and cellular names are out) and its source is inside that interface's own subnet (found from `stream.local_addr()`, so several NICs work; link-local IPv6 needs the same scope, ULA the same prefix). Loopback stays a test path (`lan_and_loopback`), overlay space stays governed by its own opt-in, and the shared Rust code covers Android. Cloud-metadata addresses are refused in `check_ip`, manual entries refuse broadcast/network addresses and dialed ports below 1024, and discovered addresses must be on-link with the interface that heard them (`mdns-sd` has no source hook, so the filter is on the resolved record). Unknown callers also answer to a per-source and a global invite budget and a 15 s cooldown after a decline; contacts are never throttled, and the default inbound policy and ringing behaviour are unchanged.
+
+Not chosen: binding one listener per interface (a rebind on every network change, racy on mobile) and forking `mdns-sd` for a socket filter. Residual: an on-link neighbour is still trusted to reach the handshake; Android must still bind the process to the Wi-Fi network if it wants to close the cellular interface itself (the check refuses cellular sources already).

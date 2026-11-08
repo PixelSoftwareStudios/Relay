@@ -109,9 +109,8 @@ std, relay_ui, egui, h2, tokio, harfrust. The `image` features (tiff, gif, bmp) 
   place and leaves replaced entries as dead space. `just android-apk` now deletes the old
   APK first.
 - Not done: R8 for release builds (needs keep rules for JNA and UniFFI and a device to
-  test them; the release APK is not what the release workflow ships). ML Kit's
-  barcode-scanning (about 6 MB of native code) is the next biggest piece; alternatives would
-  be a pure-Rust QR decoder.
+  test them; the release APK is not what the release workflow ships). The QR
+  scanner is ZXing core (pure Java), so no ML Kit native code remains.
 
 ## Disk
 
