@@ -49,6 +49,21 @@ impl UserDirs {
 	}
 }
 
+/// The directory holding the engine endpoint on Windows (where there are no Unix
+/// sockets): `%LOCALAPPDATA%\Relay\run`, inside the user's own profile, whose
+/// inherited ACL excludes other users. `None` when `%LOCALAPPDATA%` is not an
+/// absolute path; callers fail instead of falling back to a shared `%TEMP%`.
+pub fn windows_runtime_dir_from(local_app_data: Option<OsString>) -> Option<PathBuf> {
+	let base = PathBuf::from(local_app_data?);
+	base.is_absolute()
+		.then(|| base.join(ORGANIZATION).join("run"))
+}
+
+/// [`windows_runtime_dir_from`] with the real environment.
+pub fn windows_runtime_dir() -> Result<PathBuf> {
+	windows_runtime_dir_from(std::env::var_os("LOCALAPPDATA")).ok_or(IoError::NoPlatformDir)
+}
+
 /// The directory holding the engine endpoint: `$XDG_RUNTIME_DIR/relay` when that
 /// is absolute, else `<tmp>/relay-<uid>` (macOS has no runtime dir).
 pub fn runtime_dir_from(xdg_runtime_dir: Option<OsString>, tmp: &Path, uid: u32) -> PathBuf {

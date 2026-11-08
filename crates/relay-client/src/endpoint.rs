@@ -36,10 +36,11 @@ pub fn default_endpoint() -> Result<Endpoint, ApiError> {
 	Ok(Endpoint::Unix(path))
 }
 
-/// The per-user default endpoint: a loopback profile in the temp directory.
+/// The per-user default endpoint: a loopback profile under `%LOCALAPPDATA%\Relay\run`,
+/// never in the shared temp directory.
 #[cfg(not(unix))]
 pub fn default_endpoint() -> Result<Endpoint, ApiError> {
-	let dir = std::env::temp_dir().join("relay");
+	let dir = relay_io::paths::windows_runtime_dir()?;
 	Ok(Endpoint::LoopbackTcp {
 		profile_path: relay_api::profile_path(&dir),
 	})

@@ -36,7 +36,7 @@ fn default_dir() -> Result<PathBuf, DaemonError> {
 	#[cfg(not(unix))]
 	{
 		// The same place `relay_client::endpoint::default_endpoint` looks.
-		Ok(std::env::temp_dir().join("relay"))
+		Ok(relay_io::paths::windows_runtime_dir().map_err(relay_api::ApiError::from)?)
 	}
 }
 
@@ -61,10 +61,8 @@ pub(super) async fn bind(transport: &Transport) -> Result<Bound, DaemonError> {
 				None => profile_path(&default_dir()?),
 			};
 			if let Some(dir) = path.parent() {
-				#[cfg(unix)]
-				relay_api::prepare_runtime_dir(dir)?;
-				#[cfg(not(unix))]
-				std::fs::create_dir_all(dir)?;
+				// Refuses a symlink or a non-directory; on Unix also a foreign owner.
+				relay_io::fs::ensure_owned_private_dir(dir).map_err(relay_api::ApiError::from)?;
 			}
 			let (listener, profile) = bind_loopback(&path).await?;
 			Ok(Bound::Tcp(listener, profile, path))

@@ -111,3 +111,21 @@ fn per_user_directories_follow_the_documented_rules() {
 	assert!(log.starts_with("/home/u") || cfg!(windows));
 	assert!(relay_io::paths::UserDirs::platform().is_ok());
 }
+
+#[test]
+fn the_windows_endpoint_directory_is_inside_the_profile_never_the_shared_temp() {
+	use relay_io::paths::windows_runtime_dir_from;
+	use std::ffi::OsString;
+	#[cfg(windows)]
+	let base = r"C:\Users\ann\AppData\Local";
+	#[cfg(not(windows))]
+	let base = "/home/ann/AppData/Local";
+	let dir = windows_runtime_dir_from(Some(OsString::from(base))).unwrap();
+	assert!(dir.starts_with(base));
+	assert!(dir.ends_with("Relay/run") || dir.ends_with(r"Relay\run"));
+	assert_eq!(windows_runtime_dir_from(None), None);
+	assert_eq!(
+		windows_runtime_dir_from(Some(OsString::from("relative"))),
+		None
+	);
+}
