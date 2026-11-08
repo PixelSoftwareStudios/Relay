@@ -17,6 +17,59 @@ fn is_hex_run(s: &str) -> bool {
 	s.len() >= 32 && s.bytes().all(|b| b.is_ascii_hexdigit())
 }
 
+/// Keys whose value is a device or call identifier, however short.
+const ID_KEYS: [&str; 6] = ["fingerprint", "fp", "peer", "device", "caller", "callee"];
+
+fn is_id_key(key: &str) -> bool {
+	let lower = key
+		.trim_matches(|c: char| !c.is_ascii_alphanumeric())
+		.to_ascii_lowercase();
+	ID_KEYS.iter().any(|id| {
+		lower == *id || lower.ends_with(&format!("_{id}")) || lower.ends_with(&format!("-{id}"))
+	})
+}
+
+/// Hex digits, optionally grouped with `-` or `:` (`A1B2-C3D4`), at least 8 digits.
+fn is_short_id(s: &str) -> bool {
+	let core = s.trim_matches(|c: char| matches!(c, '"' | '\'' | ',' | ';' | '(' | ')' | '.'));
+	let digits = core.bytes().filter(u8::is_ascii_hexdigit).count();
+	digits >= 8
+		&& core
+			.bytes()
+			.all(|b| b.is_ascii_hexdigit() || b == b'-' || b == b':')
+}
+
+/// `aa:bb:cc:dd:ee:ff` or `aa-bb-cc-dd-ee-ff`.
+fn is_mac(s: &str) -> bool {
+	let b = s.as_bytes();
+	b.len() == 17
+		&& b.iter().enumerate().all(|(i, c)| {
+			if i % 3 == 2 {
+				*c == b':' || *c == b'-'
+			} else {
+				c.is_ascii_hexdigit()
+			}
+		}) && b[2] == b[5]
+		&& b[5] == b[8]
+		&& b[8] == b[11]
+		&& b[11] == b[14]
+}
+
+/// An mDNS host name such as `ann-laptop.local`, with an optional trailing dot or port.
+fn is_local_host(s: &str) -> bool {
+	let name = match s.rsplit_once(':') {
+		Some((name, port)) if !port.is_empty() && port.bytes().all(|b| b.is_ascii_digit()) => name,
+		_ => s,
+	};
+	let name = name.strip_suffix('.').unwrap_or(name);
+	let lower = name.to_ascii_lowercase();
+	lower.len() > ".local".len()
+		&& lower.ends_with(".local")
+		&& lower
+			.bytes()
+			.all(|b| b.is_ascii_alphanumeric() || matches!(b, b'-' | b'_' | b'.'))
+}
+
 fn looks_like_path(s: &str) -> bool {
 	let unix = s.starts_with('/') && s[1..].contains('/');
 	let home = s.starts_with("~/");
@@ -34,7 +87,12 @@ fn redact_value(value: &str) -> String {
 	// Brackets are part of an `[v6]:port` literal, so the IP test sees them.
 	if looks_like_ip(quoted) {
 		value.replace(quoted, "<redacted>")
-	} else if is_hex_run(core) || looks_like_path(core) || looks_like_ip(core) {
+	} else if is_hex_run(core)
+		|| is_mac(core)
+		|| is_local_host(core)
+		|| looks_like_path(core)
+		|| looks_like_ip(core)
+	{
 		value.replace(core, "<redacted>")
 	} else {
 		value.to_owned()
@@ -49,7 +107,16 @@ fn redact_word(word: &str) -> String {
 			return format!("{k}{sep}<redacted>");
 		}
 		if let Some((_, v)) = word.split_once('=') {
+			if is_id_key(k) && is_short_id(v) {
+				return format!("{k}=<redacted>");
+			}
 			return format!("{k}={}", redact_value(v));
+		}
+		if is_id_key(k)
+			&& let Some((_, v)) = word.split_once(':')
+			&& is_short_id(v)
+		{
+			return format!("{k}:<redacted>");
 		}
 	}
 	let whole = redact_value(word);
@@ -65,11 +132,12 @@ fn redact_word(word: &str) -> String {
 	whole
 }
 
-/// Redacts one line: secrets after sensitive keys, long hex (keys, hashes, ids),
-/// file paths and IP addresses. `Bearer <x>` style tokens are removed too.
+/// Redacts one line: secrets after sensitive keys, long hex (keys, hashes, ids), short
+/// hex after fingerprint-like keys, MAC addresses, `.local` host names, file paths and IP addresses. `Bearer <x>` style tokens are removed too.
 pub fn redact_line(line: &str) -> String {
 	let mut out: Vec<String> = Vec::new();
 	let mut hide_next = false;
+	let mut id_next = false;
 	for word in line.split_whitespace() {
 		if hide_next {
 			out.push("<redacted>".to_owned());
@@ -79,7 +147,18 @@ pub fn redact_line(line: &str) -> String {
 		if word.eq_ignore_ascii_case("bearer") {
 			hide_next = true;
 		}
-		out.push(redact_word(word));
+		let redacted = redact_word(word);
+		// `fingerprint A1B2-C3D4` and `peer 1a2b3c4d`: the id is the next word.
+		if !word.contains(['=', ':']) && is_id_key(word) && !is_short_id(word) {
+			id_next = true;
+		} else if id_next && is_short_id(word) {
+			id_next = false;
+			out.push("<redacted>".to_owned());
+			continue;
+		} else {
+			id_next = false;
+		}
+		out.push(redacted);
 	}
 	out.join(" ")
 }

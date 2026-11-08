@@ -127,3 +127,49 @@ fn ordinary_text_is_not_over_redacted() {
 		assert_eq!(redact_line(line), line);
 	}
 }
+
+#[test]
+fn short_fingerprints_after_identifying_keys_are_redacted() {
+	for line in [
+		"fingerprint=A1B2C3D4",
+		"fingerprint=A1B2-C3D4-E5F6",
+		"peer=1a2b3c4d5e",
+		"call from peer:1a2b3c4d",
+		"new device fingerprint A1B2-C3D4 added",
+		"fp A1B2C3D4",
+	] {
+		let out = redact_line(line);
+		assert!(out.contains("<redacted>"), "{line} -> {out}");
+		assert!(
+			!out.to_ascii_lowercase().contains("a1b2") && !out.contains("1a2b3c"),
+			"{out}"
+		);
+	}
+	// Ordinary words and unrelated hex stay.
+	assert_eq!(redact_line("peer connected"), "peer connected");
+	assert_eq!(redact_line("peer added"), "peer added");
+	assert_eq!(redact_line("color=DEADBEEF"), "color=DEADBEEF");
+	assert_eq!(redact_line("fingerprint=abc"), "fingerprint=abc");
+}
+
+#[test]
+fn mac_addresses_and_local_host_names_are_redacted() {
+	let out = redact_line("iface aa:bb:cc:dd:ee:ff up, also AA-BB-CC-DD-EE-FF");
+	assert_eq!(out, "iface <redacted> up, also <redacted>");
+	assert_eq!(redact_line("mac=aa:bb:cc:dd:ee:ff"), "mac=<redacted>");
+	for line in [
+		"resolved ann-laptop.local now",
+		"host=Anns-MacBook.local.",
+		"to ann-pc.local:47800 ok",
+	] {
+		let out = redact_line(line);
+		assert!(
+			out.contains("<redacted>") && !out.to_lowercase().contains("ann"),
+			"{line} -> {out}"
+		);
+	}
+	// Not a host name or a MAC.
+	assert_eq!(redact_line("just .local"), "just .local");
+	assert_eq!(redact_line("1:2:3:4:5:6"), "1:2:3:4:5:6");
+	assert_eq!(redact_line("version 1.2.3"), "version 1.2.3");
+}
