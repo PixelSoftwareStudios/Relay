@@ -209,7 +209,7 @@ fn from_record(
 	policy: &AddressPolicy,
 ) -> Option<DiscoveredPeer> {
 	let get = |key: &str| txt.iter().find(|(k, _)| k == key).map(|(_, v)| v.as_str());
-	if get("v")? != PROTOCOL_MAJOR.to_string() || port == 0 {
+	if get("v")? != PROTOCOL_MAJOR.to_string() || crate::address::check_dial_port(port).is_err() {
 		return None;
 	}
 	let instance_id = fixed_hex::decode::<INSTANCE_ID_BYTES>(get("id")?)?;
