@@ -1,0 +1,3 @@
+# Source for requirements.txt. Regenerate (pure-Python deps, any Python 3) with:
+#   pip-compile --generate-hashes --strip-extras --output-file=requirements.txt requirements.in
+dmgbuild==1.6.7

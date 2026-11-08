@@ -1,0 +1,9 @@
+version: 2
+updates:
+  # Actions are pinned to commit SHAs (docs/releasing.md); Dependabot bumps the SHA and the tag comment.
+  - package-ecosystem: github-actions
+    directories:
+      - "/"
+      - "/.github/actions/release-tools"
+    schedule:
+      interval: weekly

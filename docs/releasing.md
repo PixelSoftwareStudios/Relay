@@ -18,7 +18,7 @@ for the headless pair (`relay`, `relayd`). Platforms: `windows-x64`, `windows-ar
 | Android | `relay-<version>-android-arm64-v8a.apk` | |
 
 23 assets plus `SHA256SUMS.txt`. Nothing is code-signed or notarized: macOS apps are ad-hoc signed,
-Windows installers are unsigned, the APK is signed with a debug key that Gradle generates fresh on
+Windows installers are unsigned, the APK (built non-debuggable, checked by `scripts/packaging/check_android_apk.py`) is signed with a debug key that Gradle generates fresh on
 each CI run (no keystore secret exists; updating across releases needs an uninstall first). The APK is arm64-v8a only (64-bit ARM, nearly
 every phone since about 2016); the name says so, and the release notes repeat it.
 
@@ -66,7 +66,7 @@ every phone since about 2016); the name says so, and the release notes repeat it
 ```
 cargo about generate about.hbs > THIRD_PARTY_LICENSES
 cargo build --release -p relay-daemon -p relay-cli && cargo build --release -p relay-desktop
-python -m pip install dmgbuild==1.6.7        # macOS only
+python -m pip install --require-hashes -r scripts/packaging/requirements.txt   # macOS only (dmgbuild)
 python scripts/packaging/package_cli.py --version 0.1.0 --target aarch64-apple-darwin --bin-dir target/release --output dist
 python scripts/packaging/package_release.py package --version 0.1.0 --target aarch64-apple-darwin --bin-dir target/release --output dist
 python scripts/packaging/verify_macos_release.py --version 0.1.0 --target aarch64-apple-darwin --dmg dist/relay-0.1.0-macos-arm64.dmg --update dist/relay-0.1.0-macos-arm64-update.zip
@@ -75,6 +75,24 @@ python -m unittest discover -s scripts/tests -p 'test_*.py'
 
 `--version` must equal the workspace version. Linux and Windows packaging need the tools listed above
 and a native host.
+
+## Pinned inputs
+
+Every action in `.github/` is pinned to a full commit SHA with the tag in a trailing comment
+(`uses: owner/repo@<40 hex> # v4`); `dtolnay/rust-toolchain` is pinned to the commit of its `1.99.1`
+branch and always receives `toolchain:` explicitly (the repo toolchain from `rust-toolchain.toml`; the
+fuzz job uses `nightly-2026-11-04`). `.github/dependabot.yml` opens weekly PRs that bump the SHA and the
+comment together; review the upstream diff, then merge. The toolchain version and the nightly date are
+bumped by hand. To add or bump an action by hand, resolve the tag with
+`gh api repos/<owner>/<repo>/git/ref/tags/<tag>` and, when the object type is `tag`, follow it with
+`gh api repos/<owner>/<repo>/git/tags/<sha>` to the commit.
+
+Tool versions are fixed too: `cargo-about@0.9.3`, `just@1.43.0` and `cargo-ndk@4.1.2` through
+`taiki-e/install-action`; `cargo-packager` 0.11.8, `cargo-generate-rpm` 0.21.0 and `cargo-fuzz` 0.13.2
+through `cargo install --version ... --locked`. macOS packaging installs Python tools only from
+`scripts/packaging/requirements.txt` with `--require-hashes` (all transitive dependencies hashed).
+Regenerate it from `requirements.in` with `pip-compile --generate-hashes --strip-extras`.
+`cargo deny` runs for the root, `apps/relay-android` and `fuzz` lock files.
 
 ## First release checklist
 
