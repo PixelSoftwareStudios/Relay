@@ -303,6 +303,29 @@ codegen-units = 1
 debug = false
 strip = "symbols"
 
+# Wire-derived integers must not wrap silently in shipped builds (SR-13): overflow checks
+# are on for the crates that parse or account for untrusted input. A panic from one is
+# caught by the media supervisor like any other worker panic. Dependencies keep the
+# default, and the audio DSP crate stays unchecked (sample maths, no wire input).
+[profile.release.package.relay-core]
+overflow-checks = true
+[profile.release.package.relay-protocol]
+overflow-checks = true
+[profile.release.package.relay-net]
+overflow-checks = true
+[profile.release.package.relay-engine]
+overflow-checks = true
+[profile.release.package.relay-api]
+overflow-checks = true
+[profile.release.package.relay-messages]
+overflow-checks = true
+[profile.release.package.relay-config]
+overflow-checks = true
+[profile.release.package.relay-io]
+overflow-checks = true
+[profile.release.package.relay-client]
+overflow-checks = true
+
 # A release build that keeps line tables and symbols for profiling and crash analysis:
 # cargo build --profile release-debug
 [profile.release-debug]

@@ -118,7 +118,9 @@ impl<T> JitterBuffer<T> {
 		if self.state != State::Playing {
 			return 0;
 		}
-		let end = self.highest_ts + u64::from(self.cfg.frame_samples);
+		let end = self
+			.highest_ts
+			.saturating_add(u64::from(self.cfg.frame_samples));
 		end.saturating_sub(self.play_ts).min(u64::from(u32::MAX)) as u32
 	}
 
@@ -170,7 +172,7 @@ impl<T> JitterBuffer<T> {
 		}
 
 		let frame = u64::from(self.cfg.frame_samples);
-		if seq < self.next_seq || ts + frame <= self.play_ts {
+		if seq < self.next_seq || ts.saturating_add(frame) <= self.play_ts {
 			self.accept_numbers(seq, ts);
 			return self.late();
 		}
@@ -243,7 +245,7 @@ impl<T> JitterBuffer<T> {
 
 	fn resume_after_interruption(&mut self, seq: u64, ts: u64) {
 		if let Some(last) = self.last_played {
-			match seq - last - 1 {
+			match seq.saturating_sub(last).saturating_sub(1) {
 				0 => self.stats.intentional_silence += 1,
 				missing => self.stats.network_missing += missing,
 			}
@@ -254,10 +256,15 @@ impl<T> JitterBuffer<T> {
 	/// Lowest-sequence stored packet at or after `next_seq`.
 	fn head(&self) -> Option<(u64, u64)> {
 		let len = self.slots.len() as u64;
-		(self.next_seq..self.next_seq + self.cfg.horizon_frames() + 1).find_map(|seq| {
-			let slot = self.slots[(seq % len) as usize].as_ref()?;
-			(slot.sequence == seq).then_some((slot.sequence, slot.timestamp))
-		})
+		(self.next_seq
+			..self
+				.next_seq
+				.saturating_add(self.cfg.horizon_frames())
+				.saturating_add(1))
+			.find_map(|seq| {
+				let slot = self.slots[(seq % len) as usize].as_ref()?;
+				(slot.sequence == seq).then_some((slot.sequence, slot.timestamp))
+			})
 	}
 
 	fn take(&mut self, seq: u64) -> Slot<T> {
@@ -269,13 +276,13 @@ impl<T> JitterBuffer<T> {
 		let frame = u64::from(self.cfg.frame_samples);
 		let mut head = self.head();
 		while let Some((seq, ts)) = head {
-			if ts + frame > self.play_ts {
+			if ts.saturating_add(frame) > self.play_ts {
 				break;
 			}
 			drop(self.take(seq));
 			self.stats.late_drop += 1;
-			self.stats.network_missing += seq - self.next_seq;
-			self.next_seq = seq + 1;
+			self.stats.network_missing += seq.saturating_sub(self.next_seq);
+			self.next_seq = seq.saturating_add(1);
 			self.margin.on_miss();
 			head = self.head();
 		}
@@ -307,8 +314,8 @@ impl<T> JitterBuffer<T> {
 		let lost_before = (seq - self.next_seq) as u32;
 		self.stats.network_missing += u64::from(lost_before);
 		self.stats.played += 1;
-		self.next_seq = seq + 1;
-		self.play_ts = ts + frame;
+		self.next_seq = seq.saturating_add(1);
+		self.play_ts = ts.saturating_add(frame);
 		self.last_played = Some(seq);
 		self.conceal_run = 0;
 		Playout::Play(Played {
@@ -323,7 +330,9 @@ impl<T> JitterBuffer<T> {
 	fn gap(&mut self, head_ts: u64) -> Playout<T> {
 		let frame = u64::from(self.cfg.frame_samples);
 		self.play_ts += frame;
-		if self.effective_margin > self.margin.target() && head_ts >= self.play_ts + frame {
+		if self.effective_margin > self.margin.target()
+			&& head_ts >= self.play_ts.saturating_add(frame)
+		{
 			self.play_ts += frame;
 			self.effective_margin -= 1;
 			self.stats.shrinks += 1;
