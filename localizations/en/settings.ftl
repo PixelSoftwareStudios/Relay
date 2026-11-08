@@ -12,7 +12,7 @@ link-offline = Daemon not running
 avatar-size-refusal = avatar must be 1 byte to 1 MiB (PNG, JPEG, WebP, GIF, BMP or TIFF)
 hotkey-note = This device has no global hotkey and no on-screen Talk button. Push-to-talk only transmits while an input source outside this app (for example the CLI) holds the key.
 close-tray = Closing the window hides it to the tray; calls keep going.
-close-no-tray = There is no tray icon on this platform, so closing the window quits this app.
+close-no-tray = There is no tray on this platform, so closing the window quits this app.
 quit-note = Quitting this app hangs up the calls it started or accepted and leaves the Relay daemon running. This app cannot stop the daemon.
 calls-active =
     { $count ->

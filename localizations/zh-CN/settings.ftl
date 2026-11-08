@@ -11,7 +11,7 @@ link-offline = 守护进程未运行
 avatar-size-refusal = 头像大小必须在 1 字节到 1 MiB 之间（PNG、JPEG、WebP、GIF、BMP 或 TIFF）
 hotkey-note = 此设备既没有全局快捷键，也没有屏幕上的说话按钮。只有此应用之外的输入源（例如命令行）按住按键时，按键通话才会发送声音。
 close-tray = 关闭窗口会将其隐藏到托盘，通话不会中断。
-close-no-tray = 此平台没有托盘图标，因此关闭窗口会退出此应用。
+close-no-tray = 此平台没有托盘，因此关闭窗口会退出此应用。
 quit-note = 退出此应用会挂断由它发起或接听的通话，Relay 守护进程会继续运行。此应用无法停止守护进程。
 calls-active =
     { $count ->

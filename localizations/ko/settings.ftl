@@ -11,7 +11,7 @@ link-offline = 데몬이 실행 중이 아님
 avatar-size-refusal = 프로필 사진은 1바이트에서 1 MiB 사이여야 합니다 (PNG, JPEG, WebP, GIF, BMP 또는 TIFF)
 hotkey-note = 이 기기에는 전역 단축키도 화면의 말하기 버튼도 없습니다. 푸시 투 토크는 이 앱 밖의 입력 소스(예: CLI)가 키를 누르고 있는 동안에만 전송합니다.
 close-tray = 창을 닫으면 트레이로 숨겨지며 통화는 계속됩니다.
-close-no-tray = 이 플랫폼에는 트레이 아이콘이 없으므로 창을 닫으면 앱이 종료됩니다.
+close-no-tray = 이 플랫폼에는 트레이가 없으므로 창을 닫으면 앱이 종료됩니다.
 quit-note = 이 앱을 종료하면 앱이 시작하거나 수락한 통화가 끊기고 Relay 데몬은 계속 실행됩니다. 이 앱에서는 데몬을 중지할 수 없습니다.
 calls-active =
     { $count ->

@@ -9,7 +9,7 @@ link-offline = El daemon no está en ejecución
 avatar-size-refusal = el avatar debe pesar entre 1 byte y 1 MiB (PNG, JPEG, WebP, GIF, BMP o TIFF)
 hotkey-note = Este dispositivo no tiene atajo global ni botón Hablar en pantalla. Pulsar para hablar solo transmite mientras una fuente de entrada ajena a esta app (por ejemplo, la CLI) mantiene la tecla presionada.
 close-tray = Al cerrar la ventana se oculta en la bandeja; las llamadas continúan.
-close-no-tray = Esta plataforma no tiene icono de bandeja, así que al cerrar la ventana se cierra esta app.
+close-no-tray = Esta plataforma no tiene bandeja, así que al cerrar la ventana se cierra esta app.
 quit-note = Al salir de esta app se cuelgan las llamadas que inició o aceptó, y el daemon de Relay sigue en ejecución. Esta app no puede detener el daemon.
 calls-active =
     { $count ->
