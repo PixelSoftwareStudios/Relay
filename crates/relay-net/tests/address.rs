@@ -67,7 +67,7 @@ fn manual_entry_parses_endpoints_and_refuses_everything_else() {
 	);
 	let v6 = p.parse_manual("[fe80::1%4]:5000").unwrap();
 	assert!(matches!(v6, SocketAddr::V6(a) if a.scope_id() == 4));
-	assert!(p.parse_manual("[fd00::9]:80").is_ok());
+	assert!(p.parse_manual("[fd00::9]:8080").is_ok());
 
 	assert_eq!(
 		p.parse_manual("[fe80::1]:5000"),
@@ -158,23 +158,23 @@ fn manual_parsing_is_strict_and_normalised() {
 	assert!(p.parse_manual("[::ffff:192.168.1.1%2]:80").is_err());
 	// A mapped literal is the IPv4 host and compares equal to it.
 	assert_eq!(
-		p.parse_manual("[::ffff:192.168.1.1]:80").unwrap(),
-		p.parse_manual("192.168.1.1:80").unwrap()
+		p.parse_manual("[::ffff:192.168.1.1]:8080").unwrap(),
+		p.parse_manual("192.168.1.1:8080").unwrap()
 	);
-	assert!(p.parse_manual("[fe80::1%3]:80").is_ok());
+	assert!(p.parse_manual("[fe80::1%3]:8080").is_ok());
 }
 
 #[test]
 fn metadata_addresses_are_not_media_candidates_and_manual_checks_honour_the_flag() {
 	let p = AddressPolicy::lan_only();
-	for bad in ["169.254.169.254:9", "[fd00:ec2::254]:9"] {
+	for bad in ["169.254.169.254:9000", "[fd00:ec2::254]:9000"] {
 		let addr: std::net::SocketAddr = bad.parse().unwrap();
 		assert_eq!(
 			p.candidate_from_proto(&endpoint_to_proto(addr)),
 			Err(AddressError::Reserved)
 		);
 	}
-	let overlay: std::net::SocketAddr = "100.64.0.9:7".parse().unwrap();
+	let overlay: std::net::SocketAddr = "100.64.0.9:7000".parse().unwrap();
 	assert_eq!(
 		p.check_manual_socket(overlay),
 		Err(AddressError::OverlayManualDisabled)
@@ -201,4 +201,123 @@ fn overlay_peer_admits_exactly_one_address() {
 			.check_socket("100.64.0.9:7".parse().unwrap())
 			.is_err()
 	);
+}
+
+mod sr11 {
+	use std::net::SocketAddr;
+
+	use relay_net::onlink::Iface;
+	use relay_net::{AddressError, AddressPolicy, endpoint_to_proto};
+
+	fn sock(text: &str) -> SocketAddr {
+		text.parse().unwrap()
+	}
+
+	fn iface(ip: &str, prefix: u8) -> Iface {
+		Iface {
+			name: "en0".into(),
+			ip: ip.parse().unwrap(),
+			prefix,
+			index: Some(4),
+			loopback: false,
+		}
+	}
+
+	#[test]
+	fn cloud_metadata_is_refused_for_every_input() {
+		let p = AddressPolicy::lan_only();
+		for bad in [
+			"169.254.169.254:8080",
+			"169.254.170.2:8080",
+			"169.254.169.253:8080",
+			"[fd00:ec2::254]:8080",
+			"[fd00:ec2::23]:8080",
+			"[::ffff:169.254.169.254]:8080",
+		] {
+			assert_eq!(p.parse_manual(bad), Err(AddressError::Reserved), "{bad}");
+		}
+		for ip in [
+			"169.254.169.254",
+			"169.254.170.2",
+			"fd00:ec2::254",
+			"::ffff:169.254.169.254",
+		] {
+			assert_eq!(
+				p.check_ip(ip.parse().unwrap()),
+				Err(AddressError::Reserved),
+				"{ip}"
+			);
+		}
+		let relay = "relay://169.254.169.254:8080#".to_owned() + &"ab".repeat(32);
+		assert_eq!(
+			relay_net::connect::ConnectionString::parse(&relay, &p).map(|_| ()),
+			Err(relay_net::connect::ConnectError::Address(
+				AddressError::Reserved
+			))
+		);
+		// Their link-local neighbours are ordinary addresses.
+		assert!(p.parse_manual("169.254.169.1:8080").is_ok());
+	}
+
+	#[test]
+	fn directed_broadcast_and_network_addresses_are_refused() {
+		let p = AddressPolicy::lan_only();
+		let net = [iface("10.0.5.20", 16)];
+		for bad in ["10.0.255.255:47800", "10.0.0.0:47800"] {
+			assert_eq!(
+				p.check_manual_socket_in(sock(bad), &net),
+				Err(AddressError::Broadcast),
+				"{bad}"
+			);
+		}
+		// Valid hosts of a /16 that happen to end in .255 or .0.
+		for ok in ["10.0.1.255:47800", "10.0.2.0:47800", "10.0.5.21:47800"] {
+			assert!(p.check_manual_socket_in(sock(ok), &net).is_ok(), "{ok}");
+		}
+		// Outside every local subnet, x.x.x.255 and x.x.x.0 are never a device.
+		for bad in [
+			"192.168.1.255:47800",
+			"10.255.255.255:47800",
+			"172.16.9.0:47800",
+		] {
+			assert_eq!(
+				p.check_manual_socket_in(sock(bad), &net),
+				Err(AddressError::Broadcast),
+				"{bad}"
+			);
+		}
+		assert!(
+			p.check_manual_socket_in(sock("192.168.1.20:47800"), &net)
+				.is_ok()
+		);
+		// /24 interface: the subnet's own broadcast and network addresses.
+		let lan = [iface("192.168.1.20", 24)];
+		assert!(
+			p.check_manual_socket_in(sock("192.168.1.255:47800"), &lan)
+				.is_err()
+		);
+		assert!(
+			p.check_manual_socket_in(sock("192.168.1.0:47800"), &lan)
+				.is_err()
+		);
+	}
+
+	#[test]
+	fn dialed_ports_below_1024_are_refused_from_untrusted_sources() {
+		let p = AddressPolicy::lan_only();
+		assert_eq!(
+			p.parse_manual("192.168.1.5:80"),
+			Err(AddressError::PortRange)
+		);
+		assert_eq!(
+			p.parse_manual("192.168.1.5:1023"),
+			Err(AddressError::PortRange)
+		);
+		assert!(p.parse_manual("192.168.1.5:1024").is_ok());
+		assert!(p.parse_manual("192.168.1.5:65535").is_ok());
+		let low = endpoint_to_proto(sock("192.168.1.5:443"));
+		assert_eq!(p.candidate_from_proto(&low), Err(AddressError::PortRange));
+		let ok = endpoint_to_proto(sock("192.168.1.5:50000"));
+		assert!(p.candidate_from_proto(&ok).is_ok());
+	}
 }

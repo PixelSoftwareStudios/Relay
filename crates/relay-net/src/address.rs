@@ -31,7 +31,17 @@ pub enum AddressError {
 	Reserved,
 	#[error("endpoint must be a bare ip:port, not a URL")]
 	NotBareEndpoint,
+	#[error("broadcast and network addresses cannot be a peer")]
+	Broadcast,
+	#[error("port must be between {DIAL_PORT_MIN} and 65535")]
+	PortRange,
+	#[error("the source is not on a local network of an eligible interface")]
+	OffLink,
 }
+
+/// Lowest port a device dials when the address comes from a QR code, a typed entry or
+/// discovery. Well-known service ports are never a Relay peer.
+pub const DIAL_PORT_MIN: u16 = 1024;
 
 /// Which addresses may be advertised, dialled or used as media destinations.
 #[derive(Debug, Clone, Copy, Default)]
@@ -83,6 +93,9 @@ impl AddressPolicy {
 		let ip = canonical(ip);
 		if is_shared_address_space(ip) && self.overlay_peer.map(canonical) == Some(ip) {
 			return Ok(());
+		}
+		if is_reserved_infrastructure(ip) {
+			return Err(AddressError::Reserved);
 		}
 		if ip.is_loopback() {
 			return if self.allow_loopback {
@@ -156,17 +169,30 @@ impl AddressPolicy {
 	/// [`Self::with_overlay_manual`] is on. Dial and add-address commands must use this, not
 	/// `check_socket`, or an accepted manual entry would silently do nothing.
 	pub fn check_manual_socket(&self, addr: SocketAddr) -> Result<(), AddressError> {
-		if is_shared_address_space(addr.ip()) {
-			if addr.port() == 0 {
-				return Err(AddressError::ZeroPort);
-			}
-			return if self.allow_overlay_manual {
-				Ok(())
-			} else {
-				Err(AddressError::OverlayManualDisabled)
-			};
+		self.check_manual_socket_in(addr, &crate::onlink::interfaces())
+	}
+
+	/// [`Self::check_manual_socket`] against an explicit interface list (tests).
+	pub fn check_manual_socket_in(
+		&self,
+		addr: SocketAddr,
+		ifaces: &[crate::onlink::Iface],
+	) -> Result<(), AddressError> {
+		if addr.port() == 0 {
+			return Err(AddressError::ZeroPort);
 		}
-		self.check_socket(addr)
+		if is_shared_address_space(addr.ip()) {
+			if !self.allow_overlay_manual {
+				return Err(AddressError::OverlayManualDisabled);
+			}
+		} else {
+			self.check_socket(addr)?;
+		}
+		check_dial_port(addr.port())?;
+		if is_directed_broadcast(addr.ip(), ifaces) {
+			return Err(AddressError::Broadcast);
+		}
+		Ok(())
 	}
 
 	/// Converts a remote-offered candidate into a socket address. The remote scope index is
@@ -192,8 +218,8 @@ impl AddressPolicy {
 		}
 		let addr = SocketAddr::new(ip, port);
 		self.check_socket(addr)?;
-		if is_reserved_infrastructure(addr.ip()) {
-			return Err(AddressError::Reserved);
+		if addr.port() != 0 {
+			check_dial_port(addr.port())?;
 		}
 		Ok(addr)
 	}
@@ -207,13 +233,57 @@ fn digits<T: std::str::FromStr>(text: &str) -> Result<T, AddressError> {
 	text.parse().map_err(|_| AddressError::Malformed)
 }
 
-/// Cloud instance-metadata endpoints. They are link-local/ULA addresses that a trusted peer
-/// could name as a "media candidate" to make us probe them.
+/// Ports below [`DIAL_PORT_MIN`] are refused for addresses that did not come from this
+/// device (QR code, typed entry, discovery, remote candidate).
+pub(crate) fn check_dial_port(port: u16) -> Result<(), AddressError> {
+	if port < DIAL_PORT_MIN {
+		return Err(AddressError::PortRange);
+	}
+	Ok(())
+}
+
+/// Cloud instance-metadata, container-credential and link-local DNS/time endpoints (AWS, GCP,
+/// Azure, ECS). They are link-local/ULA addresses that a peer, a QR code or a rogue mDNS
+/// responder could name to make us probe them. `check_ip` applies this to every input.
 fn is_reserved_infrastructure(ip: IpAddr) -> bool {
 	match canonical(ip) {
-		IpAddr::V4(v4) => v4.octets() == [169, 254, 169, 254],
-		IpAddr::V6(v6) => v6 == Ipv6Addr::new(0xfd00, 0xec2, 0, 0, 0, 0, 0, 0x254),
+		IpAddr::V4(v4) => matches!(
+			v4.octets(),
+			[169, 254, 169, 254 | 253 | 123] | [169, 254, 170, 2]
+		),
+		IpAddr::V6(v6) => [0x254, 0x23, 0x123]
+			.iter()
+			.any(|last| v6 == Ipv6Addr::new(0xfd00, 0xec2, 0, 0, 0, 0, 0, *last)),
 	}
+}
+
+/// True for the limited broadcast, for the broadcast or network address of a local IPv4
+/// subnet (prefix up to /30), and, when no local subnet contains the address, for any
+/// `x.x.x.255` or `x.x.x.0`: an address a person would never mean as a single device.
+fn is_directed_broadcast(ip: IpAddr, ifaces: &[crate::onlink::Iface]) -> bool {
+	let IpAddr::V4(v4) = canonical(ip) else {
+		return false;
+	};
+	if v4 == Ipv4Addr::BROADCAST {
+		return true;
+	}
+	let mut known = false;
+	for iface in ifaces {
+		let IpAddr::V4(own) = iface.ip else { continue };
+		if iface.prefix == 0
+			|| iface.prefix >= 31
+			|| !crate::onlink::same_prefix(own.into(), v4.into(), iface.prefix)
+		{
+			continue;
+		}
+		known = true;
+		let host_bits = 32 - u32::from(iface.prefix);
+		let host = u32::from(v4) & ((1u32 << host_bits) - 1);
+		if host == 0 || host == (1u32 << host_bits) - 1 {
+			return true;
+		}
+	}
+	!known && matches!(v4.octets()[3], 0 | 255)
 }
 
 /// Builds a proto endpoint for a local socket address.
@@ -252,7 +322,7 @@ pub fn is_shared_address_space(ip: IpAddr) -> bool {
 }
 
 /// Unwraps IPv4-mapped IPv6 so a mapped public address cannot slip past the IPv4 checks.
-fn canonical(ip: IpAddr) -> IpAddr {
+pub(crate) fn canonical(ip: IpAddr) -> IpAddr {
 	match ip {
 		IpAddr::V6(v6) => v6.to_ipv4_mapped().map_or(IpAddr::V6(v6), IpAddr::V4),
 		v4 => v4,

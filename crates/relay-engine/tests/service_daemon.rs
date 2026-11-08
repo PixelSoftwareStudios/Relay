@@ -120,9 +120,14 @@ async fn adapter_backed_operations_apply_fail_or_report_their_limits() {
 	assert!((settings.microphone_gain - 0.5).abs() < 1e-3);
 
 	// A manual address nobody answers at: the dial starts, the call waits.
+	let port = std::net::TcpListener::bind("127.0.0.1:0")
+		.unwrap()
+		.local_addr()
+		.unwrap()
+		.port();
 	let request = StartCallRequest {
 		context: Some(ctx(&cli, 6)),
-		target: Some(Target::ManualLocalAddress("127.0.0.1:9".to_owned())),
+		target: Some(Target::ManualLocalAddress(format!("127.0.0.1:{port}"))),
 		allow_parallel_same_peer: false,
 	};
 	let error = cli

@@ -15,6 +15,7 @@ use super::receiver::{MediaReceiver, ReceivedRef};
 use super::{seal_audio_into, seal_probe};
 use crate::address::{AddressError, AddressPolicy};
 use crate::limits::{UDP_PATH_TIMEOUT, UDP_RECORD_MAX_BYTES};
+use crate::onlink::InboundScope;
 use crate::record::RecordKind;
 use crate::session::{SealError, SecureSession};
 
@@ -76,6 +77,7 @@ pub struct MediaEndpoint {
 	validated: watch::Sender<u64>,
 	resets: AtomicU64,
 	policy: AddressPolicy,
+	scope: InboundScope,
 }
 
 impl MediaEndpoint {
@@ -98,7 +100,15 @@ impl MediaEndpoint {
 			validated: watch::channel(0).0,
 			resets: AtomicU64::new(0),
 			policy,
+			scope: InboundScope::default(),
 		})
+	}
+
+	/// Replaces the default inbound scope (the interface rules the user configured).
+	#[must_use]
+	pub fn with_scope(mut self, scope: InboundScope) -> Self {
+		self.scope = scope;
+		self
 	}
 
 	pub fn local_addr(&self) -> Result<SocketAddr, MediaError> {
@@ -322,7 +332,7 @@ impl MediaEndpoint {
 		epoch: &crate::session::LinkEpoch,
 		from: SocketAddr,
 	) {
-		if self.policy.check_socket(from).is_err() {
+		if self.scope.admit_udp(&self.policy, from).is_err() {
 			return;
 		}
 		let reply = {

@@ -15,6 +15,7 @@ pub mod identity;
 pub mod limits;
 pub mod media;
 mod noise;
+pub mod onlink;
 pub mod record;
 pub mod session;
 pub mod transfer;
@@ -25,6 +26,8 @@ pub mod proto {
 }
 
 pub use address::{
-	AddressError, AddressPolicy, endpoint_to_proto, is_lan_ip, is_shared_address_space,
+	AddressError, AddressPolicy, DIAL_PORT_MIN, endpoint_to_proto, is_lan_ip,
+	is_shared_address_space,
 };
 pub use noise::PROTOCOL_MAJOR;
+pub use onlink::InboundScope;

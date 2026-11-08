@@ -40,7 +40,7 @@ fn ipv4_and_ipv6_forms_parse() {
 	// Scheme case and whitespace are forgiven; fingerprint hex case too.
 	assert!(
 		parse(&format!(
-			"  RELAY://10.0.0.5:1#{}\n",
+			"  RELAY://10.0.0.5:7001#{}\n",
 			hex(&f).to_uppercase()
 		))
 		.is_ok()
@@ -265,10 +265,10 @@ async fn the_expected_fingerprint_pins_the_handshake() {
 
 fn lan_ip() -> impl Strategy<Value = IpAddr> {
 	prop_oneof![
-		(10u8..=10, any::<u8>(), any::<u8>(), any::<u8>())
+		(10u8..=10, any::<u8>(), any::<u8>(), 1u8..=254)
 			.prop_map(|(a, b, c, d)| IpAddr::V4(Ipv4Addr::new(a, b, c, d))),
-		(any::<u8>(), any::<u8>()).prop_map(|(c, d)| IpAddr::V4(Ipv4Addr::new(192, 168, c, d))),
-		(16u8..=31, any::<u8>(), any::<u8>())
+		(any::<u8>(), 1u8..=254).prop_map(|(c, d)| IpAddr::V4(Ipv4Addr::new(192, 168, c, d))),
+		(16u8..=31, any::<u8>(), 1u8..=254)
 			.prop_map(|(b, c, d)| IpAddr::V4(Ipv4Addr::new(172, b, c, d))),
 		(any::<[u16; 7]>(), 0xfc00u16..=0xfdff).prop_map(|(s, first)| {
 			let mut seg = [0u16; 8];
@@ -281,13 +281,13 @@ fn lan_ip() -> impl Strategy<Value = IpAddr> {
 
 proptest! {
 	#[test]
-	fn roundtrip(ip in lan_ip(), port in 1u16.., bytes in any::<[u8; 32]>()) {
+	fn roundtrip(ip in lan_ip(), port in 1024u16.., bytes in any::<[u8; 32]>()) {
 		let c = ConnectionString::new(SocketAddr::new(ip, port), Fingerprint::from_bytes(bytes));
 		prop_assert_eq!(parse(&c.to_string()).unwrap(), c);
 	}
 
 	#[test]
-	fn no_network_path_yields_overlay_space(a in any::<u8>(), b in 64u8..=127, c in any::<u8>(), d in any::<u8>(), port in 1u16..) {
+	fn no_network_path_yields_overlay_space(a in any::<u8>(), b in 64u8..=127, c in any::<u8>(), d in 1u8..=254, port in 1024u16..) {
 		let ip = IpAddr::V4(Ipv4Addr::new(100, b, c, d));
 		let _ = a;
 		let on = AddressPolicy::lan_only().with_overlay_manual(true);
@@ -313,7 +313,7 @@ proptest! {
 
 	#[test]
 	fn mutated_strings_that_still_parse_stay_lan_only(
-		ip in lan_ip(), port in 1u16.., bytes in any::<[u8; 32]>(), at in 0usize..200, byte in any::<u8>()
+		ip in lan_ip(), port in 1024u16.., bytes in any::<[u8; 32]>(), at in 0usize..200, byte in any::<u8>()
 	) {
 		let c = ConnectionString::new(SocketAddr::new(ip, port), Fingerprint::from_bytes(bytes));
 		let mut raw = c.to_string().into_bytes();

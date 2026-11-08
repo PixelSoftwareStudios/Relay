@@ -73,6 +73,13 @@ pub(super) async fn assemble(
 	config.policy = network.policy;
 	// Only addresses the user types may enter overlay space.
 	config.allow_overlay_manual = env.preferences.network.allow_overlay_manual;
+	let inbound = relay_net::InboundScope::new(
+		network
+			.discovery
+			.as_ref()
+			.map(|d| d.interfaces.clone())
+			.unwrap_or_default(),
+	);
 	config.discovery = network.discovery;
 	config.blocks = env.blocks.clone();
 	config.avatars = Some(Arc::clone(&env.avatars));
@@ -104,7 +111,7 @@ pub(super) async fn assemble(
 		advert: Arc::clone(&advert),
 	})
 	.map_err(|e| DaemonError::Channels(e.to_string()))?;
-	let messaging = start_messaging(env, &peers, network.policy, messaging).await;
+	let messaging = start_messaging(env, &peers, network.policy, inbound, messaging).await;
 	let runtime = Handle::current();
 	let (sink, events) = glue::media_events(env.handle.clone());
 	let mut media_config = MediaConfig::new(Selection::default());
@@ -165,6 +172,7 @@ async fn start_messaging(
 	env: &Environment,
 	peers: &PeerHandle,
 	policy: relay_net::AddressPolicy,
+	inbound: relay_net::InboundScope,
 	options: MessagingOptions,
 ) -> MessagingHandle {
 	let config = MessagingConfig::from_prefs(&env.preferences);
@@ -173,6 +181,7 @@ async fn start_messaging(
 	let hub_config = HubConfig {
 		rate_per_link: config.rate_bytes_per_sec(),
 		address_policy: policy,
+		inbound,
 		..HubConfig::default()
 	};
 	let transfers = match TransferHub::bind(bind, Arc::clone(&env.transport_identity), hub_config)

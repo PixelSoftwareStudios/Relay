@@ -53,6 +53,13 @@ pub async fn spawn(
 		listener,
 		Arc::clone(&params),
 		config.manual_policy(),
+		relay_net::InboundScope::new(
+			config
+				.discovery
+				.as_ref()
+				.map(|d| d.interfaces.clone())
+				.unwrap_or_default(),
+		),
 		Arc::clone(&ids),
 		link_tx.clone(),
 	));
@@ -273,6 +280,7 @@ async fn accept_loop(
 	listener: TcpListener,
 	params: Arc<LinkParams>,
 	policy: relay_net::AddressPolicy,
+	scope: relay_net::InboundScope,
 	ids: Arc<AtomicU64>,
 	events: mpsc::Sender<LinkEvent>,
 ) {
@@ -292,7 +300,11 @@ async fn accept_loop(
 				continue;
 			}
 		};
-		if policy.check_socket(from).is_err() {
+		// On an eligible interface and inside its subnet, not merely "some private range".
+		let admitted = stream
+			.local_addr()
+			.is_ok_and(|local| scope.admit_tcp(&policy, local, from).is_ok());
+		if !admitted {
 			continue;
 		}
 		let Ok(permit) = gate.try_enter(from.ip()) else {

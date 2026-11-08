@@ -122,3 +122,24 @@ fn untrusted_links_are_bounded_per_source_and_overall() {
 	}
 	assert!(links.len() <= 4);
 }
+
+#[test]
+fn an_off_subnet_private_source_is_refused_before_it_takes_a_handshake_slot() {
+	use relay_net::onlink::Iface;
+	use relay_net::{AddressPolicy, InboundScope};
+
+	let wifi = [Iface {
+		name: "en0".into(),
+		ip: ip("192.168.1.20"),
+		prefix: 24,
+		index: Some(4),
+		loopback: false,
+	}];
+	let scope = InboundScope::default();
+	let policy = AddressPolicy::lan_only();
+	let local = "192.168.1.20:47800".parse().unwrap();
+	let admit = |peer: &str| scope.admit_tcp_in(&wifi, &policy, local, peer.parse().unwrap());
+	assert!(admit("192.168.1.66:50000").is_ok());
+	assert!(admit("10.50.0.66:50000").is_err());
+	assert!(admit("192.168.2.66:50000").is_err());
+}

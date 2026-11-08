@@ -82,10 +82,16 @@ async fn a_wrong_fingerprint_is_refused_and_nothing_is_trusted() {
 async fn an_unreachable_address_fails_cleanly() {
 	let mut a = side(440.0).await;
 	let key = [7u8; 32];
+	// A port nothing listens on (dialed ports below 1024 are refused as invalid).
+	let port = std::net::TcpListener::bind("127.0.0.1:0")
+		.unwrap()
+		.local_addr()
+		.unwrap()
+		.port();
 	let op = connect(
 		&mut a,
 		1,
-		&format!("relay://127.0.0.1:1#{}", hex::encode(key)),
+		&format!("relay://127.0.0.1:{port}#{}", hex::encode(key)),
 	)
 	.await;
 	assert_failed(&op, "CONNECT_UNREACHABLE");

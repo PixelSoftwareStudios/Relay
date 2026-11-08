@@ -22,6 +22,15 @@ const EXCLUDED_PREFIXES: &[&str] = &[
 	"awdl",
 	"llw",
 	"anpi",
+	// Cellular data (Android, Linux modems): never a LAN.
+	"rmnet",
+	"ccmni",
+	"pdp",
+	"v4-",
+	"clat",
+	"wwan",
+	"wwp",
+	"wwx",
 ];
 
 /// Which interfaces take part in discovery.

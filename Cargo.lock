@@ -6000,6 +6000,7 @@ dependencies = [
  "blake3",
  "ed25519-dalek",
  "hex",
+ "if-addrs",
  "mdns-sd",
  "proptest",
  "prost",

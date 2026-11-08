@@ -47,6 +47,8 @@ pub struct HubConfig {
 	pub rate_per_link: Option<u64>,
 	pub priority: Priority,
 	pub address_policy: AddressPolicy,
+	/// Which interfaces and subnets inbound links may come from.
+	pub inbound: crate::InboundScope,
 	pub idle_timeout: Duration,
 }
 
@@ -58,6 +60,7 @@ impl Default for HubConfig {
 			rate_per_link: Some(BULK_RATE_BYTES_PER_SEC),
 			priority: Priority::Background,
 			address_policy: AddressPolicy::lan_only(),
+			inbound: crate::InboundScope::default(),
 			idle_timeout: DATA_IDLE_TIMEOUT,
 		}
 	}
@@ -123,7 +126,13 @@ impl Inner {
 
 	/// Handles one inbound connection. Every failure is a silent close.
 	async fn serve(self: Arc<Self>, mut stream: TcpStream, peer: SocketAddr) {
-		if self.config.address_policy.check_ip(peer.ip()).is_err() {
+		let admitted = stream.local_addr().ok().is_some_and(|local| {
+			self.config
+				.inbound
+				.admit_tcp(&self.config.address_policy, local, peer)
+				.is_ok()
+		});
+		if !admitted {
 			return;
 		}
 		let Ok(permit) = self.gate.try_enter(peer.ip()) else {
