@@ -18,7 +18,8 @@ for the headless pair (`relay`, `relayd`). Platforms: `windows-x64`, `windows-ar
 | Android | `relay-<version>-android-arm64-v8a.apk` | |
 
 23 assets plus `SHA256SUMS.txt`. Nothing is code-signed or notarized: macOS apps are ad-hoc signed,
-Windows installers are unsigned, the APK is debug-signed. The APK is arm64-v8a only (64-bit ARM, nearly
+Windows installers are unsigned, the APK is signed with a debug key that Gradle generates fresh on
+each CI run (no keystore secret exists; updating across releases needs an uninstall first). The APK is arm64-v8a only (64-bit ARM, nearly
 every phone since about 2016); the name says so, and the release notes repeat it.
 
 ## Build and publish
@@ -75,13 +76,44 @@ python -m unittest discover -s scripts/tests -p 'test_*.py'
 `--version` must equal the workspace version. Linux and Windows packaging need the tools listed above
 and a native host.
 
+## First release checklist
+
+One-time, by the maintainer (the workflows use only the built-in `GITHUB_TOKEN`; no secrets exist or are needed):
+
+1. Repository must be public: build provenance attestations (`actions/attest-build-provenance`) are free
+   only there; private repositories need GitHub Enterprise Cloud. The free `windows-11-arm` and
+   `ubuntu-22.04-arm` runners are also public-repository only.
+2. Settings > Actions > General: allow Actions (GitHub-authored and the third-party actions used:
+   `dtolnay/rust-toolchain`, `Swatinem/rust-cache`, `taiki-e/install-action`, `orhun/git-cliff-action`,
+   `gradle/actions`, `EmbarkStudios/cargo-deny-action`). Workflow permissions may stay "read"; the
+   `publish` job requests `contents`, `id-token` and `attestations` write itself, unless an organisation
+   policy caps the token at read.
+3. Protect `main` (CI green required) and add a tag ruleset for `v*` (creation limited to maintainers, no
+   deletion or force-update). Optionally enable release immutability once the first release is checked.
+4. Run the workflow by hand first (Actions > release > Run workflow on `main`): it builds and verifies
+   all packages and publishes nothing. This is the cheapest way to find a broken runner.
+5. Dress rehearsal with a pre-release: on a throwaway branch set `[workspace.package] version` to
+   `0.1.0-rc.1`, run `cargo update --workspace` so `Cargo.lock` agrees (the builds use `--locked`),
+   commit, tag `v0.1.0-rc.1` and push the tag. The tag must equal the version, so the real `v0.1.0`
+   tag needs the version `0.1.0` back. Afterwards delete the release and the tag.
+6. Look for: all eight jobs green (six `Build ...`, `Build Android APK`, assemble); on Windows the
+   "Verify MSI install, repair and uninstall" step; on Linux the package inspection step; a release
+   marked pre-release with 23 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
+   `.rpm` versions `0.1.0~rc.1`; `gh attestation verify <asset> -R PixelSoftwareStudios/Relay`.
+7. Tag the real release from a green `main` commit: `git tag -a v0.1.0 && git push origin v0.1.0`.
+
+Expected, not defects: nothing is signed. Windows SmartScreen warns; macOS blocks the first launch (Open
+Anyway in Privacy & Security); the APK is debug-signed with a per-build key; attestations prove which
+workflow built the files, not who the publisher is.
+
 ## Verification status
 
 Run locally on macOS (Apple silicon): the unit tests, the real `package_release.py package` /
 `package_cli.py` / `verify_macos_release.py` chain with debug binaries (DMG built with `dmgbuild`,
 ad-hoc signed, DMG and update ZIP verified identical), `actionlint` on the workflow and `git-cliff` on
-`cliff.toml`. Unverified until the first CI run: every Windows step (WiX build, MSI, the PowerShell
-check), `cargo packager` deb/AppImage output and the icon/desktop-file naming it produces,
+`cliff.toml`. Linux and Windows packaging were reviewed line by line against the `cargo-packager` 0.11.8 and
+`cargo-generate-rpm` 0.21.0 sources, not run. Unverified until the first CI run: every Windows step
+(WiX build, ICE validation, MSI, the PowerShell check), `cargo packager` deb/AppImage output and the icon/desktop-file naming it produces,
 `cargo generate-rpm` with `--set-metadata` only, the dependency lists of the `.deb` and `.rpm`,
 the AppImage with a detached `relayd`, release-profile builds on all runners, the Android job on
 GitHub's image, and publishing.
