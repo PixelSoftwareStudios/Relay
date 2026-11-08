@@ -8,6 +8,12 @@ $ErrorActionPreference = 'Stop'
 $install = Join-Path $env:ProgramFiles 'Relay'
 $log = "msi-$([IO.Path]::GetFileNameWithoutExtension($Installer)).log"
 
+# The MSI writes [INSTALLFOLDER] with a trailing backslash.
+function Test-OnMachinePath([string]$Folder) {
+    $entries = [Environment]::GetEnvironmentVariable('Path', 'Machine') -split ';' | ForEach-Object { $_.TrimEnd('\') }
+    return $entries -contains $Folder.TrimEnd('\')
+}
+
 function Invoke-Msi([string[]]$Arguments) {
     $process = Start-Process msiexec.exe -ArgumentList $Arguments -Wait -PassThru
     if ($process.ExitCode -ne 0) { throw "msiexec $($Arguments -join ' ') exited with $($process.ExitCode)" }
@@ -23,8 +29,7 @@ foreach ($name in 'relay-desktop.exe', 'relay.exe', 'relayd.exe') {
 foreach ($name in 'LICENSE', 'THIRD_PARTY_LICENSES') {
     if (-not (Test-Path (Join-Path $install "doc\$name"))) { throw "Missing licence: $name" }
 }
-$machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-if (($machinePath -split ';') -notcontains $install) { throw 'Install folder is not on the machine PATH' }
+if (-not (Test-OnMachinePath $install)) { throw 'Install folder is not on the machine PATH' }
 
 # Repair restores a deleted file.
 Remove-Item (Join-Path $install 'relayd.exe')
@@ -33,6 +38,5 @@ if (-not (Test-Path (Join-Path $install 'relayd.exe'))) { throw 'Repair did not 
 
 Invoke-Msi @('/x', "`"$Installer`"", '/qn', '/l*v', $log)
 if (Test-Path $install) { throw 'Uninstall left the install folder behind' }
-$machinePath = [Environment]::GetEnvironmentVariable('Path', 'Machine')
-if (($machinePath -split ';') -contains $install) { throw 'Uninstall left the PATH entry behind' }
+if (Test-OnMachinePath $install) { throw 'Uninstall left the PATH entry behind' }
 Write-Host 'Verified MSI install, repair and uninstall'

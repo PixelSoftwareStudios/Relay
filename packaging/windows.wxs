@@ -5,8 +5,8 @@
 		<MajorUpgrade AllowSameVersionUpgrades="yes"
 			DowngradeErrorMessage="A newer Relay version is already installed." />
 		<MediaTemplate EmbedCab="yes" />
-		<Icon Id="RelayIcon" SourceFile="$(var.Icon)" />
-		<Property Id="ARPPRODUCTICON" Value="RelayIcon" />
+		<Icon Id="RelayIcon.ico" SourceFile="$(var.Icon)" />
+		<Property Id="ARPPRODUCTICON" Value="RelayIcon.ico" />
 		<Property Id="ARPHELPLINK" Value="https://github.com/PixelSoftwareStudios/Relay" />
 		<StandardDirectory Id="ProgramFiles6432Folder">
 			<Directory Id="INSTALLFOLDER" Name="Relay">
@@ -14,7 +14,7 @@
 				<Component Id="Programs" Guid="*" Bitness="always64">
 					<File Id="RelayDesktopExe" Source="$(var.Desktop)" Name="relay-desktop.exe" KeyPath="yes">
 						<Shortcut Id="LaunchRelay" Name="Relay" Directory="ProgramMenuFolder"
-							Advertise="yes" WorkingDirectory="INSTALLFOLDER" Icon="RelayIcon" />
+							Advertise="yes" WorkingDirectory="INSTALLFOLDER" Icon="RelayIcon.ico" />
 					</File>
 					<File Id="RelayExe" Source="$(var.Cli)" Name="relay.exe" />
 					<File Id="RelaydExe" Source="$(var.Daemon)" Name="relayd.exe" />
