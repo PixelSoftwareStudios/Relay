@@ -32,6 +32,7 @@ android-apk abis="arm64-v8a":
 	# space (a 49 MB APK had grown to 66 MB); packaging from scratch keeps it exact.
 	rm -f apps/relay-android/app/build/outputs/apk/debug/app-debug.apk
 	(cd apps/relay-android && ./gradlew assembleDebug -Prelay.version="{{version}}" -Prelay.abis="{{abis}}")
+	python3 scripts/packaging/check_android_apk.py apps/relay-android/app/build/outputs/apk/debug/app-debug.apk
 	mkdir -p dist/android
 	apk="dist/android/relay-{{version}}-android-{{replace(abis, ",", "-")}}.apk"
 	cp apps/relay-android/app/build/outputs/apk/debug/app-debug.apk "$apk"
