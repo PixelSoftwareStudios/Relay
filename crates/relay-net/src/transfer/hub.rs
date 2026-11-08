@@ -114,7 +114,15 @@ impl Inner {
 	fn mark(&self, socket: &TcpSocket, v6: bool) {
 		if self.config.priority == Priority::Background {
 			let r = if v6 {
-				socket.set_tclass_v6(DSCP_CS1_TOS)
+				// tokio has no traffic-class setter on Windows: the v6 data link stays unmarked.
+				#[cfg(windows)]
+				{
+					Ok(())
+				}
+				#[cfg(not(windows))]
+				{
+					socket.set_tclass_v6(DSCP_CS1_TOS)
+				}
 			} else {
 				socket.set_tos_v4(DSCP_CS1_TOS)
 			};
