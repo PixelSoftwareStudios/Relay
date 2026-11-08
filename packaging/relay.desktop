@@ -5,6 +5,6 @@ Comment=Voice calls on your local network
 Exec=relay-desktop
 Icon=relay-desktop
 Terminal=false
-Categories=AudioVideo;Audio;Network;
+Categories=AudioVideo;Audio;
 Keywords=voice;call;lan;walkie-talkie;
 StartupNotify=true

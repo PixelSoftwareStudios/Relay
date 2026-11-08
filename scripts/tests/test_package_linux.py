@@ -43,12 +43,21 @@ class LinuxTests(unittest.TestCase):
         self.assertIn("appimage", config)
 
     def test_rpm_metadata_has_binaries_icons_licences_and_requirements(self):
-        text = linux.rpm_metadata(TARGET, self.binaries)
+        text = linux.rpm_metadata(self.version, TARGET, self.binaries)
         for fragment in ('"/usr/bin/relayd"', '"/usr/bin/relay"', '"/usr/bin/relay-desktop"',
-                         "/usr/share/applications/relay.desktop",
+                         "/usr/share/applications/relay-desktop.desktop",
                          "/usr/share/icons/hicolor/512x512/apps/relay-desktop.png",
                          "/usr/share/doc/relay/LICENSE", 'alsa-lib" = "*"'):
             self.assertIn(fragment, text)
+
+    def test_prerelease_versions_sort_before_the_release_in_deb_and_rpm(self):
+        self.assertEqual(linux.native_version("0.1.0"), "0.1.0")
+        self.assertEqual(linux.native_version("0.1.0-rc.1"), "0.1.0~rc.1")
+        text = linux.rpm_metadata("0.1.0-rc.1", TARGET, self.binaries)
+        self.assertIn('version = "0.1.0~rc.1"', text)
+        self.assertIn('release = "1"', text)
+        config = linux.configuration("0.1.0-rc.1", TARGET, self.binaries, self.root, "deb")
+        self.assertEqual(config["version"], "0.1.0~rc.1")
 
     def test_formats_and_targets_are_validated(self):
         with self.assertRaises(ValueError):
