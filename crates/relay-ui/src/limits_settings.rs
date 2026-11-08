@@ -23,16 +23,16 @@ pub enum Unit {
 }
 
 impl Unit {
-	/// The unit as shown after a number.
-	pub fn text(self) -> &'static str {
+	/// The unit word for `count`, in the plural form the language needs.
+	pub fn text(self, count: u32) -> String {
 		match self {
-			Self::Mib => tr!("limits-unit-mib"),
-			Self::Kib => tr!("limits-unit-kib"),
-			Self::Seconds => tr!("limits-unit-seconds"),
-			Self::Entries => tr!("limits-unit-entries"),
-			Self::Days => tr!("limits-unit-days"),
-			Self::Transfers => tr!("limits-unit-transfers"),
-			Self::Calls => tr!("limits-unit-calls"),
+			Self::Mib => tr!("limits-unit-mib").to_owned(),
+			Self::Kib => tr!("limits-unit-kib").to_owned(),
+			Self::Seconds => tr!("limits-unit-seconds", count = count),
+			Self::Entries => tr!("limits-unit-entries", count = count),
+			Self::Days => tr!("limits-unit-days", count = count),
+			Self::Transfers => tr!("limits-unit-transfers", count = count),
+			Self::Calls => tr!("limits-unit-calls", count = count),
 		}
 	}
 }
@@ -195,7 +195,7 @@ impl LimitValues {
 					label = def.label(),
 					min = def.min,
 					max = def.max,
-					unit = def.unit.text()
+					unit = def.unit.text(def.max)
 				));
 			}
 		}

@@ -7,12 +7,27 @@ limits-group-pictures = 图片
 limits-group-chats = 聊天和文件
 limits-group-history = 通话记录
 limits-unit-mib = MiB
-limits-unit-entries = 条
-limits-unit-days = 天
-limits-unit-transfers = 个传输
-limits-unit-calls = 次通话
+limits-unit-entries =
+    { $count ->
+       *[other] 条
+    }
+limits-unit-days =
+    { $count ->
+       *[other] 天
+    }
+limits-unit-transfers =
+    { $count ->
+       *[other] 个传输
+    }
+limits-unit-calls =
+    { $count ->
+       *[other] 次通话
+    }
 limits-unit-kib = KiB
-limits-unit-seconds = 秒
+limits-unit-seconds =
+    { $count ->
+       *[other] 秒
+    }
 limits-avatar-label = 图片缓存
 limits-avatar-help = 与你通话的人的图片保存在这里，以便快速显示。缓存已满时，最久未使用的图片会先被删除；你自己的图片永远不会被删除。调低限制会立即删除图片。
 limits-avatar-used = 已用：{ $used } MiB

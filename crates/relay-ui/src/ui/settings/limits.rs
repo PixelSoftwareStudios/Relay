@@ -137,7 +137,7 @@ fn limit(
 	ui.add_space(theme::SPACE_S);
 	// The unit is in the label, not after the number: a long translated unit would
 	// widen the value box past the row.
-	let title = format!("{} ({})", def.label(), def.unit.text());
+	let title = format!("{} ({})", def.label(), def.unit.text(def.max));
 	slider_row(ui, &title, |ui| {
 		// The value box of a short number must still be a full touch target wide.
 		ui.spacing_mut().interact_size.x = crate::layout::MIN_TOUCH_TARGET;

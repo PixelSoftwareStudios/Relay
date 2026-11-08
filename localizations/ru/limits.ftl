@@ -7,12 +7,42 @@ limits-group-pictures = Изображения
 limits-group-chats = Чаты и файлы
 limits-group-history = История звонков
 limits-unit-mib = МиБ
-limits-unit-entries = записей
-limits-unit-days = дней
-limits-unit-transfers = передач
-limits-unit-calls = звонков
+limits-unit-entries =
+    { $count ->
+        [one] записи
+        [few] записей
+        [many] записей
+       *[other] записи
+    }
+limits-unit-days =
+    { $count ->
+        [one] дня
+        [few] дней
+        [many] дней
+       *[other] дня
+    }
+limits-unit-transfers =
+    { $count ->
+        [one] передачи
+        [few] передач
+        [many] передач
+       *[other] передачи
+    }
+limits-unit-calls =
+    { $count ->
+        [one] звонка
+        [few] звонков
+        [many] звонков
+       *[other] звонка
+    }
 limits-unit-kib = КиБ
-limits-unit-seconds = секунд
+limits-unit-seconds =
+    { $count ->
+        [one] секунды
+        [few] секунд
+        [many] секунд
+       *[other] секунды
+    }
 limits-avatar-label = Кэш изображений
 limits-avatar-help = Изображения людей, с которыми вы говорите, хранятся здесь, чтобы показываться быстро. Когда кэш заполнен, сначала удаляются изображения, которыми дольше всего не пользовались; ваше собственное изображение не удаляется никогда. Если уменьшить лимит, изображения удаляются сразу.
 limits-avatar-used = Занято: { $used } МиБ
@@ -34,7 +64,7 @@ limits-ringtone-size-label = Самый большой файл рингтона
 limits-ringtone-size-help = Самый большой аудиофайл, который можно выбрать рингтоном. Файл больше этого отклоняется.
 limits-ringtone-length-label = Самый длинный рингтон
 limits-ringtone-length-help = Самая длинная запись, которую можно выбрать рингтоном. Более длинная отклоняется, а не обрезается.
-limits-check-range = { $label }: допустимо от { $min } до { $max } ({ $unit })
+limits-check-range = { $label }: допустимо от { $min } до { $max } { $unit }
 limits-check-pair = Память завершённых чатов не может быть меньше памяти одного идущего чата.
 limits-reset = Сбросить к значениям по умолчанию
 limits-nothing = Нечего менять.

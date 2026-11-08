@@ -7,12 +7,27 @@ limits-group-pictures = 画像
 limits-group-chats = チャットとファイル
 limits-group-history = 通話履歴
 limits-unit-mib = MiB
-limits-unit-entries = 件
-limits-unit-days = 日
-limits-unit-transfers = 件の転送
-limits-unit-calls = 件の通話
+limits-unit-entries =
+    { $count ->
+       *[other] 件
+    }
+limits-unit-days =
+    { $count ->
+       *[other] 日
+    }
+limits-unit-transfers =
+    { $count ->
+       *[other] 件の転送
+    }
+limits-unit-calls =
+    { $count ->
+       *[other] 件の通話
+    }
 limits-unit-kib = KiB
-limits-unit-seconds = 秒
+limits-unit-seconds =
+    { $count ->
+       *[other] 秒
+    }
 limits-avatar-label = 画像キャッシュ
 limits-avatar-help = 通話相手の画像をここに保存し、すばやく表示します。キャッシュがいっぱいになると、最も長く使われていない画像から削除されます。自分の画像は削除されません。上限を下げると、画像はすぐに削除されます。
 limits-avatar-used = 使用中: { $used } MiB

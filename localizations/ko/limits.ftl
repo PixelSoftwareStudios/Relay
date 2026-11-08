@@ -7,12 +7,27 @@ limits-group-pictures = 이미지
 limits-group-chats = 채팅 및 파일
 limits-group-history = 통화 기록
 limits-unit-mib = MiB
-limits-unit-entries = 개
-limits-unit-days = 일
-limits-unit-transfers = 건
-limits-unit-calls = 건
+limits-unit-entries =
+    { $count ->
+       *[other] 개
+    }
+limits-unit-days =
+    { $count ->
+       *[other] 일
+    }
+limits-unit-transfers =
+    { $count ->
+       *[other] 건
+    }
+limits-unit-calls =
+    { $count ->
+       *[other] 건
+    }
 limits-unit-kib = KiB
-limits-unit-seconds = 초
+limits-unit-seconds =
+    { $count ->
+       *[other] 초
+    }
 limits-avatar-label = 이미지 캐시
 limits-avatar-help = 대화 상대의 이미지를 여기에 보관해 빠르게 표시합니다. 캐시가 가득 차면 가장 오래 사용하지 않은 이미지부터 삭제되며, 내 이미지는 삭제되지 않습니다. 한도를 낮추면 이미지가 즉시 삭제됩니다.
 limits-avatar-used = 사용 중: { $used } MiB

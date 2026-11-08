@@ -14,7 +14,7 @@ fn the_row_counts_calls_and_says_chats_stay_in_memory() {
 	);
 	assert_eq!(spec.unit, "calls");
 	assert_eq!(def.default, 3);
-	assert!(!def.unit.text().is_empty());
+	assert!(!def.unit.text(def.max).is_empty());
 	assert!(def.help().contains("until you quit"), "{}", def.help());
 	assert_ne!(def.label(), "limits-calls-label");
 	let mut values = LimitValues::default();

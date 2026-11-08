@@ -7,12 +7,32 @@ limits-group-pictures = Bilder
 limits-group-chats = Chats und Dateien
 limits-group-history = Anrufverlauf
 limits-unit-mib = MiB
-limits-unit-entries = Einträge
-limits-unit-days = Tage
-limits-unit-transfers = Übertragungen
-limits-unit-calls = Anrufe
+limits-unit-entries =
+    { $count ->
+        [one] Eintrag
+       *[other] Einträge
+    }
+limits-unit-days =
+    { $count ->
+        [one] Tag
+       *[other] Tage
+    }
+limits-unit-transfers =
+    { $count ->
+        [one] Übertragung
+       *[other] Übertragungen
+    }
+limits-unit-calls =
+    { $count ->
+        [one] Anruf
+       *[other] Anrufe
+    }
 limits-unit-kib = KiB
-limits-unit-seconds = Sekunden
+limits-unit-seconds =
+    { $count ->
+        [one] Sekunde
+       *[other] Sekunden
+    }
 limits-avatar-label = Bilder-Cache
 limits-avatar-help = Bilder der Personen, mit denen du sprichst, werden hier aufbewahrt, damit sie schnell erscheinen. Ist der Cache voll, werden zuerst die am längsten nicht benutzten Bilder entfernt; dein eigenes Bild wird nie entfernt. Eine kleinere Grenze entfernt Bilder sofort.
 limits-avatar-used = Belegt: { $used } MiB
