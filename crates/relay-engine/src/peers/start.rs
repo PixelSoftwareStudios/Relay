@@ -98,6 +98,7 @@ pub async fn spawn(
 		untrusted: UntrustedLinks::new(),
 		pending: HashMap::new(),
 		sessions: Arc::clone(&sessions),
+		ring: Default::default(),
 		waiters: HashMap::new(),
 		ids,
 		output,

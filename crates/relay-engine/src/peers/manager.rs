@@ -64,6 +64,8 @@ pub(super) struct Actor {
 	pub(super) untrusted: UntrustedLinks<LinkId>,
 	pub(super) pending: HashMap<Fingerprint, VecDeque<Envelope>>,
 	pub(super) sessions: Arc<Mutex<SessionTable>>,
+	/// Invite budgets for callers nobody trusts (per source address and overall).
+	pub(super) ring: super::ring_budget::RingBudget,
 	pub(super) waiters: HashMap<LinkId, oneshot::Sender<Result<Fingerprint, PeerError>>>,
 	pub(super) ids: Arc<AtomicU64>,
 	pub(super) output: mpsc::Sender<PeerOutput>,
@@ -253,6 +255,7 @@ impl Actor {
 	}
 
 	pub(super) async fn send(&mut self, peer: Fingerprint, envelope: Envelope) {
+		self.note_stranger_decline(peer, &envelope);
 		let outcome = self.trusted_link(&peer).map(|entry| {
 			match entry.link.outbox.try_send(envelope.clone()) {
 				Ok(()) => Outbox::Sent,
@@ -278,6 +281,22 @@ impl Actor {
 				}
 				queue.push_back(envelope);
 			}
+		}
+	}
+
+	/// A decline sent to a stranger starts the cooldown for its source address.
+	fn note_stranger_decline(&mut self, peer: Fingerprint, envelope: &Envelope) {
+		let declined = matches!(
+			&envelope.body,
+			Some(Body::Reject(r)) if r.reason_code == super::signaling::REASON_DECLINED
+		);
+		if !declined {
+			return;
+		}
+		let entry = self.canonical.get(&peer).and_then(|id| self.links.get(id));
+		if let Some(entry) = entry.filter(|e| !e.trusted) {
+			self.ring
+				.declined(entry.link.remote_ip, std::time::Instant::now());
 		}
 	}
 
@@ -525,6 +544,16 @@ impl Actor {
 			return;
 		}
 		let peer = peer_id(&fingerprint);
+		// A stranger's invitations also answer to a per-source and a global budget; the per-key
+		// limit alone is free to bypass with a fresh key. Contacts are never throttled here.
+		if !trusted
+			&& matches!(body, Body::Invite(_))
+			&& !self
+				.ring
+				.admit(entry.link.remote_ip, std::time::Instant::now())
+		{
+			return;
+		}
 		let inbound = {
 			let mut table = self.sessions.lock_unpoisoned();
 			let net = LinkNet {

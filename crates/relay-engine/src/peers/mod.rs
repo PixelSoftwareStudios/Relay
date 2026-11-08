@@ -19,6 +19,7 @@ mod probing;
 mod profile;
 mod profiling;
 mod replacing;
+mod ring_budget;
 mod rtt;
 mod sessions;
 mod signaling;
@@ -40,6 +41,7 @@ pub use link::{LinkError, LinkTiming};
 pub use names::disambiguated;
 pub use profile::{CHUNK_BYTES, LocalProfile};
 pub use replacing::normalize_fingerprint;
+pub use ring_budget::RingBudget;
 pub use rtt::RttCell;
 pub use sessions::SessionTable;
 pub use signaling::{

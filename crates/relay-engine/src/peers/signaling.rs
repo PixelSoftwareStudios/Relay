@@ -21,7 +21,7 @@ pub const PROFILE: &str = "opus-48k-mono-10ms";
 /// Ring timeout advertised in invitations (informational; the domain owns timers).
 const RING_TIMEOUT_MS: u32 = 30_000;
 const REASON_BUSY: &str = "busy";
-const REASON_DECLINED: &str = "declined";
+pub(super) const REASON_DECLINED: &str = "declined";
 const REASON_HANGUP: &str = "hangup";
 
 /// Media negotiation traffic that belongs to the media module, not the domain.
