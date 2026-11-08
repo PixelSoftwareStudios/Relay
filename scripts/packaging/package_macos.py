@@ -17,7 +17,9 @@ INFO = ROOT / "apps/relay-desktop/resources/Info.plist"
 ICON = ROOT / "assets/icon/relay.icns"
 APP = "Relay.app"
 MINIMUM_SYSTEM = "13.0"
-IDENTIFIER_PREFIX = "dev.relay"
+# One code identity for every program in the bundle: the daemon runs as whichever client started
+# it (see docs/decisions.md), and the keychain approval belongs to that identity.
+IDENTIFIER = "dev.relay.relayd"
 BACKGROUND = ROOT / "assets/packaging/macos/dmg-background.png"
 DMG_LAYOUT = {"window_rect": ((200, 200), (640, 356)), "icon_size": 128,
               "icon_locations": {APP: (160, 135), "Applications": (480, 135)}}
@@ -59,14 +61,15 @@ def populate_bundle(binaries, destination, version):
 
 
 def sign_bundle(bundle):
-    """Ad-hoc only. Fixed identifiers keep each program's designated requirement stable."""
+    """Ad-hoc only. One fixed identifier keeps the designated requirement, and so the keychain
+    approval, the same whichever program started the daemon."""
     macos = bundle / "Contents/MacOS"
     for program in release.DESKTOP_PROGRAMS:
         subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none",
-                        "--identifier", f"{IDENTIFIER_PREFIX}.{program}", str(macos / program)],
+                        "--identifier", IDENTIFIER, str(macos / program)],
                        check=True)
-    subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none", str(bundle)],
-                   check=True)
+    subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none",
+                    "--identifier", IDENTIFIER, str(bundle)], check=True)
     subprocess.run(["/usr/bin/codesign", "--verify", "--deep", "--strict", str(bundle)], check=True)
 
 
