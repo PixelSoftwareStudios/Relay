@@ -234,3 +234,16 @@ The cloud-metadata block (`is_reserved_infrastructure`) is applied only in `cand
 - **`mdns-sd` behaviour on the wire** (SR-12) was read, not exercised.
 - **Not covered:** the UI crates beyond the message and image paths, the audio DSP/Opus bindings (no unsafe in the workspace code; the C Opus library and `sonora` were not audited), the update ZIP (no in-app updater exists: there is no update endpoint to attack, the ZIP is a manual download), macOS signing and notarization (ad-hoc, documented), and the `docs/gates.md` independent-review gate.
 - The working tree was changing underneath me; line numbers are deliberately omitted and findings reference files and symbols.
+
+## 7. Status of fixes
+
+Findings above are left as written. Fixed items (invisible on a home or office LAN on Wi-Fi or Ethernet; tests listed in `docs/net.md` and `docs/engine.md`):
+
+| # | Status | Commit | What changed |
+|---|---|---|---|
+| SR-01 | Fixed in Rust (Android shell: nothing required) | `15d1337` | Control accept loop, transfer hub and UDP path challenge admit a source only on an eligible interface (`InterfacePolicy`: no tunnel, VPN, container or cellular names) and inside that interface's subnet; checked per connection against `stream.local_addr()`, so Wi-Fi plus Ethernet works. Overlay stays on its own opt-in; loopback only through `lan_and_loopback` (tests). Optional hardening left: bind the Android process to the Wi-Fi `Network`. |
+| SR-04 | Partly fixed (the invisible part) | `3793f84` | Per-source (6 per 60 s) and global (24 per 60 s) invite budgets for untrusted callers and a 15 s cooldown after a decline; contacts are never throttled. Default `Anyone` policy and ringing are unchanged: silent unknown callers remain a product decision. |
+| SR-11 | Fixed | `15d1337` | `check_ip` refuses cloud-metadata addresses for every input; manual entries refuse broadcast and network addresses; dialed ports from manual, QR, discovery and remote candidates are 1024-65535. |
+| SR-12 | Mitigated | `d522293` | `mdns-sd` has no source hook; resolved records keep only addresses on-link with the interface that heard them. Residual: the library still caches datagrams from off-link sources, and an on-link neighbour address can still be named. |
+
+PoC after the fix (`AddressPolicy::lan_only().parse_manual`): `169.254.169.254:80`, `169.254.170.2:80`, `[fd00:ec2::254]:80` are `Reserved`; `192.168.1.255:47800` and `10.255.255.255:47800` are `Broadcast`; `192.168.1.5:80` is `PortRange`; `8.8.8.8:80`, `127.0.0.1:47800` and `[::ffff:8.8.8.8]:80` are unchanged.

@@ -620,7 +620,9 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   first): the device can be met again but is not a contact. `PeerControl::peers` lists blocked
   devices with `trust = BLOCKED` and `reachable = false`. Tests: `tests/peers_block.rs`,
   `tests/service_call_trust.rs`.
-- Inbound hardening: the accept loop uses `HandshakeGate::try_enter(source_ip)` (2 pending
+- Inbound hardening: the accept loop first requires an on-link source on an eligible interface
+  (`relay_net::InboundScope`, `docs/net.md`; the same scope guards the transfer hub, built from
+  the discovery `InterfacePolicy`), then uses `HandshakeGate::try_enter(source_ip)` (2 pending
   handshakes per source, oldest of the busiest source evicted, `respond_gated` abandons an
   evicted one), sleeps `AcceptBackoff` (20 ms to 2 s) on accept errors, and `UntrustedLinks`
   caps held untrusted links at 16 (2 per source), closing the oldest when exceeded. Dial and
@@ -635,6 +637,11 @@ read the actor's table directly (`GateBoard::publish` exists for hosts without i
   from `EndpointOffer` are kept only when equal to the link's remote IP or inside the subnet
   of the local interface it arrived on (`subnet.rs`, from `if_addrs` netmasks; unknown
   interface means remote IP only).
+- Ring budgets for strangers (`peers/ring_budget.rs`, `RingBudget`): invites from an untrusted
+  link also pass it, keyed by source address (IPv6 by /64): 6 per 60 s per source, 24 per 60 s for all strangers together, and a source stays quiet
+  15 s after the user declines its call (noted in `Actor::send` when a `declined` reject goes to an
+  untrusted link). Over budget the invite is dropped unseen. Trusted contacts never pass through it;
+  the default inbound policy is unchanged.
 - Trust decisions pin from the key held on the link, not from the store's 64-key cache, so
   identity churn cannot make `DecidePeerTrust` fail. `ConfigTrust::find_by_name` compares
   `name_skeleton`. Names are display data: when another key (trusted record or live link) claims

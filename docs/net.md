@@ -7,7 +7,8 @@ security review still open**; the composition is a proposal, not an audited prot
 
 | Module | Role |
 |---|---|
-| `address` | LAN-only policy: private, link-local, ULA accepted; public and (by default) loopback refused; IPv4-mapped IPv6 unwrapped. Manual `ip:port` / `[v6%scope]:port` only, no DNS, no URLs. |
+| `address` | LAN-only policy: private, link-local, ULA accepted; public and (by default) loopback refused; IPv4-mapped IPv6 unwrapped; cloud-metadata addresses refused for every input (`check_ip`). Manual `ip:port` / `[v6%scope]:port` only, no DNS, no URLs; dialed ports must be 1024-65535 and broadcast/network addresses are refused. |
+| `onlink` | `InboundScope`: who may reach the pre-auth surface. Accepted only on an eligible interface and from inside that interface's subnet (see Inbound scope below). |
 | `discovery` | `mdns-sd` browse/advertise of `_praxis-relay._tcp.local.`, interface policy (loopback, tunnel/VPN/container names excluded unless named), sanitized names, bounded table (256). Output is untrusted hints. |
 | `identity` | X25519 static key (`Identity`), BLAKE3 `Fingerprint` (full and short forms), `TrustStore` trait and in-memory impl. |
 | `handshake` | 24-byte `RLH1` preface with fresh 128-bit epoch, then `Noise_XX_25519_ChaChaPoly_BLAKE2s` with prologue `RelayPeer/v1\0 || major || epoch`. 4 KiB frames, 5 s deadline, pending-handshake gate (8). |
@@ -109,6 +110,34 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
 - Not included: avatar/bulk send queue prioritisation, link election for simultaneous dialling,
   persistent trust (relay-config), routed-subnet allowlist, a replay window for the control lane
   beyond strict ordering.
+- **Inbound scope (`onlink`).** The control accept loop, the transfer hub and the UDP path challenge
+  admit a source only if (a) the connection arrived on an interface `InterfacePolicy` accepts
+  (physical Wi-Fi or Ethernet; `utun`, `tun`, `tap`, `wg`, `tailscale`, `docker`, `vpn`-style names and
+  cellular `rmnet`/`ccmni`/`pdp`/`wwan` are not) and (b) the source lies in that interface's own subnet
+  (netmask from the OS; link-local IPv6 needs the same scope id; ULA the same prefix). The receiving
+  interface is found from `stream.local_addr()` (TCP) so a host with Wi-Fi and Ethernet works: each
+  connection is judged against the NIC that received it. UDP is bound to the wildcard, so a datagram
+  source may be on any eligible interface's subnet. Users on the same VPN server, on other routed
+  private networks or on a carrier network therefore cannot reach the handshake. Overlay
+  (100.64.0.0/10) is not decided here: the `AddressPolicy` admits it only as before (the one
+  authenticated peer of an opted-in link, for media); an inbound control link from overlay space
+  was never admitted and still is not. Loopback is admitted only by `AddressPolicy::lan_and_loopback()`
+  (tests) and only loopback-to-loopback. The same code runs on Android (`if_addrs` uses
+  `getifaddrs`); cellular is refused by interface name and by subnet. A user who named interfaces
+  explicitly for discovery gets exactly those interfaces for inbound too (media uses the default
+  rules). Windows adapter names are friendly names, so the name rule is weaker there; the subnet rule
+  still applies.
+- **Address checks (SR-11).** `check_ip` refuses `169.254.169.254`, `169.254.170.2`,
+  `169.254.169.253`, `169.254.169.123`, `fd00:ec2::254`, `::23`, `::123` for manual entries, QR strings,
+  discovery and remote candidates alike. Manual entries also refuse the limited broadcast, the broadcast
+  and network address of a local IPv4 subnet (so `x.x.x.255` stays valid on a /16) and, outside every
+  local subnet, any `x.x.x.255`/`x.x.x.0`. Manual entries, remote candidates and discovered records need a port of 1024-65535
+  (`DIAL_PORT_MIN`).
+- **mDNS source (SR-12).** `mdns-sd` exposes no hook for the datagram source, so `Discovery` filters
+  the resolved records: an advertised address is kept only if it is on-link with the interface the
+  answer arrived on (the library records it per address; IPv6 link-local needs that scope). A remote
+  host that can reach UDP 5353 can still make the library cache its records, but cannot name an
+  address outside the local subnets. Residual: it can still name an on-link neighbour (port >= 1024).
 - Live mDNS test is opt-in: `cargo test -p relay-net --test discovery -- --ignored`.
 
 ## Per-transfer data links (`transfer`)
