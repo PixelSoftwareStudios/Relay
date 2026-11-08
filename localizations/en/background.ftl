@@ -2,6 +2,19 @@
 
 background-label = Stay available in the background
 background-help = Keeps Relay reachable and ringing while the window or app is closed, as long as this device is on the network.
+background-title = Stay available
+background-status-off = Off. Others cannot reach you while the app is closed.
+background-status-running = Relay is running in the background and can ring when the device is locked or the app is closed.
+background-status-waiting = Waiting for Wi-Fi. Relay will become available again when this device joins a network.
+background-status-paused = Paused. Open Relay or turn this switch off and on to resume.
+background-status-tray = Relay keeps running in the tray when you close the window, and can ring.
+background-ask-title = Stay available in the background?
+background-ask-body = Relay can keep listening on your network so you can get calls when the app is closed. This uses a small persistent notification. You can change this any time in Settings > Calls.
+background-ask-yes = Yes, stay available
+background-ask-no = Only while the app is open
+background-chip-on = Available in background
+background-chip-off = Only while app is open
+background-chip-hover = Open Settings > Calls
 background-battery-warning = Battery optimization may stop Relay from ringing while the app is closed.
 background-battery-button = Allow in battery settings
 background-notifications-warning = Notifications are off, so you would not see incoming calls while the app is closed.

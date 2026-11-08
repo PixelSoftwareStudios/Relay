@@ -8,6 +8,7 @@
 //! call opens from its call card or its history row (see `chat`).
 
 mod auto_answer;
+mod available;
 mod back;
 mod banners;
 mod call_card;
@@ -414,6 +415,9 @@ impl RelayApp {
 	fn finish_frame(&mut self, class: LayoutClass) {
 		if let Some(page) = self.local.goto.take() {
 			self.set_page(page);
+		}
+		if let Some(category) = self.local.goto_settings.take() {
+			self.open_settings(Some(category));
 		}
 		if !self.local.talk_drawn
 			&& let Some(call) = self.local.talking.take()

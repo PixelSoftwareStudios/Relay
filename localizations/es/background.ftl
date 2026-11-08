@@ -2,6 +2,19 @@
 
 background-label = Seguir disponible en segundo plano
 background-help = Mantiene Relay accesible y sonando mientras la ventana o la app está cerrada, siempre que este dispositivo esté en la red.
+background-title = Seguir disponible
+background-status-off = Desactivado. Los demás no pueden contactarte con la app cerrada.
+background-status-running = Relay se ejecuta en segundo plano y puede sonar con el dispositivo bloqueado o la app cerrada.
+background-status-waiting = Esperando Wi-Fi. Relay volverá a estar disponible cuando este dispositivo se una a una red.
+background-status-paused = En pausa. Abre Relay o apaga y enciende este interruptor para reanudar.
+background-status-tray = Relay sigue en ejecución en la bandeja al cerrar la ventana y puede sonar.
+background-ask-title = ¿Seguir disponible en segundo plano?
+background-ask-body = Relay puede seguir escuchando en tu red para que recibas llamadas con la app cerrada. Usa una pequeña notificación permanente. Puedes cambiarlo cuando quieras en Ajustes > Llamadas.
+background-ask-yes = Sí, seguir disponible
+background-ask-no = Solo con la app abierta
+background-chip-on = Disponible en segundo plano
+background-chip-off = Solo con la app abierta
+background-chip-hover = Abrir Ajustes > Llamadas
 background-battery-warning = La optimización de batería puede impedir que Relay suene con la app cerrada.
 background-battery-button = Permitir en los ajustes de batería
 background-notifications-warning = Las notificaciones están desactivadas, así que no verías las llamadas entrantes con la app cerrada.

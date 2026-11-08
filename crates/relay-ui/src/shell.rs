@@ -219,4 +219,20 @@ pub trait Shell: FilePicker {
 	}
 	/// Ask for the notification permission, or open the page where it is turned on.
 	fn request_notifications(&self) {}
+	/// What the shell's keep-alive for `background.available` is doing right now, so Settings can
+	/// say what is really happening. `None` where the question does not apply (the UI then falls
+	/// back to the tray facts on a desktop). Only read while the setting is on. Called per frame,
+	/// so it must be cheap.
+	fn background_state(&self) -> Option<crate::background_settings::BackgroundState> {
+		None
+	}
+	/// Whether the one-time question `id` was already answered on this device. The default is
+	/// `true` (never ask) so a shell that cannot remember never nags; a shell that stores the
+	/// answer returns `false` until [`Shell::set_question_answered`] ran. The first-run
+	/// background question is only asked where [`Shell::notifications_allowed`] is `Some`.
+	fn question_answered(&self, _id: &str) -> bool {
+		true
+	}
+	/// Remember that the user answered the one-time question `id`.
+	fn set_question_answered(&self, _id: &str) {}
 }

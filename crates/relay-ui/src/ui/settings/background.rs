@@ -1,10 +1,13 @@
 //! "Stay available in the background", the call alert and the global auto-answer switch.
 //! The engine stores them; the OS shells act on the first two.
 
-use egui::{RichText, Ui};
+use egui::{Color32, RichText, Ui};
 
-use crate::background_settings::{KEY_AUTO_ANSWER, KEY_BACKGROUND, KEY_CALL_ALERT};
+use crate::background_settings::{
+	BackgroundState, KEY_AUTO_ANSWER, KEY_BACKGROUND, KEY_CALL_ALERT,
+};
 use crate::model::{CallAlert, Settings};
+use crate::shell::Shell;
 use crate::theme;
 
 use super::super::kit::{self, Cx};
@@ -26,7 +29,9 @@ fn switch(ui: &mut Ui, cx: &mut Cx, key: &'static str, on: bool, label: &str) {
 
 /// The background switch with its help, the warnings the shell raises and their buttons.
 pub fn availability(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
+	let shell = cx.actions.shell.clone();
 	kit::card(ui, |ui| {
+		kit::card_title(ui, tr!("background-title"));
 		switch(
 			ui,
 			cx,
@@ -35,7 +40,12 @@ pub fn availability(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
 			tr!("background-label"),
 		);
 		kit::help(ui, tr!("background-help"));
-		let shell = cx.actions.shell.clone();
+		if let Some((color, text)) = status(ui, &*shell, settings.background_available) {
+			ui.horizontal_wrapped(|ui| {
+				ui.label(RichText::new("\u{25CF}").color(color));
+				ui.label(text);
+			});
+		}
 		if shell.battery_optimization_exempt() == Some(false) {
 			warning(ui, tr!("background-battery-warning"));
 			button_row(ui, |ui| {
@@ -54,6 +64,20 @@ pub fn availability(ui: &mut Ui, settings: &Settings, cx: &mut Cx) {
 		}
 		saved::answer(ui, cx, KEY_BACKGROUND);
 	});
+}
+
+/// The dot colour and the sentence saying what the background setting really does now.
+fn status(ui: &Ui, shell: &dyn Shell, on: bool) -> Option<(Color32, &'static str)> {
+	if !on {
+		return Some((ui.visuals().weak_text_color(), tr!("background-status-off")));
+	}
+	Some(match shell.background_state() {
+		Some(BackgroundState::Running) => (theme::LIVE, tr!("background-status-running")),
+		Some(BackgroundState::WaitingForNetwork) => (theme::WARN, tr!("background-status-waiting")),
+		Some(BackgroundState::Paused) => (theme::WARN, tr!("background-status-paused")),
+		None if shell.hides_to_tray() => (theme::LIVE, tr!("background-status-tray")),
+		None => return None,
+	})
 }
 
 fn warning(ui: &mut Ui, text: &str) {

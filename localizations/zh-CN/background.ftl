@@ -2,6 +2,19 @@
 
 background-label = 在后台保持可用
 background-help = 只要此设备连接着网络，即使窗口或应用已关闭，Relay 也会保持在线并响铃。
+background-title = 保持可用
+background-status-off = 已关闭。应用关闭时，其他人无法联系到你。
+background-status-running = Relay 正在后台运行，设备锁屏或应用关闭时也可以响铃。
+background-status-waiting = 正在等待 Wi-Fi。此设备连接到网络后，Relay 将恢复可用。
+background-status-paused = 已暂停。打开 Relay，或将此开关关闭再打开即可恢复。
+background-status-tray = 关闭窗口后，Relay 会继续在托盘中运行，并可以响铃。
+background-ask-title = 在后台保持可用？
+background-ask-body = Relay 可以在你的网络中持续监听，让你在应用关闭时也能接听来电。这会使用一条小的常驻通知。你可以随时在设置 > 通话中更改。
+background-ask-yes = 是，保持可用
+background-ask-no = 仅在应用打开时
+background-chip-on = 后台可用
+background-chip-off = 仅在应用打开时
+background-chip-hover = 打开设置 > 通话
 background-battery-warning = 电池优化可能会让 Relay 在应用关闭时无法响铃。
 background-battery-button = 在电池设置中允许
 background-notifications-warning = 通知已关闭，应用关闭时你将看不到来电。

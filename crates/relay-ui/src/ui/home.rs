@@ -6,11 +6,13 @@ use egui::Ui;
 use crate::viewmodel::{CallCard, PeerRow};
 
 use super::kit::{self, Cx};
-use super::{call_card, chat, favorites, history, microphone, outdated, startup};
+use super::{available, call_card, chat, favorites, history, microphone, outdated, startup};
 use crate::tr;
 
 pub fn show(ui: &mut Ui, cards: &[CallCard], rows: &[PeerRow], cx: &mut Cx) {
 	kit::page_title(ui, tr!("calls-heading"));
+	available::first_run(ui, cx);
+	available::chip_compact(ui, cx);
 	startup::card(ui, cx);
 	outdated::card(ui, cx);
 	microphone::show(ui, cx);

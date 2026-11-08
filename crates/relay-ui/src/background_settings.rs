@@ -10,6 +10,20 @@ pub const KEY_CALL_ALERT: &str = "calls.alert";
 /// Global auto-answer switch.
 pub const KEY_AUTO_ANSWER: &str = "calls.auto_answer_enabled";
 
+/// Id of the one-time "Stay available in the background?" question (`Shell::question_answered`).
+pub const QUESTION_BACKGROUND: &str = "background-first-run";
+
+/// What the shell's keep-alive is doing while `background.available` is on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BackgroundState {
+	/// The service runs and holds the network: the device can ring with the app closed.
+	Running,
+	/// The service runs but the device is on no Wi-Fi or local network.
+	WaitingForNetwork,
+	/// The user pressed Pause in the notification: nothing is held until the app is opened.
+	Paused,
+}
+
 /// Applies one of the three keys to `settings`. `None` when the key is not one of them,
 /// `Some(Err(why))` when the value is refused.
 pub fn apply(settings: &mut Settings, key: &str, value: &str) -> Option<Result<(), &'static str>> {

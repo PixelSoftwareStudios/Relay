@@ -2,6 +2,19 @@
 
 background-label = バックグラウンドで待ち受ける
 background-help = このデバイスがネットワークにつながっている間は、ウィンドウやアプリを閉じていても Relay が着信を受けて鳴ります。
+background-title = 待ち受けを続ける
+background-status-off = オフ。アプリを閉じている間は、ほかの人から連絡できません。
+background-status-running = Relay はバックグラウンドで動作しており、デバイスがロック中でもアプリを閉じていても鳴らせます。
+background-status-waiting = Wi-Fi を待っています。このデバイスがネットワークに接続すると、Relay は再び待ち受けます。
+background-status-paused = 一時停止中。Relay を開くか、このスイッチをオフにしてからオンにすると再開します。
+background-status-tray = ウィンドウを閉じても Relay はトレイで動作を続け、鳴らせます。
+background-ask-title = バックグラウンドで待ち受けますか？
+background-ask-body = アプリを閉じていても着信を受けられるよう、Relay はネットワークで待ち受けを続けられます。小さな常駐通知が表示されます。設定 > 通話でいつでも変更できます。
+background-ask-yes = はい、待ち受ける
+background-ask-no = アプリを開いている間だけ
+background-chip-on = バックグラウンドで待ち受け中
+background-chip-off = アプリを開いている間のみ
+background-chip-hover = 設定 > 通話を開く
 background-battery-warning = バッテリーの最適化により、アプリを閉じている間は Relay が鳴らないことがあります。
 background-battery-button = バッテリー設定で許可
 background-notifications-warning = 通知がオフのため、アプリを閉じている間は着信に気づけません。

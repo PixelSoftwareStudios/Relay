@@ -81,6 +81,10 @@ pub struct Local {
 	pub awaiting_answer: std::collections::HashSet<String>,
 	/// A page asked to go to another page (an empty state's button).
 	pub goto: Option<crate::layout::Page>,
+	/// A control asked to open this Settings category.
+	pub goto_settings: Option<crate::capabilities::SettingsCategory>,
+	/// The first-run background question was answered during this run.
+	pub first_run_closed: bool,
 	/// The contact (hex peer id) the Contacts page should scroll to and show.
 	pub focus_contact: Option<String>,
 	/// The microphone test of Settings, Audio.

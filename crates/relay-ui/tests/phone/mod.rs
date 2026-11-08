@@ -59,6 +59,10 @@ pub struct PhoneShell {
 	pub vibrates: AtomicBool,
 	pub battery_requests: AtomicUsize,
 	pub notification_requests: AtomicUsize,
+	/// `background_state`, and the one-time questions answered (a shell that remembers them).
+	pub background: Mutex<Option<relay_ui::background_settings::BackgroundState>>,
+	pub remembers_questions: AtomicBool,
+	pub answered: Mutex<Vec<String>>,
 }
 
 impl FilePicker for PhoneShell {
@@ -135,6 +139,16 @@ impl Shell for PhoneShell {
 	}
 	fn request_notifications(&self) {
 		self.notification_requests.fetch_add(1, Ordering::SeqCst);
+	}
+	fn background_state(&self) -> Option<relay_ui::background_settings::BackgroundState> {
+		*self.background.lock().unwrap()
+	}
+	fn question_answered(&self, id: &str) -> bool {
+		!self.remembers_questions.load(Ordering::SeqCst)
+			|| self.answered.lock().unwrap().iter().any(|a| a == id)
+	}
+	fn set_question_answered(&self, id: &str) {
+		self.answered.lock().unwrap().push(id.to_owned());
 	}
 	fn can_vibrate(&self) -> bool {
 		self.vibrates.load(Ordering::SeqCst)

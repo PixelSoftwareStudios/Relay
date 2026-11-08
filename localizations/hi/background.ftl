@@ -2,6 +2,19 @@
 
 background-label = बैकग्राउंड में उपलब्ध रहें
 background-help = जब तक यह डिवाइस नेटवर्क पर है, विंडो या ऐप बंद होने पर भी Relay पहुँच में रहता है और बजता है।
+background-title = उपलब्ध रहें
+background-status-off = बंद। ऐप बंद होने पर दूसरे आप तक नहीं पहुँच सकते।
+background-status-running = Relay बैकग्राउंड में चल रहा है और डिवाइस लॉक होने या ऐप बंद होने पर भी बज सकता है।
+background-status-waiting = Wi-Fi का इंतज़ार है। यह डिवाइस नेटवर्क से जुड़ते ही Relay फिर उपलब्ध हो जाएगा।
+background-status-paused = रुका हुआ है। फिर शुरू करने के लिए Relay खोलें या इस स्विच को बंद करके फिर चालू करें।
+background-status-tray = विंडो बंद करने पर भी Relay ट्रे में चलता रहता है और बज सकता है।
+background-ask-title = बैकग्राउंड में उपलब्ध रहें?
+background-ask-body = ऐप बंद होने पर भी कॉल मिल सकें, इसके लिए Relay आपके नेटवर्क पर सुनता रह सकता है। इसमें एक छोटी स्थायी सूचना दिखती है। इसे आप कभी भी सेटिंग > कॉल में बदल सकते हैं।
+background-ask-yes = हाँ, उपलब्ध रहें
+background-ask-no = केवल ऐप खुला होने पर
+background-chip-on = बैकग्राउंड में उपलब्ध
+background-chip-off = केवल ऐप खुला होने पर
+background-chip-hover = सेटिंग > कॉल खोलें
 background-battery-warning = बैटरी ऑप्टिमाइज़ेशन के कारण ऐप बंद होने पर Relay का बजना रुक सकता है।
 background-battery-button = बैटरी सेटिंग में अनुमति दें
 background-notifications-warning = सूचनाएँ बंद हैं, इसलिए ऐप बंद होने पर आपको आने वाली कॉल दिखाई नहीं देंगी।
