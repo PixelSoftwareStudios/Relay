@@ -22,4 +22,4 @@ contact-auto-answer-badge = Wird automatisch angenommen
 auto-answer-ask = { $name } kann dich anrufen, und der Anruf wird ohne dein Zutun angenommen; dein Mikrofon öffnet sich gemäß „{ $mode }“. Tu das nur bei Personen, denen du vertraust.
 auto-answer-yes = Ja, automatisch annehmen
 call-auto-answered = Automatisch angenommen
-err-auto-answer-verified = Nur verifizierte Kontakte können automatisch angenommen werden. Vergleiche zuerst den Fingerabdruck auf beiden Geräten.
+err-auto-answer-verified = Die automatische Annahme lässt sich nur für einen verifizierten Kontakt einschalten. Vergleiche zuerst den Fingerabdruck auf beiden Geräten.

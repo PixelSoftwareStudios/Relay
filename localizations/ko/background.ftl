@@ -22,4 +22,4 @@ contact-auto-answer-badge = 자동으로 응답함
 auto-answer-ask = { $name }님이 전화하면 기기를 만지지 않아도 응답되며, 마이크는 "{ $mode }" 설정대로 켜집니다. 신뢰하는 사람에게만 사용하세요.
 auto-answer-yes = 예, 자동으로 응답
 call-auto-answered = 자동으로 응답한 통화
-err-auto-answer-verified = 확인된 연락처만 자동으로 응답할 수 있습니다. 먼저 두 기기의 지문을 비교하세요.
+err-auto-answer-verified = 자동 응답은 확인된 연락처에만 켤 수 있습니다. 먼저 두 기기의 지문을 비교하세요.

@@ -22,4 +22,4 @@ contact-auto-answer-badge = Atende automaticamente
 auto-answer-ask = { $name } poderá ligar para você e será atendido sem que você toque no dispositivo, abrindo seu microfone conforme definido em “{ $mode }”. Faça isso só com pessoas de confiança.
 auto-answer-yes = Sim, atender automaticamente
 call-auto-answered = Atendida automaticamente
-err-auto-answer-verified = Só contatos verificados podem ser atendidos automaticamente. Antes, compare a impressão digital nos dois dispositivos.
+err-auto-answer-verified = O atendimento automático só pode ser ativado para um contato verificado. Antes, compare a impressão digital nos dois dispositivos.

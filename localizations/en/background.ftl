@@ -22,4 +22,4 @@ contact-auto-answer-badge = Answers automatically
 auto-answer-ask = { $name } will be able to call you and be answered without you touching the device, opening your microphone as set under "{ $mode }". Only do this for people you trust.
 auto-answer-yes = Yes, answer automatically
 call-auto-answered = Answered automatically
-err-auto-answer-verified = Only verified contacts can answer automatically. Compare the safety code on both devices first.
+err-auto-answer-verified = Auto-answer can only be turned on for a verified contact. Compare the fingerprint on both devices first.

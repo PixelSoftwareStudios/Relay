@@ -22,4 +22,4 @@ contact-auto-answer-badge = Contesta automáticamente
 auto-answer-ask = { $name } podrá llamarte y se le contestará sin que toques el dispositivo, abriendo tu micrófono según lo definido en “{ $mode }”. Hazlo solo con personas de confianza.
 auto-answer-yes = Sí, contestar automáticamente
 call-auto-answered = Contestada automáticamente
-err-auto-answer-verified = Solo los contactos verificados pueden contestar automáticamente. Antes compara la huella en ambos dispositivos.
+err-auto-answer-verified = La respuesta automática solo se puede activar para un contacto verificado. Antes compara la huella en ambos dispositivos.

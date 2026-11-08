@@ -22,4 +22,4 @@ contact-auto-answer-badge = 自動で応答します
 auto-answer-ask = { $name } さんからの着信は、デバイスに触れなくても応答され、マイクは「{ $mode }」の設定どおりに開きます。信頼できる相手にだけ設定してください。
 auto-answer-yes = はい、自動で応答する
 call-auto-answered = 自動応答した通話
-err-auto-answer-verified = 自動で応答できるのは確認済みの連絡先だけです。先に両方のデバイスでフィンガープリントを比べてください。
+err-auto-answer-verified = 自動応答をオンにできるのは確認済みの連絡先だけです。先に両方のデバイスでフィンガープリントを比べてください。

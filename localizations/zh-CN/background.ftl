@@ -22,4 +22,4 @@ contact-auto-answer-badge = 自动接听
 auto-answer-ask = { $name } 可以呼叫你，无需你触碰设备即会被接听，并按“{ $mode }”的设置打开你的麦克风。仅对你信任的人开启。
 auto-answer-yes = 是，自动接听
 call-auto-answered = 已自动接听
-err-auto-answer-verified = 只有已验证的联系人才能自动接听。请先在两台设备上比对指纹。
+err-auto-answer-verified = 只有已验证的联系人才能开启自动接听。请先在两台设备上比对指纹。
