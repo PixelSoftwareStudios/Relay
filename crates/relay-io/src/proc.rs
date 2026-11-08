@@ -1,10 +1,13 @@
 //! Launching a long-lived child that outlives this process, and its log file.
 
 use std::ffi::OsString;
-use std::fs::{self, File, OpenOptions};
+use std::fs::{self, File};
 use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+
+use crate::error::IoError;
+use crate::fs::{ensure_owned_private_dir, open_private_append, restrict_file};
 
 /// The first argument that makes a client executable run the daemon instead of the client:
 /// `relay`, `relay-desktop` and `relayd` all honour it (see the `relay-daemon` library), so a
@@ -44,16 +47,25 @@ pub fn reap_in_background(mut child: Child) {
 	});
 }
 
-/// Opens `path` for appending (creating its directory), first moving it to
-/// `path.with_extension("log.1")` when it exceeds `rotate_bytes`.
+/// Opens `path` for appending, first moving it to `path.with_extension("log.1")`
+/// when it exceeds `rotate_bytes`. The directory is created 0700 and the file 0600;
+/// looser modes on existing ones are tightened, symlinks and files or directories
+/// of another user are refused.
 pub fn open_rotating_log(path: &Path, rotate_bytes: u64) -> std::io::Result<File> {
-	if let Some(dir) = path.parent() {
-		fs::create_dir_all(dir)?;
+	let into_io = |error: IoError| match error {
+		IoError::Io { source, .. } => source,
+		other => std::io::Error::new(std::io::ErrorKind::PermissionDenied, other.to_string()),
+	};
+	if let Some(dir) = path.parent().filter(|dir| !dir.as_os_str().is_empty()) {
+		ensure_owned_private_dir(dir).map_err(into_io)?;
 	}
-	if fs::metadata(path).is_ok_and(|meta| meta.len() > rotate_bytes) {
-		let _ = fs::rename(path, path.with_extension("log.1"));
+	if fs::symlink_metadata(path).is_ok_and(|meta| meta.len() > rotate_bytes) {
+		let aside = path.with_extension("log.1");
+		if fs::rename(path, &aside).is_ok() {
+			let _ = restrict_file(&aside);
+		}
 	}
-	OpenOptions::new().create(true).append(true).open(path)
+	open_private_append(path).map_err(into_io)
 }
 
 /// The tail of a log file: at most `max_lines` lines from the last `max_bytes`,

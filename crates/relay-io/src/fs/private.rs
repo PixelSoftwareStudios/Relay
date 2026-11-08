@@ -139,6 +139,36 @@ pub fn create_private_file(path: &Path) -> Result<File> {
 		.map_err(|e| IoError::io(path, e))
 }
 
+/// Opens `path` for appending, creating it 0600. A symlink at `path` is refused
+/// (`O_NOFOLLOW`), a file owned by someone else is refused and a looser mode on
+/// our own file is tightened to 0600.
+pub fn open_private_append(path: &Path) -> Result<File> {
+	let mut options = OpenOptions::new();
+	private_options(options.append(true).create(true));
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::OpenOptionsExt;
+		options.custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32);
+	}
+	let file = options.open(path).map_err(|e| IoError::io(path, e))?;
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::{MetadataExt, PermissionsExt};
+		let meta = file.metadata().map_err(|e| IoError::io(path, e))?;
+		if meta.uid() != current_uid() {
+			return Err(IoError::Insecure {
+				path: path.to_path_buf(),
+				reason: "owned by another user",
+			});
+		}
+		if meta.permissions().mode() & 0o177 != 0 {
+			file.set_permissions(fs::Permissions::from_mode(0o600))
+				.map_err(|e| IoError::io(path, e))?;
+		}
+	}
+	Ok(file)
+}
+
 /// Exclusively creates `path` (0600); fails if anything, even a symlink, exists.
 pub fn create_private_new(path: &Path) -> Result<File> {
 	private_options(OpenOptions::new().write(true).create_new(true))

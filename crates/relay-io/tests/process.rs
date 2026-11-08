@@ -109,3 +109,46 @@ fn rotating_log_moves_an_oversized_file_aside_and_tail_reads_the_end() {
 	assert_eq!(std::fs::read(&log).unwrap().len(), 0);
 	assert_eq!(read_tail(&tmp.path().join("none"), 0, 10, 10), "");
 }
+
+#[cfg(unix)]
+#[test]
+fn log_is_private_and_loose_modes_are_tightened() {
+	use relay_io::proc::open_rotating_log;
+	use std::os::unix::fs::PermissionsExt;
+	let mode = |path: &Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+	let tmp = tempfile::tempdir().unwrap();
+	let dir = tmp.path().join("logs");
+	let log = dir.join("relayd.log");
+	open_rotating_log(&log, 1 << 20).unwrap();
+	assert_eq!(mode(&dir), 0o700);
+	assert_eq!(mode(&log), 0o600);
+
+	// An older, world-readable directory and log are tightened when opened.
+	std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+	std::fs::set_permissions(&log, std::fs::Permissions::from_mode(0o644)).unwrap();
+	std::fs::write(&log, "0123456789").unwrap();
+	std::fs::set_permissions(&log, std::fs::Permissions::from_mode(0o644)).unwrap();
+	open_rotating_log(&log, 4).unwrap();
+	assert_eq!(mode(&dir), 0o700);
+	assert_eq!(mode(&log), 0o600);
+	assert_eq!(mode(&log.with_extension("log.1")), 0o600);
+}
+
+#[cfg(unix)]
+#[test]
+fn log_refuses_a_symlink() {
+	use relay_io::proc::open_rotating_log;
+	let tmp = tempfile::tempdir().unwrap();
+	let target = tmp.path().join("target");
+	std::fs::write(&target, "keep").unwrap();
+	let dir = tmp.path().join("logs");
+	std::fs::create_dir(&dir).unwrap();
+	let log = dir.join("relayd.log");
+	std::os::unix::fs::symlink(&target, &log).unwrap();
+	assert!(open_rotating_log(&log, 1 << 20).is_err());
+	assert_eq!(std::fs::read_to_string(&target).unwrap(), "keep");
+	// A symlinked directory is refused too.
+	let link_dir = tmp.path().join("linked");
+	std::os::unix::fs::symlink(&dir, &link_dir).unwrap();
+	assert!(open_rotating_log(&link_dir.join("x.log"), 1 << 20).is_err());
+}

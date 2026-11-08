@@ -17,7 +17,7 @@ pub use noreplace::rename_noreplace;
 pub use private::current_uid;
 pub use private::{
 	check_private_file, create_private_file, create_private_new, ensure_owned_private_dir,
-	ensure_private_dir, restrict_file, write_private, write_private_fresh,
+	ensure_private_dir, open_private_append, restrict_file, write_private, write_private_fresh,
 };
 pub use read::{read_if_exists, read_limited, read_string_limited};
 pub use remove::remove_if_exists;
