@@ -290,41 +290,40 @@ message Settings {
   uint64 revision = 1;
   string input_device_id = 2;
   string output_device_id = 3;
-  reserved 4; // was ns_backend_id
-  bool global_muted = 5;
-  bool global_deafened = 6;
-  float microphone_gain = 7;
-  float playback_gain = 8;
-  string display_name = 9; // advertised local name
-  bytes avatar_sha256 = 10; // empty when no avatar is set
-  InboundPolicy inbound_policy = 11;
-  AdvertMode advert_mode = 12;
-  uint32 ptt_release_delay_ms = 13; // 0..=2000; gate hold after an ordinary key-up
-  bool autostart_daemon = 14; // the desktop app starts/restarts the daemon by itself
-  bool ringtone_enabled = 15; // ring for an incoming call while a client is attached
-  float ringtone_volume = 16; // 0.0..=1.0
-  bool ringback_enabled = 17; // ringback while an outgoing call rings
-  bool call_sounds_enabled = 18; // connect and hang-up blips
+  bool global_muted = 4;
+  bool global_deafened = 5;
+  float microphone_gain = 6;
+  float playback_gain = 7;
+  string display_name = 8; // advertised local name
+  bytes avatar_sha256 = 9; // empty when no avatar is set
+  InboundPolicy inbound_policy = 10;
+  AdvertMode advert_mode = 11;
+  uint32 ptt_release_delay_ms = 12; // 0..=2000; gate hold after an ordinary key-up
+  bool autostart_daemon = 13; // the desktop app starts/restarts the daemon by itself
+  bool ringtone_enabled = 14; // ring for an incoming call while a client is attached
+  float ringtone_volume = 15; // 0.0..=1.0
+  bool ringback_enabled = 16; // ringback while an outgoing call rings
+  bool call_sounds_enabled = 17; // connect and hang-up blips
   // What the engine uses, derived from the saved ids and the current device list. An empty
   // input_device_id / output_device_id means "follow the system default".
-  bool input_is_default = 19; // no microphone is pinned
-  bool output_is_default = 20; // no playback device is pinned
-  string input_device_name = 21; // the microphone that is opened (empty when the system has none)
-  string output_device_name = 22; // the playback device that is opened (empty when none)
-  bool input_pinned_missing = 23; // the pinned microphone is absent; the system default is used
-  bool output_pinned_missing = 24; // the pinned playback device is absent; the system default is used
-  bool history_enabled = 25; // finished calls are recorded in the call history (history.enabled)
-  uint64 history_revision = 26; // changes whenever an entry is added or the history is cleared; refetch then
-  TransmitMode default_transmit_mode = 27; // calls.default_transmit_mode as saved
-  string daemon_build_revision = 30; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
-  uint32 daemon_api_revision = 31;
-  string ringtone_name = 32; // file name of the custom ringtone; empty when the built-in chime is used
-  bool noise_suppression_enabled = 33; // audio.noise_suppression: suppress steady background noise on the microphone
-  string noise_suppression_level = 34; // audio.noise_suppression_level: "low", "moderate" or "high"
-  bool auto_gain_enabled = 35; // audio.auto_gain: even out the microphone level (AGC2)
-  bool background_available = 36; // background.available: stay reachable with no window open; read by the OS shells
-  string call_alert = 37; // calls.alert: "system", "ring_and_vibrate", "vibrate" or "silent"
-  bool auto_answer_enabled = 38; // calls.auto_answer_enabled: global switch; false ignores every per-contact flag
+  bool input_is_default = 18; // no microphone is pinned
+  bool output_is_default = 19; // no playback device is pinned
+  string input_device_name = 20; // the microphone that is opened (empty when the system has none)
+  string output_device_name = 21; // the playback device that is opened (empty when none)
+  bool input_pinned_missing = 22; // the pinned microphone is absent; the system default is used
+  bool output_pinned_missing = 23; // the pinned playback device is absent; the system default is used
+  bool history_enabled = 24; // finished calls are recorded in the call history (history.enabled)
+  uint64 history_revision = 25; // changes whenever an entry is added or the history is cleared; refetch then
+  TransmitMode default_transmit_mode = 26; // calls.default_transmit_mode as saved
+  string daemon_build_revision = 27; // as EngineInfo.build_revision, so one snapshot shows a stale daemon
+  uint32 daemon_api_revision = 28;
+  string ringtone_name = 29; // file name of the custom ringtone; empty when the built-in chime is used
+  bool noise_suppression_enabled = 30; // audio.noise_suppression: suppress steady background noise on the microphone
+  string noise_suppression_level = 31; // audio.noise_suppression_level: "low", "moderate" or "high"
+  bool auto_gain_enabled = 32; // audio.auto_gain: even out the microphone level (AGC2)
+  bool background_available = 33; // background.available: stay reachable with no window open; read by the OS shells
+  string call_alert = 34; // calls.alert: "system", "ring_and_vibrate", "vibrate" or "silent"
+  bool auto_answer_enabled = 35; // calls.auto_answer_enabled: global switch; false ignores every per-contact flag
 }
 message Snapshot {
   bytes engine_incarnation = 1;

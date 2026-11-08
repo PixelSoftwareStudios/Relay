@@ -3,7 +3,7 @@
 /// Bumped when the API changes in a way clients depend on (a new RPC or field the UI needs, a
 /// changed meaning). A client that sees a different number from its own build knows the
 /// running daemon is out of date.
-pub const API_REVISION: u32 = 7;
+pub const API_REVISION: u32 = 1;
 
 /// The build this binary came from: the git commit (with `-dirty` for uncommitted changes)
 /// embedded at build time, or the crate version with `-dev` when git was not available.
@@ -12,10 +12,9 @@ pub const BUILD_REVISION: &str = env!("RELAY_BUILD_REVISION");
 /// The build and API revision of one side of a connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Revision {
-	/// Git commit, `-dirty` or `<version>-dev` (see [`BUILD_REVISION`]). Empty when the
-	/// daemon is too old to report one.
+	/// Git commit, `-dirty` or `<version>-dev` (see [`BUILD_REVISION`]).
 	pub build: String,
-	/// API revision (see [`API_REVISION`]); `0` when the daemon is too old to report one.
+	/// API revision (see [`API_REVISION`]).
 	pub api: u32,
 }
 

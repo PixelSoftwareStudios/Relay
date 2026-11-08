@@ -2,7 +2,7 @@
 
 use crate::session::SecureSession;
 
-const DOMAIN: &str = "relay-net 2026 channel session binding v2";
+const DOMAIN: &str = "relay-net 2026 channel session binding v1";
 
 /// Digest of the Noise handshake hash, which commits to the prologue (protocol major and the
 /// fresh link epoch), both static public keys and every handshake message. A PAKE run, a

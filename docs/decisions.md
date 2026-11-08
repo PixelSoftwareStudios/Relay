@@ -54,7 +54,7 @@ idle-exit while the setting is on (an autostarting CLI therefore leaves a daemon
 auto-answered call, and any client may take its lease without an explicit takeover, so a TUI or app that attaches can
 hang up, mute or push to talk. A headless `relayd` shows no notification (no shell): it rings and the call is in the
 history. Hidden mode, the block list and the inbound policy act before a call can ring and are unchanged. Also added:
-`SetClientQuiet` (API revision 7), so a shell that alerts calls itself (Android, where the engine cannot see the
+`SetClientQuiet`, so a shell that alerts calls itself (Android, where the engine cannot see the
 silent or vibrate profile) can keep the engine ringtone silent while it is the only attached client.
 
 Not done: the call history does not mark auto-answered calls (it would need a column; the live `Call` carries the
@@ -107,7 +107,7 @@ owner-only (0700/0600). Reasons:
 
 - One crash story: WAL with `synchronous=FULL`, transactions instead of temp-file swaps, a single
   `quick_check` and snapshot-based recovery for everything.
-- Versioned migrations with `PRAGMA user_version`, and a clean place to add the channel tables.
+- A schema version in `PRAGMA user_version`, and a clean place to add the channel tables.
 - Bounded avatar cache with eviction in one transaction instead of directory scans.
 - Several users of one PC cannot touch each other's data; the file is created private.
 
