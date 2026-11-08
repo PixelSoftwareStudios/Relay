@@ -149,6 +149,8 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("64-bit ARM", text)
         self.assertIn("Other ABIs", text)
         self.assertIn("not code-signed", text)
+        self.assertIn("debug key", text)
+        self.assertNotIn("CHANGELOG.md", text)
         with self.assertRaises(ValueError):
             release.release_notes(self.version, "  \n")
 
