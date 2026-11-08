@@ -2,7 +2,7 @@
 
 settings-limits = 存储与限制
 settings-limits-sub = 缓存大小和保留时长
-limits-intro = 这些限制决定本设备保留多少内容。所有内容都只保存在本设备上。默认值适合大多数人。更改会立即生效，正在使用的内容不会被截断。
+limits-intro = 这些限制决定此设备保留多少内容。所有内容都只保存在此设备上。默认值适合大多数人。更改会立即生效，正在使用的内容不会被截断。
 limits-group-pictures = 图片
 limits-group-chats = 聊天和文件
 limits-group-history = 通话记录

@@ -8,4 +8,4 @@ notification-unknown-caller = 未知来电者
 notification-accept = 接听
 notification-decline = 拒绝
 notification-open = 打开
-notification-auto-answered = 已自动接听:{ $name }
+notification-auto-answered = 已自动接听：{ $name }

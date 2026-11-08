@@ -10,7 +10,7 @@ channel-listed = 公开列出
 channel-password = 密码
 channel-invite-only = 仅限邀请
 channel-summary = { $role } · { $flags } · { $peers ->
-       *[other] { $peers } 个共同设备
+       *[other] { $peers } 台共同设备
     }
 channel-invite = 邀请…
 channel-leave-yes = 是，退出
