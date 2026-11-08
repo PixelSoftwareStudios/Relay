@@ -79,6 +79,10 @@ class AndroidBridge(private val context: Context) : HostBridge {
 		RelayRuntime.onBackgroundChanged(available, alert)
 	}
 
+	override fun questionAnswered(id: String): Boolean = RelayRuntime.prefs.questionAnswered(id)
+
+	override fun setQuestionAnswered(id: String) = RelayRuntime.prefs.setQuestionAnswered(id)
+
 	override fun requestBatteryExemption() {
 		runCatching {
 			val step = RelayRuntime.exemption.next(RelayRuntime.batteryExempt())

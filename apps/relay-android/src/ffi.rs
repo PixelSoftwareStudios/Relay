@@ -3,7 +3,7 @@
 use std::sync::Arc;
 
 use crate::bridge::{
-	EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome,
+	BackgroundStatus, EngineConfig, EngineError, FoundService, HostBridge, InsetsPx, MicrophoneState, PickOutcome,
 	ScanOutcome,
 };
 use crate::host::{Host, host};
@@ -79,6 +79,11 @@ impl RelayEngine {
 	/// reconnects; the engine only hears it while `background.available` is on.
 	pub fn set_quiet(&self, quiet: bool) {
 		self.host.set_quiet(quiet);
+	}
+
+	/// What the availability service is doing (read per frame by the Settings text).
+	pub fn set_background_status(&self, status: BackgroundStatus) {
+		self.host.shell.set_background_status(status);
 	}
 
 	/// Android's answer to "may Relay run unrestricted in the background".

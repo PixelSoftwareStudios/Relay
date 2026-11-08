@@ -90,3 +90,25 @@ object Lan {
 	/** Any of the device's networks is a LAN. */
 	fun anyLan(networks: Collection<Set<Transport>>): Boolean = networks.any(::isLan)
 }
+
+/** What the Settings text says about the keep-alive. */
+enum class BackgroundView {
+	/** Setting off, service not started, or a start the system refused. */
+	NONE,
+	RUNNING,
+	WAITING_FOR_NETWORK,
+	PAUSED,
+}
+
+/**
+ * Maps the shell's facts to the UI's view. [enabled] is `background.available`, [paused]
+ * the user's Pause, [service] what the policy has the service doing. Pause only counts while
+ * the setting is on.
+ */
+fun backgroundView(enabled: Boolean, paused: Boolean, service: Availability): BackgroundView = when {
+	!enabled -> BackgroundView.NONE
+	paused -> BackgroundView.PAUSED
+	service == Availability.ACTIVE -> BackgroundView.RUNNING
+	service == Availability.WAITING -> BackgroundView.WAITING_FOR_NETWORK
+	else -> BackgroundView.NONE
+}

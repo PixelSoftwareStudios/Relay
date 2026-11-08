@@ -28,6 +28,11 @@ class AvailabilityPrefs(context: Context) {
 		get() = prefs.getBoolean(EXEMPTION_ASKED, false)
 		set(value) = prefs.edit().putBoolean(EXEMPTION_ASKED, value).apply()
 
+	/** A one-time question (by id) was answered; false until [setQuestionAnswered]. */
+	fun questionAnswered(id: String): Boolean = prefs.getBoolean("question_$id", false)
+
+	fun setQuestionAnswered(id: String) = prefs.edit().putBoolean("question_$id", true).apply()
+
 	private companion object {
 		const val ENABLED = "enabled"
 		const val PAUSED = "paused"

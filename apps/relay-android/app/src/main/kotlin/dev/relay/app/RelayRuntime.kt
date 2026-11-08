@@ -17,6 +17,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import androidx.core.content.ContextCompat
+import uniffi.relay_android.BackgroundStatus
 import uniffi.relay_android.EngineConfig
 import uniffi.relay_android.MicrophoneState
 import uniffi.relay_android.RelayEngine
@@ -157,6 +158,7 @@ object RelayRuntime {
 			started.setMicrophone(microphone.state.access().toState())
 			started.setScanner(app.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY))
 			started.setQuiet(AlertPolicy.shellAlerts(alert))
+			main.post { publishBackground() }
 			queued.forEach { it(started) }
 			Log.i(TAG, "engine ready")
 		} catch (e: Exception) {
@@ -259,6 +261,19 @@ object RelayRuntime {
 			}
 			AvailabilityAction.None -> Unit
 		}
+		publishBackground()
+	}
+
+	/** Tells the UI what the keep-alive is doing; it reads this every frame. */
+	fun publishBackground() {
+		val view = backgroundView(prefs.enabled ?: false, prefs.paused, availability)
+		val status = when (view) {
+			BackgroundView.NONE -> BackgroundStatus.NONE
+			BackgroundView.RUNNING -> BackgroundStatus.RUNNING
+			BackgroundView.WAITING_FOR_NETWORK -> BackgroundStatus.WAITING_FOR_NETWORK
+			BackgroundView.PAUSED -> BackgroundStatus.PAUSED
+		}
+		whenReady { it.setBackgroundStatus(status) }
 	}
 
 	/** The Pause button of the availability notification. */
@@ -270,6 +285,7 @@ object RelayRuntime {
 	fun availabilityStopped() {
 		availabilityPolicy.stoppedBySystem()
 		availability = Availability.OFF
+		publishBackground()
 	}
 
 	/** Tracks Wi-Fi and Ethernet; the availability service waits without them. */

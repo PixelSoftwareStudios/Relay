@@ -70,4 +70,18 @@ class AvailabilityPolicyTest {
 		assertTrue(Lan.anyLan(listOf(setOf(Lan.Transport.CELLULAR), setOf(Lan.Transport.WIFI))))
 		assertFalse(Lan.anyLan(emptyList()))
 	}
+
+	@Test
+	fun theSettingsViewFollowsTheService() {
+		assertEquals(BackgroundView.RUNNING, backgroundView(true, false, Availability.ACTIVE))
+		assertEquals(BackgroundView.WAITING_FOR_NETWORK, backgroundView(true, false, Availability.WAITING))
+		assertEquals(BackgroundView.PAUSED, backgroundView(true, true, Availability.OFF))
+		assertEquals(BackgroundView.NONE, backgroundView(true, false, Availability.OFF))
+	}
+
+	@Test
+	fun theSettingOffIsAlwaysNoneEvenAfterAPause() {
+		assertEquals(BackgroundView.NONE, backgroundView(false, true, Availability.OFF))
+		assertEquals(BackgroundView.NONE, backgroundView(false, false, Availability.ACTIVE))
+	}
 }

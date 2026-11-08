@@ -37,6 +37,19 @@ pub struct EngineConfig {
 	pub default_display_name: Option<String>,
 }
 
+/// What the availability service is doing, for the Settings text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum BackgroundStatus {
+	/// The setting is off, or the service is not started (a boot start the system refused).
+	None,
+	/// The service runs on a network with its locks held.
+	Running,
+	/// The service runs but there is no Wi-Fi or local network.
+	WaitingForNetwork,
+	/// The user pressed Pause in the notification.
+	Paused,
+}
+
 /// What the foreground service shows about the call, if any.
 #[derive(Debug, Clone, PartialEq, Eq, uniffi::Record)]
 pub struct CallSummary {
@@ -159,6 +172,10 @@ pub trait HostBridge: Send + Sync {
 	/// The UI's "Allow notifications": the permission dialog when Android still
 	/// shows it, else the app's notification settings.
 	fn request_notifications(&self);
+	/// Whether the one-time question `id` was answered; stored in SharedPreferences.
+	fn question_answered(&self, id: String) -> bool;
+	/// Remember that the one-time question `id` was answered.
+	fn set_question_answered(&self, id: String);
 	/// The engine's audio streams are about to open (`true`) or the last one
 	/// is gone (`false`). Kotlin enters or leaves the call audio state
 	/// (mode, focus, route) and returns only once it is in place, so the

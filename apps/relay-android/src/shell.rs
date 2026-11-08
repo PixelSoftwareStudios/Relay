@@ -15,7 +15,7 @@ use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use tokio::sync::oneshot;
 
 use crate::back::{BackGate, WAIT};
-use crate::bridge::{HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome, ScanOutcome};
+use crate::bridge::{BackgroundStatus, HostBridge, InsetsPx, MicrophoneState, PickKind, PickOutcome, ScanOutcome};
 use relay_ui::microphone::MicrophoneAccess;
 
 type Pending = HashMap<u64, oneshot::Sender<PickOutcome>>;
@@ -58,6 +58,10 @@ pub struct AndroidShell {
 	/// 0 unknown, 1 allowed, 2 blocked.
 	notifications: AtomicU8,
 	vibrator: AtomicBool,
+	/// A [`BackgroundStatus`] discriminant.
+	background: AtomicU8,
+	/// One-time questions already answered (cached from Kotlin on first ask).
+	questions: Mutex<HashMap<String, bool>>,
 	next_pick: AtomicU64,
 	pending: Mutex<Pending>,
 	scanner: AtomicBool,
@@ -81,6 +85,8 @@ impl AndroidShell {
 			battery: AtomicU8::new(0),
 			notifications: AtomicU8::new(0),
 			vibrator: AtomicBool::new(false),
+			background: AtomicU8::new(BackgroundStatus::None as u8),
+			questions: Mutex::new(HashMap::new()),
 			next_pick: AtomicU64::new(1),
 			pending: Mutex::new(Pending::new()),
 			scanner: AtomicBool::new(false),
@@ -127,6 +133,11 @@ impl AndroidShell {
 	pub fn set_notifications_allowed(&self, allowed: bool) {
 		self.notifications
 			.store(if allowed { 1 } else { 2 }, Ordering::Release);
+		self.request_repaint();
+	}
+
+	pub fn set_background_status(&self, status: BackgroundStatus) {
+		self.background.store(status as u8, Ordering::Release);
 		self.request_repaint();
 	}
 
@@ -304,6 +315,31 @@ impl Shell for AndroidShell {
 
 	fn request_battery_exemption(&self) {
 		self.bridge.request_battery_exemption();
+	}
+
+	fn background_state(&self) -> Option<relay_ui::background_settings::BackgroundState> {
+		use relay_ui::background_settings::BackgroundState as State;
+		match self.background.load(Ordering::Acquire) {
+			x if x == BackgroundStatus::Running as u8 => Some(State::Running),
+			x if x == BackgroundStatus::WaitingForNetwork as u8 => Some(State::WaitingForNetwork),
+			x if x == BackgroundStatus::Paused as u8 => Some(State::Paused),
+			_ => None,
+		}
+	}
+
+	fn question_answered(&self, id: &str) -> bool {
+		if let Some(known) = self.questions.lock_unpoisoned().get(id) {
+			return *known;
+		}
+		// Asked once per id; Kotlin reads SharedPreferences, the answer is cached.
+		let answered = self.bridge.question_answered(id.to_owned());
+		self.questions.lock_unpoisoned().insert(id.to_owned(), answered);
+		answered
+	}
+
+	fn set_question_answered(&self, id: &str) {
+		self.questions.lock_unpoisoned().insert(id.to_owned(), true);
+		self.bridge.set_question_answered(id.to_owned());
 	}
 
 	fn can_vibrate(&self) -> bool {

@@ -53,6 +53,10 @@ impl HostBridge for FakeBridge {
 	}
 	fn request_microphone(&self) {}
 	fn background_changed(&self, _available: bool, _alert: String) {}
+	fn question_answered(&self, _id: String) -> bool {
+		false
+	}
+	fn set_question_answered(&self, _id: String) {}
 	fn request_battery_exemption(&self) {}
 	fn request_notifications(&self) {}
 	fn open_app_settings(&self) {}
