@@ -275,9 +275,10 @@ jobs:
         with:
           tool: just,cargo-ndk
       - name: Android NDK
-        run: >-
-          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          "ndk;28.2.13676358"
+        run: |
+          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$sdkmanager" --licenses > /dev/null || true
+          "$sdkmanager" "ndk;28.2.13676358"
       - run: just android-apk
       - name: Name and checksum the APK
         run: python scripts/packaging/package_android.py --version ${{ needs.version.outputs.version }} --apk dist/android/relay-${{ needs.version.outputs.version }}-android-arm64-v8a.apk --output release
@@ -348,7 +349,7 @@ jobs:
           path: changes
           run-id: ${{ inputs.artifacts-run || github.run_id }}
           github-token: ${{ github.token }}
-      - uses: actions/attest-build-provenance@v2
+      - uses: actions/attest-build-provenance@v4
         with:
           subject-path: dist/*
       - name: Publish after every package succeeded
