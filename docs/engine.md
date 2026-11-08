@@ -503,7 +503,9 @@ deadlines (`SessionStore::next_deadline`, `poll`), the "engine tick" for messagi
   Clients without it (observers, call controllers, admins) get `PERMISSION_DENIED` and no event.
   Transcripts are RAM only; they vanish when the daemon exits (including idle-exit); `ClearSession`
   (a client command such as `relay messages clear`) drop them earlier; export writes only where the client says.
-- **Logging.** Nothing logs message text, file names or paths. The only `tracing` calls in
+- **Logging.** Peer fingerprints and call ids are logged at INFO and WARN only as their first 8 hex
+  digits (`DeviceKeyId::short`, `CallId::short`, `Fingerprint::log_tag`); the whole values are DEBUG.
+  The daemon log is created `0600` in a `0700` directory (`docs/config.md`). Nothing logs message text, file names or paths. The only `tracing` calls in
   `messaging/` carry ids and error classes, `Debug` of peer events and API requests is redacted,
   and `messages_secrets` captures TRACE from two whole daemons and greps it.
 - **Idempotency.** Mutations keep their last 1024 outcomes by (client, operation id) in the actor

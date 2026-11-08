@@ -92,6 +92,13 @@ Found by process isolation, not fixed here (relay-ui and engine sources belong t
 | fat LTO + stripped (now) | 8.7 | 12.6 | 17.2 |
 | opt-level s except audio and crypto crates | 13.1 | 17.6 | 24.5 (larger, rejected) |
 
+Release overflow checks (SR-13): `overflow-checks = true` is set per package for the workspace
+crates that handle wire input (`relay-core`, `-protocol`, `-net`, `-engine`, `-api`, `-messages`,
+`-config`, `-io`, `-client`); dependencies and `relay-audio` keep the default (wrapping). An overflow then
+panics like any worker panic (caught by the media supervisor) instead of wrapping silently. The cost
+was not measured on the benches; the media path is dominated by crypto and codec code in unchecked
+dependencies, and the jitter buffer sequence and timestamp sums were made saturating on purpose.
+
 Fat LTO links slower (about 20 percent more wall time on a loaded machine). `cargo build
 --profile release-debug` keeps line tables and symbols. `panic = "abort"` is rejected: the
 media supervisor (`relay-engine/src/media/supervise.rs`) catches worker panics with

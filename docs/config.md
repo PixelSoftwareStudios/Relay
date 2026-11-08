@@ -45,7 +45,15 @@ socket/runtime directory is per user as well. The crate enforces this on top of 
 - Unix: directories are created `0700`, the database and its `-wal`/`-shm`/`.bak` files `0600`.
   Looser permissions found at open time are tightened; if that is refused (the path belongs to
   another user) opening fails instead of continuing.
-- Windows: the per-user profile ACLs isolate the directories; no extra ACL is applied.
+- Unix, also: the daemon log directory is `0700` and `relayd.log` (and its rotated `.log.1`) `0600`
+  (`relay_io::proc::open_rotating_log`; a symlink is refused with `O_NOFOLLOW`, a path owned by
+  another user is refused, looser modes are tightened). The ringtone folder and files, `desktop.toml`,
+  exported preference files, support bundles and every file written with `AtomicWrite::private` (whose
+  parent directory is made `0700`) follow the same rule. Received files are `0600` while they download.
+- Windows: the per-user profile ACLs isolate the directories; no extra ACL is applied. The loopback
+  profile `engine.tcp` lives in `%LOCALAPPDATA%\Relay\run` (never `%TEMP%`; if `%LOCALAPPDATA%` is not an
+  absolute path the engine and clients fail instead of falling back), and a symlinked or non-directory
+  location is refused. No owner check or explicit DACL yet; see `docs/portability.md`.
 - Tests simulate two users with two separate roots and assert neither sees the other's rows.
 
 ## Database settings and schema
@@ -232,7 +240,13 @@ cache plus a small settings database in `dir` (tools, tests); the daemon uses
 ## Diagnostics
 
 The support bundle is redacted and bounded (256 KiB). It has no field for keys, trust entries or
-avatars. Device ids are fingerprinted, the display name is omitted, and log lines are scrubbed.
+avatars. Device ids are fingerprinted, the display name is omitted, and log lines are scrubbed:
+`redact_line` removes IP addresses, paths, hex runs of 32 or more digits, `Bearer` tokens, values of
+sensitive keys, hex of 8 or more digits after `fingerprint`/`fp`/`peer`/`device`/`caller`/`callee`
+(`key=value`, `key:value` or `key value`), MAC addresses (`aa:bb:cc:dd:ee:ff`, `-` too) and `.local` host
+names (with optional trailing dot or port). Display names inside free text cannot be recognised and
+rely on the daemon not logging them. The daemon logs peer and call ids at INFO only as their first 8 hex
+digits; full values appear at DEBUG.
 `diagnostics::database_location(path, reveal)` hides the database path unless `reveal` is set,
 because it contains the OS user name.
 

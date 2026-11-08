@@ -74,7 +74,7 @@ The short form (80 bits) only tells devices apart. `Hello.public_key_sha256` car
   full (`respond_gated` abandons an evicted handshake), the 24-byte preface must arrive within
   1 s, `AcceptBackoff` paces accept errors (20 ms doubling to 2 s), and `UntrustedLinks` keeps at
   most 16 authenticated-but-untrusted links (2 per source), evicting the oldest.
-- Names: `sanitize_display_name` NFKC-normalises and removes every invisible, format, tag,
+- Names: `sanitize_display_name` is the only display-name sanitizer (the weaker one in `relay-messages` was removed, SR-19); it NFKC-normalises and removes every invisible, format, tag,
   private-use and excess combining character; `name_skeleton` (UTS 39 skeleton, lowercase, no
   spaces) is what `TrustStore::find_by_name` implementations must compare, so lookalikes of a
   trusted contact raise `KeyChanged`.
