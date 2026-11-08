@@ -39,7 +39,7 @@ impl RingtoneStore {
 		let encoded = ringtone::to_stored(&processed).ok_or_else(encode_failed)?;
 		// What plays now is what plays after a restart: the decoded Opus, not the pre-encode copy.
 		let samples = ringtone::from_stored(&encoded).ok_or_else(encode_failed)?;
-		std::fs::create_dir_all(&self.dir).map_err(io)?;
+		relay_io::fs::ensure_private_dir(&self.dir).map_err(io)?;
 		write_replacing(&self.dir.join(RING_FILE), &encoded)?;
 		write_replacing(&self.dir.join(NAME_FILE), name.as_bytes())?;
 		Ok(samples.into())
@@ -70,18 +70,19 @@ impl RingtoneStore {
 	}
 }
 
-/// Writes through a temporary file and renames it over `path`.
+/// Writes through a private (0600) temporary file and renames it over `path`.
 fn write_replacing(path: &std::path::Path, bytes: &[u8]) -> Result<(), PortError> {
-	let temp = path.with_extension("tmp");
-	std::fs::write(&temp, bytes).map_err(io)?;
-	std::fs::rename(&temp, path).map_err(io)
+	relay_io::fs::AtomicWrite::new(path)
+		.private(true)
+		.write(bytes)
+		.map_err(io)
 }
 
 fn encode_failed() -> PortError {
 	PortError::Unavailable("the ringtone could not be encoded".to_owned())
 }
 
-fn io(error: std::io::Error) -> PortError {
+fn io(error: impl std::fmt::Display) -> PortError {
 	PortError::Unavailable(format!("the ringtone could not be stored: {error}"))
 }
 

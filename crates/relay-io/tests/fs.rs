@@ -247,3 +247,19 @@ fn temp_files_are_private_unique_and_removed_on_drop() {
 	assert!(p1.exists());
 	assert!(!p2.exists());
 }
+
+#[cfg(unix)]
+#[test]
+fn a_private_atomic_write_tightens_a_loose_parent_directory() {
+	use std::os::unix::fs::PermissionsExt;
+	let tmp = tempfile::tempdir().unwrap();
+	let dir = tmp.path().join("data");
+	fs::create_dir(&dir).unwrap();
+	fs::set_permissions(&dir, fs::Permissions::from_mode(0o755)).unwrap();
+	AtomicWrite::new(dir.join("f"))
+		.private(true)
+		.write(b"x")
+		.unwrap();
+	assert_eq!(mode(&dir), 0o700);
+	assert_eq!(mode(&dir.join("f")), 0o600);
+}

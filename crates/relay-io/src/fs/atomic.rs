@@ -12,7 +12,7 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use super::names::{backup_path, with_suffix};
-use super::private::create_private_new;
+use super::private::{create_private_new, ensure_private_dir};
 use crate::error::{IoError, Result};
 
 /// Options for an atomic replacement.
@@ -50,7 +50,11 @@ impl AtomicWrite {
 	/// Writes and fsyncs the temp file without touching the target yet.
 	pub fn stage(&self, bytes: &[u8]) -> Result<Staged> {
 		let dir = self.path.parent().unwrap_or_else(|| Path::new("."));
-		fs::create_dir_all(dir).map_err(|e| IoError::io(dir, e))?;
+		if self.private {
+			ensure_private_dir(dir)?;
+		} else {
+			fs::create_dir_all(dir).map_err(|e| IoError::io(dir, e))?;
+		}
 		let tmp = with_suffix(&self.path, ".tmp");
 		match fs::remove_file(&tmp) {
 			Ok(()) => {}

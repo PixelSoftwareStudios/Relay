@@ -82,3 +82,21 @@ fn clearing_is_idempotent() {
 	assert!(store.load().is_none());
 	assert_eq!(store.name(), "");
 }
+
+#[cfg(unix)]
+#[test]
+fn the_ringtone_folder_and_files_are_owner_only() {
+	use std::os::unix::fs::PermissionsExt;
+	let dir = tempfile::tempdir().unwrap();
+	let folder = dir.path().join("ringtone");
+	std::fs::create_dir(&folder).unwrap();
+	std::fs::set_permissions(&folder, std::fs::Permissions::from_mode(0o755)).unwrap();
+	RingtoneStore::new(folder.clone())
+		.save("chime.flac", &fixture("tone.flac"), LIMITS)
+		.unwrap();
+	let mode =
+		|path: &std::path::Path| std::fs::metadata(path).unwrap().permissions().mode() & 0o777;
+	assert_eq!(mode(&folder), 0o700);
+	assert_eq!(mode(&folder.join("ring.opus")), 0o600);
+	assert_eq!(mode(&folder.join("name.txt")), 0o600);
+}

@@ -169,7 +169,8 @@ async fn export(
 	let text = export_toml(&prefs).map_err(config_error)?;
 	match file {
 		Some(file) => {
-			std::fs::write(file, text)?;
+			relay_io::fs::write_private(file, text.as_bytes())
+				.map_err(|e| std::io::Error::other(e.to_string()))?;
 			out.emit(&Written {
 				path: file.display().to_string(),
 			})

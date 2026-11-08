@@ -50,10 +50,10 @@ impl DesktopPrefs {
 
 	/// Write the file, creating its directory.
 	pub fn save(&self, path: &Path) -> std::io::Result<()> {
-		if let Some(dir) = path.parent() {
-			std::fs::create_dir_all(dir)?;
-		}
 		let text = toml::to_string(self).map_err(std::io::Error::other)?;
-		std::fs::write(path, text)
+		relay_io::fs::AtomicWrite::new(path)
+			.private(true)
+			.write(text.as_bytes())
+			.map_err(std::io::Error::other)
 	}
 }
