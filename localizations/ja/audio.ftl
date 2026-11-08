@@ -2,7 +2,7 @@
 # Project Fluent. Same ids and $variables as localizations/en/audio.ftl. See docs/i18n.md.
 
 duration-ms = { $millis } ms
-release-delay-off = オフ(すぐに閉じる)
+release-delay-off = オフ（すぐに閉じる）
 level-dbfs = { $value } dBFS
 level-no-data = 信号データなし
 gain-percent = { $value }%
@@ -21,7 +21,7 @@ ring-incoming = 着信時に鳴らす
 ring-back = 発信中に呼び出し音を鳴らす
 ring-sounds = 接続音と終了音
 ring-test = 着信音をテスト
-ring-test-hover = このデバイスで着信音を2秒間再生します。
+ring-test-hover = このデバイスで着信音を 2 秒間再生します。
 meter-hover = { $label }: { $level }
 slider-release-delay = プッシュトゥトークの解除遅延
 audio-mute-all = すべてミュート
@@ -32,7 +32,7 @@ audio-levels = レベル
 audio-all-calls = すべての通話
 audio-all-help = これらのスイッチは、現在と今後のすべての通話に影響します。
 audio-mic-test = マイクテスト
-mic-test-help = 話すとドットが動きます。音はこのデバイスの中だけで、送信も録音もされません。
+mic-test-help = 話すとドットが動きます。音はこのデバイスの外に出ず、送信も録音もされません。
 mic-test-running = 話してもドットが点灯しない場合は、Relay にマイクの使用が許可されているか、上で正しいマイクが選ばれているか確認してください。
 mic-test-start = テストを開始
 mic-test-stop = テストを停止
