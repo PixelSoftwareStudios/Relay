@@ -20,6 +20,7 @@ relay-ui.workspace = true
 relay-io.workspace = true
 relay-api.workspace = true
 relay-client.workspace = true
+relay-daemon.workspace = true
 relay-platform.workspace = true
 eframe.workspace = true
 egui.workspace = true

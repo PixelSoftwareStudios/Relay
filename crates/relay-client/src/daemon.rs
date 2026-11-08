@@ -1,8 +1,11 @@
-//! Finding, starting and stopping the `relayd` engine process.
+//! Starting and stopping the engine process.
 //!
-//! Clients never embed the engine. This module launches the separate `relayd`
-//! binary fully detached (it keeps running after the launcher exits), waits
-//! until its endpoint accepts connections, and asks it to stop through the
+//! Clients never run the engine in their own process. This module launches the engine as a
+//! separate process fully detached (it keeps running after the launcher exits): the running
+//! executable itself, started with [`RUN_DAEMON_ARG`], which every client binary honours by
+//! running the `relay-daemon` library. There is no search for a daemon file, so the daemon is
+//! always the same binary, with the same code identity, as the client that started it. Then
+//! it waits until the endpoint accepts connections, and asks the daemon to stop through the
 //! `Shutdown` RPC.
 //!
 //! [`ensure_running`] is what clients call before they connect: it starts the
@@ -26,65 +29,16 @@ use relay_api::pb::{Startup, StartupReason, StartupState};
 use relay_api::{ApiError, Endpoint, RelayClient};
 use relay_io::IoError;
 use relay_io::lock::ProcessLock;
-use relay_io::proc::{detached_command, open_rotating_log, read_tail, reap_in_background};
+use relay_io::proc::{
+	RUN_DAEMON_ARG, detached_command, open_rotating_log, read_tail, reap_in_background,
+};
 use tokio::time::{Instant, sleep, timeout};
-
-/// Names an explicit `relayd` binary.
-pub const BINARY_ENV: &str = "RELAY_DAEMON_BIN";
 
 const POLL: Duration = Duration::from_millis(50);
 const PROBE: Duration = Duration::from_millis(500);
 const LOG_ROTATE_BYTES: u64 = 5 * 1024 * 1024;
 const TAIL_BYTES: u64 = 4096;
 const TAIL_LINES: usize = 20;
-
-/// The daemon binary's file name on this platform.
-pub const fn binary_name() -> &'static str {
-	if cfg!(windows) {
-		"relayd.exe"
-	} else {
-		"relayd"
-	}
-}
-
-/// Where `relayd` is looked for, in order: an explicit path, `RELAY_DAEMON_BIN`,
-/// next to the running executable, then `PATH`. Pure, so it can be tested.
-pub fn locate_in(
-	explicit: Option<&Path>,
-	env_binary: Option<&Path>,
-	exe_dir: Option<&Path>,
-	path_var: Option<&OsString>,
-) -> Result<PathBuf, Vec<PathBuf>> {
-	let mut searched = Vec::new();
-	let mut candidates: Vec<PathBuf> = Vec::new();
-	candidates.extend(explicit.map(Path::to_path_buf));
-	candidates.extend(env_binary.map(Path::to_path_buf));
-	candidates.extend(exe_dir.map(|dir| dir.join(binary_name())));
-	if let Some(path) = path_var {
-		candidates.extend(std::env::split_paths(path).map(|dir| dir.join(binary_name())));
-	}
-	for candidate in candidates {
-		if candidate.is_file() {
-			return Ok(candidate);
-		}
-		searched.push(candidate);
-	}
-	Err(searched)
-}
-
-/// [`locate_in`] with the real environment.
-pub fn locate(explicit: Option<&Path>) -> Result<PathBuf, Vec<PathBuf>> {
-	let env_binary = std::env::var_os(BINARY_ENV).map(PathBuf::from);
-	let exe_dir = std::env::current_exe()
-		.ok()
-		.and_then(|exe| exe.parent().map(Path::to_path_buf));
-	locate_in(
-		explicit,
-		env_binary.as_deref(),
-		exe_dir.as_deref(),
-		std::env::var_os("PATH").as_ref(),
-	)
-}
 
 /// Seconds of no attached client after which an auto-started daemon stops by
 /// itself; `0` turns that off.
@@ -110,7 +64,8 @@ pub struct Launch {
 	/// The endpoint the daemon must serve (passed to it as `--socket` or
 	/// `--tcp-profile`) and that readiness is judged on.
 	pub endpoint: Endpoint,
-	/// An explicit `relayd` binary; otherwise see [`locate`].
+	/// An explicit program to run as `relayd` (tests, `relay --daemon-bin`); `None` runs this
+	/// executable with [`RUN_DAEMON_ARG`].
 	pub binary: Option<PathBuf>,
 	/// Where the daemon's output is appended; `None` uses [`default_log_path`].
 	pub log_file: Option<PathBuf>,
@@ -154,11 +109,6 @@ pub enum Started {
 	},
 	/// Something already serves the endpoint; nothing was started.
 	AlreadyRunning,
-	/// No `relayd` binary was found in any of these places.
-	BinaryNotFound {
-		/// Everything that was checked.
-		searched: Vec<PathBuf>,
-	},
 	/// The daemon could not be started or never became ready.
 	FailedToStart {
 		/// What went wrong.
@@ -226,10 +176,6 @@ async fn start_unguarded(launch: &Launch) -> Started {
 	if reachable(&launch.endpoint).await {
 		return Started::AlreadyRunning;
 	}
-	let binary = match locate(launch.binary.as_deref()) {
-		Ok(binary) => binary,
-		Err(searched) => return Started::BinaryNotFound { searched },
-	};
 	let log = launch.log_path();
 	let failed = |reason: String, from: u64| Started::FailedToStart {
 		log_tail: log_tail(&log, from),
@@ -242,7 +188,19 @@ async fn start_unguarded(launch: &Launch) -> Started {
 		}
 	};
 	let from = file.metadata().map_or(0, |meta| meta.len());
-	let mut args = endpoint_args(&launch.endpoint).to_vec();
+	let (binary, mut args) = match &launch.binary {
+		Some(binary) => (binary.clone(), Vec::new()),
+		None => match std::env::current_exe() {
+			Ok(exe) => (exe, vec![OsString::from(RUN_DAEMON_ARG)]),
+			Err(error) => {
+				return failed(
+					format!("cannot find this program's own file: {error}"),
+					from,
+				);
+			}
+		},
+	};
+	args.extend(endpoint_args(&launch.endpoint));
 	if let Some(idle) = launch.idle_exit {
 		args.push("--idle-exit".into());
 		args.push(idle.as_secs().to_string().into());
@@ -427,7 +385,7 @@ pub async fn stop(
 /// How [`ensure_running`] should start a missing daemon.
 #[derive(Debug, Clone)]
 pub struct StartOptions {
-	/// An explicit `relayd` binary; otherwise see [`locate`].
+	/// As [`Launch::binary`].
 	pub binary: Option<PathBuf>,
 	/// Where the daemon's output is appended; `None` uses [`default_log_path`].
 	pub log_file: Option<PathBuf>,
@@ -517,11 +475,6 @@ pub enum EnsureError {
 	LockTimeout,
 	/// The start lock file could not be used.
 	Lock(String),
-	/// No `relayd` binary was found.
-	BinaryNotFound {
-		/// Everything that was checked.
-		searched: Vec<PathBuf>,
-	},
 	/// The daemon could not be started or never became ready.
 	FailedToStart {
 		/// What went wrong.
@@ -549,16 +502,6 @@ impl std::fmt::Display for EnsureError {
 				)
 			}
 			Self::Lock(why) => write!(f, "cannot take the daemon start lock: {why}"),
-			Self::BinaryNotFound { searched } => {
-				let places: Vec<String> =
-					searched.iter().map(|p| p.display().to_string()).collect();
-				write!(
-					f,
-					"cannot find {}; looked in: {}. Install it next to this program, put it on PATH or set {BINARY_ENV}",
-					binary_name(),
-					places.join(", ")
-				)
-			}
 			Self::NotReady(NotReady::Failed { reason, detail }) => {
 				write!(f, "{reason}")?;
 				if !detail.is_empty() {
@@ -667,7 +610,6 @@ async fn serve(endpoint: &Endpoint, options: &StartOptions) -> Result<Ensure, En
 	match outcome {
 		Started::Launched { pid, log, .. } => Ok(Ensure::Started { pid, log }),
 		Started::AlreadyRunning => Ok(Ensure::AlreadyRunning),
-		Started::BinaryNotFound { searched } => Err(EnsureError::BinaryNotFound { searched }),
 		Started::FailedToStart { reason, log_tail } => {
 			Err(EnsureError::FailedToStart { reason, log_tail })
 		}

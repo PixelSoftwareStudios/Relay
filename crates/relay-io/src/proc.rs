@@ -6,6 +6,11 @@ use std::io::{Read, Seek, SeekFrom};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
 
+/// The first argument that makes a client executable run the daemon instead of the client:
+/// `relay`, `relay-desktop` and `relayd` all honour it (see the `relay-daemon` library), so a
+/// client starts the daemon from its own file and never searches for another one.
+pub const RUN_DAEMON_ARG: &str = "--run-daemon";
+
 /// A command for a child that survives this process: its own process group (Unix)
 /// or a detached process in a new group (Windows), no terminal, no inherited
 /// standard input, output appended to `log`.

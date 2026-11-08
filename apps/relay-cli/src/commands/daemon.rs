@@ -1,8 +1,8 @@
 //! `relay daemon`: start, stop and inspect the background engine.
 //!
-//! The engine is the separate `relayd` binary. The CLI launches it detached,
-//! asks it to stop over the API, and otherwise only connects like any other
-//! client. Nothing starts it implicitly.
+//! The engine runs as its own process: this executable started with the hidden daemon argument
+//! (see `relay_daemon`). The CLI launches it detached, asks it to stop over the API, and
+//! otherwise only connects like any other client.
 
 use std::fmt;
 use std::path::Path;
@@ -12,6 +12,7 @@ use std::time::Duration;
 use relay_api::pb::StartupState;
 use relay_api::{Endpoint, RelayClient, Revision};
 use relay_client::daemon::{self, Launch, Started, Stopped};
+use relay_io::proc::RUN_DAEMON_ARG;
 use serde::Serialize;
 
 use super::Out;
@@ -95,7 +96,7 @@ pub async fn run(
 ) -> Result<(), CliError> {
 	let endpoint = endpoint::resolve(global)?;
 	match &args.action {
-		DaemonAction::Start(launch) => start(&endpoint, launch, out).await,
+		DaemonAction::Start(launch) => start(global, &endpoint, launch, out).await,
 		DaemonAction::Stop { wait } => stop(&endpoint, Duration::from_secs(*wait), out).await,
 		DaemonAction::Restart { force, launch } => {
 			if !force && calls_in_progress(&endpoint).await? {
@@ -105,19 +106,19 @@ pub async fn run(
 				));
 			}
 			stop(&endpoint, STOP_WAIT, out).await?;
-			start(&endpoint, launch, out).await
+			start(global, &endpoint, launch, out).await
 		}
 		DaemonAction::Status => status(&endpoint, out).await,
 		DaemonAction::Retry => retry(&endpoint, out).await,
 		DaemonAction::UseFileStore { yes } => use_file_store(&endpoint, *yes, out).await,
 		DaemonAction::Logs { lines, file } => logs(*lines, file.as_deref(), out),
-		DaemonAction::Run(launch) => foreground(&endpoint, launch),
+		DaemonAction::Run(launch) => foreground(global, &endpoint, launch),
 	}
 }
 
-fn launch_for(endpoint: &Endpoint, options: &DaemonLaunch) -> Launch {
+fn launch_for(global: &GlobalArgs, endpoint: &Endpoint, options: &DaemonLaunch) -> Launch {
 	let mut launch = Launch::new(endpoint.clone());
-	launch.binary.clone_from(&options.binary);
+	launch.binary.clone_from(&global.daemon_bin);
 	launch.log_file.clone_from(&options.log_file);
 	launch.timeout = Duration::from_secs(options.wait);
 	launch.extra_args = options.relayd_args.iter().map(Into::into).collect();
@@ -125,11 +126,12 @@ fn launch_for(endpoint: &Endpoint, options: &DaemonLaunch) -> Launch {
 }
 
 async fn start(
+	global: &GlobalArgs,
 	endpoint: &Endpoint,
 	options: &DaemonLaunch,
 	out: &mut Out<'_>,
 ) -> Result<(), CliError> {
-	match daemon::start(&launch_for(endpoint, options)).await {
+	match daemon::start(&launch_for(global, endpoint, options)).await {
 		Started::Launched { pid, log, .. } => {
 			let mut report = Report::new("started", endpoint);
 			report.pid = Some(pid);
@@ -137,15 +139,6 @@ async fn start(
 			out.emit(&report)
 		}
 		Started::AlreadyRunning => out.emit(&Report::new("already running", endpoint)),
-		Started::BinaryNotFound { searched } => {
-			let places: Vec<String> = searched.iter().map(|p| p.display().to_string()).collect();
-			Err(CliError::Other(anyhow::anyhow!(
-				"cannot find {}; looked in: {}. Install it next to `relay`, put it on PATH or set {}",
-				daemon::binary_name(),
-				places.join(", "),
-				daemon::BINARY_ENV,
-			)))
-		}
 		Started::FailedToStart { reason, log_tail } => {
 			let tail = if log_tail.is_empty() {
 				String::new()
@@ -276,17 +269,22 @@ fn logs(lines: usize, file: Option<&Path>, out: &mut Out<'_>) -> Result<(), CliE
 	Ok(())
 }
 
-/// Runs `relayd` as a child of this terminal and returns its exit status.
-fn foreground(endpoint: &Endpoint, options: &DaemonLaunch) -> Result<(), CliError> {
-	let binary = daemon::locate(options.binary.as_deref()).map_err(|searched| {
-		CliError::Other(anyhow::anyhow!(
-			"cannot find {} (looked in {} places); set {}",
-			daemon::binary_name(),
-			searched.len(),
-			daemon::BINARY_ENV
-		))
-	})?;
-	let status = Process::new(binary)
+/// Runs the daemon as a child of this terminal (this executable's own, unless `--daemon-bin`
+/// names another program) and returns its exit status.
+fn foreground(
+	global: &GlobalArgs,
+	endpoint: &Endpoint,
+	options: &DaemonLaunch,
+) -> Result<(), CliError> {
+	let mut command = match &global.daemon_bin {
+		Some(binary) => Process::new(binary),
+		None => {
+			let mut command = Process::new(std::env::current_exe()?);
+			command.arg(RUN_DAEMON_ARG);
+			command
+		}
+	};
+	let status = command
 		.args(daemon::endpoint_args(endpoint))
 		.args(&options.relayd_args)
 		.status()?;

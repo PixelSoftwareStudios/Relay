@@ -1,7 +1,6 @@
 #![cfg(unix)]
 //! The launcher against a stand-in daemon binary.
 
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -83,15 +82,14 @@ async fn the_daemon_runs_in_its_own_process_group() {
 }
 
 #[tokio::test]
-async fn a_missing_binary_is_reported_with_where_it_was_looked_for() {
+async fn a_missing_binary_is_reported() {
 	let home = Home::new();
 	let mut launch = home.launch();
 	launch.binary = Some(home.dir.path().join("no-such-relayd"));
-	let Started::BinaryNotFound { searched } = daemon::start(&launch).await else {
-		panic!("expected BinaryNotFound");
+	let Started::FailedToStart { reason, .. } = daemon::start(&launch).await else {
+		panic!("expected FailedToStart");
 	};
-	assert_eq!(searched[0], home.dir.path().join("no-such-relayd"));
-	assert!(searched.len() >= 2, "the other places were tried as well");
+	assert!(reason.contains("no-such-relayd"), "{reason}");
 }
 
 fn mode(launch: &mut Launch, mode: &str) {
@@ -146,43 +144,4 @@ async fn stopping_nothing_is_not_an_error() {
 	)
 	.await;
 	assert_eq!(stopped.expect("ok"), daemon::Stopped::NotRunning);
-}
-
-#[test]
-fn lookup_prefers_explicit_then_environment_then_neighbour_then_path() {
-	let make = |dir: &Path| {
-		let file = dir.join(daemon::binary_name());
-		std::fs::write(&file, b"#!/bin/sh\n").expect("file");
-		file
-	};
-	let tmp = |name: &str| {
-		let dir = tempfile::Builder::new()
-			.prefix(name)
-			.tempdir()
-			.expect("dir");
-		let file = make(dir.path());
-		(dir, file)
-	};
-	let (explicit_dir, explicit) = tmp("a");
-	let (env_dir, env_file) = tmp("b");
-	let (near_dir, near) = tmp("c");
-	let (path_dir, on_path) = tmp("d");
-	let path = OsString::from(path_dir.path());
-	let find = |e: Option<&Path>, v: Option<&Path>, n: Option<&Path>| {
-		daemon::locate_in(e, v, n, Some(&path))
-	};
-	assert_eq!(
-		find(Some(&explicit), Some(&env_file), Some(near_dir.path())),
-		Ok(explicit.clone())
-	);
-	assert_eq!(
-		find(None, Some(&env_file), Some(near_dir.path())),
-		Ok(env_file.clone())
-	);
-	assert_eq!(find(None, None, Some(near_dir.path())), Ok(near));
-	assert_eq!(find(None, None, None), Ok(on_path));
-	let nothing = tempfile::tempdir().expect("dir");
-	let missing = daemon::locate_in(None, None, Some(nothing.path()), None).expect_err("none");
-	assert_eq!(missing, vec![nothing.path().join(daemon::binary_name())]);
-	drop((explicit_dir, env_dir));
 }

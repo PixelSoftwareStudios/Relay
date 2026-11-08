@@ -13,9 +13,10 @@
 #      with openssl and imports certificate + key into your login keychain.
 #      macOS may ask for your login password for the import. The certificate is NOT
 #      marked trusted (no `add-trusted-cert`); codesign does not need trust.
-#   2. Signs relayd, relay and relay-desktop in target/<profile>/ with identifiers
-#      dev.relay.relayd, dev.relay.relay, dev.relay.relay-desktop. Already correctly
-#      signed binaries are left alone, so re-running is cheap and idempotent.
+#   2. Signs relayd, relay and relay-desktop in target/<profile>/ with ONE identifier,
+#      dev.relay.relayd: every client starts the daemon from its own executable, so all
+#      three must satisfy the same keychain requirement. Already correctly signed
+#      binaries are left alone, so re-running is cheap and idempotent.
 #
 # Usage:
 #   scripts/dev-sign-macos.sh [--release] [--setup-only] [--no-cert] [PATH...]
@@ -25,7 +26,7 @@
 #                   explicit requirement `designated => identifier "<id>"`. Weaker
 #                   (any ad-hoc binary with that identifier satisfies it) but needs
 #                   no keychain change at all.
-#     PATH...       sign these files instead (identifier from the file name)
+#     PATH...       sign these files instead (same identifier)
 #
 # Environment (for tests): RELAY_DEV_KEYCHAIN (default login keychain),
 # RELAY_DEV_KEYCHAIN_PASSWORD (if set, lets codesign use the key without a prompt),
@@ -149,5 +150,5 @@ if [ ${#FILES[@]} -eq 0 ]; then
 	done
 fi
 for f in "${FILES[@]}"; do
-	sign_one "$f" "$ID_PREFIX.$(basename "$f")" "$HASH"
+	sign_one "$f" "$ID_PREFIX.relayd" "$HASH"
 done

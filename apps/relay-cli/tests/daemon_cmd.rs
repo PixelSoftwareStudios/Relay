@@ -28,8 +28,14 @@ impl Setup {
 	}
 
 	async fn relay(&self, args: &[&str]) -> Result<String, CliError> {
+		self.relay_with(&[], args).await
+	}
+
+	/// `relay --socket <private> <global...> <args...>`.
+	async fn relay_with(&self, global: &[&str], args: &[&str]) -> Result<String, CliError> {
 		let socket = self.path("e.sock");
 		let mut argv = vec!["relay", "--socket", socket.to_str().expect("utf8")];
+		argv.extend_from_slice(global);
 		argv.extend_from_slice(args);
 		let cli = Cli::try_parse_from(argv).expect("valid arguments");
 		let mut out = Vec::new();
@@ -46,22 +52,23 @@ impl Setup {
 		let log = log.to_str().expect("utf8").to_owned();
 		match verb {
 			"start" | "restart" => {
-				self.relay(&[
-					"daemon",
-					verb,
-					"--binary",
-					&binary,
-					"--log-file",
-					&log,
-					"--",
-					"--home",
-					&home,
-					"--identity-store",
-					"memory",
-					"--listen-port",
-					"0",
-					"--no-discovery",
-				])
+				self.relay_with(
+					&["--daemon-bin", &binary],
+					&[
+						"daemon",
+						verb,
+						"--log-file",
+						&log,
+						"--",
+						"--home",
+						&home,
+						"--identity-store",
+						"memory",
+						"--listen-port",
+						"0",
+						"--no-discovery",
+					],
+				)
 				.await
 			}
 			"logs" => self.relay(&["daemon", "logs", "--file", &log]).await,
@@ -132,16 +139,13 @@ async fn the_daemon_is_started_inspected_and_stopped_by_the_cli() {
 }
 
 #[tokio::test]
-async fn a_missing_binary_is_explained() {
+async fn a_missing_binary_is_reported() {
 	let s = Setup::new();
 	let missing = s.path("nope").to_str().expect("utf8").to_owned();
 	let error = s
-		.relay(&["daemon", "start", "--binary", &missing])
+		.relay_with(&["--daemon-bin", &missing], &["daemon", "start"])
 		.await
 		.expect_err("no binary");
 	let text = error.to_string();
-	assert!(
-		text.contains("cannot find relayd") && text.contains("RELAY_DAEMON_BIN"),
-		"{text}"
-	);
+	assert!(text.contains("nope"), "{text}");
 }

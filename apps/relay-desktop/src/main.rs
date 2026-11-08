@@ -33,6 +33,8 @@ const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-app-51
 const WINDOW_ICON_PNG: &[u8] = include_bytes!("../../../assets/icon/relay-mark-256.png");
 
 fn main() -> eframe::Result {
+	// A daemon started by this binary (autostart, "Start daemon") runs here, first.
+	relay_daemon::exit_if_requested();
 	tracing_subscriber::fmt()
 		.with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
 		.init();

@@ -1,4 +1,4 @@
-//! Starting and stopping the standalone `relayd` from the UI, in words a
+//! Starting and stopping the standalone daemon process from the UI, in words a
 //! person can act on. The desktop shell calls these; they never need the
 //! `relay` command line, and they never run unless the user asked.
 
@@ -22,11 +22,6 @@ pub fn start_message(outcome: Started) -> Result<String, String> {
 	match outcome {
 		// Starting on the user's behalf is silent: only failures are shown.
 		Started::Launched { .. } | Started::AlreadyRunning => Ok(String::new()),
-		Started::BinaryNotFound { .. } => Err(tr!(
-			"daemon-not-found",
-			binary = daemon::binary_name(),
-			env = daemon::BINARY_ENV
-		)),
 		Started::FailedToStart { reason, log_tail } => {
 			let last = log_tail.lines().last().unwrap_or("").trim();
 			if last.is_empty() {

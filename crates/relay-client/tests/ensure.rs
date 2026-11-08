@@ -150,11 +150,10 @@ async fn a_missing_binary_is_reported() {
 	let error = daemon::ensure_running(&home.endpoint(), &options)
 		.await
 		.expect_err("no binary");
-	let EnsureError::BinaryNotFound { searched } = &error else {
+	let EnsureError::FailedToStart { reason, .. } = &error else {
 		panic!("{error:?}");
 	};
-	assert_eq!(searched[0], home.dir.path().join("no-such-relayd"));
-	assert!(error.to_string().contains("RELAY_DAEMON_BIN"));
+	assert!(reason.contains("no-such-relayd"), "{reason}");
 }
 
 #[tokio::test]

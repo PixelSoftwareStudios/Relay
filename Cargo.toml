@@ -62,6 +62,7 @@ relay-client = { path = "crates/relay-client" }
 relay-ui = { path = "crates/relay-ui" }
 relay-messages = { path = "crates/relay-messages" }
 relay-io = { path = "crates/relay-io" }
+relay-daemon = { path = "apps/relay-daemon" }
 # Test and bench support (dev-dependency only; not a default member)
 relay-testkit = { path = "crates/relay-testkit" }
 

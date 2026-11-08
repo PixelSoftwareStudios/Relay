@@ -35,7 +35,7 @@ pub struct GlobalArgs {
 	/// need it start `relayd` and say so). Also `RELAY_NO_AUTOSTART=1`.
 	#[arg(long, global = true)]
 	pub no_autostart: bool,
-	/// The `relayd` to start instead of the one next to `relay` or on PATH.
+	/// Run this program as `relayd` instead of starting this executable's own daemon (tests).
 	#[arg(long, global = true, hide = true, value_name = "PATH")]
 	pub daemon_bin: Option<PathBuf>,
 	/// Where a daemon started by this command writes its log.
@@ -427,12 +427,9 @@ pub enum DaemonAction {
 	Run(DaemonLaunch),
 }
 
-/// How to find and start `relayd`.
+/// How to start `relayd`.
 #[derive(Debug, Clone, Args)]
 pub struct DaemonLaunch {
-	/// Path to `relayd` (default: `RELAY_DAEMON_BIN`, next to `relay`, then PATH).
-	#[arg(long, value_name = "PATH")]
-	pub binary: Option<PathBuf>,
 	/// Append the daemon's output to this file (default: the per-user log).
 	#[arg(long, value_name = "PATH")]
 	pub log_file: Option<PathBuf>,

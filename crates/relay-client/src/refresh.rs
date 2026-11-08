@@ -178,11 +178,6 @@ impl Daemon for Live<'_> {
 	async fn start(&mut self) -> Result<(), String> {
 		match daemon::start_replacement(&self.options.launch(self.endpoint)).await {
 			Started::Launched { .. } | Started::AlreadyRunning => Ok(()),
-			Started::BinaryNotFound { searched } => Err(format!(
-				"cannot find {} (looked in {} places)",
-				daemon::binary_name(),
-				searched.len()
-			)),
 			Started::FailedToStart { reason, log_tail } => {
 				Err(format!("{reason}\n{log_tail}").trim().to_owned())
 			}

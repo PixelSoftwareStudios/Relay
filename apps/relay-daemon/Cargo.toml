@@ -6,6 +6,10 @@ rust-version.workspace = true
 license.workspace = true
 description = "relayd: the Relay engine as a standalone per-user background process"
 
+[lib]
+name = "relay_daemon"
+path = "src/lib.rs"
+
 [[bin]]
 name = "relayd"
 path = "src/main.rs"
@@ -13,6 +17,7 @@ path = "src/main.rs"
 [dependencies]
 relay-config.workspace = true
 relay-engine.workspace = true
+relay-io.workspace = true
 clap.workspace = true
 tokio.workspace = true
 tracing.workspace = true

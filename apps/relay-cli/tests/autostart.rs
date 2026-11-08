@@ -153,7 +153,7 @@ async fn a_failed_start_explains_itself_with_exit_three() {
 		.await
 		.expect_err("no binary");
 	assert_eq!(error.exit_code(), exit::UNREACHABLE);
-	assert!(error.to_string().contains("cannot find relayd"), "{error}");
+	assert!(error.to_string().contains("no-such-relayd"), "{error}");
 }
 
 #[tokio::test]

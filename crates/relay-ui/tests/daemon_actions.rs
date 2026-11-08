@@ -143,11 +143,6 @@ fn start_results_become_plain_messages() {
 	};
 	assert_eq!(start_message(launched), Ok(String::new()));
 	assert_eq!(start_message(Started::AlreadyRunning), Ok(String::new()));
-	let missing = start_message(Started::BinaryNotFound { searched: vec![] }).expect_err("error");
-	assert!(
-		missing.contains("relayd") && missing.contains("RELAY_DAEMON_BIN"),
-		"{missing}"
-	);
 	let failed = start_message(Started::FailedToStart {
 		reason: "the daemon exited early (exit status: 3)".to_owned(),
 		log_tail: "line one\nboom: cannot bind".to_owned(),
