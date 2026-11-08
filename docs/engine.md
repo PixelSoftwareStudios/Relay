@@ -86,7 +86,7 @@ hold a `StreamLimiter` slot (96 by default).
 ## Daemon
 
 `daemon::run(RunOptions)` serves until SIGINT/SIGTERM; `DaemonHandle::start` is the same for
-tests and embedding. The `relayd` binary (`apps/relay-daemon`) is a thin `clap` front end for `run`; no client embeds the engine. `relayd` takes `--socket`, `--tcp` / `--tcp-profile`, `--home` (config and data under a directory), `--log-level`, `--listen-port` and, hidden for tests, `--no-discovery` and `--identity-store os|file|memory`.
+tests and embedding. The `relay-daemon` crate (`apps/relay-daemon`) is a thin `clap` front end for `run`, as a library plus the `relayd` binary. `relay` and `relay-desktop` link the library and run it when started with the hidden first argument `--run-daemon` (`relay_daemon::exit_if_requested()`); a client starts the daemon by spawning its own executable that way, detached, and never runs the engine in its own process. `relayd` takes `--socket`, `--tcp` / `--tcp-profile`, `--home` (config and data under a directory), `--log-level`, `--listen-port` and, hidden for tests, `--no-discovery` and `--identity-store os|file|memory`.
 
 `Shutdown` (admin only) sets a flag the host watches; `run` then stops the same way as on SIGTERM: calls end, the microphone is released, the endpoint is removed, the process exits 0. It is idempotent.
 

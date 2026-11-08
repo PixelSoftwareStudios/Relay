@@ -1,19 +1,23 @@
 # Packaging and install layout
 
-Relay ships three programs. The engine is its own process; the other two are clients that find,
-start and stop it through the local API.
+Relay ships three programs. The engine is its own process; the other two are clients that start
+and stop it through the local API. Every program contains the engine entry (the `relay-daemon`
+library): a client starts the daemon by running its own executable with the hidden first argument
+`--run-daemon`. `relayd` is the same entry as a dedicated file, for service units and headless
+machines.
 
 | Program | Crate | Role |
 |---|---|---|
-| `relayd` | `apps/relay-daemon` | The per-user engine: devices, identity, peers, calls, local API. Runs with no terminal. |
+| `relayd` | `apps/relay-daemon` | The per-user engine: devices, identity, peers, calls, local API. Runs with no terminal. Used by service units and headless installs; clients do not need it. |
 | `relay` | `apps/relay-cli` | Terminal client: commands, TUI, global push-to-talk key. Never embeds the engine. |
 | `relay-desktop` | `apps/relay-desktop` | Optional native window. Never needs `relay`. |
 
 ## Layout
 
-Install the three binaries in one directory. Both clients look for `relayd` next to their own
-executable first, so a portable folder works with no `PATH` entry; then `RELAY_DAEMON_BIN`, then
-`PATH` (the order is: an explicit option, `RELAY_DAEMON_BIN`, the executable's directory, `PATH`).
+Install the binaries in one directory. A client never looks for `relayd`: it starts the daemon from
+its own file, so a lone `relay` or `relay-desktop` works anywhere, there is no `PATH` or environment
+lookup to hijack, and the daemon is always the same build and code identity as the client that
+started it. Keep `relayd` only where a service unit or a headless host runs it.
 
 ```
 <prefix>/bin/relayd
@@ -22,8 +26,13 @@ executable first, so a portable folder works with no `PATH` entry; then `RELAY_D
 <prefix>/share/doc/relay/THIRD_PARTY_LICENSES
 ```
 
-On macOS a bundle can keep `relay-desktop` in `Contents/MacOS` and `relayd` beside it. A package must
-not make `relay-desktop` depend on `relay`.
+On macOS a bundle keeps `relay-desktop` in `Contents/MacOS`, with `relay` and `relayd` beside it. A
+package must not make `relay-desktop` depend on `relay`.
+
+On macOS the keychain remembers "Always Allow" by the program's code identity, and a daemon started
+by any client runs under that client's identity. All three programs must therefore be signed with
+the same identifier, `dev.relay.relayd`, or the keychain asks again whenever a different client
+starts the daemon.
 
 ## Release packages
 
@@ -39,8 +48,8 @@ programs; the headless archive carries only `relay` and `relayd`, built without 
 | `.msi` | `%ProgramFiles%\Relay\` (all three, install folder added to the machine `PATH`), licences in `doc\` |
 | `.dmg`, `-update.zip` | `Relay.app/Contents/MacOS/{relay-desktop,relay,relayd}` |
 
-The `.app` is ad-hoc signed with fixed identifiers (`dev.relay.relayd`, `dev.relay.relay`,
-`dev.relay.relay-desktop`), so the keychain designated requirement is by identifier only; Developer ID
+The `.app` is ad-hoc signed with one fixed identifier (`dev.relay.relayd`) on all three programs, so
+the keychain designated requirement is by identifier only; Developer ID
 signing and notarization remain open. `relay` inside the bundle is not on `PATH`; link it with
 `ln -s /Applications/Relay.app/Contents/MacOS/relay /usr/local/bin/relay` if wanted. The service
 units from `contrib/` ship as examples only (Linux packages and archives: `relayd.service`; macOS
@@ -65,11 +74,11 @@ The script creates a self-signed code-signing certificate "Relay Local Dev Signi
 imports it into the login keychain (macOS may ask for the login password). It never changes trust
 settings, never needs sudo, and does nothing when the binaries are already signed correctly.
 `.cargo/config.toml` sets `scripts/cargo-runner-macos.sh` as the macOS runner, which re-signs
-`relayd`, `relay` and `relay-desktop` on `cargo run` once the certificate exists; it is inert before
-that and never fails a run. Binaries started by other means (a client autostarting
-`target/debug/relayd`) need the post-build command. After signing, answer the keychain prompt once
-with "Always Allow". The older per-secret items from earlier builds are not read; delete any
-`relay-voice` entries other than `vault` in Keychain Access.
+`relayd`, `relay` and `relay-desktop` on `cargo run` once the certificate exists, all with the identifier
+`dev.relay.relayd` (a client starts the daemon from its own file, so the three must share the
+requirement); it is inert before that and never fails a run. Binaries started by other means need the
+post-build command. After signing, answer the keychain prompt once
+with "Always Allow".
 
 This is not release signing: Developer ID, hardened runtime, entitlements and notarization are
 open (`docs/gates.md`, `docs/release.md`).
@@ -86,9 +95,9 @@ a service-unit daemon: it stays silent until a client attaches. To have Relay av
 without a window, run the daemon from a service unit (`contrib/`, no idle exit); the units remain
 the way to run it at login.
 
-- `relay daemon start` launches `relayd` detached (its own process group, no terminal) and waits for
-  the endpoint; `relay daemon status`, `stop`, `restart` and `logs` do the rest. `relay daemon run`
-  runs `relayd` in the foreground.
+- `relay daemon start` launches the daemon (`relay --run-daemon ...`) detached (its own process group,
+  no terminal) and waits for the endpoint; `relay daemon status`, `stop`, `restart` and `logs` do the
+  rest. `relay daemon run` runs it in the foreground.
 - The desktop starts the daemon at launch when none answers, restarts one that dies (exponential
   backoff, at most 3 starts in 60 s, then it shows the failure with the log tail and a manual
   "Start daemon" button) and does not restart one the user quit with "Quit daemon...".

@@ -2,6 +2,69 @@
 
 Short records of choices that changed or are easy to forget. Newest first.
 
+## Decision: Android QR scanning is CameraX plus ZXing core, no Google components
+
+Status: accepted. Supersedes "Android QR scanning is CameraX plus ML Kit's bundled model" (security review SR-02).
+
+The bundled ML Kit pulled in its component discovery, a content provider that starts at app launch and the Firelog/datatransport usage-logging code, next to the `INTERNET` permission the app needs for LAN sockets. "No telemetry, no third-party network calls" is a hard requirement, so the scanner is now `com.google.zxing:core` (pure Java, Apache-2.0) reading the luminance plane of CameraX `ImageAnalysis` frames (`QrDecoder`): QR only, normal and inverted, at most about 7 frames per second (`FrameThrottle`), `TRY_HARDER`. The APK shrinks by the 4.9 MB `libbarhopper` per ABI and the model. Cost: ZXing is slower and less tolerant than ML Kit on small, blurry or low-contrast codes; the connection QR is large and high-contrast, and a pasted string always works.
+
+Guard: `scripts/packaging/check_android_apk.py` (run by `just android-apk`, so also by the release workflow) fails when the built APK's merged manifest, dex strings or entry names contain `mlkit`, `datatransport`, `firebase`, `com.google.android.gms`, `GoogleApiActivity` and similar.
+
+## Decision: every client starts the daemon from its own executable
+
+Status: accepted.
+
+Need: `cargo run -p relay-desktop` and `cargo run -p relay-cli` failed from a clean checkout ("cannot
+find relayd (looked in 42 places)") because only `cargo build` of the default members also built
+`relayd`; each client searched an explicit path, `RELAY_DAEMON_BIN`, its own directory and `PATH`.
+
+Options compared:
+- A `build.rs` or alias that builds `relayd` alongside: Cargo builds only the requested bin target for
+  `cargo run -p`, artifact dependencies are unstable, and a nested `cargo build` from a build script
+  needs its own target directory and compiles the engine twice.
+- A second `relayd` bin target inside each client package: the same name twice in one workspace
+  collides, and `cargo run` still builds only the selected bin.
+- Multi-call binaries (chosen): `relay-daemon` is a library plus the `relayd` bin. `relay` and
+  `relay-desktop` link it and call `relay_daemon::exit_if_requested()` first in `main`; when their
+  first argument is `--run-daemon` (hidden) they run the daemon with the remaining `relayd` arguments
+  and exit. A client starts the daemon with `current_exe()` plus that argument, detached, under the
+  same start lock; clients still attach to a running per-user daemon first.
+
+Consequences:
+- The daemon is always the same binary as the client that started it: the same build (no version skew,
+  `API_REVISION` only separates a daemon left over from an older build) and the same code identity.
+  No file search and no `PATH` or `RELAY_DAEMON_BIN` lookup remain, so nothing planted in `PATH` can be
+  run as the engine. The only override is the explicit `Launch::binary` field (tests) and the hidden
+  `relay --daemon-bin`.
+- Security checks are unchanged: the engine's socket directory and ownership checks run in the daemon
+  as before; the start lock, the log file and detached launch are the same code.
+- macOS keychain access is remembered per code identity, and the daemon now runs under the identity of
+  whichever client started it. The three programs must be signed with one identifier,
+  `dev.relay.relayd` (`scripts/dev-sign-macos.sh` does this; `docs/packaging.md` lists the release
+  signing requirement), or the keychain prompts again when a different client starts the daemon.
+- `relay` and `relay-desktop` grow by the engine (they linked it only in tests before). `relayd` stays
+  as a dedicated file for service units and headless installs; packages may omit it for clients alone.
+- `cargo run -p relay-desktop -- --mock` and `relay` commands that do not start a daemon are unaffected.
+
+## Decision: versions reset to 1 before the first release
+
+Status: accepted.
+
+Relay has not been released and nobody has data, so every persisted, wire and format version starts
+at 1 and no compatibility code is kept:
+- `API_REVISION` 7 to 1 (it still tells a client that a running daemon is from another build).
+- The SQLite schema is one `CREATE TABLE` script run when `user_version` is 0 and stamped 1; the
+  idempotent "create what is missing" scaffolding is gone, and so are its tests.
+- The channel session binding domain string `v2` to `v1`. Other versions were already 1: the record
+  and handshake preface (`PROTOCOL_MAJOR`), keychain bundle, `config_version`, message export,
+  Android sealed values, DSP manifest `schema_version`, the `relay.v1` and `relay.peer.v1` packages.
+- The `Settings` proto message was renumbered without the reserved hole (`reserved 4`).
+- Kept on purpose: refusal of a database, bundle or export with a HIGHER version than the build knows,
+  protocol major mismatch refusal, and the stale-daemon replacement by `API_REVISION`. These are normal
+  forward behaviour, not compatibility with an earlier release.
+
+From the first release on, a version bump needs a migration or a documented break.
+
 ## Decision: background availability and auto-answer
 
 Status: accepted (engine and settings built; the Android service, the desktop tray and the UI are the

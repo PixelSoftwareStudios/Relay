@@ -22,10 +22,10 @@ Commands are generic over `Control`/`Manage`, so they run unchanged against a sc
 ## Commands
 
 ```
-relay daemon start [--binary P] [--log-file P] [--wait S] [-- relayd args]
+relay daemon start [--log-file P] [--wait S] [-- relayd args]
 relay daemon restart [--force] [same options]   refuses while a call is in progress unless --force
 relay daemon stop | status | logs [-n N]
-relay daemon run [-- relayd args]      run relayd in this terminal
+relay daemon run [-- relayd args]      run the daemon in this terminal
 relay status | peers
 relay call <peer|ip:port>              never enables the microphone
 relay accept|decline|end [call]
@@ -145,7 +145,7 @@ If a daemon answers but is still opening the system's secure storage (a keychain
 
 ## Auto-start, presence and ownership
 
-Every command that needs the engine starts `relayd` when none answers (`relay_client::daemon::ensure_running`, which holds a cross-process start lock so concurrent commands start one daemon), prints one line on stderr (never stdout, so `--json` stays clean) and goes on. The line says that the daemon opens no microphone and that the device advertises on the LAN while a client is attached or background availability is on, by default with its name (privacy default `visible`; `relay privacy` hides it). `--no-autostart` or `RELAY_NO_AUTOSTART=1` turns it off, as does the stored `clients.autostart_daemon` preference (changed in the desktop Settings; the CLI has no setter); then an unreachable daemon is exit 3. Never started: `daemon stop|status|logs`, `hotkey status`, `config get|export` (they use a daemon only if one already answers), `doctor`, `completions`, `man`. After `daemon stop` the same process never starts one again. A running daemon with another API revision (`daemon status` shows both builds and warns "out of date") is replaced when it is idle: the command prints one line (`relay: restarted relayd (it was build X, this is Y)`) and goes on; with a call in progress it prints one warning line and leaves the daemon alone (`relay daemon restart` when done). `--no-autostart`/`RELAY_NO_AUTOSTART` switch this off too. Headless: with `background.available` on (the default) a `relayd` with no attached client, however it was started (a command, `relay daemon start`, a service unit), is itself home: it advertises on the LAN (by default with its name; `privacy.advert_mode hidden` stops that), listens, accepts invitations, rings the engine ringtone per `calls.alert` and auto-answers verified flagged contacts (the engine owns that call; the first client that attaches can control it, push-to-talk and mic state follow `calls.default_transmit_mode`). An unanswered call follows the ring timeout and is in the history. `relayd` itself shows no notification (it has no shell): the sound rings and the log says what happened; a notification needs the desktop app in the tray (`docs/desktop.md`). With background on the daemon never idle-exits, so a command that autostarts it leaves it running; `relay config set background.available false` (live) restores the old rules: no advert, no ring, invitations declined as busy without a client, and an exit after 300 s with no attached client and no call (`--idle-exit`, `RELAY_IDLE_EXIT_SECS`). `relay daemon start` has no idle exit.
+Every command that needs the engine starts the daemon (this executable, see below) when none answers (`relay_client::daemon::ensure_running`, which holds a cross-process start lock so concurrent commands start one daemon), prints one line on stderr (never stdout, so `--json` stays clean) and goes on. The line says that the daemon opens no microphone and that the device advertises on the LAN while a client is attached or background availability is on, by default with its name (privacy default `visible`; `relay privacy` hides it). `--no-autostart` or `RELAY_NO_AUTOSTART=1` turns it off, as does the stored `clients.autostart_daemon` preference (changed in the desktop Settings; the CLI has no setter); then an unreachable daemon is exit 3. Never started: `daemon stop|status|logs`, `hotkey status`, `config get|export` (they use a daemon only if one already answers), `doctor`, `completions`, `man`. After `daemon stop` the same process never starts one again. A running daemon with another API revision (`daemon status` shows both builds and warns "out of date") is replaced when it is idle: the command prints one line (`relay: restarted relayd (it was build X, this is Y)`) and goes on; with a call in progress it prints one warning line and leaves the daemon alone (`relay daemon restart` when done). `--no-autostart`/`RELAY_NO_AUTOSTART` switch this off too. Headless: with `background.available` on (the default) a `relayd` with no attached client, however it was started (a command, `relay daemon start`, a service unit), is itself home: it advertises on the LAN (by default with its name; `privacy.advert_mode hidden` stops that), listens, accepts invitations, rings the engine ringtone per `calls.alert` and auto-answers verified flagged contacts (the engine owns that call; the first client that attaches can control it, push-to-talk and mic state follow `calls.default_transmit_mode`). An unanswered call follows the ring timeout and is in the history. `relayd` itself shows no notification (it has no shell): the sound rings and the log says what happened; a notification needs the desktop app in the tray (`docs/desktop.md`). With background on the daemon never idle-exits, so a command that autostarts it leaves it running; `relay config set background.available false` (live) restores the old rules: no advert, no ring, invitations declined as busy without a client, and an exit after 300 s with no attached client and no call (`--idle-exit`, `RELAY_IDLE_EXIT_SECS`). `relay daemon start` has no idle exit.
 
 A daemon with no attached client (no open `WatchState` stream) neither advertises nor rings: a short-lived command such as `relay peers` attaches, so it counts for the second or so it lives (the engine debounces presence by 2 s).
 
@@ -192,14 +192,18 @@ The platform backend (`relay-platform`) must be created on the process main thre
 
 ## The daemon is a separate program
 
-`relay` never embeds the engine. `relay daemon start` launches the `relayd` binary detached (see
-`docs/packaging.md` for where it is looked for, `RELAY_DAEMON_BIN`) and waits until the endpoint
+`relay` never runs the engine in its own process. `relay daemon start` launches the engine as a
+separate detached process: `relay` itself, started with the hidden first argument `--run-daemon`
+(`relay_daemon::exit_if_requested`, called first in `main`; `docs/decisions.md`). No `relayd` file is
+searched for, so a `cargo run -p relay-cli` from a clean checkout works. The hidden global
+`--daemon-bin PATH` runs another program as `relayd` instead (tests). It waits until the endpoint
 accepts connections; it prints `already running` instead of starting a second one. `stop` and
 `restart` register a short-lived client with the `admin` capability and call `Shutdown`; no other
 command requests it. `status` exits 3 when nothing serves the endpoint, like every other command
 (`daemon not running at ...; try relay daemon start`). `--socket` and
-`--tcp-profile` choose the endpoint and are passed on to `relayd`. `relay-engine` is only a
-dev-dependency (for `tests/real_engine.rs`).
+`--tcp-profile` choose the endpoint and are passed on to the daemon. The engine comes in through the
+`relay-daemon` library (the daemon entry only); `relay-engine` is also a dev-dependency (for
+`tests/real_engine.rs`).
 
 ## Gaps
 

@@ -72,12 +72,12 @@ Nothing is code-signed by a trusted authority, so each system warns on first run
 
 ## Quick start
 
-**Desktop.** Install and open Relay. It starts its own `relayd` if none is running, asks for microphone
+**Desktop.** Install and open Relay. It starts its own daemon if none is running, asks for microphone
 access on first launch, and lists devices it finds on your network. Pick one to call; the other side
 accepts. Open the same app on a second device on the same network to try it. On Windows and macOS closing
 the window hides it to the tray.
 
-**CLI.** The `relay` command starts `relayd` on demand (it never opens the microphone by itself).
+**CLI.** The `relay` command starts the daemon on demand (it never opens the microphone by itself).
 
 ```sh
 relay peers                    # devices found on the LAN
@@ -125,7 +125,7 @@ Requirements: the Rust toolchain pinned in `rust-toolchain.toml` (installed auto
 and on Linux the usual audio and windowing development packages (CI installs `libasound2-dev pkg-config libgtk-3-dev libxkbcommon-dev libwayland-dev libayatana-appindicator3-dev`).
 
 ```sh
-cargo run                                  # desktop app (starts relayd)
+cargo run                                  # desktop app (starts its own daemon)
 cargo run -p relay-desktop -- --mock       # desktop UI without an engine
 cargo run -p relay-cli -- tui              # terminal client
 cargo build -p relay-cli -p relay-daemon   # headless: relay + relayd only
