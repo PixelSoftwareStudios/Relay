@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, Hindi (hi), section: Audio, levels and ringing.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/audio.ftl. See docs/i18n.md.
 
 duration-ms = { $millis } ms
@@ -21,8 +21,8 @@ ring-volume = रिंगटोन की आवाज़
 ring-incoming = आने वाली कॉल पर घंटी बजाएँ
 ring-back = कॉल करते समय रिंगबैक
 ring-sounds = जुड़ने और कॉल समाप्त होने की ध्वनियाँ
-ring-test = रिंग जाँचें
-ring-test-hover = इस डिवाइस पर दो सेकंड के लिए रिंग बजाता है।
+ring-test = रिंगटोन जाँचें
+ring-test-hover = इस डिवाइस पर दो सेकंड के लिए रिंगटोन बजाता है।
 meter-hover = { $label }: { $level }
 slider-release-delay = पुश-टू-टॉक छोड़ने में देरी
 audio-mute-all = सभी म्यूट करें
@@ -40,7 +40,7 @@ mic-test-stop = टेस्ट रोकें
 mic-test-silent-words = शांत
 mic-test-db = { $value } dB
 audio-processing = माइक्रोफ़ोन प्रोसेसिंग
-audio-ns = पृष्ठभूमि का शोर कम करें
+audio-ns = बैकग्राउंड शोर कम करें
 audio-ns-level = तीव्रता
 audio-ns-level-low = कम
 audio-ns-level-moderate = मध्यम

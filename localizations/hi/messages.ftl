@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, Hindi (hi), section: Messages panel.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/messages.ftl. See docs/i18n.md.
 
 problem-messages-disabled = डेमन में संदेश सेवा बंद है।
@@ -85,7 +85,7 @@ msg-not-absolute = चुना गया स्थान पूर्ण पथ
 msg-path-not-text = वह पथ डेमन को भेजा नहीं जा सकता (वह मान्य टेक्स्ट नहीं है)।
 clipboard-empty = क्लिपबोर्ड में टेक्स्ट नहीं है।
 clipboard-too-long = क्लिपबोर्ड का टेक्स्ट { $size } बाइट का है; एक संदेश में अधिकतम { $limit } आ सकते हैं। कुछ नहीं भेजा गया।
-link-warn-idn = अंतर्राष्ट्रीय डोमेन नाम: यह किसी दूसरी साइट की नकल हो सकता है।
+link-warn-idn = अंतरराष्ट्रीय डोमेन नाम: यह किसी दूसरी साइट की नकल हो सकता है।
 link-warn-mixed = एक नाम में मिली-जुली लिपियाँ: किसी दूसरी साइट की नकल का पक्का संकेत।
 link-warn-punycode = होस्ट का नाम गलत रूप में है।
 msg-turned-off = संदेश बंद हैं

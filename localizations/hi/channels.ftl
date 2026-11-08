@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, Hindi (hi), section: Channels, privacy and the connection string.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/channels.ftl. See docs/i18n.md.
 
 channels-heading = चैनल
@@ -28,7 +28,7 @@ channel-listed-label = सूचीबद्ध: सदस्यों के �
 channel-password-label = जुड़ने के लिए पासवर्ड ज़रूरी करें
 channel-invite-only-label = सिर्फ़ आमंत्रण से
 password-hint = पासवर्ड
-channel-join-heading = चैनल में जुड़ें
+channel-join-heading = चैनल से जुड़ें
 channel-join-note = आमंत्रण कोड चिपकाएँ, या चैनल आईडी और उसका पासवर्ड डालें।
 channel-join-hint = आमंत्रण कोड या चैनल आईडी
 password-optional-hint = पासवर्ड (आमंत्रण के लिए ज़रूरी नहीं)
@@ -49,9 +49,9 @@ connection-fingerprint = फ़िंगरप्रिंट { $fingerprint }
 connection-warning = इस पते वाला कोई भी आपको कॉल कर सकता है। इससे वह भरोसेमंद नहीं बनता और माइक्रोफ़ोन की पहुँच भी नहीं मिलती।
 connection-qr-too-long = पता QR कोड के लिए बहुत लंबा है।
 channel-hidden = छिपा हुआ
-channels-none-help = कई लोगों से एक साथ बात करने के लिए चैनल बनाएँ, या निमंत्रण से किसी में शामिल हों।
+channels-none-help = कई लोगों से एक साथ बात करने के लिए चैनल बनाएँ, या आमंत्रण से किसी में शामिल हों।
 connection-copy = पता कॉपी करें
-connection-error-next = जाँचें कि Relay पृष्ठभूमि में चल रहा है, फिर दोबारा कोशिश करें।
+connection-error-next = जाँचें कि Relay बैकग्राउंड में चल रहा है, फिर दोबारा कोशिश करें।
 connection-qr-help = दूसरे डिवाइस से यह कोड स्कैन करें ताकि वह आपको कॉल कर सके।
 privacy-who-rings-help = तय करता है कि आपको कौन कॉल कर सकता है।
 privacy-visibility-help = छिपे डिवाइस को कनेक्शन स्ट्रिंग से अब भी कॉल किया जा सकता है।
@@ -74,4 +74,4 @@ scan-mismatch = वह डिवाइस कोड से मेल नही�
 scan-trust-failed = उस डिवाइस को जोड़ा नहीं जा सका: { $reason }
 privacy-blocked = ब्लॉक किए गए डिवाइस
 privacy-blocked-none = आपने कोई डिवाइस ब्लॉक नहीं किया है।
-privacy-blocked-help = ब्लॉक किए गए डिवाइस आपको कॉल नहीं कर सकते और पास में नहीं दिखते। अनब्लॉक करने पर वे फिर मिल सकते हैं; वे संपर्क नहीं बन जाते।
+privacy-blocked-help = ब्लॉक किए गए डिवाइस आपको कॉल नहीं कर सकते और आस-पास नहीं दिखते। अनब्लॉक करने पर वे फिर मिल सकते हैं; वे संपर्क नहीं बन जाते।

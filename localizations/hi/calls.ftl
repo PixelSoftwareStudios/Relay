@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, Hindi (hi), section: Calls: phases, transmit status, trust.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/calls.ftl. See docs/i18n.md.
 
 phase-preparing = तैयारी हो रही है
@@ -52,14 +52,14 @@ calls-sounds = ध्वनियाँ
 ring-help = ध्वनियाँ केवल इस डिवाइस पर बजती हैं।
 history-heading = इतिहास
 history-empty = अभी तक कोई कॉल इतिहास नहीं
-history-empty-help = आपके किए और प्राप्त किए गए कॉल यहाँ सूचीबद्ध होंगे।
+history-empty-help = आपकी की गई और प्राप्त कॉल यहाँ सूचीबद्ध होंगी।
 history-off-note = कॉल इतिहास बंद है। कुछ नया दर्ज नहीं होता; नीचे की प्रविष्टियाँ आपके हटाने तक बनी रहती हैं।
-history-incoming = आने वाला
-history-outgoing = जाने वाला
-history-missed = छूटा हुआ
+history-incoming = आने वाली
+history-outgoing = जाने वाली
+history-missed = छूटी हुई
 history-declined = अस्वीकृत
-history-not-reached = संपर्क नहीं हुआ
-history-cancelled = रद्द किया गया
+history-not-reached = पहुँच नहीं बनी
+history-cancelled = रद्द की गई
 history-call-back = वापस कॉल करें
 history-show-more = और दिखाएँ
 history-clear = इतिहास हटाएँ
@@ -90,7 +90,7 @@ incoming-join-muted = आप माइक्रोफ़ोन बंद कर�
 incoming-join-unmuted = आप माइक्रोफ़ोन चालू करके जुड़ेंगे।
 incoming-join-ptt = आप पुश-टू-टॉक मोड में जुड़ेंगे।
 details-title = कनेक्शन का ब्योरा
-details-waiting = पहली माप का इंतज़ार है…
+details-waiting = पहली रीडिंग का इंतज़ार है…
 details-path = कनेक्शन
 details-path-ok = ठीक चल रहा है
 details-path-waiting = दूसरे डिवाइस का इंतज़ार है
@@ -99,7 +99,7 @@ details-path-failed = काम नहीं कर रहा
 details-path-failed-why = काम नहीं कर रहा: { $reason }
 details-traffic = ऑडियो ट्रैफ़िक
 details-traffic-value = भेज रहा है: { $sending } · पा रहा है: { $receiving }
-details-rtt = आना-जाना समय
+details-rtt = राउंड-ट्रिप समय
 details-range = { $value } (सबसे अच्छा { $min }, सबसे खराब { $max })
 details-jitter = जिटर
 details-loss = खोए हुए पैकेट
@@ -132,7 +132,7 @@ startup-failed-title = Relay सुरक्षित स्टोरेज न�
 startup-reason-keychain = पहुँच की अनुमति नहीं मिली या वह लॉक है
 startup-reason-unreadable = सहेजी गई पहचान पढ़ी नहीं जा सकती, और Relay ने उसे जस का तस छोड़ा है
 startup-failed-help = आपकी पहचान को सुरक्षित रखने के लिए Relay को सिस्टम के सुरक्षित स्टोरेज तक पहुँच चाहिए। पहुँच की अनुमति दें और फिर कोशिश करें, या इसके बदले फ़ाइल स्टोरेज इस्तेमाल करें।
-startup-retry = फिर कोशिश करें
+startup-retry = फिर से कोशिश करें
 startup-file-store = फ़ाइल स्टोरेज इस्तेमाल करें…
 startup-file-warning = फ़ाइल स्टोरेज में आपकी पहचान की कुंजी एक सामान्य फ़ाइल में रहती है, जो सिर्फ़ फ़ाइल अनुमतियों से सुरक्षित है। यह सिस्टम के सुरक्षित स्टोरेज से कम सुरक्षित है। अगर उस फ़ाइल में अभी कोई कुंजी नहीं है, तो Relay नई पहचान बनाएगा और आपके संपर्कों को इस डिवाइस को फिर से सत्यापित करना होगा।
 startup-file-confirm = फ़ाइल स्टोरेज इस्तेमाल करें

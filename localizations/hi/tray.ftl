@@ -1,8 +1,8 @@
 # Relay desktop UI catalog, Hindi (hi), section: Tray menu and tooltip.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/tray.ftl. See docs/i18n.md.
 
-tray-mock = Relay (नकली डेटा)
+tray-mock = Relay (डेमो डेटा)
 tray-starting = Relay: डेमन शुरू हो रहा है
 tray-connecting = Relay: डेमन से जुड़ रहा है
 tray-reconnecting = Relay: डेमन से कनेक्शन टूटा, फिर जुड़ रहा है

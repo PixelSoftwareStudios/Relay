@@ -1,22 +1,22 @@
 # Relay desktop UI catalog, Hindi (hi), section: Errors the UI words itself.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/errors.ftl. See docs/i18n.md.
 
 err-not-connected = Relay डेमन से नहीं जुड़ा है
 err-release-delay = छोड़ने की देरी 0 से 2000 ms के बीच होनी चाहिए
-err-gain = गेन 0 से 4 के बीच की सीमित संख्या होनी चाहिए
+err-gain = गेन 0 से 4 के बीच की संख्या होनी चाहिए
 err-bad-call-id = कॉल आईडी गलत रूप में है
 err-unknown-call = अज्ञात कॉल
 err-no-lease = इंजन ने कोई नियंत्रण लीज़ नहीं दी
-err-bad-peer-id = पीयर आईडी गलत रूप में है
-err-unknown-peer = अज्ञात पीयर
+err-bad-peer-id = डिवाइस आईडी गलत रूप में है
+err-unknown-peer = अज्ञात डिवाइस
 err-ring-volume = रिंगटोन की आवाज़ 0 से 1 के बीच होनी चाहिए
 err-unknown-device = अज्ञात या अनुपलब्ध ऑडियो डिवाइस
-err-display-name = प्रदर्शित नाम 1 से 64 प्रिंट होने योग्य अक्षरों का होना चाहिए
-err-avatar-media-type = प्रोफ़ाइल चित्र के लिए मीडिया प्रकार चाहिए
+err-display-name = दिखने वाला नाम 1 से 64 प्रिंट होने योग्य अक्षरों का होना चाहिए
+err-avatar-media-type = प्रोफ़ाइल तस्वीर के लिए मीडिया प्रकार चाहिए
 conn-scheme = कनेक्शन स्ट्रिंग relay:// से शुरू होती है
-err-invite-malformed = वह आमंत्रण टोकन गलत रूप में है
-err-join-target = आमंत्रण टोकन या 32 अक्षरों की चैनल आईडी डालें
+err-invite-malformed = वह आमंत्रण कोड गलत रूप में है
+err-join-target = आमंत्रण कोड या 32 अक्षरों की चैनल आईडी डालें
 err-bad-channel-id = चैनल आईडी गलत रूप में है
 err-unknown-channel = अज्ञात चैनल
 err-channel-name = चैनल का नाम 1 से 32 प्रिंट होने योग्य अक्षरों का होना चाहिए
@@ -26,10 +26,10 @@ err-invite-admin-only = सिर्फ़ मालिक या एडमि�
 err-invite-range = आमंत्रण की अवधि या उपयोग की संख्या सीमा से बाहर है
 err-no-invite = इंजन ने कोई आमंत्रण नहीं दिया
 err-revoke-admin-only = सिर्फ़ मालिक या एडमिन सदस्यों को हटा सकता है
-err-not-member = वह पीयर चैनल का प्रमाणित सदस्य नहीं है
+err-not-member = वह डिवाइस चैनल का प्रमाणित सदस्य नहीं है
 err-nothing-to-change = बदलने के लिए कुछ नहीं है
-err-bad-avatar-hash = प्रोफ़ाइल चित्र का हैश गलत रूप में है
-conn-missing-fingerprint = कनेक्शन स्ट्रिंग में #फ़िंगरप्रिंट वाला हिस्सा नहीं है।
+err-bad-avatar-hash = प्रोफ़ाइल तस्वीर का हैश गलत रूप में है
+conn-missing-fingerprint = कनेक्शन स्ट्रिंग में #fingerprint वाला हिस्सा नहीं है।
 conn-bad-fingerprint = फ़िंगरप्रिंट 64 हेक्साडेसिमल अक्षरों का होना चाहिए।
 conn-bad-address = पता सीधा ip:port होना चाहिए, नाम नहीं।
 watch-resync = इंजन ने फिर से सिंक करने को कहा: { $reason }
@@ -47,5 +47,5 @@ err-read-file = फ़ाइल पढ़ी नहीं जा सकी: { $e
 err-fingerprint-mismatch = यह इस डिवाइस की नई कुंजी का फ़िंगरप्रिंट नहीं है।
 err-trust-full = आप { $limit } सहेजे गए डिवाइस की सीमा तक पहुँच गए हैं। संपर्क में से कुछ हटाएँ।
 err-save-failed = Relay यह बदलाव सहेज नहीं सका। फिर कोशिश करें, या ऐप फिर से शुरू करें।
-err-trust-unreachable = Relay भरोसा करने के लिए उस डिवाइस तक नहीं पहुँच सका। देखें कि वह उसी नेटवर्क पर है और Relay खुला है, फिर दोबारा कोशिश करें।
+err-trust-unreachable = Relay भरोसा जोड़ने के लिए उस डिवाइस तक नहीं पहुँच सका। देखें कि वह उसी नेटवर्क पर है और Relay खुला है, फिर दोबारा कोशिश करें।
 err-trust-mismatch = उस डिवाइस के पास वह कुंजी नहीं है जो आपको दिखाई गई थी, इसलिए उस पर भरोसा नहीं किया गया। कुछ भी सहेजा नहीं गया।

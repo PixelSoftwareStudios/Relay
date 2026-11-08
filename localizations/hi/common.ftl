@@ -1,5 +1,5 @@
 # Relay desktop UI catalog, Hindi (hi), section: Shared words and buttons.
-# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=पीयर, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
+# Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/common.ftl. See docs/i18n.md.
 
 action-cancel = रद्द करें
@@ -12,7 +12,7 @@ asking-daemon = डेमन से पूछा जा रहा है…
 unit-ms = ms
 action-try-again = फिर से कोशिश करें
 action-save = सहेजें
-action-revert = वापस करें
+action-revert = पहले जैसा करें
 nav-settings = सेटिंग
 header-engine = इंजन { $version }
 action-dismiss = हटाएँ
