@@ -13,4 +13,4 @@ favorite-offline = Offline
 favorite-busy = Em uma chamada
 favorite-remove = Remover dos favoritos
 favorite-call-hover = Ligar para { $name }
-favorite-blocked = Não pode ser chamado
+favorite-blocked = Não é possível ligar
