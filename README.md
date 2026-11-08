@@ -62,7 +62,7 @@ Verify a download with `sha256sum -c SHA256SUMS.txt` (macOS: `shasum -a 256 -c S
 
 Nothing is code-signed by a trusted authority, so each system warns on first run:
 
-- **macOS:** apps are ad-hoc signed, not notarized. Right-click `Relay.app`, choose **Open**, then confirm.
+- **macOS:** apps are ad-hoc signed, not notarized. On first launch, if macOS blocks it, open **System Settings → Privacy & Security** and choose **Open Anyway** (on macOS 14 and earlier, right-click `Relay.app` and choose **Open**).
   (Or allow it under System Settings, Privacy & Security.)
 - **Windows:** installers are unsigned, so SmartScreen shows "Windows protected your PC". Choose
   **More info**, then **Run anyway**.
