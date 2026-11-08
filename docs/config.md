@@ -54,10 +54,9 @@ WAL journal, `synchronous=FULL` (a committed setting or trust change survives po
 `foreign_keys=ON`, `trusted_schema=OFF`, 5 s busy timeout, one connection behind a mutex plus the
 single-writer `WriterLock` (a second process gets `ConfigError::Locked`).
 
-`PRAGMA user_version` is the schema version (`db::SCHEMA_VERSION`, currently 1). Migrations are
-the entries of a list in `db/migrate.rs`, each run in its own transaction; append, never edit.
-A database with a higher version than the build is refused (`ConfigError::UnsupportedVersion`) and
-left untouched.
+`PRAGMA user_version` is the schema version (`db::SCHEMA_VERSION`, currently 1). A new database gets the whole
+schema in one transaction on first open. A database with a higher version than the build is
+refused (`ConfigError::UnsupportedVersion`) and left untouched.
 
 | Table | Purpose |
 |---|---|
@@ -108,7 +107,7 @@ spent twice. The engine adapter is `daemon::SqliteChannelStore`, implementing
 
 ### Call history
 
-`history::CallHistory` (`crates/relay-config/src/history/`) keeps one row per call the user saw end, in the `call_history` table of the same per-user database (schema version 1, no migration: the product is unreleased). A row holds exactly: the peer's display name as seen at the time, the peer's full fingerprint (64 hex digits, the peer id) and the short hint (`Fingerprint::short()`, as `Peer.fingerprint_short`), the direction (`incoming`/`outgoing`), the outcome (`completed`, `missed`, `declined`, `failed` for an outgoing call that did not reach the peer, `cancelled`), `started_at` (unix ms), `duration_ms` (connected time, 0 when it never connected) and the call id (16 bytes, which names the call's chat session). Nothing else is stored: no audio, no message content, no addresses.
+`history::CallHistory` (`crates/relay-config/src/history/`) keeps one row per call the user saw end, in the `call_history` table of the same per-user database (schema version 1). A row holds exactly: the peer's display name as seen at the time, the peer's full fingerprint (64 hex digits, the peer id) and the short hint (`Fingerprint::short()`, as `Peer.fingerprint_short`), the direction (`incoming`/`outgoing`), the outcome (`completed`, `missed`, `declined`, `failed` for an outgoing call that did not reach the peer, `cancelled`), `started_at` (unix ms), `duration_ms` (connected time, 0 when it never connected) and the call id (16 bytes, which names the call's chat session). Nothing else is stored: no audio, no message content, no addresses.
 
 Bounds, enforced inside the insert transaction ("pruned on write"): by default the 200 newest rows and nothing older than 90 days (against the caller's clock). The defaults (`MAX_ENTRIES`, `MAX_AGE_MS`, the page sizes `MAX_LIST`/`DEFAULT_LIST`, the name and hint lengths) are named constants in `history/limits.rs`; the daemon opens the history with `CallHistory::with_limits(Limits)` from the preferences `limits.history_max_entries` (0 to 5000) and `limits.history_max_age_days` (1 to 3650), and `CallHistory::set_limits(limits, now_ms)` changes them for every clone and prunes at once, so lowering a limit deletes the surplus entries immediately. `list(limit, before)` returns newest first and pages by row id (`before` = the last id of the previous page); `clear()` deletes everything. The preference `history.enabled` (default `true`) decides whether the engine records; turning it off keeps the entries until they are cleared. The store itself does not look at the preference (the engine does), so `clear` and `list` always work. The history is never part of a diagnostics bundle, an export of the settings or anything sent to a peer.
 

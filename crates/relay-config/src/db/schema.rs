@@ -1,20 +1,18 @@
-//! The schema, created idempotently on every open.
+//! The schema, created in one transaction on the first open of a new database.
 //!
-//! Every statement is `IF NOT EXISTS`, so a database that lacks a table (made by a build
-//! that had fewer) gains it in place and keeps its rows. A database whose `user_version`
-//! is higher than this build knows is refused by the caller.
+//! A database whose `user_version` is higher than this build knows is refused by the caller.
 
 use rusqlite::Connection;
 
 use crate::error::{ConfigError, Result};
 
 const SCHEMA: &str = "
-CREATE TABLE IF NOT EXISTS prefs (
+CREATE TABLE prefs (
 	key TEXT PRIMARY KEY NOT NULL,
 	value TEXT NOT NULL
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS trust (
+CREATE TABLE trust (
 	public_key TEXT PRIMARY KEY NOT NULL CHECK (length(public_key) = 64),
 	display_name TEXT NOT NULL,
 	level TEXT NOT NULL CHECK (level IN ('tofu', 'verified')),
@@ -23,7 +21,7 @@ CREATE TABLE IF NOT EXISTS trust (
 
 -- Channel metadata only. Secrets (signing keys, password and invite credentials)
 -- live in the SecretVault; channel_secrets lists which vault entries exist.
-CREATE TABLE IF NOT EXISTS channels (
+CREATE TABLE channels (
 	id BLOB PRIMARY KEY NOT NULL CHECK (length(id) = 16),
 	name TEXT NOT NULL,
 	flags INTEGER NOT NULL,
@@ -33,21 +31,21 @@ CREATE TABLE IF NOT EXISTS channels (
 	cert BLOB
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS channel_issued (
+CREATE TABLE channel_issued (
 	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
 	subject BLOB NOT NULL CHECK (length(subject) = 32),
 	expires_at INTEGER NOT NULL,
 	PRIMARY KEY (channel, subject)
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS channel_revocations (
+CREATE TABLE channel_revocations (
 	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
 	seq INTEGER NOT NULL,
 	data BLOB NOT NULL,
 	PRIMARY KEY (channel, seq)
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS channel_invites (
+CREATE TABLE channel_invites (
 	channel BLOB NOT NULL REFERENCES channels (id) ON DELETE CASCADE,
 	invite_id BLOB NOT NULL CHECK (length(invite_id) = 8),
 	expires_at INTEGER NOT NULL,
@@ -55,7 +53,7 @@ CREATE TABLE IF NOT EXISTS channel_invites (
 	PRIMARY KEY (channel, invite_id)
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS channel_secrets (
+CREATE TABLE channel_secrets (
 	channel BLOB NOT NULL,
 	slot TEXT NOT NULL,
 	gen INTEGER NOT NULL,
@@ -63,13 +61,13 @@ CREATE TABLE IF NOT EXISTS channel_secrets (
 	PRIMARY KEY (channel, slot, gen)
 ) WITHOUT ROWID;
 
-CREATE TABLE IF NOT EXISTS state (
+CREATE TABLE state (
 	key TEXT PRIMARY KEY NOT NULL,
 	value BLOB NOT NULL
 ) WITHOUT ROWID;
 
 -- Past calls: who, which way, how it ended, when and for how long. Nothing else.
-CREATE TABLE IF NOT EXISTS call_history (
+CREATE TABLE call_history (
 	id INTEGER PRIMARY KEY AUTOINCREMENT,
 	peer_name TEXT NOT NULL,
 	peer_fingerprint TEXT NOT NULL CHECK (length(peer_fingerprint) = 64),
@@ -83,7 +81,7 @@ CREATE TABLE IF NOT EXISTS call_history (
 
 -- Quick-call favorites: an ordered subset of the trusted peers. Forgetting a peer
 -- removes its favorite; the count limit lives in crate::favorites.
-CREATE TABLE IF NOT EXISTS favorites (
+CREATE TABLE favorites (
 	public_key TEXT PRIMARY KEY NOT NULL REFERENCES trust (public_key) ON DELETE CASCADE,
 	position INTEGER NOT NULL UNIQUE CHECK (position >= 0)
 ) WITHOUT ROWID;
@@ -91,14 +89,14 @@ CREATE TABLE IF NOT EXISTS favorites (
 -- Contacts whose incoming calls are answered automatically. Only verified contacts can be
 -- listed (checked in crate::autoanswer); forgetting, blocking or replacing the key of a
 -- peer removes its trust row and with it this flag.
-CREATE TABLE IF NOT EXISTS auto_answer (
+CREATE TABLE auto_answer (
 	public_key TEXT PRIMARY KEY NOT NULL REFERENCES trust (public_key) ON DELETE CASCADE
 ) WITHOUT ROWID;
 
 -- Devices the user blocked, by the digest of their key (the peer id). The name is
 -- what the device called itself when it was blocked, for the list in Settings. The count
 -- limit lives in crate::blocklist.
-CREATE TABLE IF NOT EXISTS blocked (
+CREATE TABLE blocked (
 	fingerprint TEXT PRIMARY KEY NOT NULL CHECK (length(fingerprint) = 64),
 	display_name TEXT NOT NULL,
 	blocked_at INTEGER NOT NULL
@@ -121,15 +119,19 @@ const TABLES: &[&str] = &[
 	"blocked",
 ];
 
-/// Highest schema version this build writes and understands.
+/// The schema version this build writes and understands.
 pub const SCHEMA_VERSION: u32 = 1;
 
-/// Creates what is missing, stamps the version and verifies every table exists.
+/// Creates the schema in a new database (`user_version` 0), stamps the version and verifies
+/// every table exists.
 pub fn ensure(conn: &mut Connection) -> Result<()> {
-	let tx = conn.transaction()?;
-	tx.execute_batch(SCHEMA)?;
-	tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
-	tx.commit()?;
+	let version: i64 = conn.pragma_query_value(None, "user_version", |r| r.get(0))?;
+	if version == 0 {
+		let tx = conn.transaction()?;
+		tx.execute_batch(SCHEMA)?;
+		tx.pragma_update(None, "user_version", SCHEMA_VERSION)?;
+		tx.commit()?;
+	}
 	for table in TABLES {
 		let found: bool = conn.query_row(
 			"SELECT EXISTS (SELECT 1 FROM sqlite_schema WHERE type = 'table' AND name = ?1)",
