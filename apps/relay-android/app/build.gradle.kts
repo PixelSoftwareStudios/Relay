@@ -31,6 +31,13 @@ android {
 	}
 
 	buildTypes {
+		// The APK that ships is built by assembleDebug (debug key) but must not be debuggable:
+		// a debuggable app lets any adb or run-as user read its private files. -Prelay.debuggable=true
+		// is for development builds only; scripts/packaging/check_android_apk.py refuses such an APK.
+		debug {
+			isDebuggable = providers.gradleProperty("relay.debuggable").map { it == "true" }.orElse(false).get()
+			isMinifyEnabled = false
+		}
 		release { isMinifyEnabled = false }
 	}
 
@@ -51,12 +58,13 @@ dependencies {
 	implementation("androidx.appcompat:appcompat:1.7.1")
 	implementation("androidx.core:core-ktx:1.15.0")
 	implementation("net.java.dev.jna:jna:5.19.1@aar")
-	// QR scanning: CameraX preview plus ML Kit's bundled model (no Play services needed).
+	// QR scanning: CameraX preview plus ZXing's pure-Java decoder. No Google components:
+	// scripts/packaging/check_android_apk.py fails the build if ML Kit, GMS or telemetry comes back.
 	implementation("androidx.camera:camera-core:1.4.2")
 	implementation("androidx.camera:camera-camera2:1.4.2")
 	implementation("androidx.camera:camera-lifecycle:1.4.2")
 	implementation("androidx.camera:camera-view:1.4.2")
-	implementation("com.google.mlkit:barcode-scanning:17.3.0")
+	implementation("com.google.zxing:core:3.5.3")
 	testImplementation("junit:junit:4.13.2")
 	androidTestImplementation("androidx.test:runner:1.6.2")
 	androidTestImplementation("androidx.test.ext:junit:1.2.1")

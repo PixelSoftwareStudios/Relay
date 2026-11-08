@@ -3,6 +3,7 @@ package dev.relay.app
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.os.SystemClock
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -10,11 +11,9 @@ import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
 import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
-import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -22,17 +21,12 @@ import androidx.camera.view.PreviewView
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.mlkit.vision.barcode.BarcodeScanner
-import com.google.mlkit.vision.barcode.BarcodeScannerOptions
-import com.google.mlkit.vision.barcode.BarcodeScanning
-import com.google.mlkit.vision.barcode.common.Barcode
-import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
- * Reads one QR code with the camera (CameraX preview plus ML Kit's bundled
- * barcode model: no Play services, no network). It returns the raw text and
+ * Reads one QR code with the camera (CameraX preview plus ZXing's pure-Java
+ * decoder on the luminance plane: no Google components, no network). It returns the raw text and
  * nothing else; the Rust UI decides whether it is a Relay address. The camera
  * is bound to this activity's lifecycle, so a recreated screen simply rebinds.
  */
@@ -40,7 +34,8 @@ class ScanActivity : AppCompatActivity() {
 	private lateinit var preview: PreviewView
 	private lateinit var torch: Button
 	private lateinit var executor: ExecutorService
-	private var scanner: BarcodeScanner? = null
+	private val decoder = QrDecoder()
+	private val throttle = FrameThrottle(FRAME_INTERVAL_MS)
 	private var camera: Camera? = null
 	private var torchOn = false
 	private var done = false
@@ -95,26 +90,27 @@ class ScanActivity : AppCompatActivity() {
 
 	private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 
-	@OptIn(ExperimentalGetImage::class)
 	private fun startCamera() {
 		val future = ProcessCameraProvider.getInstance(this)
 		future.addListener({
 			try {
 				val provider = future.get()
-				val options = BarcodeScannerOptions.Builder().setBarcodeFormats(Barcode.FORMAT_QR_CODE).build()
-				val barcodes = BarcodeScanning.getClient(options).also { scanner = it }
 				val view = Preview.Builder().build().also { it.surfaceProvider = preview.surfaceProvider }
 				val analysis = ImageAnalysis.Builder()
 					.setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
 					.build()
 				analysis.setAnalyzer(executor) { frame ->
-					val media = frame.image
-					if (media == null || done) {
+					try {
+						if (!done && throttle.admit(SystemClock.elapsedRealtime())) {
+							val plane = frame.planes[0]
+							val buffer = plane.buffer
+							val data = ByteArray(buffer.remaining()).also { buffer.get(it) }
+							decoder.decode(data, plane.rowStride, frame.width, frame.height)?.let(::found)
+						}
+					} catch (e: RuntimeException) {
+						Log.w(TAG, "frame skipped", e)
+					} finally {
 						frame.close()
-					} else {
-						barcodes.process(InputImage.fromMediaImage(media, frame.imageInfo.rotationDegrees))
-							.addOnSuccessListener { codes -> codes.firstNotNullOfOrNull { it.rawValue }?.let(::found) }
-							.addOnCompleteListener { frame.close() }
 					}
 				}
 				provider.unbindAll()
@@ -148,13 +144,14 @@ class ScanActivity : AppCompatActivity() {
 	}
 
 	override fun onDestroy() {
-		scanner?.close()
 		executor.shutdown()
 		super.onDestroy()
 	}
 
 	companion object {
 		private const val TAG = "relay"
+		/** Frames are decoded at about 7 per second; the preview itself runs at full rate. */
+		private const val FRAME_INTERVAL_MS = 150L
 		const val EXTRA_TEXT = "dev.relay.app.scan.text"
 		const val EXTRA_ERROR = "dev.relay.app.scan.error"
 	}
