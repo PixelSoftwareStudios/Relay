@@ -74,6 +74,22 @@ fn evidence_never_weakens_and_candidate_is_not_proof() {
 }
 
 #[test]
+fn nobody_drops_everyone_even_proven_members() {
+	let me = local(&[1]);
+	let mut scope = PeerScope::new();
+	assert_eq!(
+		InboundPolicy::Nobody.decide(&me, &scope),
+		RingDecision::Drop
+	);
+	scope.note(&me, id(1), Evidence::Proven);
+	assert!(scope.shares_proven(&me));
+	assert_eq!(
+		InboundPolicy::Nobody.decide(&me, &scope),
+		RingDecision::Drop
+	);
+}
+
+#[test]
 fn shared_channel_only_drops_strangers_and_candidates() {
 	let me = local(&[1, 2]);
 	let mut scope = PeerScope::new();

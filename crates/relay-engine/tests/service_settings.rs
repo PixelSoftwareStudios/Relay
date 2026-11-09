@@ -88,7 +88,7 @@ async fn live_keys_take_effect_and_reach_watchers() {
 			("audio.playback_gain", "0.5"),
 			("audio.ringtone_volume", "0.25"),
 			("audio.ringback_enabled", "false"),
-			("privacy.inbound_policy", "shared_channel_only"),
+			("privacy.inbound_policy", "nobody"),
 			("clients.autostart_daemon", "false"),
 		],
 	)
@@ -102,10 +102,7 @@ async fn live_keys_take_effect_and_reach_watchers() {
 	assert!((settings.playback_gain - 0.5).abs() < 1e-3);
 	assert!((settings.ringtone_volume - 0.25).abs() < 1e-6);
 	assert!(!settings.ringback_enabled && !settings.autostart_daemon);
-	assert_eq!(
-		settings.inbound_policy,
-		InboundPolicy::SharedChannelOnly as i32
-	);
+	assert_eq!(settings.inbound_policy, InboundPolicy::Nobody as i32);
 	let advertised = rig.fakes.peers.profiles();
 	assert_eq!(advertised.last().expect("profile").display_name, "Kitchen");
 	assert_eq!(

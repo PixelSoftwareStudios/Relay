@@ -67,6 +67,8 @@ pub enum InboundPolicy {
 	Anyone,
 	/// Only peers that proved a shared channel. Fingerprint trust is orthogonal.
 	SharedChannelOnly,
+	/// Nobody: every inbound invite is dropped, whatever the sender proved.
+	Nobody,
 }
 
 /// Outcome of the channel check for an inbound invite. There is deliberately no accept
@@ -84,7 +86,7 @@ impl InboundPolicy {
 		match self {
 			Self::Anyone => RingDecision::Ring,
 			Self::SharedChannelOnly if peer.shares_proven(local) => RingDecision::Ring,
-			Self::SharedChannelOnly => RingDecision::Drop,
+			Self::SharedChannelOnly | Self::Nobody => RingDecision::Drop,
 		}
 	}
 }

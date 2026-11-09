@@ -218,6 +218,8 @@ pub enum InboundArg {
 	Anyone,
 	/// Only members of a shared channel may ring you.
 	SharedChannel,
+	/// Nobody may ring this device; you can still call others.
+	Nobody,
 }
 
 /// Advertisement argument.

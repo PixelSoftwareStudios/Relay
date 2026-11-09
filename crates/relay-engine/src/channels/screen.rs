@@ -14,6 +14,7 @@ impl ChannelHub {
 		let policy = match self.inner.settings.load().inbound_policy {
 			InboundPolicy::Anyone => CorePolicy::Anyone,
 			InboundPolicy::SharedChannelOnly => CorePolicy::SharedChannelOnly,
+			InboundPolicy::Nobody => CorePolicy::Nobody,
 		};
 		let state = self.state();
 		match state.scopes.get(&peer) {

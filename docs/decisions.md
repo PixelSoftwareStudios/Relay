@@ -72,7 +72,7 @@ shells' work, see `docs/android.md` and `docs/desktop.md`).
 
 Two features share one aim: a device can stay reachable and answer without anyone touching it.
 
-- **Background availability** (`background.available`, default on). The daemon already advertises and listens
+- **Background availability** (`background.available`, default on for Android, off on desktop). The daemon already advertises and listens
   while a client is attached; the setting asks the OS shells to keep a client attached (Android foreground
   service, desktop tray, a CLI-started daemon) while no window is open and the device is on the LAN. The engine
   only stores and publishes it; it starts no service itself.
@@ -313,3 +313,13 @@ Need: users should not have to find and reinstall each release, but Relay promis
 Decision: the desktop app checks GitHub Releases, downloads one minisign-signed asset, verifies it against a key compiled into the app, replaces itself in place and restarts (`crates/relay-update`, `docs/updates.md`). The check is the only internet call the app makes. It runs at launch only if the user turned on "Check for updates when Relay starts" (off by default) or when they press "Check for updates"; no polling, no telemetry. What it sends: an HTTPS request to `api.github.com` (so GitHub sees the IP address) with the User-Agent `Relay/<version>`. Release asset hosts are allow-listed (`api.github.com`, `github.com`, `release-assets.githubusercontent.com`, `objects.githubusercontent.com`, checked on every redirect hop), so a hostile redirect or release entry cannot send the app elsewhere. A package install (deb, rpm, tarball) or a development build never replaces itself; it shows a View release button. The setting is stored in the desktop-local `desktop.toml`, not the daemon, so it works when the daemon is broken. `relay-ui` stays free of `relay-update` (the Android build must not carry an HTTP client); the capability is a `Shell` method that defaults to "no". The daemon reports its release version so a same-API-revision update still shows the out-of-date card.
 
 Not chosen: background polling (a standing outbound connection), checking by default (breaks the promise), and a "install anyway" path past a failed signature (no bypass exists).
+
+## Nobody can ring me, and platform defaults for background availability
+
+Status: accepted.
+
+Need: a user who only makes calls wants a device nobody can ring, and a desktop install should not keep running and advertising after its window closes unless the user asks.
+
+Decision: `privacy.inbound_policy` gains `nobody` (`InboundPolicy::NOBODY = 3`, `ports::InboundPolicy::Nobody`, `relay privacy set --inbound nobody`). The channel driver screens every invite before call state, so with `nobody` no contact, verified contact, auto-answer contact or channel member can ring the device: no notification, ringtone, auto-answer or history row, and auto-answer cannot bypass it because it only exists after the screen. The caller gets the same plain decline a `shared_channel_only` stranger gets (their call ends as "Declined"; no separate wording exists for the reason). Outgoing calls, chat in calls and discovery visibility (`privacy.advert_mode`) are unchanged. The UI lists Anyone / Only members of my channels / Nobody with the line "Nobody can ring this device. You can still call others."
+
+`background.available` now defaults per platform in one place, `prefs::BACKGROUND_AVAILABLE_DEFAULT = cfg!(target_os = "android")`: on for the phone (it must keep ringing), off on Windows, macOS and Linux. On desktop a daemon therefore rings only while an app or tray holds it, and a command-started daemon exits after 300 s unused, until the user turns the setting on (Settings > Calls, the tray item, or `relay config set background.available true`). The sidebar no longer shows a background chip; the Settings card and the tray item carry that status.

@@ -617,6 +617,8 @@ enum InboundPolicy {
   INBOUND_POLICY_UNSPECIFIED = 0;
   INBOUND_POLICY_ANYONE = 1;
   INBOUND_POLICY_SHARED_CHANNEL_ONLY = 2;
+  // Nobody rings this device; every invite is declined before it reaches call state.
+  INBOUND_POLICY_NOBODY = 3;
 }
 enum AdvertMode {
   ADVERT_MODE_UNSPECIFIED = 0;

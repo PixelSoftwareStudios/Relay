@@ -295,6 +295,7 @@ fn mirror(stored: &mut StoredSettings, prefs: &relay_config::prefs::Preferences,
 			stored.inbound_policy = match prefs.privacy.inbound_policy {
 				p::InboundPolicy::Anyone => InboundPolicy::Anyone,
 				p::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+				p::InboundPolicy::Nobody => InboundPolicy::Nobody,
 			}
 		}
 		"privacy.advert_mode" => {

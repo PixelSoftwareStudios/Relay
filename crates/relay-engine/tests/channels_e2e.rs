@@ -284,6 +284,42 @@ async fn shared_channel_only_screens_invites_by_proof() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn nobody_declines_every_invite_even_from_channel_members() {
+	let mut a = side(440.0).await;
+	let mut b = side(1_700.0).await;
+	pair(&mut a, &mut b, 1).await;
+	let id = create_open(&mut a.cli, "Floor").await;
+	assert_applied(&b.cli.join_channel(&id, "", "").await.expect("join"));
+	wait_shared(&mut a.cli, &id_of(&b), &id).await;
+	assert_applied(
+		&a.cli
+			.set_privacy(Some(InboundPolicy::Nobody), None)
+			.await
+			.expect("privacy"),
+	);
+
+	// B proved the shared channel, yet its call never reaches A and B sees a decline.
+	let call = ring(&mut b, &a, 50).await;
+	eventually!(
+		call_in(&mut b.cli, &call)
+			.await
+			.filter(|call| call.state == relay_api::pb::CallState::Declined as i32)
+	);
+	assert!(call_in(&mut a.cli, &call).await.is_none());
+
+	// Outgoing calls from A are unchanged: B (policy Anyone) is rung by A.
+	let outgoing = ring(&mut a, &b, 60).await;
+	eventually!(
+		call_in(&mut b.cli, &outgoing)
+			.await
+			.filter(|call| call.state == relay_api::pb::CallState::IncomingRinging as i32)
+	);
+
+	a.daemon.shutdown().await.expect("a stops");
+	b.daemon.shutdown().await.expect("b stops");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn advert_follows_channels_epoch_and_hidden_mode() {
 	let clock = Clock::starting_at(10 * 3600);
 	let mut a = side_with(440.0, Some(clock.clone())).await;

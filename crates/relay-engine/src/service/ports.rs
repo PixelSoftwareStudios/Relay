@@ -170,6 +170,8 @@ pub enum InboundPolicy {
 	Anyone,
 	/// Only peers proven to share a channel.
 	SharedChannelOnly,
+	/// Nobody: every invite is declined.
+	Nobody,
 }
 
 /// How this device appears in LAN discovery.

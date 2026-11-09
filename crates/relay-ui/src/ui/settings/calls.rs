@@ -24,17 +24,25 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		let label = |v: Inbound| match v {
 			Inbound::Anyone => tr!("privacy-inbound-anyone"),
 			Inbound::SharedChannelOnly => tr!("privacy-inbound-shared"),
+			Inbound::Nobody => tr!("privacy-inbound-nobody"),
 		};
 		let mut inbound = settings.inbound;
 		combo(ui, tr!("privacy-who-rings"), label(inbound)).show_ui(ui, |ui| {
-			for v in [Inbound::Anyone, Inbound::SharedChannelOnly] {
+			for v in [Inbound::Anyone, Inbound::SharedChannelOnly, Inbound::Nobody] {
 				ui.selectable_value(&mut inbound, v, label(v));
 			}
 		});
 		if inbound != settings.inbound {
 			actions.run(|c| async move { c.set_privacy(Some(inbound), None).await });
 		}
-		kit::help(ui, tr!("privacy-who-rings-help"));
+		kit::help(
+			ui,
+			if settings.inbound == Inbound::Nobody {
+				tr!("privacy-inbound-nobody-help")
+			} else {
+				tr!("privacy-who-rings-help")
+			},
+		);
 	});
 	kit::gap(ui);
 	default_mode(ui, settings, cx);

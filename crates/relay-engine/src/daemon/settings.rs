@@ -166,6 +166,7 @@ impl SettingsStore for FileSettings {
 			inbound_policy: match prefs.privacy.inbound_policy {
 				prefs::InboundPolicy::Anyone => InboundPolicy::Anyone,
 				prefs::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+				prefs::InboundPolicy::Nobody => InboundPolicy::Nobody,
 			},
 			advert_mode: match prefs.privacy.advert_mode {
 				prefs::AdvertMode::Visible => AdvertMode::Visible,
@@ -216,6 +217,7 @@ impl SettingsStore for FileSettings {
 				next.privacy.inbound_policy = match inbound {
 					InboundPolicy::Anyone => prefs::InboundPolicy::Anyone,
 					InboundPolicy::SharedChannelOnly => prefs::InboundPolicy::SharedChannelOnly,
+					InboundPolicy::Nobody => prefs::InboundPolicy::Nobody,
 				};
 				next.privacy.advert_mode = match advert {
 					AdvertMode::Visible => prefs::AdvertMode::Visible,

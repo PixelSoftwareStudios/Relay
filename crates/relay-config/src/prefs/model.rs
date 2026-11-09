@@ -121,6 +121,8 @@ pub enum InboundPolicy {
 	Anyone,
 	/// Only peers that prove membership of a channel shared with this device.
 	SharedChannelOnly,
+	/// Nobody; every incoming call is declined.
+	Nobody,
 }
 
 /// How this device appears in LAN discovery.
@@ -334,9 +336,15 @@ pub struct Background {
 	pub available: bool,
 }
 
+/// Whether a fresh install stays reachable with no window open. The phone must keep ringing
+/// in the background; on a desktop the user opts in. This is the one place the default lives.
+pub const BACKGROUND_AVAILABLE_DEFAULT: bool = cfg!(target_os = "android");
+
 impl Default for Background {
 	fn default() -> Self {
-		Self { available: true }
+		Self {
+			available: BACKGROUND_AVAILABLE_DEFAULT,
+		}
 	}
 }
 

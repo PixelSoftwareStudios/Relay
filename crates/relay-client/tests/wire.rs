@@ -223,6 +223,10 @@ async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
 			inbound: Some(relay_api::pb::InboundPolicy::SharedChannelOnly),
 			advert: None,
 		},
+		Command::SetPrivacy {
+			inbound: Some(relay_api::pb::InboundPolicy::Nobody),
+			advert: None,
+		},
 	];
 	for command in commands {
 		let op = send(&mut c, command).await.unwrap();
@@ -237,6 +241,7 @@ async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
 			"leave_channel",
 			"revoke fp=32",
 			"privacy Some(2) None",
+			"privacy Some(3) None",
 		]
 	);
 }

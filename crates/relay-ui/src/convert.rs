@@ -124,6 +124,7 @@ pub fn inbound_to_wire(v: Inbound) -> pb::InboundPolicy {
 	match v {
 		Inbound::Anyone => pb::InboundPolicy::Anyone,
 		Inbound::SharedChannelOnly => pb::InboundPolicy::SharedChannelOnly,
+		Inbound::Nobody => pb::InboundPolicy::Nobody,
 	}
 }
 
@@ -212,10 +213,10 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		display_name: s.display_name.clone(),
 		avatar_hash: hex::encode(&s.avatar_sha256),
 		// An unspecified value is the conservative reading.
-		inbound: if s.inbound_policy == pb::InboundPolicy::Anyone as i32 {
-			Inbound::Anyone
-		} else {
-			Inbound::SharedChannelOnly
+		inbound: match pb::InboundPolicy::try_from(s.inbound_policy) {
+			Ok(pb::InboundPolicy::Anyone) => Inbound::Anyone,
+			Ok(pb::InboundPolicy::Nobody) => Inbound::Nobody,
+			_ => Inbound::SharedChannelOnly,
 		},
 		advert: if s.advert_mode == pb::AdvertMode::Visible as i32 {
 			Advert::Visible

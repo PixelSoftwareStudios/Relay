@@ -104,8 +104,12 @@ async fn privacy_set_maps_flags_and_needs_one() {
 	run_with(&mut c, &["privacy", "set", "--advert", "visible"], false)
 		.await
 		.unwrap();
+	run_with(&mut c, &["privacy", "set", "--inbound", "nobody"], false)
+		.await
+		.unwrap();
 	assert_eq!(c.log[0], "privacy Some(SharedChannelOnly) Some(Hidden)");
 	assert_eq!(c.log[1], "privacy None Some(Visible)");
+	assert_eq!(c.log[2], "privacy Some(Nobody) None");
 	let err = run_with(&mut c, &["privacy", "set"], false)
 		.await
 		.unwrap_err();

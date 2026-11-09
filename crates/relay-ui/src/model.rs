@@ -306,6 +306,7 @@ pub struct HistoryEntry {
 pub enum Inbound {
 	Anyone,
 	SharedChannelOnly,
+	Nobody,
 }
 
 /// Whether this device is advertised on the network.

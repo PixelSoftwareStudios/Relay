@@ -267,3 +267,15 @@ fn unspecified_privacy_values_read_conservatively() {
 	assert_eq!(settings.inbound, Inbound::SharedChannelOnly);
 	assert_eq!(settings.advert, Advert::Hidden);
 }
+
+#[test]
+fn nobody_is_read_back_from_the_snapshot() {
+	let mut s = AppState::default();
+	let mut snap = snapshot(1, vec![]);
+	snap.settings = Some(pb::Settings {
+		inbound_policy: pb::InboundPolicy::Nobody as i32,
+		..Default::default()
+	});
+	s.load_snapshot(&snap);
+	assert_eq!(s.settings.unwrap().inbound, Inbound::Nobody);
+}

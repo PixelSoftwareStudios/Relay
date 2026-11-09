@@ -178,7 +178,8 @@ Per admitter, sans-IO (`AttemptLimiter`, injected monotonic clock):
   anyone on the LAN can compute and track every device's tag for a listed channel: a listed
   channel is public by choice, not an anonymous hint. Joining still follows the policy.
 - Inbound policy `SharedChannelOnly` (opt-in) lets the engine drop invites from peers that share
-  no proven channel. `Anyone` is the default and today's behaviour. Neither ever accepts.
+  no proven channel. `Nobody` drops every invite, whatever the sender proved (auto-answer cannot bypass it).
+  `Anyone` is the default and today's behaviour. None of them ever accepts.
 - Leaving a channel deletes its secrets and certificate from the store and stops advertising its
   tag at the next epoch refresh immediately.
 

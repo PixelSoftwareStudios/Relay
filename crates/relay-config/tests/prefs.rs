@@ -223,6 +223,12 @@ fn privacy_choices_default_open_and_persist() {
 		prefs.privacy.advert_mode,
 		relay_config::prefs::AdvertMode::Hidden
 	);
+	store.set("privacy.inbound_policy", "nobody").unwrap();
+	assert_eq!(
+		store.load().unwrap().preferences.privacy.inbound_policy,
+		relay_config::prefs::InboundPolicy::Nobody
+	);
+	assert!(store.set("privacy.inbound_policy", "everyone").is_err());
 }
 
 #[test]

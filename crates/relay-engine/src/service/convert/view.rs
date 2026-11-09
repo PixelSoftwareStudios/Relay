@@ -50,6 +50,7 @@ fn inbound_to_pb(policy: ports::InboundPolicy) -> InboundPolicy {
 	match policy {
 		ports::InboundPolicy::Anyone => InboundPolicy::Anyone,
 		ports::InboundPolicy::SharedChannelOnly => InboundPolicy::SharedChannelOnly,
+		ports::InboundPolicy::Nobody => InboundPolicy::Nobody,
 	}
 }
 

@@ -18,6 +18,7 @@ pub async fn run<C: Manage>(
 	let inbound = inbound.map(|p| match p {
 		InboundArg::Anyone => InboundPolicy::Anyone,
 		InboundArg::SharedChannel => InboundPolicy::SharedChannelOnly,
+		InboundArg::Nobody => InboundPolicy::Nobody,
 	});
 	let advert = advert.map(|a| match a {
 		AdvertArg::Visible => AdvertMode::Visible,

@@ -69,15 +69,13 @@ pub fn card(ui: &mut Ui, cx: &mut Cx) {
 		});
 		kit::help(ui, &help);
 		if let Some(settings) = &cx.state.settings {
-			if settings.inbound == Inbound::SharedChannelOnly {
-				kit::help(
-					ui,
-					&format!(
-						"{}: {}",
-						tr!("privacy-who-rings"),
-						tr!("privacy-inbound-shared")
-					),
-				);
+			let policy = match settings.inbound {
+				Inbound::Anyone => None,
+				Inbound::SharedChannelOnly => Some(tr!("privacy-inbound-shared")),
+				Inbound::Nobody => Some(tr!("privacy-inbound-nobody")),
+			};
+			if let Some(policy) = policy {
+				kit::help(ui, &format!("{}: {}", tr!("privacy-who-rings"), policy));
 			}
 			let (label, target) = match settings.advert {
 				Advert::Visible => (tr!("visibility-go-private"), Advert::Hidden),

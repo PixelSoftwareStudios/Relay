@@ -26,6 +26,7 @@ pub(super) async fn set(
 		.map(|raw| match PbInbound::try_from(raw) {
 			Ok(PbInbound::Anyone) => Ok(InboundPolicy::Anyone),
 			Ok(PbInbound::SharedChannelOnly) => Ok(InboundPolicy::SharedChannelOnly),
+			Ok(PbInbound::Nobody) => Ok(InboundPolicy::Nobody),
 			_ => Err(invalid("inbound policy")),
 		})
 		.transpose()?;
