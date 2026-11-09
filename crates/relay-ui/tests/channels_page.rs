@@ -11,7 +11,7 @@ const NONE: &str = "You are not in any channel.";
 const CREATE: &str = "Create a channel";
 const JOIN: &str = "Join a channel";
 const LISTED: &str = "Listed: show the name to members' devices";
-const NOTE: &str = "Paste an invite code, or a channel id with its password.";
+const NOTE: &str = "Paste an invite code, or enter a channel name or id with its password.";
 
 fn has(drawn: &Drawn, text: &str) -> bool {
 	drawn.labels.iter().any(|l| l == text)

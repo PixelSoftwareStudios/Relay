@@ -16,6 +16,7 @@ mod call_details;
 mod call_mode;
 mod call_volume;
 mod channels;
+mod channels_nearby;
 mod chat;
 pub mod collapsing;
 mod connect;

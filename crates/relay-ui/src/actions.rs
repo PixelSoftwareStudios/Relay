@@ -132,6 +132,26 @@ impl Actions {
 		});
 	}
 
+	/// [`Self::run`], and `failed` is called when the action fails (the error is shown too).
+	pub fn run_then<F>(
+		&self,
+		action: impl FnOnce(Arc<Controller>) -> F,
+		failed: impl FnOnce() + Send + 'static,
+	) where
+		F: Future<Output = Result<(), ControlError>> + Send + 'static,
+	{
+		let (shared, shell) = (self.shared.clone(), self.shell.clone());
+		let future = action(self.controller.clone());
+		self.runtime.spawn(async move {
+			shared.clear_error();
+			if let Err(e) = future.await {
+				shared.set_error(e.to_string());
+				failed();
+			}
+			shell.request_repaint();
+		});
+	}
+
 	pub fn show_window(&self) {
 		self.hub.set_visible(true);
 		self.shell.show_window();

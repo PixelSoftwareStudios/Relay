@@ -1,9 +1,11 @@
-//! The Channels page: one card with the create and join actions (and their forms), the list and invites.
+//! The Channels page: one card with the create and join actions (and their forms), the list and invites,
+//! then the listed channels other devices advertise (`channels_nearby`).
 
 use std::mem;
 
 use egui::{self, RichText, Ui};
 use relay_client::ChannelOptions;
+use relay_io::LockExt;
 
 use crate::actions::Actions;
 use crate::model::Channel;
@@ -21,6 +23,7 @@ use crate::tr;
 pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	kit::page_title(ui, tr!("channels-heading"));
 	let (actions, local) = (cx.actions, &mut *cx.local);
+	open_join_for_failed_name(local);
 	kit::card(ui, |ui| {
 		if cx.state.channels.is_empty() {
 			ui.label(RichText::new(tr!("channels-none")).size(crate::theme::TEXT_HEADING));
@@ -38,6 +41,19 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	for channel in &cx.state.channels {
 		kit::card(ui, |ui| channel_row(ui, channel, actions, local));
 		kit::gap(ui);
+	}
+	super::channels_nearby::section(ui, cx);
+}
+
+/// A join started from the nearby list was refused (most likely it needs a password): show the
+/// join form with the name in place.
+fn open_join_for_failed_name(local: &mut Local) {
+	let failed = local.join_failed.lock_unpoisoned().take();
+	if let Some(name) = failed {
+		local.join_target.clone_from(&name);
+		local.join_prefill = Some(name);
+		local.join_password.clear();
+		local.channel_form = Some(ChannelForm::Join);
 	}
 }
 
@@ -222,6 +238,9 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			.desired_width(field_width(ui))
 			.hint_text(tr!("channel-join-hint")),
 	);
+	if local.join_prefill.as_deref() != Some(local.join_target.trim()) {
+		local.join_prefill = None;
+	}
 	ui.add(
 		egui::TextEdit::singleline(&mut local.join_password)
 			.desired_width(field_width(ui))
@@ -238,7 +257,11 @@ fn join_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 	{
 		let target = mem::take(&mut local.join_target);
 		let password = mem::take(&mut local.join_password);
-		actions.run(|c| async move { c.join_channel(&target, &password).await });
+		if local.join_prefill.take().as_deref() == Some(target.trim()) {
+			actions.run(|c| async move { c.join_by_name(&target, &password).await });
+		} else {
+			actions.run(|c| async move { c.join_channel(&target, &password).await });
+		}
 		local.channel_form = None;
 	}
 }

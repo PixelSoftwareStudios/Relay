@@ -143,6 +143,11 @@ pub struct Local {
 	pub channel_form: Option<ChannelForm>,
 	pub join_target: String,
 	pub join_password: String,
+	/// The join field holds a channel name taken from the nearby list, so it is joined as a
+	/// name even if it looks like an id or an invite.
+	pub join_prefill: Option<String>,
+	/// A name whose join from the nearby list failed; the page then opens the join form.
+	pub join_failed: std::sync::Arc<std::sync::Mutex<Option<String>>>,
 	pub invite_channel: Option<String>,
 	pub invite_ttl: usize,
 	pub invite_uses: usize,

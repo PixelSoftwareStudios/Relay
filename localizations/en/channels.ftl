@@ -30,8 +30,8 @@ channel-password-label = Require a password to join
 channel-invite-only-label = Invite only
 password-hint = Password
 channel-join-heading = Join a channel
-channel-join-note = Paste an invite code, or a channel id with its password.
-channel-join-hint = Invite code or channel id
+channel-join-note = Paste an invite code, or enter a channel name or id with its password.
+channel-join-hint = Invite code, channel name or id
 password-optional-hint = Password (not needed for an invite)
 privacy-none = Privacy settings appear once the daemon is connected.
 privacy-inbound-anyone = Anyone on the network
@@ -78,3 +78,11 @@ scan-trust-failed = Could not add that device: { $reason }
 privacy-blocked = Blocked devices
 privacy-blocked-none = You have not blocked any device.
 privacy-blocked-help = Blocked devices cannot call you and are not shown as nearby. Unblocking lets one be found again; it does not make it a contact.
+nearby-heading = Channels on your network
+nearby-devices = { $count ->
+        [one] { $count } device
+       *[other] { $count } devices
+    }
+nearby-none = No channels found on your network yet
+nearby-none-offline = This device is offline, so it cannot see other devices.
+nearby-ambiguous = Two channels use this name. Join with a code instead.

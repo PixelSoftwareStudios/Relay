@@ -28,8 +28,8 @@ channel-password-label = जुड़ने के लिए पासवर्�
 channel-invite-only-label = सिर्फ़ आमंत्रण से
 password-hint = पासवर्ड
 channel-join-heading = चैनल से जुड़ें
-channel-join-note = आमंत्रण कोड चिपकाएँ, या चैनल आईडी और उसका पासवर्ड डालें।
-channel-join-hint = आमंत्रण कोड या चैनल आईडी
+channel-join-note = आमंत्रण कोड चिपकाएँ, या चैनल का नाम या आईडी और उसका पासवर्ड डालें।
+channel-join-hint = आमंत्रण कोड, चैनल का नाम या आईडी
 password-optional-hint = पासवर्ड (आमंत्रण के लिए ज़रूरी नहीं)
 privacy-none = डेमन से जुड़ने के बाद गोपनीयता सेटिंग दिखेंगी।
 privacy-inbound-anyone = नेटवर्क पर कोई भी
@@ -76,3 +76,11 @@ scan-trust-failed = उस डिवाइस को जोड़ा नही�
 privacy-blocked = ब्लॉक किए गए डिवाइस
 privacy-blocked-none = आपने कोई डिवाइस ब्लॉक नहीं किया है।
 privacy-blocked-help = ब्लॉक किए गए डिवाइस आपको कॉल नहीं कर सकते और आस-पास नहीं दिखते। अनब्लॉक करने पर वे फिर मिल सकते हैं; वे संपर्क नहीं बन जाते।
+nearby-heading = आपके नेटवर्क के चैनल
+nearby-devices = { $count ->
+        [one] { $count } डिवाइस
+       *[other] { $count } डिवाइस
+    }
+nearby-none = आपके नेटवर्क पर अभी कोई चैनल नहीं मिला
+nearby-none-offline = यह डिवाइस ऑफ़लाइन है, इसलिए दूसरे डिवाइस नहीं देख सकता।
+nearby-ambiguous = दो चैनल इसी नाम का उपयोग करते हैं। इसके बजाय कोड से जुड़ें।

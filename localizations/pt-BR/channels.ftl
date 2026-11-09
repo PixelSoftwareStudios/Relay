@@ -29,8 +29,8 @@ channel-password-label = Exigir senha para entrar
 channel-invite-only-label = Só por convite
 password-hint = Senha
 channel-join-heading = Entrar em um canal
-channel-join-note = Cole um código de convite ou um ID de canal com a senha.
-channel-join-hint = Código de convite ou ID do canal
+channel-join-note = Cole um código de convite, ou informe o nome ou o ID de um canal com a senha.
+channel-join-hint = Código de convite, nome ou ID do canal
 password-optional-hint = Senha (desnecessária com convite)
 privacy-none = As configurações de privacidade aparecem quando o daemon estiver conectado.
 privacy-inbound-anyone = Qualquer pessoa na rede
@@ -77,3 +77,11 @@ scan-trust-failed = Não foi possível adicionar esse dispositivo: { $reason }
 privacy-blocked = Dispositivos bloqueados
 privacy-blocked-none = Você não bloqueou nenhum dispositivo.
 privacy-blocked-help = Dispositivos bloqueados não podem ligar para você e não aparecem como próximos. Desbloquear permite encontrá-lo de novo; ele não vira um contato.
+nearby-heading = Canais na sua rede
+nearby-devices = { $count ->
+        [one] { $count } dispositivo
+       *[other] { $count } dispositivos
+    }
+nearby-none = Nenhum canal encontrado na sua rede ainda
+nearby-none-offline = Este dispositivo está offline e não consegue ver outros dispositivos.
+nearby-ambiguous = Dois canais usam este nome. Entre com um código.

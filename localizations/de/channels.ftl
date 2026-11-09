@@ -28,8 +28,8 @@ channel-password-label = Passwort zum Beitreten verlangen
 channel-invite-only-label = Nur mit Einladung
 password-hint = Passwort
 channel-join-heading = Kanal beitreten
-channel-join-note = Füge einen Einladungscode oder eine Kanal-ID mit Passwort ein.
-channel-join-hint = Einladungscode oder Kanal-ID
+channel-join-note = Füge einen Einladungscode ein, oder gib den Namen oder die ID eines Kanals mit Passwort ein.
+channel-join-hint = Einladungscode, Kanalname oder ID
 password-optional-hint = Passwort (bei Einladung nicht nötig)
 privacy-none = Die Datenschutzeinstellungen erscheinen, sobald der Daemon verbunden ist.
 privacy-inbound-anyone = Jeder im Netzwerk
@@ -76,3 +76,11 @@ scan-trust-failed = Das Gerät konnte nicht hinzugefügt werden: { $reason }
 privacy-blocked = Blockierte Geräte
 privacy-blocked-none = Du hast kein Gerät blockiert.
 privacy-blocked-help = Blockierte Geräte können dich nicht anrufen und werden nicht als in der Nähe angezeigt. Beim Freigeben kann es wieder gefunden werden; es wird dadurch kein Kontakt.
+nearby-heading = Kanäle in deinem Netzwerk
+nearby-devices = { $count ->
+        [one] { $count } Gerät
+       *[other] { $count } Geräte
+    }
+nearby-none = In deinem Netzwerk wurden noch keine Kanäle gefunden
+nearby-none-offline = Dieses Gerät ist offline und sieht daher keine anderen Geräte.
+nearby-ambiguous = Zwei Kanäle nutzen diesen Namen. Tritt stattdessen mit einem Code bei.
