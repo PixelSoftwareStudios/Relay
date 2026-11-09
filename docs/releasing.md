@@ -15,12 +15,10 @@ for the headless pair (`relay`, `relayd`). Platforms: `windows-x64`, `windows-ar
 | Windows | `.msi`, `-portable.zip` | `.zip` |
 | macOS | `.dmg`, `-update.zip` (the raw `Relay.app`, for self-updating) | `.tar.gz` |
 | Linux | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` | `.tar.gz` |
-| Android | `relay-<version>-android-arm64-v8a.apk` | |
 
-23 assets plus `SHA256SUMS.txt`. Nothing is code-signed or notarized: macOS apps are ad-hoc signed,
-Windows installers are unsigned, the APK (built non-debuggable, checked by `scripts/packaging/check_android_apk.py`) is signed with a debug key that Gradle generates fresh on
-each CI run (no keystore secret exists; updating across releases needs an uninstall first). The APK is arm64-v8a only (64-bit ARM, nearly
-every phone since about 2016); the name says so, and the release notes repeat it.
+22 assets plus `SHA256SUMS.txt`. Nothing is code-signed or notarized: macOS apps are ad-hoc signed,
+Windows installers are unsigned. The Android APK is not part of releases yet: it waits for a release keystore
+in the repository secrets (`just android-apk` still builds and checks it locally).
 
 ## Build and publish
 
@@ -34,8 +32,6 @@ every phone since about 2016); the name says so, and the release notes repeat it
    - `build` (six native runners, matrix as PaintCraft's: `windows-2022`, `windows-11-arm`,
      `macos-15`, `macos-15-intel`, `ubuntu-22.04`, `ubuntu-22.04-arm`): builds `relay` and `relayd`
      (and checks `cargo tree` shows no GUI crate), then `relay-desktop`, then packages.
-   - `android`: `just android-apk` (JDK 21, NDK `28.2.13676358`, `aarch64-linux-android`, cargo-ndk),
-     renamed by `package_android.py`.
    - `assemble`: `package_release.py finalize` requires exactly the expected asset set, merges the
      per-asset `.sha256` files into `SHA256SUMS.txt`, and `sha256sum --check` confirms it.
    - `publish`: creates a draft release, uploads, diffs the uploaded names against `dist/`, and only
@@ -114,14 +110,14 @@ One-time, by the maintainer (the workflows use only the built-in `GITHUB_TOKEN`;
    `0.1.0-rc.1`, run `cargo update --workspace` so `Cargo.lock` agrees (the builds use `--locked`),
    commit, tag `v0.1.0-rc.1` and push the tag. The tag must equal the version, so the real `v0.1.0`
    tag needs the version `0.1.0` back. Afterwards delete the release and the tag.
-6. Look for: all eight jobs green (six `Build ...`, `Build Android APK`, assemble); on Windows the
+6. Look for: all seven jobs green (six `Build ...`, assemble); on Windows the
    "Verify MSI install, repair and uninstall" step; on Linux the package inspection step; a release
-   marked pre-release with 23 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
+   marked pre-release with 22 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
    `.rpm` versions `0.1.0~rc.1`; `gh attestation verify <asset> -R PixelSoftwareStudios/Relay`.
 7. Tag the real release from a green `main` commit: `git tag -a v0.1.0 && git push origin v0.1.0`.
 
 Expected, not defects: nothing is signed. Windows SmartScreen warns; macOS blocks the first launch (Open
-Anyway in Privacy & Security); the APK is debug-signed with a per-build key; attestations prove which
+Anyway in Privacy & Security); attestations prove which
 workflow built the files, not who the publisher is.
 
 ## Verification status
@@ -133,5 +129,4 @@ ad-hoc signed, DMG and update ZIP verified identical), `actionlint` on the workf
 `cargo-generate-rpm` 0.21.0 sources, not run. Unverified until the first CI run: every Windows step
 (WiX build, ICE validation, MSI, the PowerShell check), `cargo packager` deb/AppImage output and the icon/desktop-file naming it produces,
 `cargo generate-rpm` with `--set-metadata` only, the dependency lists of the `.deb` and `.rpm`,
-the AppImage with a detached `relayd`, release-profile builds on all runners, the Android job on
-GitHub's image, and publishing.
+the AppImage with a detached `relayd`, release-profile builds on all runners, and publishing.
