@@ -3,7 +3,7 @@
 background-label = 백그라운드에서 계속 수신 가능
 background-help = 이 기기가 네트워크에 연결되어 있는 동안 창이나 앱이 닫혀 있어도 Relay가 연결 상태를 유지하고 벨이 울립니다.
 background-title = 계속 수신 가능
-background-status-off = 꺼짐. 앱이 닫혀 있으면 다른 사람이 연결할 수 없습니다.
+background-status-off = 꺼짐. 앱이 닫혀 있으면 다른 사람이 연결할 수 없습니다. 창을 닫아도 벨이 울리게 하려면 스위치를 켜세요.
 background-status-running = Relay가 백그라운드에서 실행 중이며 기기가 잠겨 있거나 앱이 닫혀 있어도 벨이 울릴 수 있습니다.
 background-status-waiting = Wi-Fi를 기다리는 중입니다. 이 기기가 네트워크에 연결되면 Relay를 다시 사용할 수 있습니다.
 background-status-paused = 일시 중지됨. Relay를 열거나 이 스위치를 껐다 켜면 다시 시작됩니다.

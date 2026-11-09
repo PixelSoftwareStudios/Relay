@@ -1,5 +1,5 @@
 //! Background availability on the desktop: what closing the window does and what the tray
-//! shows. Pure decisions; the engine setting is `background.available` (default on).
+//! shows. Pure decisions; the engine setting is `background.available` (off by default on a desktop, so a fresh install quits with its last window).
 //!
 //! The tray keeps a watch on the daemon while the window is hidden, and a daemon with a
 //! watch attached advertises, listens and rings and never idles out. With the setting off a
@@ -33,21 +33,12 @@ pub fn close_action(has_tray: bool, background_available: bool, quitting: bool) 
 }
 
 /// What the tray menu shows beyond the tooltip.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct TrayFacts {
 	/// This device can be reached now: the app holds its watch on a running daemon.
 	pub available: bool,
 	/// The "Stay available in the background" check item.
 	pub background: bool,
-}
-
-impl Default for TrayFacts {
-	fn default() -> Self {
-		Self {
-			available: false,
-			background: true,
-		}
-	}
 }
 
 impl TrayFacts {
@@ -57,7 +48,7 @@ impl TrayFacts {
 			background: state
 				.settings
 				.as_ref()
-				.is_none_or(|s| s.background_available),
+				.is_some_and(|s| s.background_available),
 		}
 	}
 }
@@ -74,7 +65,7 @@ pub struct Background {
 impl Default for Background {
 	fn default() -> Self {
 		Self {
-			enabled: AtomicBool::new(true),
+			enabled: AtomicBool::new(false),
 			available: AtomicBool::new(false),
 			stale: AtomicBool::new(true),
 		}

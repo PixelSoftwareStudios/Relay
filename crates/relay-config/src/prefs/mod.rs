@@ -11,10 +11,10 @@ mod store;
 pub use devices::DeviceChoice;
 pub use limits::{LimitSpec, Limits};
 pub use model::{
-	AdvertMode, Audio, Background, CURRENT_VERSION, CallAlert, Calls, DeviceSelection, Diagnostics,
-	Discovery, History, Hotkeys, Identity, InboundPolicy, KeyStorage, MAX_OFFER_SIZE_MIB,
-	MAX_RELEASE_DELAY_MS, MAX_TRANSFER_RATE_MBPS, Messages, Network, NoiseLevel, Preferences,
-	Privacy, Profile, Ptt, TransmitModePref,
+	AdvertMode, Audio, BACKGROUND_AVAILABLE_DEFAULT, Background, CURRENT_VERSION, CallAlert, Calls,
+	DeviceSelection, Diagnostics, Discovery, History, Hotkeys, Identity, InboundPolicy, KeyStorage,
+	MAX_OFFER_SIZE_MIB, MAX_RELEASE_DELAY_MS, MAX_TRANSFER_RATE_MBPS, Messages, Network,
+	NoiseLevel, Preferences, Privacy, Profile, Ptt, TransmitModePref,
 };
 pub use portable::{export_toml, import_toml};
 pub use store::{Loaded, PreferenceStore};

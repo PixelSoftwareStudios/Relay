@@ -3,7 +3,7 @@
 background-label = Seguir disponible en segundo plano
 background-help = Mantiene Relay accesible y sonando mientras la ventana o la app está cerrada, siempre que este dispositivo esté en la red.
 background-title = Seguir disponible
-background-status-off = Desactivado. Los demás no pueden contactarte con la app cerrada.
+background-status-off = Desactivado. Los demás no pueden contactarte con la app cerrada. Activa el interruptor para seguir sonando con la ventana cerrada.
 background-status-running = Relay se ejecuta en segundo plano y puede sonar con el dispositivo bloqueado o la app cerrada.
 background-status-waiting = Esperando Wi-Fi. Relay volverá a estar disponible cuando este dispositivo se una a una red.
 background-status-paused = En pausa. Abre Relay o apaga y enciende este interruptor para reanudar.

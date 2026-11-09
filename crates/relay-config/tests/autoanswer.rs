@@ -61,14 +61,24 @@ fn background_and_call_settings_have_safe_defaults_and_validate() {
 	let s = storage(dir.path());
 	let store = relay_config::prefs::PreferenceStore::open(&s.database).unwrap();
 	let prefs = store.load().unwrap().preferences;
-	assert!(prefs.background.available);
+	// Off on a desktop, on for the phone, which must keep ringing in the background.
+	assert_eq!(prefs.background.available, cfg!(target_os = "android"));
+	assert_eq!(
+		relay_config::prefs::BACKGROUND_AVAILABLE_DEFAULT,
+		cfg!(target_os = "android")
+	);
 	assert_eq!(prefs.calls.alert, CallAlert::System);
 	assert!(prefs.calls.auto_answer_enabled);
-	store.set("background.available", "false").unwrap();
+	store
+		.set(
+			"background.available",
+			&(!prefs.background.available).to_string(),
+		)
+		.unwrap();
 	store.set("calls.alert", "ring_and_vibrate").unwrap();
 	store.set("calls.auto_answer_enabled", "false").unwrap();
 	let prefs = store.load().unwrap().preferences;
-	assert!(!prefs.background.available);
+	assert_eq!(prefs.background.available, !cfg!(target_os = "android"));
 	assert_eq!(prefs.calls.alert, CallAlert::RingAndVibrate);
 	assert!(!prefs.calls.auto_answer_enabled);
 	assert_eq!(store.get("calls.alert").unwrap(), "ring_and_vibrate");

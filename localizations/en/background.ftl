@@ -3,7 +3,7 @@
 background-label = Stay available in the background
 background-help = Keeps Relay reachable and ringing while the window or app is closed, as long as this device is on the network.
 background-title = Stay available
-background-status-off = Off. Others cannot reach you while the app is closed.
+background-status-off = Off. Others cannot reach you while the app is closed. Turn the switch on to keep ringing with the window closed.
 background-status-running = Relay is running in the background and can ring when the device is locked or the app is closed.
 background-status-waiting = Waiting for Wi-Fi. Relay will become available again when this device joins a network.
 background-status-paused = Paused. Open Relay or turn this switch off and on to resume.

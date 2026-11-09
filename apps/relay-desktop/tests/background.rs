@@ -31,7 +31,7 @@ fn state(link: Link, background: Option<bool>) -> AppState {
 }
 
 #[test]
-fn facts_follow_the_link_and_the_setting_and_default_to_on() {
+fn facts_follow_the_link_and_the_setting_and_default_to_off() {
 	let up = TrayFacts::from_state(&state(Link::Connected, Some(true)));
 	assert_eq!(
 		up,
@@ -55,8 +55,12 @@ fn facts_follow_the_link_and_the_setting_and_default_to_on() {
 		unknown,
 		TrayFacts {
 			available: false,
-			background: true
+			background: false
 		}
+	);
+	assert!(
+		!Background::default().enabled(),
+		"off until the engine says otherwise"
 	);
 }
 

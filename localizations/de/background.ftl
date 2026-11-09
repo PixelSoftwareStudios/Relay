@@ -3,7 +3,7 @@
 background-label = Im Hintergrund erreichbar bleiben
 background-help = Hält Relay erreichbar, sodass es auch bei geschlossenem Fenster oder geschlossener App klingelt, solange dieses Gerät im Netzwerk ist.
 background-title = Erreichbar bleiben
-background-status-off = Aus. Andere können dich nicht erreichen, solange die App geschlossen ist.
+background-status-off = Aus. Andere können dich nicht erreichen, solange die App geschlossen ist. Schalte den Schalter ein, damit es auch bei geschlossenem Fenster klingelt.
 background-status-running = Relay läuft im Hintergrund und kann klingeln, wenn das Gerät gesperrt oder die App geschlossen ist.
 background-status-waiting = Warte auf WLAN. Relay ist wieder erreichbar, sobald dieses Gerät einem Netzwerk beitritt.
 background-status-paused = Pausiert. Öffne Relay oder schalte diesen Schalter aus und wieder ein, um fortzufahren.

@@ -1,5 +1,5 @@
 //! Staying available in the background, outside Settings: the one-time question shown on the
-//! Calls page, and the chip under the profile that says which way it is set.
+//! Calls page, and the chip at the top of Calls on a phone that says which way it is set.
 
 use egui::{RichText, Sense, Ui};
 
@@ -52,21 +52,15 @@ pub fn first_run(ui: &mut Ui, cx: &mut Cx) {
 	cx.local.first_run_closed = true;
 }
 
-/// The chip in the sidebar (regular layout).
-pub fn chip(ui: &mut Ui, cx: &mut Cx) {
-	if !crate::layout::is_touch(ui) {
-		draw(ui, cx, false);
-	}
-}
-
-/// The same chip at the top of Calls where there is no sidebar (touch layout).
+/// The chip at the top of Calls on touch layouts. The sidebar of the regular layout shows no
+/// such chip: the Settings background card and the tray item carry that status there.
 pub fn chip_compact(ui: &mut Ui, cx: &mut Cx) {
 	if crate::layout::is_touch(ui) {
-		draw(ui, cx, true);
+		draw(ui, cx);
 	}
 }
 
-fn draw(ui: &mut Ui, cx: &mut Cx, touch: bool) {
+fn draw(ui: &mut Ui, cx: &mut Cx) {
 	let Some(settings) = &cx.state.settings else {
 		return;
 	};
@@ -74,14 +68,11 @@ fn draw(ui: &mut Ui, cx: &mut Cx, touch: bool) {
 		true => (theme::LIVE, tr!("background-chip-on")),
 		false => (ui.visuals().weak_text_color(), tr!("background-chip-off")),
 	};
-	let height = if touch {
-		crate::layout::MIN_TOUCH_TARGET
-	} else {
-		0.0
-	};
 	let width = ui.available_width();
-	let (rect, response) =
-		ui.allocate_exact_size(egui::vec2(width, height.max(16.0)), Sense::click());
+	let (rect, response) = ui.allocate_exact_size(
+		egui::vec2(width, crate::layout::MIN_TOUCH_TARGET),
+		Sense::click(),
+	);
 	response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Link, true, text));
 	let mut inner = ui.new_child(
 		egui::UiBuilder::new()
@@ -100,7 +91,5 @@ fn draw(ui: &mut Ui, cx: &mut Cx, touch: bool) {
 	{
 		cx.local.goto_settings = Some(SettingsCategory::Calls);
 	}
-	if touch {
-		kit::gap(ui);
-	}
+	kit::gap(ui);
 }

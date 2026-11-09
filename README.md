@@ -40,7 +40,9 @@ telemetry.
 - **Ringtones and alerts.** Built-in or custom ringtone, notifications, and a choice of how an incoming call
   alerts you.
 - **Background availability.** With the setting on, the engine stays reachable (advertises, rings,
-  auto-answers) without a window open. On Android this runs as a foreground service.
+  auto-answers) without a window open. It is on by default on Android (a foreground service, so the
+  phone keeps ringing) and off by default on desktop, where you opt in in Settings or with
+  `relay config set background.available true`.
 - **Desktop, CLI and Android.** Windows, macOS and Linux (x64 and arm64), and Android (arm64).
 - **Nine languages** in the app: English, German, Spanish, Hindi, Japanese, Korean, Brazilian Portuguese,
   Russian and Simplified Chinese. Only English is reviewed; see [Security and limits](#security-and-limits).

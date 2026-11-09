@@ -3,7 +3,7 @@
 background-label = 在后台保持可用
 background-help = 只要此设备连接着网络，即使窗口或应用已关闭，Relay 也会保持在线并响铃。
 background-title = 保持可用
-background-status-off = 已关闭。应用关闭时，其他人无法联系到你。
+background-status-off = 已关闭。应用关闭时，其他人无法联系到你。打开开关后，即使关闭窗口也会响铃。
 background-status-running = Relay 正在后台运行，设备锁屏或应用关闭时也可以响铃。
 background-status-waiting = 正在等待 Wi-Fi。此设备连接到网络后，Relay 将恢复可用。
 background-status-paused = 已暂停。打开 Relay，或将此开关关闭再打开即可恢复。

@@ -1,5 +1,5 @@
 //! What staying available says about itself: the status line, the one-time question and the
-//! chip under the profile.
+//! chip at the top of Calls on a phone (none in the sidebar).
 
 #![allow(clippy::await_holding_lock)]
 
@@ -91,7 +91,7 @@ const RUNNING: &str = "Relay is running in the background and can ring when the 
 const WAITING: &str =
 	"Waiting for Wi-Fi. Relay will become available again when this device joins a network.";
 const PAUSED: &str = "Paused. Open Relay or turn this switch off and on to resume.";
-const OFF: &str = "Off. Others cannot reach you while the app is closed.";
+const OFF: &str = "Off. Others cannot reach you while the app is closed. Turn the switch on to keep ringing with the window closed.";
 
 #[tokio::test]
 async fn the_status_line_says_what_the_shell_reports() {
@@ -230,7 +230,8 @@ async fn the_question_stays_away_when_answered_or_not_relevant() {
 #[tokio::test]
 async fn the_chip_names_the_setting_and_opens_settings_calls() {
 	let _turn = turn();
-	for (width, desktop) in [(360.0, false), (720.0, true)] {
+	{
+		let (width, desktop) = (360.0, false);
 		let (mut phone, _ops) = rig(SettingsCategory::Calls, width, 800.0, Language::En);
 		phone.shell.desktop.store(desktop, Ordering::SeqCst);
 		phone.app.close_settings();
@@ -244,6 +245,25 @@ async fn the_chip_names_the_setting_and_opens_settings_calls() {
 		phone.settle();
 		assert_eq!(phone.app.page(), Page::Settings);
 		assert_eq!(phone.app.settings_category(), Some(SettingsCategory::Calls));
+	}
+}
+
+#[tokio::test]
+async fn the_sidebar_identity_block_has_no_background_chip() {
+	let _turn = turn();
+	let (mut desktop, _ops) = rig(SettingsCategory::Calls, 720.0, 800.0, Language::En);
+	desktop.shell.desktop.store(true, Ordering::SeqCst);
+	desktop.app.close_settings();
+	desktop.app.set_page(Page::Calls);
+	for on in [true, false] {
+		set_background(&desktop, on);
+		let drawn = desktop.settle();
+		assert!(
+			!has(&drawn, "Available in background"),
+			"{:?}",
+			drawn.labels
+		);
+		assert!(!has(&drawn, "Only while app is open"), "{:?}", drawn.labels);
 	}
 }
 

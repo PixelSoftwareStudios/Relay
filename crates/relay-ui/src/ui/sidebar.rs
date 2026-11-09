@@ -103,7 +103,6 @@ fn identity(ui: &mut Ui, cx: &mut Cx) {
 			if let Some(d) = discoverability(cx.state) {
 				visibility::chip(ui, d);
 			}
-			super::available::chip(ui, cx);
 		});
 	});
 }
