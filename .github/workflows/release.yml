@@ -276,11 +276,13 @@ jobs:
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with:
           tool: just@1.43.0,cargo-ndk@4.1.2
-      - name: Android NDK
-        run: |
-          sdkmanager="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          yes | "$sdkmanager" --licenses > /dev/null || true
-          "$sdkmanager" "ndk;28.2.13676358"
+      - name: Android NDK (r28c, 28.2.13676358)
+        uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
+        with:
+          ndk-version: r28c
+          local-cache: true
+      - name: Check the NDK version
+        run: grep -q 'Pkg.Revision = 28.2.13676358' "$ANDROID_NDK_HOME/source.properties"
       - name: Build the release APK signed with the release key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

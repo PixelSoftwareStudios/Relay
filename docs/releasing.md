@@ -33,7 +33,8 @@ Windows installers are unsigned. The APK is built non-debuggable and signed with
    - `build` (six native runners, matrix as PaintCraft's: `windows-2022`, `windows-11-arm`,
      `macos-15`, `macos-15-intel`, `ubuntu-22.04`, `ubuntu-22.04-arm`): builds `relay` and `relayd`
      (and checks `cargo tree` shows no GUI crate), then `relay-desktop`, then packages.
-   - `android`: `just android-apk` (JDK 21, NDK `28.2.13676358`, `aarch64-linux-android`, cargo-ndk),
+   - `android`: environment `android-signing`; NDK r28c (`28.2.13676358`) from `nttld/setup-ndk` (pinned, local
+     cache) and a version check; then `just android-release` (JDK 21, `aarch64-linux-android`, cargo-ndk),
      renamed by `package_android.py`.
    - `assemble`: `package_release.py finalize` requires exactly the expected asset set, merges the
      per-asset `.sha256` files into `SHA256SUMS.txt`, and `sha256sum --check` confirms it.
