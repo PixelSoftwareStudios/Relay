@@ -167,8 +167,14 @@ fn chunk(hash: [u8; 32], offset: u32, data: Vec<u8>, last: bool) -> Body {
 }
 
 async fn trusted_target() -> (WithCache, Raw) {
-	let target = with_cache("target", None, None).await;
+	let mut target = with_cache("target", None, None).await;
 	let mut raw = Raw::connect(target.peer.handle.local_addr(), "mallory").await;
+	// The engine registers the newcomer's key before it asks for a decision; pinning earlier
+	// races that registration (UnknownKey under load).
+	expect(&mut target.peer.output, |o| {
+		matches!(o, PeerOutput::TrustRequired { .. }).then_some(())
+	})
+	.await;
 	target
 		.peer
 		.handle
