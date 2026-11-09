@@ -49,6 +49,7 @@ pub fn show(ui: &mut Ui, page: &mut Page, logo: &egui::TextureHandle, cx: &mut C
 		) {
 			*page = Page::Settings;
 		}
+		super::updates::sidebar(ui, cx);
 		ui.separator();
 	});
 }

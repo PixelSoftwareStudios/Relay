@@ -54,6 +54,7 @@ pub mod tasks;
 pub mod theme;
 pub mod timefmt;
 pub mod ui;
+pub mod updates;
 pub mod viewmodel;
 
 pub use shell::Insets;

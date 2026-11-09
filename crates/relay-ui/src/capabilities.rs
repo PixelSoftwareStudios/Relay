@@ -20,6 +20,8 @@ pub struct Capabilities {
 	pub talk_button: bool,
 	/// The shell can start and stop the standalone daemon.
 	pub manage_daemon: bool,
+	/// The app can update itself (desktop): Settings shows the Updates group.
+	pub self_update: bool,
 }
 
 impl Capabilities {
@@ -31,6 +33,7 @@ impl Capabilities {
 			global_hotkey: shell.has_global_hotkey(),
 			talk_button: shell.has_talk_button(),
 			manage_daemon: shell.can_manage_daemon(),
+			self_update: shell.can_self_update(),
 		}
 	}
 
@@ -102,7 +105,7 @@ impl SettingsCategory {
 	pub fn available(self, caps: Capabilities) -> bool {
 		match self {
 			Self::Language => caps.host_options,
-			Self::Startup => caps.host_options || caps.window_controls(),
+			Self::Startup => caps.host_options || caps.window_controls() || caps.self_update,
 			_ => true,
 		}
 	}

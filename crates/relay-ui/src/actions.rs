@@ -34,6 +34,8 @@ pub struct Shared {
 	pub stats: crate::stats_watch::StatsFeed,
 	/// Session messaging state (separate from `Hub`; transcripts can be large).
 	pub messages: Arc<crate::messaging::hub::MsgHub>,
+	/// Self-update state (desktop only); independent of the daemon.
+	pub updates: crate::updates::UpdateHub,
 }
 
 impl Default for Shared {
@@ -49,6 +51,7 @@ impl Default for Shared {
 			inbox: Inbox::default(),
 			stats: crate::stats_watch::StatsFeed::default(),
 			messages: Arc::default(),
+			updates: crate::updates::UpdateHub::default(),
 		}
 	}
 }

@@ -30,6 +30,10 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 		});
 		kit::gap(ui);
 	}
+	if caps.self_update {
+		super::super::updates::settings_group(ui, cx);
+		kit::gap(ui);
+	}
 	if caps.window_controls() {
 		kit::card(ui, |ui| window(ui, cx, caps));
 	} else {

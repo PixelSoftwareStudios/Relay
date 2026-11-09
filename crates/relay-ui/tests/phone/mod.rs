@@ -19,6 +19,7 @@ use relay_ui::model::AppState;
 use relay_ui::qr_scan::ScanError;
 use relay_ui::shell::{BoxFuture, FilePicker, Insets, PickedFile, Shell};
 use relay_ui::ui::RelayApp;
+use relay_ui::updates::{ProgressFn, UpdateFailure, UpdateOffer};
 
 /// Pixels per point of a typical phone.
 pub const DENSITY: f32 = 2.6;
@@ -63,6 +64,15 @@ pub struct PhoneShell {
 	pub background: Mutex<Option<relay_ui::background_settings::BackgroundState>>,
 	pub remembers_questions: AtomicBool,
 	pub answered: Mutex<Vec<String>>,
+	/// Self-update: `can_self_update`, the opt-in switch, what the fake updater does and saw.
+	pub self_update: AtomicBool,
+	pub check_on_launch: AtomicBool,
+	pub checks: AtomicUsize,
+	pub check_reply: Mutex<Option<Result<Option<UpdateOffer>, UpdateFailure>>>,
+	pub installs: Mutex<Vec<String>>,
+	pub install_reply: Mutex<Option<Result<(), UpdateFailure>>>,
+	pub opened_releases: Mutex<Vec<String>>,
+	pub quits: AtomicUsize,
 }
 
 impl FilePicker for PhoneShell {
@@ -92,7 +102,35 @@ impl Shell for PhoneShell {
 	}
 	fn show_window(&self) {}
 	fn hide_window(&self) {}
-	fn quit(&self) {}
+	fn quit(&self) {
+		self.quits.fetch_add(1, Ordering::SeqCst);
+	}
+	fn can_self_update(&self) -> bool {
+		self.self_update.load(Ordering::SeqCst)
+	}
+	fn update_check_on_launch(&self) -> bool {
+		self.check_on_launch.load(Ordering::SeqCst)
+	}
+	fn set_update_check_on_launch(&self, on: bool) {
+		self.check_on_launch.store(on, Ordering::SeqCst);
+	}
+	fn check_for_update(&self) -> BoxFuture<'_, Result<Option<UpdateOffer>, UpdateFailure>> {
+		self.checks.fetch_add(1, Ordering::SeqCst);
+		let reply = self.check_reply.lock().unwrap().clone();
+		Box::pin(async move { reply.unwrap_or(Ok(None)) })
+	}
+	fn install_update(
+		&self,
+		offer: UpdateOffer,
+		_progress: ProgressFn,
+	) -> BoxFuture<'_, Result<(), UpdateFailure>> {
+		self.installs.lock().unwrap().push(offer.version);
+		let reply = *self.install_reply.lock().unwrap();
+		Box::pin(async move { reply.unwrap_or(Ok(())) })
+	}
+	fn open_release(&self, url: &str) {
+		self.opened_releases.lock().unwrap().push(url.to_owned());
+	}
 	fn hides_to_tray(&self) -> bool {
 		self.desktop.load(Ordering::SeqCst)
 	}

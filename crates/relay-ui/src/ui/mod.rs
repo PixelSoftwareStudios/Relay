@@ -40,6 +40,7 @@ mod settings;
 mod sidebar;
 mod startup;
 mod textures;
+mod updates;
 mod visibility;
 mod widgets;
 
@@ -79,6 +80,9 @@ pub struct RelayApp {
 	scrolled_for: Option<(u32, egui::Id)>,
 	/// The language the installed fonts were built for; `None` before the first frame.
 	font_language: Option<crate::i18n::Language>,
+	/// When the app was created, and how long after it the opt-in update check may run.
+	started: std::time::Instant,
+	launch_check_delay: std::time::Duration,
 }
 
 impl RelayApp {
@@ -101,7 +105,14 @@ impl RelayApp {
 			messages: MessagesUi::new(zone),
 			scrolled_for: None,
 			font_language: None,
+			started: std::time::Instant::now(),
+			launch_check_delay: crate::updates::LAUNCH_CHECK_DELAY,
 		}
+	}
+
+	/// How long after start the opt-in update check waits (tests use zero).
+	pub fn set_launch_check_delay(&mut self, delay: std::time::Duration) {
+		self.launch_check_delay = delay;
 	}
 
 	/// The layout the last `begin_frame` chose, `None` before the first frame.
@@ -204,11 +215,32 @@ impl RelayApp {
 			ctx.request_repaint();
 		}
 		self.drain_inbox(ctx);
+		self.launch_update_check(ctx);
 		self.follow_calls(ctx);
 		if !self.actions.shell.window_visible() {
 			// Nobody sees the details: stop the engine's statistics stream.
 			self.release_hidden();
 		}
+	}
+
+	/// The opt-in update check, once, a few seconds after the window is up so it never sits on
+	/// the start-up path. Asks nothing of the network unless the user turned it on.
+	fn launch_update_check(&self, ctx: &egui::Context) {
+		// Only a shell that can update and whose user opted in ever waits for this; everyone else
+		// stays idle (an idle window asks for no repaint at all).
+		let shell = &self.actions.shell;
+		if !self.actions.shared.updates.launch_check_pending()
+			|| !shell.can_self_update()
+			|| !shell.update_check_on_launch()
+		{
+			return;
+		}
+		let waited = self.started.elapsed();
+		if waited < self.launch_check_delay {
+			ctx.request_repaint_after(self.launch_check_delay - waited);
+			return;
+		}
+		self.actions.launch_update_check();
 	}
 
 	/// Follow the shell's language: switch the catalogs and reinstall the

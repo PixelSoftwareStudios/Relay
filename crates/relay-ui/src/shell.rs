@@ -136,6 +136,40 @@ pub trait Shell: FilePicker {
 	fn reset_local_data(&self) -> BoxFuture<'_, Result<(), String>> {
 		Box::pin(async { Err(tr!("reset-unsupported").to_owned()) })
 	}
+	/// Whether this shell can replace its own installation with a newer signed release (the
+	/// desktop app can; Android updates through its store). Where false, the UI shows no update
+	/// button, no update settings and never calls the methods below.
+	fn can_self_update(&self) -> bool {
+		false
+	}
+	/// Whether the opt-in "check for updates at launch" is on (default off). Stored by the shell
+	/// where it works with no daemon.
+	fn update_check_on_launch(&self) -> bool {
+		false
+	}
+	/// Store the opt-in switch.
+	fn set_update_check_on_launch(&self, _on: bool) {}
+	/// Ask where the newest release is: the only internet call the app makes. `Ok(None)` means
+	/// nothing newer. The shell does the blocking work off the UI thread.
+	fn check_for_update(
+		&self,
+	) -> BoxFuture<'_, Result<Option<crate::updates::UpdateOffer>, crate::updates::UpdateFailure>>
+	{
+		Box::pin(async { Ok(None) })
+	}
+	/// Download, verify and install `offer`, reporting progress. `Ok` means the installation was
+	/// replaced and the caller must quit now. A failure installs nothing.
+	fn install_update(
+		&self,
+		_offer: crate::updates::UpdateOffer,
+		_progress: crate::updates::ProgressFn,
+	) -> BoxFuture<'_, Result<(), crate::updates::UpdateFailure>> {
+		Box::pin(async { Err(crate::updates::UpdateFailure::Other) })
+	}
+	/// Open a release page (the manual update path). Defaults to [`Shell::open_url`].
+	fn open_release(&self, url: &str) {
+		self.open_url(url);
+	}
 	/// Ask the daemon to stop. Distinct from [`Shell::quit`], which only
 	/// closes this app.
 	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {
