@@ -47,8 +47,10 @@ pub fn controls(ui: &mut Ui, actions: &Actions, confirming: &mut bool) {
 	});
 }
 
-/// Advanced: the card, a title above the controls (the confirmation explains the rest).
+/// Advanced: the card, a title and one short line above the controls (the confirmation
+/// explains the rest).
 pub fn card(ui: &mut Ui, actions: &Actions, confirming: &mut bool) {
 	kit::card_title(ui, tr!("reset-heading"));
+	kit::help(ui, tr!("reset-what"));
 	controls(ui, actions, confirming);
 }

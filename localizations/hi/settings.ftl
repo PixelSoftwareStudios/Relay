@@ -153,6 +153,7 @@ hotkey-reason-permission = सिस्टम ने अभी इसकी अ�
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay डेटा रीसेट करें
+reset-what = लोकल डेटाबेस हटाता है, जिससे सभी सेटिंग, संपर्क और अन्य डेटा मिट जाता है।
 reset-ask = Relay डेटा रीसेट करें…
 reset-confirm-title = इस डिवाइस का सारा Relay डेटा हटाएँ?
 reset-deletes = आपके संपर्क और भरोसे की सेटिंग, इतिहास, सेटिंग और प्रोफ़ाइल फ़ोटो हमेशा के लिए हट जाएँगे।

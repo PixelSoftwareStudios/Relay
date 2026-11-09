@@ -156,6 +156,7 @@ hotkey-reason-permission = система пока не разрешила эт�
 hotkey-reason-other = { $detail }
 
 reset-heading = Сбросить данные Relay
+reset-what = Удаляет локальную базу данных вместе со всеми настройками, контактами и прочим.
 reset-ask = Сбросить данные Relay…
 reset-confirm-title = Удалить все данные Relay на этом устройстве?
 reset-deletes = Безвозвратно удаляются ваши контакты и доверие к ним, история, настройки и фото профиля.

@@ -152,6 +152,7 @@ hotkey-reason-permission = 系统尚未允许
 hotkey-reason-other = { $detail }
 
 reset-heading = 重置 Relay 数据
+reset-what = 移除本地数据库，删除所有设置、联系人等内容。
 reset-ask = 重置 Relay 数据…
 reset-confirm-title = 要删除此设备上的所有 Relay 数据吗？
 reset-deletes = 你的联系人和信任设置、历史记录、设置以及头像将被永久删除。

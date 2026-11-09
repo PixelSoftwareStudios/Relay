@@ -45,6 +45,9 @@ async fn the_reset_card_is_short_and_has_no_revision_counter() {
 	);
 	assert!(!drawn.labels.iter().any(|l| l.starts_with("Revision")));
 	assert!(drawn.labels.iter().any(|l| l == "Reset Relay data…"));
+	let what = "Removes the local database, deleting all settings, contacts and more.";
+	assert!(top(&drawn, "Reset Relay data") < top(&drawn, what));
+	assert!(top(&drawn, what) < top(&drawn, "Reset Relay data…"));
 }
 
 #[tokio::test]

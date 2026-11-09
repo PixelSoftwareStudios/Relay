@@ -154,6 +154,7 @@ hotkey-reason-permission = o sistema ainda não permitiu
 hotkey-reason-other = { $detail }
 
 reset-heading = Redefinir os dados do Relay
+reset-what = Remove o banco de dados local, apagando todas as configurações, contatos e mais.
 reset-ask = Redefinir os dados do Relay…
 reset-confirm-title = Apagar todos os dados do Relay neste dispositivo?
 reset-deletes = Isto apaga para sempre seus contatos e a confiança concedida, seu histórico, suas configurações e sua foto de perfil.

@@ -152,6 +152,7 @@ hotkey-reason-permission = 시스템이 아직 허용하지 않았습니다
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay 데이터 초기화
+reset-what = 로컬 데이터베이스를 삭제하여 모든 설정, 연락처 등을 지웁니다.
 reset-ask = Relay 데이터 초기화…
 reset-confirm-title = 이 기기의 Relay 데이터를 모두 삭제할까요?
 reset-deletes = 연락처와 신뢰 설정, 기록, 설정, 프로필 사진이 영구적으로 삭제됩니다.
