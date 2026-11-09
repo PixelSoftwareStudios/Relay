@@ -16,9 +16,9 @@ class RunTests(unittest.TestCase):
     def test_complete_run_is_accepted(self):
         run.verify(*good(), SHA)
 
-    def test_every_native_build_is_required(self):
+    def test_android_job_is_required(self):
         info, jobs = good()
-        self.assertNotIn("Build Android APK", run.REQUIRED_JOBS)
+        self.assertIn("Build Android APK", run.REQUIRED_JOBS)
         jobs[-1]["conclusion"] = "failure"
         with self.assertRaises(ValueError):
             run.verify(info, jobs, SHA)

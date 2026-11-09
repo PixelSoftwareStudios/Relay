@@ -38,6 +38,27 @@ android-apk abis="arm64-v8a":
 	cp apps/relay-android/app/build/outputs/apk/debug/app-debug.apk "$apk"
 	echo "$apk"
 
+# The release APK: signed with the key in RELAY_KEYSTORE_FILE, _PASSWORD, RELAY_KEY_ALIAS, RELAY_KEY_PASSWORD
+# (CI's android-signing environment). Refuses to run without them or if the result is debug-signed.
+android-release:
+	#!/usr/bin/env bash
+	set -euo pipefail
+	for v in RELAY_KEYSTORE_FILE RELAY_KEYSTORE_PASSWORD RELAY_KEY_ALIAS RELAY_KEY_PASSWORD; do
+		[ -n "${!v:-}" ] || { echo "$v is not set: the release APK needs the signing key" >&2; exit 1; }
+	done
+	ndk="${ANDROID_NDK_HOME:-{{android_sdk}}/ndk/{{ndk_version}}}"
+	[ -d "$ndk" ] || { echo "Android NDK not found at $ndk. Run: just android-setup" >&2; exit 1; }
+	export ANDROID_HOME="{{android_sdk}}" ANDROID_NDK_HOME="$ndk"
+	export CARGO_TARGET_DIR="$PWD/target/android" RELAY_HOST_TARGET_DIR="$PWD/target/android-host"
+	rm -f apps/relay-android/app/build/outputs/apk/release/app-release.apk
+	(cd apps/relay-android && ./gradlew assembleRelease -Prelay.version="{{version}}")
+	apk=apps/relay-android/app/build/outputs/apk/release/app-release.apk
+	python3 scripts/packaging/check_android_apk.py "$apk"
+	python3 scripts/packaging/check_android_signature.py "$apk"
+	mkdir -p dist/android
+	cp "$apk" "dist/android/relay-{{version}}-android-arm64-v8a.apk"
+	echo "dist/android/relay-{{version}}-android-arm64-v8a.apk"
+
 # Build the APK and install it on the connected phone (USB or wireless debugging), then launch it.
 android-install abis="arm64-v8a": (android-apk abis)
 	adb install -r "dist/android/relay-{{version}}-android-{{replace(abis, ",", "-")}}.apk"

@@ -23,6 +23,7 @@ TARGETS = {
     "x86_64-unknown-linux-gnu": "linux-x64",
     "aarch64-unknown-linux-gnu": "linux-arm64",
 }
+ANDROID_SUFFIX = "android-arm64-v8a"
 # relay-desktop is the window; relay and relayd are the headless pair (docs/packaging.md).
 CLI_PROGRAMS = ("relay", "relayd")
 DESKTOP_PROGRAMS = ("relay-desktop",) + CLI_PROGRAMS
@@ -170,7 +171,7 @@ def package(version, target, bin_dir, output):
 
 
 def expected_assets(version):
-    names = set()
+    names = {f"relay-{version}-{ANDROID_SUFFIX}.apk"}
     for target, suffix in TARGETS.items():
         name = f"relay-{version}-{suffix}"
         names.add(f"relay-cli-{version}-{suffix}" + (".zip" if "windows" in target else ".tar.gz"))
@@ -231,8 +232,13 @@ def release_notes(version, changes):
         desktop = ", ".join(f"`{n}`" for n in sorted(assets) if n.startswith(f"relay-{version}-{suffix}"))
         cli = ", ".join(f"`{n}`" for n in sorted(assets) if n.startswith(f"relay-cli-{version}-{suffix}"))
         rows.append(f"| {suffix} | {desktop} | {cli} |")
+    apk = f"relay-{version}-{ANDROID_SUFFIX}.apk"
     return "\n".join([
         changes, "", "## Downloads", "", *rows, "",
+        f"Android: `{apk}` for 64-bit ARM phones (arm64-v8a, nearly every phone sold since about "
+        "2016), installable by sideloading. It is signed with the Relay release key (its SHA-256 "
+        "fingerprint is in docs/releasing.md), so later releases install over it. Other ABIs "
+        "(32-bit ARM, x86) are not shipped.", "",
         "These builds are not code-signed or notarized: macOS apps are ad-hoc signed (on first "
         "launch macOS blocks them; allow Relay under System Settings > Privacy & Security > Open "
         "Anyway, or right-click, Open before macOS 15) and Windows installers are unsigned "

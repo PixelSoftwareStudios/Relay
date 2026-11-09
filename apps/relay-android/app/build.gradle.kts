@@ -14,6 +14,10 @@ val rustDir = rootProject.projectDir
 val jniOut = layout.buildDirectory.dir("rustJniLibs")
 val bindingsOut = layout.buildDirectory.dir("generated/uniffi")
 val minSdkLevel = 28
+val relayVersion = providers.gradleProperty("relay.version").orElse("0.0.0-dev").get()
+val relayVersionCode = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(relayVersion)
+	?.destructured?.let { (major, minor, patch) -> major.toInt() * 10000 + minor.toInt() * 100 + patch.toInt() }
+	?: 1
 
 android {
 	namespace = "dev.relay.app"
@@ -24,10 +28,26 @@ android {
 		applicationId = "dev.relay.app"
 		minSdk = minSdkLevel
 		targetSdk = 35
-		versionCode = 1
-		versionName = providers.gradleProperty("relay.version").orElse("0.0.0-dev").get()
+		// Android refuses an install whose versionCode is not higher, so it follows the version:
+		// 0.1.0 is 100, 1.2.3 is 10203. A pre-release suffix (0.1.0-rc.1) maps to its base version.
+		versionCode = relayVersionCode
+		versionName = relayVersion
 		ndk { abiFilters += abis }
 		testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+	}
+
+	// The release key comes from the environment (CI's android-signing environment); it is never
+	// in the repository. Without it there is no release signing and assembleRelease is refused.
+	val keystore = providers.environmentVariable("RELAY_KEYSTORE_FILE").orNull
+	signingConfigs {
+		if (keystore != null) {
+			create("release") {
+				storeFile = file(keystore)
+				storePassword = providers.environmentVariable("RELAY_KEYSTORE_PASSWORD").get()
+				keyAlias = providers.environmentVariable("RELAY_KEY_ALIAS").get()
+				keyPassword = providers.environmentVariable("RELAY_KEY_PASSWORD").get()
+			}
+		}
 	}
 
 	buildTypes {
@@ -38,7 +58,11 @@ android {
 			isDebuggable = providers.gradleProperty("relay.debuggable").map { it == "true" }.orElse(false).get()
 			isMinifyEnabled = false
 		}
-		release { isMinifyEnabled = false }
+		release {
+			isMinifyEnabled = false
+			isDebuggable = false
+			signingConfigs.findByName("release")?.let { signingConfig = it }
+		}
 	}
 
 	sourceSets {
