@@ -13,5 +13,3 @@ __pycache__/
 /secrets/
 *.jks
 *.keystore
-*.env
-.env*

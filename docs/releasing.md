@@ -132,17 +132,6 @@ keystore into the runner's temp directory, runs `just android-release` (Gradle `
 `check_android_apk.py` and `check_android_signature.py`, which fails on a debug-signed APK) and deletes the file.
 `versionCode` follows the version (`0.1.0` is 100, `1.2.3` is 10203), and Android only installs a higher one.
 
-Local signing: put the four variables in `secrets/android-signing.env` (git-ignored; `chmod 600`):
-
-```sh
-RELAY_KEYSTORE_FILE=/absolute/path/to/relay-release.jks
-RELAY_KEYSTORE_PASSWORD=...
-RELAY_KEY_ALIAS=relay
-RELAY_KEY_PASSWORD=...
-```
-
-then run `just android-release`. `RELAY_SIGNING_ENV` points at a different file.
-
 Signing certificate SHA-256: _to be recorded here from `keytool -list -v` before the first release._
 
 Keep an offline backup of the keystore, alias and both passwords. If the key is lost, nobody can update in
