@@ -132,7 +132,11 @@ keystore into the runner's temp directory, runs `just android-release` (Gradle `
 `check_android_apk.py` and `check_android_signature.py`, which fails on a debug-signed APK) and deletes the file.
 `versionCode` follows the version (`0.1.0` is 100, `1.2.3` is 10203), and Android only installs a higher one.
 
-Signing certificate SHA-256: _to be recorded here from `keytool -list -v` before the first release._
+Signing certificate SHA-256 (pinned in the `justfile`; a build signed by any other key fails):
+
+`0B:63:75:AD:94:A1:DC:96:5D:2A:0F:99:3C:06:51:61:C8:9E:8E:B2:DE:72:4C:81:C8:95:D2:5E:4A:EC:80:BB`
+
+Check a downloaded APK with `apksigner verify --print-certs relay-<version>-android-arm64-v8a.apk`.
 
 Keep an offline backup of the keystore, alias and both passwords. If the key is lost, nobody can update in
 place and everyone has to uninstall first. Rotating it has the same cost.

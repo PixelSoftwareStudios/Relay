@@ -6,6 +6,8 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 version := `sed -n '/^\[workspace.package\]/,/^\[/{s/^version = "\(.*\)"/\1/p;}' Cargo.toml`
 android_sdk := env("ANDROID_HOME", env("HOME") / "Library/Android/sdk")
 ndk_version := "28.2.13676358"
+# SHA-256 of the Relay release signing certificate (public; also in docs/releasing.md).
+release_cert := "0B:63:75:AD:94:A1:DC:96:5D:2A:0F:99:3C:06:51:61:C8:9E:8E:B2:DE:72:4C:81:C8:95:D2:5E:4A:EC:80:BB"
 
 default:
 	@just --list
@@ -54,7 +56,7 @@ android-release:
 	(cd apps/relay-android && ./gradlew assembleRelease -Prelay.version="{{version}}")
 	apk=apps/relay-android/app/build/outputs/apk/release/app-release.apk
 	python3 scripts/packaging/check_android_apk.py "$apk"
-	python3 scripts/packaging/check_android_signature.py "$apk"
+	python3 scripts/packaging/check_android_signature.py "$apk" --fingerprint "{{release_cert}}"
 	mkdir -p dist/android
 	cp "$apk" "dist/android/relay-{{version}}-android-arm64-v8a.apk"
 	echo "dist/android/relay-{{version}}-android-arm64-v8a.apk"
