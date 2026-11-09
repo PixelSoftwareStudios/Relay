@@ -103,3 +103,21 @@ async fn the_people_card_offers_the_switch_and_names_the_reason() {
 		drawn.labels
 	);
 }
+
+#[tokio::test]
+async fn the_sidebar_names_this_device_even_when_the_daemon_is_down() {
+	let host = gethostname::gethostname()
+		.to_string_lossy()
+		.trim()
+		.to_owned();
+	assert!(!host.is_empty());
+	let mut phone = Phone::desktop(720.0, 800.0, Language::En);
+	phone.show_state(&state(Link::Offline, None));
+	let drawn = phone.page(Page::Connect);
+	assert!(has(&drawn, &host), "{:?}", drawn.labels);
+	assert!(
+		!drawn.labels.iter().any(|l| l == "You"),
+		"{:?}",
+		drawn.labels
+	);
+}

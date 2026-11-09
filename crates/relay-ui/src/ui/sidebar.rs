@@ -53,6 +53,23 @@ pub fn show(ui: &mut Ui, page: &mut Page, logo: &egui::TextureHandle, cx: &mut C
 	});
 }
 
+/// The name shown while the engine has not reported one (it is not running): this
+/// device's own name, so the sidebar never reads like a placeholder.
+fn device_name() -> &'static str {
+	static NAME: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+	NAME.get_or_init(|| {
+		let host = gethostname::gethostname()
+			.to_string_lossy()
+			.trim()
+			.to_owned();
+		if host.is_empty() {
+			tr!("sidebar-you").to_owned()
+		} else {
+			host
+		}
+	})
+}
+
 /// Picture, name and connection state of this device.
 fn identity(ui: &mut Ui, cx: &mut Cx) {
 	let name = cx
@@ -61,7 +78,7 @@ fn identity(ui: &mut Ui, cx: &mut Cx) {
 		.as_ref()
 		.map(|s| s.display_name.as_str())
 		.filter(|n| !n.is_empty())
-		.unwrap_or(tr!("sidebar-you"));
+		.unwrap_or_else(|| device_name());
 	ui.horizontal(|ui| {
 		let tex = cx.textures.texture(&local_avatar(cx.state), cx.actions);
 		avatar(ui, &tex, theme::AVATAR_ROW);

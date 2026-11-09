@@ -6059,6 +6059,7 @@ dependencies = [
  "async-trait",
  "egui",
  "fluent-bundle",
+ "gethostname",
  "harfrust",
  "hex",
  "image",

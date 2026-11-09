@@ -13,6 +13,7 @@ relay-io.workspace = true
 relay-messages.workspace = true
 egui.workspace = true
 fluent-bundle.workspace = true
+gethostname.workspace = true
 unic-langid.workspace = true
 rust-embed.workspace = true
 async-trait.workspace = true
