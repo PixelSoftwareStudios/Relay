@@ -22,9 +22,20 @@ fn listed_advert(
 	channel: [u8; 16],
 	name: &str,
 ) -> relay_net::discovery::DiscoveredPeer {
+	listed_advert_with(template, instance, channel, name, false)
+}
+
+fn listed_advert_with(
+	template: &Side,
+	instance: u8,
+	channel: [u8; 16],
+	name: &str,
+	password: bool,
+) -> relay_net::discovery::DiscoveredPeer {
 	use relay_net::channel::{ChannelAdvert, ChannelId, ChannelName, Policy};
 	let policy = Policy {
 		listed: true,
+		password,
 		..Policy::default()
 	};
 	let (id, name) = (
@@ -57,6 +68,7 @@ fn row(name: &str, devices: u32, ambiguous: bool) -> NearbyChannel {
 		name: name.to_owned(),
 		devices,
 		ambiguous,
+		password: false,
 	}
 }
 
@@ -344,4 +356,58 @@ async fn removal_is_immediate_and_the_safety_net_catches_a_missed_one() {
 	);
 	a.daemon.shutdown().await.expect("a stops");
 	c.daemon.shutdown().await.expect("c stops");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn the_password_flag_reaches_the_nearby_list_end_to_end() {
+	let mut a = side(440.0).await;
+	let mut b = side(1_700.0).await;
+	assert_applied(
+		&b.cli
+			.create_channel("Vault", policy(true, true, false), "correct horse")
+			.await
+			.expect("create"),
+	);
+	assert_applied(
+		&b.cli
+			.create_channel("Open", policy(true, false, false), "")
+			.await
+			.expect("create"),
+	);
+	let hub = a.daemon.channels().expect("hub");
+	hear(&hub, b.discovered()).await;
+	let nearby = a.cli.snapshot().await.unwrap().nearby_channels;
+	let flags: Vec<(&str, bool)> = nearby
+		.iter()
+		.map(|n| (n.name.as_str(), n.password))
+		.collect();
+	assert_eq!(flags, vec![("Open", false), ("Vault", true)]);
+	a.daemon.shutdown().await.expect("a stops");
+	b.daemon.shutdown().await.expect("b stops");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_invite_only_channel_cannot_be_listed_and_is_never_advertised() {
+	let a = side(440.0).await;
+	let mut b = side(1_700.0).await;
+	// Listed and invite-only together is refused at creation.
+	let refused = b
+		.cli
+		.create_channel("Both", policy(true, false, true), "")
+		.await;
+	assert!(refused.is_err(), "{refused:?}");
+	assert!(b.cli.list_channels().await.unwrap().is_empty());
+
+	assert_applied(
+		&b.cli
+			.create_channel("Private", policy(false, false, true), "")
+			.await
+			.expect("create"),
+	);
+	assert!(b.discovered().txt.keys().all(|k| !k.starts_with("chl")));
+	let hub = a.daemon.channels().expect("hub");
+	hear(&hub, b.discovered()).await;
+	assert!(hub.view().nearby.is_empty());
+	a.daemon.shutdown().await.expect("a stops");
+	b.daemon.shutdown().await.expect("b stops");
 }

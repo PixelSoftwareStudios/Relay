@@ -172,7 +172,13 @@ impl ChannelHub {
 		let mut state = self.state();
 		let mut changed = false;
 		for listed in &advert.listed {
-			changed |= state.note_listed(listed.name.as_str(), listed.id, device, mono);
+			changed |= state.note_listed(
+				listed.name.as_str(),
+				listed.id,
+				listed.password,
+				device,
+				mono,
+			);
 		}
 		changed
 	}

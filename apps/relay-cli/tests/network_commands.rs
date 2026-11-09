@@ -187,7 +187,7 @@ async fn channel_create_password_stdin_and_open_channels() {
 	assert_eq!(s.asked, [SecretInput::Stdin]);
 	assert_eq!(
 		c.log[0],
-		"create_channel Pipe listed=true password=true invite_only=true"
+		"create_channel Pipe listed=false password=true invite_only=true"
 	);
 	scripted(&mut c, &["channel", "create", "Open"], &[])
 		.await

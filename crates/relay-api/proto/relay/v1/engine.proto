@@ -640,8 +640,9 @@ message ChannelInfo {
 // join it with JoinChannel{name}. `devices` counts the devices advertising it (bounded).
 // `ambiguous`: two different channels use this name (or it equals a channel this device is
 // in), so joining by name is refused and the join code is required. An entry disappears
-// about two minutes after the last advertisement.
-message NearbyChannel { string name = 1; uint32 devices = 2; bool ambiguous = 3; }
+// when the advertising devices withdraw their record. `password`: joining needs the channel
+// password. Invite-only channels are never listed, so they never appear here.
+message NearbyChannel { string name = 1; uint32 devices = 2; bool ambiguous = 3; bool password = 4; }
 message NearbyChannels { repeated NearbyChannel channels = 1; }
 message CreateChannelRequest {
   MutationContext context = 1;

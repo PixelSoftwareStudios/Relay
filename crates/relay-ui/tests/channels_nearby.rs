@@ -27,6 +27,7 @@ fn nearby(name: &str, devices: u32, ambiguous: bool) -> NearbyChannel {
 		name: name.into(),
 		devices,
 		ambiguous,
+		password: false,
 	}
 }
 

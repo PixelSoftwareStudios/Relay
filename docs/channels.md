@@ -35,7 +35,7 @@ Non-negotiables inherited from the project:
 | Owner | Holds the channel's Ed25519 signing key (generated at creation, stored in the `ChannelStore`). |
 | Admin | A device holding an owner-signed `Delegation` for its own Ed25519 key; may admit members and revoke. |
 | Member | Holds an owner/admin-signed `MembershipCert` for its **Noise static key**. |
-| Policy | `listed` (name advertised), `password`, `invite_only`. Not listed means hidden. |
+| Policy | `listed` (name advertised), `password`, `invite_only`. Not listed means hidden. `listed` and `invite_only` exclude each other: creating both is refused (`INVALID_ARGUMENT`), and an invite-only channel is never named in an advert. |
 | Credential | What a joiner must prove to an admitter: nothing but the id (open), a password key, an invite secret, or both. |
 
 ## Decisions
@@ -301,6 +301,17 @@ creator's choice: an unlisted channel advertises only blinded tags. Relay shows 
 of other devices in **Channels on your network** (UI), `relay channel nearby` (CLI) and
 `Snapshot.nearby_channels` (API) so a name is something you can pick instead of typing.
 
+- Which channels: only those whose creator listed them, and never invite-only ones. An invite-only
+  channel cannot be listed (creation with both is refused, the Create form turns Listed off and
+  disables it, `relay channel create --invite-only` is unlisted), `ChannelAdvert::build` skips it
+  even if an old record says both, and a received `chl` entry flagged `i` is dropped. People
+  holding an invite join through the invite box on the Channels page, so nothing is lost.
+- Wire form: `chlN = <id hex>:<flag>:<name>` with flag `o` (open) or `p` (password); the name may
+  contain `:`. The value stays within the 200-byte TXT limit (32 + 1 + 1 + 1 + at most 32
+  characters of name) and at most 3 entries (`chl0..chl2`) are sent. The id and the flag are not
+  secret, like the name.
+- Password channels: the row shows a lock and `NearbyChannel.password`; the UI asks for the
+  password in the row before joining by name, the CLI shows `password` in the table and JSON.
 - What is shown: the name, how many distinct devices (by advertised instance id) advertise it, and
   whether it is *ambiguous*. The id is not exposed; joining goes through `JoinChannel{name}`.
   Seeing a channel here proves nothing about it and grants nothing: joining still needs the
@@ -375,7 +386,7 @@ API behaviour:
   the peer adapter routes them; they must never reach call state.
 - `Advertisement` has `mode: AdvertMode` (`Hidden` omits name and fingerprint hint) and
   `extra_txt`; `DiscoveredPeer.txt` holds the bounded raw TXT. `ChannelAdvert::{to_txt,
-  from_map}` use keys `ce` (epoch), `ct` (tags) and `chl0..chl2` (listed channels). In hidden
+  from_map}` use keys `ce` (epoch), `ct` (tags) and `chl0..chl2` (listed channels, `<id>:<o|p>:<name>`; never invite-only). In hidden
   mode use `tag::hidden_instance_id(secret, epoch)` as the instance id and re-advertise when the
   epoch changes.
 - `SessionBinding` is now derived from `SecureSession::handshake_hash()`

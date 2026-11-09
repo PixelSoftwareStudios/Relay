@@ -19,7 +19,9 @@ const PSEUDONYM_DOMAIN: &str = "relay-net 2026 hidden instance id v1";
 const TXT_EPOCH: &str = "ce";
 const TXT_TAGS: &str = "ct";
 const TXT_LISTED: &str = "chl";
-/// Listed entries use keys `chl0`, `chl1`, ... because TXT keys are unique.
+/// Listed entries use keys `chl0`, `chl1`, ... because TXT keys are unique. A value is
+/// `<id hex>:<flag>:<name>` with flag `o` (open) or `p` (password). Flag `i` (invite only) is
+/// never written: an invite-only channel is not advertised, and a received `i` is ignored.
 const TXT_VALUE_MAX: usize = 255;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -67,6 +69,8 @@ pub fn hidden_instance_id(instance_secret: &[u8; 32], epoch: u64) -> [u8; 16] {
 pub struct ListedChannel {
 	pub id: ChannelId,
 	pub name: ChannelName,
+	/// Joining needs the channel password.
+	pub password: bool,
 }
 
 /// What a device publishes about channels.
@@ -93,10 +97,12 @@ impl ChannelAdvert {
 			if tags.len() < TAG_SLOTS_LARGE {
 				tags.push(blind(id, epoch, instance_id, fingerprint));
 			}
-			if policy.listed && listed.len() < LISTED_ADVERTISED_MAX {
+			// An invite-only channel is never named, even if marked listed.
+			if policy.listed && !policy.invite_only && listed.len() < LISTED_ADVERTISED_MAX {
 				listed.push(ListedChannel {
 					id: *id,
 					name: name.clone(),
+					password: policy.password,
 				});
 			}
 		}
@@ -130,8 +136,9 @@ impl ChannelAdvert {
 		}
 		for (i, listed) in self.listed.iter().enumerate() {
 			let value = format!(
-				"{}:{}",
+				"{}:{}:{}",
 				hex::encode(listed.id.as_bytes()),
+				if listed.password { 'p' } else { 'o' },
 				listed.name.as_str()
 			);
 			if value.len() <= TXT_VALUE_MAX {
@@ -173,10 +180,18 @@ impl ChannelAdvert {
 			.take(LISTED_ADVERTISED_MAX)
 			.filter(|v| v.len() <= TXT_VALUE_MAX)
 			.filter_map(|v| {
-				let (id, name) = v.split_once(':')?;
+				let mut parts = v.splitn(3, ':');
+				let (id, flag, name) = (parts.next()?, parts.next()?, parts.next()?);
+				let password = match flag {
+					"o" => false,
+					"p" => true,
+					// Invite-only (`i`) or unknown: never shown as joinable.
+					_ => return None,
+				};
 				Some(ListedChannel {
 					id: ChannelId::from_bytes(fixed_hex::decode::<16>(id)?),
 					name: ChannelName::new(name).ok()?,
+					password,
 				})
 			})
 			.collect();

@@ -21,6 +21,8 @@
 //! - A name equal to a channel this device already belongs to is treated the same way, so a
 //!   copy of your own channel's name cannot be offered as a join.
 //! - A channel this device already belongs to is never offered.
+//! - Invite-only channels are never advertised (and an advert claiming one is dropped on
+//!   parsing), so they cannot appear. `password` says joining needs the channel password.
 //! - At most [`LISTED_SEEN_MAX`] names and [`DEVICES_PER_NAME`] devices per name are kept.
 //! - Receiving is independent of the privacy mode: a hidden device lists what it hears.
 
@@ -42,6 +44,8 @@ pub const LISTED_TTL: Duration = Duration::from_secs(600);
 /// One listed name: the id it stands for (`None` once two ids claimed it) and who said so.
 pub(super) struct Listed {
 	pub id: Option<ChannelId>,
+	/// Some advert said joining needs the channel password.
+	pub password: bool,
 	/// Advertising device (mDNS full name) to the mono time of its last advert.
 	pub sources: BTreeMap<String, Duration>,
 }
@@ -65,7 +69,14 @@ pub(super) enum Resolved {
 
 impl State {
 	/// Records one listed channel heard from `device`; true when what is shown changed.
-	pub fn note_listed(&mut self, name: &str, id: ChannelId, device: &str, mono: Duration) -> bool {
+	pub fn note_listed(
+		&mut self,
+		name: &str,
+		id: ChannelId,
+		password: bool,
+		device: &str,
+		mono: Duration,
+	) -> bool {
 		if self.memberships.contains(&id) {
 			return false;
 		}
@@ -78,9 +89,14 @@ impl State {
 			.entry(name.to_owned())
 			.or_insert_with(|| Listed {
 				id: Some(id),
+				password: false,
 				sources: BTreeMap::new(),
 			});
 		if entry.sources.is_empty() {
+			changed = true;
+		}
+		if password && !entry.password {
+			entry.password = true;
 			changed = true;
 		}
 		if entry.id.is_some_and(|first| first != id) {
@@ -162,6 +178,7 @@ impl State {
 					name: name.clone(),
 					devices: u32::try_from(devices).unwrap_or(u32::MAX),
 					ambiguous,
+					password: entry.password,
 				})
 			})
 			.collect()

@@ -341,6 +341,8 @@ pub struct NearbyChannel {
 	pub devices: u32,
 	/// Two different channels use this name: it cannot be joined by name.
 	pub ambiguous: bool,
+	/// Joining needs the channel password.
+	pub password: bool,
 }
 
 impl Channel {

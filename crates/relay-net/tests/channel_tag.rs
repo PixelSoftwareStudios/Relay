@@ -125,6 +125,48 @@ fn listed_channels_advertise_their_name_and_roundtrip() {
 }
 
 #[test]
+fn an_invite_only_channel_is_never_advertised_even_when_marked_listed() {
+	let policy = Policy {
+		listed: true,
+		invite_only: true,
+		..HIDDEN
+	};
+	let ad = advert(&[id(1)], &INSTANCE, EPOCH, &policy);
+	assert!(ad.listed.is_empty());
+	assert!(ad.to_txt().iter().all(|(k, _)| !k.starts_with("chl")));
+	// A received entry claiming invite-only (or an unknown flag) is ignored.
+	let line = format!("{}:i:Secret Club", "01".repeat(16));
+	let parsed = ChannelAdvert::from_txt(Some("5"), None, &[&line, "zz"]).unwrap();
+	assert!(parsed.listed.is_empty());
+}
+
+#[test]
+fn the_password_flag_roundtrips_and_names_may_contain_colons() {
+	let open = Policy {
+		listed: true,
+		password: false,
+		invite_only: false,
+	};
+	let locked = Policy {
+		password: true,
+		..open
+	};
+	for (policy, expected) in [(open, false), (locked, true)] {
+		let ad = advert(&[id(1)], &INSTANCE, EPOCH, &policy);
+		let map: std::collections::BTreeMap<String, String> = ad.to_txt().into_iter().collect();
+		assert_eq!(ad.listed[0].password, expected);
+		assert_eq!(
+			ChannelAdvert::from_map(&map).unwrap().listed[0].password,
+			expected
+		);
+	}
+	let line = format!("{}:p:Lab: B", "01".repeat(16));
+	let parsed = ChannelAdvert::from_txt(Some("5"), None, &[&line]).unwrap();
+	assert_eq!(parsed.listed[0].name.as_str(), "Lab: B");
+	assert!(parsed.listed[0].password);
+}
+
+#[test]
 fn listed_adverts_are_capped() {
 	let listed = Policy {
 		listed: true,

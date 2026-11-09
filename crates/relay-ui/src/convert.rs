@@ -116,6 +116,7 @@ pub fn nearby_channel(c: &pb::NearbyChannel) -> NearbyChannel {
 		name: c.name.clone(),
 		devices: c.devices,
 		ambiguous: c.ambiguous,
+		password: c.password,
 	}
 }
 

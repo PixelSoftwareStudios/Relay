@@ -289,7 +289,7 @@ pub struct ChannelCreate {
 	/// Do not advertise the channel name.
 	#[arg(long)]
 	pub hidden: bool,
-	/// Joining needs an invite token.
+	/// Joining needs an invite token (the channel is then never listed on the network).
 	#[arg(long)]
 	pub invite_only: bool,
 	/// Protect with a password, read from a hidden prompt.

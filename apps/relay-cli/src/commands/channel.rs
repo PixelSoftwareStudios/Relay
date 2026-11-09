@@ -95,6 +95,8 @@ pub struct NearbyView {
 	pub devices: u32,
 	/// Two channels use this name: join it with its channel id (join code), not by name.
 	pub ambiguous: bool,
+	/// Joining needs the channel password.
+	pub password: bool,
 }
 
 impl From<&NearbyChannel> for NearbyView {
@@ -103,6 +105,7 @@ impl From<&NearbyChannel> for NearbyView {
 			name: c.name.clone(),
 			devices: c.devices,
 			ambiguous: c.ambiguous,
+			password: c.password,
 		}
 	}
 }
@@ -125,6 +128,8 @@ impl NearbyList {
 				c.devices.to_string(),
 				if c.ambiguous {
 					"ambiguous: two channels use this name, join with its id".to_owned()
+				} else if c.password {
+					"password".to_owned()
 				} else {
 					String::new()
 				},
@@ -232,7 +237,8 @@ async fn create<C: Manage>(
 		None
 	};
 	let policy = ChannelPolicy {
-		listed: !args.hidden,
+		// An invite-only channel is never listed: its name is not advertised.
+		listed: !args.hidden && !args.invite_only,
 		password: password.is_some(),
 		invite_only: args.invite_only,
 	};

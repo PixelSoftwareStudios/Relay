@@ -47,7 +47,7 @@ relay channel create <name> [--hidden] [--invite-only] [--password|--password-st
 relay channel join <name|id> [--password|--password-stdin|--invite|--invite-stdin]
 relay channel leave|invite|revoke <channel> ...   (invite: --ttl-seconds, --uses; revoke: <fingerprint>)
 relay channel list
-relay channel nearby                   channels other devices list on your network (not joined)
+relay channel nearby                   channels other devices list on your network (not joined); password ones are marked, invite-only ones are never listed
 relay config get [key] | set <key> <value> | export [file] | import <file>
 relay avatar set <file> | clear        png, jpg, webp, gif, bmp or tiff
 relay history [--limit N]              past calls, newest first (default 20, at most 200)

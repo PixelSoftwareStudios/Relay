@@ -41,6 +41,11 @@ impl ChannelHub {
 		password: Zeroizing<String>,
 	) -> Result<ChannelId, Failure> {
 		ChannelName::new(name).map_err(|_| Failure::NameInvalid)?;
+		if policy.listed && policy.invite_only {
+			return Err(Failure::Invalid(
+				"an invite-only channel cannot be listed: its name is never advertised",
+			));
+		}
 		if policy.password != !password.is_empty() {
 			return Err(Failure::Invalid("password does not match the policy"));
 		}
