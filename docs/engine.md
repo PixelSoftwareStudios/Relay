@@ -431,8 +431,9 @@ decisions and the full behaviour table. Shape:
   `Directory`; that yields `Snapshot.channels`, `StateEvent.channel` and
   `Peer.shared_channel_ids` (proven channels only).
 - `Msg::Channels` also carries the nearby listed channels (`channels/nearby.rs`): `Snapshot.nearby_channels` and one
-  `StateEvent.nearby_channels` carrying the whole list whenever it changes. The upkeep tick prunes
-  names not advertised for `LISTED_TTL` (120 s) and publishes when that changes the list. Time is the
+  `StateEvent.nearby_channels` carrying the whole list whenever it changes. Discovery withdrawals
+  (`ChannelEvent::AdvertGone`) drop a device at once; the upkeep tick prunes devices unheard for
+  `LISTED_TTL` (10 min, a safety net) and publishes when the list changes. Time is the
   channel `Clock` (`advance` in tests).
 - `rpc/channels.rs` serves the six RPCs; secret fields are moved out of the request into
   zeroizing buffers before anything else happens.

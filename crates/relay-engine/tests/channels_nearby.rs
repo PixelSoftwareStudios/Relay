@@ -39,8 +39,13 @@ fn listed_advert(
 	);
 	let mut found = template.discovered();
 	found.instance_id = [instance; 16];
+	found.fullname = device_name(instance);
 	found.txt = advert.to_txt().into_iter().collect();
 	found
+}
+
+fn device_name(instance: u8) -> String {
+	format!("relay-{instance:02x}._praxis-relay._tcp.local.")
 }
 
 async fn hear(hub: &ChannelHub, found: relay_net::discovery::DiscoveredPeer) {
@@ -78,15 +83,14 @@ async fn a_listed_channel_of_another_device_shows_nearby_and_expires_in_silence(
 	assert_eq!(nearby, vec![row("Garage", 1, false)]);
 
 	// Still advertised a minute later: the same record refreshes it.
-	step(&clock, 60);
-	hear(&hub, b.discovered()).await;
-	step(&clock, 100);
+	// Minutes of silence without a removal change nothing: discovery does not repeat live records.
+	step(&clock, 300);
 	hub.tick().await;
 	assert_eq!(a.cli.snapshot().await.unwrap().nearby_channels.len(), 1);
 
-	// Then it goes quiet.
-	step(&clock, LISTED_TTL.as_secs() + 1);
-	hub.tick().await;
+	// Its record is withdrawn.
+	hub.on_event(ChannelEvent::AdvertGone(b.discovered().fullname))
+		.await;
 	assert!(a.cli.snapshot().await.unwrap().nearby_channels.is_empty());
 	assert_eq!(
 		hub.listed_id("Garage"),
@@ -158,13 +162,13 @@ async fn devices_are_counted_once_each_and_age_out_one_by_one() {
 	hear(&hub, listed_advert(&c, 10, id, "Lobby")).await;
 	hear(&hub, listed_advert(&c, 10, id, "Lobby")).await;
 	assert_eq!(hub.view().nearby, vec![row("Lobby", 1, false)]);
-	step(&clock, 100);
+	step(&clock, 500);
 	hear(&hub, listed_advert(&c, 11, id, "Lobby")).await;
 	hear(&hub, listed_advert(&c, 12, id, "Lobby")).await;
 	assert_eq!(hub.view().nearby, vec![row("Lobby", 3, false)]);
 
-	// The first device is 130 s silent, the others 30 s.
-	step(&clock, 30);
+	// Only the safety net applies: the first device is 630 s silent, the others 130 s.
+	step(&clock, 130);
 	hub.tick().await;
 	assert_eq!(hub.view().nearby, vec![row("Lobby", 2, false)]);
 	assert_eq!(hub.listed_id("Lobby").map(|i| *i.as_bytes()), Some(id));
@@ -296,6 +300,48 @@ async fn a_hidden_device_lists_what_it_hears_and_still_hides_itself() {
 	assert_eq!(hub.view().nearby, vec![row("Lobby", 1, false)]);
 	// Hearing channels adds nothing to what this device advertises.
 	assert!(hub.advert().extra_txt.is_empty());
+	a.daemon.shutdown().await.expect("a stops");
+	c.daemon.shutdown().await.expect("c stops");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn removal_is_immediate_and_the_safety_net_catches_a_missed_one() {
+	let clock = Clock::starting_at(1_000_000);
+	let a = side_with(440.0, Some(clock.clone())).await;
+	let c = side_with(3_100.0, Some(clock.clone())).await;
+	let hub = a.daemon.channels().expect("hub");
+	let id = [7u8; 16];
+
+	hear(&hub, listed_advert(&c, 10, id, "Lobby")).await;
+	hear(&hub, listed_advert(&c, 11, id, "Lobby")).await;
+	// A changed record (new epoch) of the same device is not a second device.
+	hear(&hub, listed_advert(&c, 10, id, "Lobby")).await;
+	assert_eq!(hub.view().nearby, vec![row("Lobby", 2, false)]);
+
+	hub.on_event(ChannelEvent::AdvertGone(device_name(10)))
+		.await;
+	assert_eq!(hub.view().nearby, vec![row("Lobby", 1, false)]);
+	hub.on_event(ChannelEvent::AdvertGone(device_name(10)))
+		.await;
+	hub.on_event(ChannelEvent::AdvertGone("unknown".into()))
+		.await;
+	assert_eq!(hub.view().nearby, vec![row("Lobby", 1, false)]);
+
+	// No removal arrives for device 11: it stays through a long silence, then the net drops it.
+	step(&clock, LISTED_TTL.as_secs() - 1);
+	hub.tick().await;
+	assert_eq!(hub.view().nearby.len(), 1);
+	step(&clock, 2);
+	hub.tick().await;
+	assert!(hub.view().nearby.is_empty());
+
+	hear(&hub, listed_advert(&c, 12, id, "Solo")).await;
+	hub.on_event(ChannelEvent::AdvertGone(device_name(12)))
+		.await;
+	assert!(
+		hub.view().nearby.is_empty(),
+		"the last device takes the name with it"
+	);
 	a.daemon.shutdown().await.expect("a stops");
 	c.daemon.shutdown().await.expect("c stops");
 }

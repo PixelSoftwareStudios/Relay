@@ -7,8 +7,14 @@
 //!
 //! Rules:
 //!
-//! - An entry lives while some device advertised it within [`LISTED_TTL`]; a device that
-//!   falls silent stops counting after that long, and an entry with no device left is gone.
+//! - Presence drives liveness. Discovery reports a record when it appears or changes and
+//!   again with its removal (goodbye or record expiry); it does not repeat an unchanged live
+//!   record. So a device (identified by its mDNS full name) counts from its last advert until
+//!   [`State::remove_device`] is called for its removal, and an entry with no device left is
+//!   gone at once. [`LISTED_TTL`] is only a long safety net for a removal that was missed.
+//!   A changed record (new epoch) re-reports under the same name and never counts twice; a
+//!   hidden device's rotated instance id is a new name, and the old one goes with its own
+//!   removal or the safety net.
 //! - A name seen with two different ids is *ambiguous* (a spoof or a clash). It is shown as
 //!   unavailable and joining by that name is refused: it is never bound to the first id.
 //!   It stays ambiguous while any device still advertises it.
@@ -30,14 +36,14 @@ use super::state::State;
 pub(super) const LISTED_SEEN_MAX: usize = 32;
 /// Advertising devices counted per name.
 pub(super) const DEVICES_PER_NAME: usize = 64;
-/// A listed channel nobody has advertised for this long is no longer nearby.
-pub const LISTED_TTL: Duration = Duration::from_secs(120);
+/// Safety net: a device not heard from for this long is dropped even without a removal.
+pub const LISTED_TTL: Duration = Duration::from_secs(600);
 
 /// One listed name: the id it stands for (`None` once two ids claimed it) and who said so.
 pub(super) struct Listed {
 	pub id: Option<ChannelId>,
-	/// Advertising device (instance id) to the mono time of its last advert.
-	pub sources: BTreeMap<[u8; 16], Duration>,
+	/// Advertising device (mDNS full name) to the mono time of its last advert.
+	pub sources: BTreeMap<String, Duration>,
 }
 
 impl Listed {
@@ -59,13 +65,7 @@ pub(super) enum Resolved {
 
 impl State {
 	/// Records one listed channel heard from `device`; true when what is shown changed.
-	pub fn note_listed(
-		&mut self,
-		name: &str,
-		id: ChannelId,
-		device: [u8; 16],
-		mono: Duration,
-	) -> bool {
+	pub fn note_listed(&mut self, name: &str, id: ChannelId, device: &str, mono: Duration) -> bool {
 		if self.memberships.contains(&id) {
 			return false;
 		}
@@ -87,14 +87,25 @@ impl State {
 			entry.id = None;
 			changed = true;
 		}
-		if let Some(at) = entry.sources.get_mut(&device) {
+		if let Some(at) = entry.sources.get_mut(device) {
 			// A device that was silent past the TTL counts again.
 			changed |= !fresh(*at, mono);
 			*at = mono;
 		} else if entry.sources.len() < DEVICES_PER_NAME {
-			entry.sources.insert(device, mono);
+			entry.sources.insert(device.to_owned(), mono);
 			changed = true;
 		}
+		changed
+	}
+
+	/// A device's record was withdrawn: drops it from every name; true when anything went.
+	pub fn remove_device(&mut self, device: &str) -> bool {
+		let mut changed = false;
+		for entry in self.listed_seen.values_mut() {
+			changed |= entry.sources.remove(device).is_some();
+		}
+		self.listed_seen
+			.retain(|_, entry| !entry.sources.is_empty());
 		changed
 	}
 

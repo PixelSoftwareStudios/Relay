@@ -13,7 +13,7 @@ use tokio::net::TcpListener;
 use tokio::sync::{mpsc, watch};
 
 use super::handle::{
-	AdvertSink, AdvertSpec, Command, PeerConfig, PeerError, PeerHandle, PeerOutput,
+	AdvertSink, AdvertSpec, ChannelEvent, Command, PeerConfig, PeerError, PeerHandle, PeerOutput,
 };
 use super::hints::Hint;
 use super::link::{LinkEvent, LinkParams, establish};
@@ -76,6 +76,7 @@ pub async fn spawn(
 			local,
 			local_addr.port(),
 			commands.clone(),
+			output.clone(),
 			profile_rx,
 		)?;
 	}
@@ -130,6 +131,7 @@ fn spawn_discovery(
 	local: Fingerprint,
 	port: u16,
 	commands: mpsc::Sender<Command>,
+	gone: mpsc::Sender<PeerOutput>,
 	mut profile: watch::Receiver<LocalProfile>,
 ) -> Result<(), PeerError> {
 	let mut backend = match &setup.sink {
@@ -174,7 +176,10 @@ fn spawn_discovery(
 					let Some(event) = event else { break };
 					let command = match event {
 						DiscoveryEvent::Found(peer) => Command::Discovered(peer),
-						DiscoveryEvent::Removed(name) => Command::Removed(name),
+						DiscoveryEvent::Removed(name) => {
+							tell_gone(&gone, &name);
+							Command::Removed(name)
+						}
 					};
 					if commands.send(command).await.is_err() {
 						break;
@@ -188,7 +193,10 @@ fn spawn_discovery(
 								None => continue,
 							}
 						}
-						Some(Hint::Lost(name)) => Command::Removed(name),
+						Some(Hint::Lost(name)) => {
+							tell_gone(&gone, &name);
+							Command::Removed(name)
+						}
 						None => {
 							hints = None;
 							continue;
@@ -335,4 +343,11 @@ async fn accept_loop(
 			}
 		});
 	}
+}
+
+/// The channel driver forgets what the withdrawn record listed.
+fn tell_gone(output: &mpsc::Sender<PeerOutput>, name: &str) {
+	let _ = output.try_send(PeerOutput::Channel(ChannelEvent::AdvertGone(
+		name.to_owned(),
+	)));
 }

@@ -96,7 +96,7 @@ impl ChannelHub {
 		};
 		let now = self.now();
 		let mono = self.mono();
-		let changed = self.note_listed(&advert, found.instance_id);
+		let changed = self.note_listed(&advert, &found.fullname);
 		if found.instance_id == self.advert().instance_id {
 			return changed;
 		}
@@ -167,7 +167,7 @@ impl ChannelHub {
 	}
 
 	/// Remembers the listed channels of one advertisement (see `nearby.rs` for the rules).
-	fn note_listed(&self, advert: &ChannelAdvert, device: [u8; 16]) -> bool {
+	fn note_listed(&self, advert: &ChannelAdvert, device: &str) -> bool {
 		let mono = self.mono();
 		let mut state = self.state();
 		let mut changed = false;
@@ -175,6 +175,11 @@ impl ChannelHub {
 			changed |= state.note_listed(listed.name.as_str(), listed.id, device, mono);
 		}
 		changed
+	}
+
+	/// Discovery withdrew a record: its device no longer lists anything. True on a change.
+	pub(super) fn on_advert_gone(&self, fullname: &str) -> bool {
+		self.state().remove_device(fullname)
 	}
 
 	/// Periodic upkeep: follow the privacy setting, rotate the epoch, keep the

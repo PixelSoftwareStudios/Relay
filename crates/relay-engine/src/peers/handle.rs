@@ -180,6 +180,8 @@ pub enum ChannelEvent {
 	},
 	/// A discovery record (untrusted hints only).
 	Advert(Box<relay_net::discovery::DiscoveredPeer>),
+	/// Discovery withdrew the record with this full name (goodbye or expiry).
+	AdvertGone(String),
 }
 
 /// Session messaging traffic and link facts. These never reach call state: the host hands

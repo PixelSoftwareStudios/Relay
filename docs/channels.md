@@ -305,9 +305,14 @@ of other devices in **Channels on your network** (UI), `relay channel nearby` (C
   whether it is *ambiguous*. The id is not exposed; joining goes through `JoinChannel{name}`.
   Seeing a channel here proves nothing about it and grants nothing: joining still needs the
   password or invite the channel asks for, and the channel's admitter must accept.
-- Expiry: a device that was not heard for 120 s (`LISTED_TTL`) stops counting; a name with no
-  device left disappears (the 1 s upkeep tick prunes and publishes). A device advertising again
-  within that time keeps it alive. Time is the channel `Clock`, so tests move it.
+- Liveness follows presence. Discovery reports a record when it appears or changes and when it is
+  withdrawn (goodbye or record expiry), not repeatedly while it is unchanged. A device is
+  identified by its mDNS full name; `ChannelEvent::AdvertGone` (from the discovery task in
+  `peers/start.rs`) drops it at once, and a name with no device left disappears. A changed record
+  (new epoch) of the same device does not count twice; a hidden device's rotated instance id is a
+  new name and the old one goes with its own withdrawal. As a safety net for a missed withdrawal a
+  device not heard from for 10 minutes (`LISTED_TTL`, checked by the 1 s upkeep tick) is dropped.
+  Time is the channel `Clock`, so tests move it.
 - Excluded: channels this device is already in.
 - Ambiguity rule: a name seen with two different ids, or equal to the name of a channel this
   device is in, is shown as ambiguous and **cannot be joined by name** (`CHANNEL_DENIED`); it is
@@ -424,7 +429,7 @@ captured-tracing check that no password or invite appears in logs, events, snaps
 operation results. `channels_hardening` covers listed-name binding, demotion of an expired proof
 and invite redaction; `peers_sessions` and `peers_hardening` the per-peer call table, candidate
 subnet filter, untrusted-link cap, key cache churn and look-alike names (review F-05, F-09,
-F-11, F-13, F-14, F-17, F-24). `channels_nearby` (`cargo test -p relay-engine --test channels_nearby`) covers the nearby list: a listed channel seen by another device, expiry with the injected clock, per-device counting, joined and same-name exclusion, ambiguity, the 32-name bound, a hidden device and the event stream. UI: `relay-ui` `channels_nearby`, `nearby_state`; CLI: `relay-cli` `channel_nearby`.
+F-11, F-13, F-14, F-17, F-24). `channels_nearby` (`cargo test -p relay-engine --test channels_nearby`) covers the nearby list: a listed channel seen by another device, withdrawal, the safety-net expiry with the injected clock, per-device counting, joined and same-name exclusion, ambiguity, the 32-name bound, a hidden device and the event stream. UI: `relay-ui` `channels_nearby`, `nearby_state`; CLI: `relay-cli` `channel_nearby`.
 
 `crates/relay-net/tests/channel_*.rs` plus unit tests in `relay-core::channel`: PAKE success,
 wrong password, lockout, transcript binding (other session, other keys, other channel), invite
