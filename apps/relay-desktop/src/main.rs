@@ -10,6 +10,7 @@ use relay_desktop::options::DesktopOptions;
 use relay_desktop::prefs::DesktopPrefs;
 use relay_desktop::ptt::PttControl;
 use relay_desktop::tray;
+use relay_desktop::updates::UpdateService;
 use relay_ui::actions::{Actions, Shared, ShellSink};
 use relay_ui::background_settings::KEY_BACKGROUND;
 use relay_ui::controller::{Controller, SessionSlot};
@@ -87,7 +88,8 @@ fn main() -> eframe::Result {
 			let host = Arc::new(
 				DesktopShell::new(ctx.clone(), options.clone())
 					.with_background(background.clone())
-					.with_push_to_talk(ptt.clone(), hotkey_state.clone()),
+					.with_push_to_talk(ptt.clone(), hotkey_state.clone())
+					.with_updates(updates(runtime.handle().clone(), mock_mode)),
 			);
 			// The system prompt appears now, not at the first call.
 			host.start_microphone();
@@ -184,6 +186,23 @@ fn main() -> eframe::Result {
 			)))
 		}),
 	)
+}
+
+/// Self-update for this build. Not in mock mode (a demo never touches the network). Cleans up
+/// what an earlier update left beside the app, once, here. On Windows the daemon this app talks
+/// to is stopped right before the files are replaced, because it holds them.
+fn updates(runtime: tokio::runtime::Handle, mock_mode: bool) -> UpdateService {
+	if mock_mode {
+		return UpdateService::none();
+	}
+	UpdateService::system(Arc::new(move || {
+		if cfg!(windows)
+			&& let Ok(endpoint) = resolve_endpoint()
+			&& let Err(error) = runtime.block_on(daemon_control::stop(&endpoint))
+		{
+			tracing::warn!(%error, "the background service did not stop before the update");
+		}
+	}))
 }
 
 /// Accept, Decline and click-to-open from a notification, run on the runtime.

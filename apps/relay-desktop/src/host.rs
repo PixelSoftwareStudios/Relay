@@ -13,12 +13,14 @@ use relay_ui::imaging::avatar_check;
 use relay_ui::microphone::MicrophoneAccess;
 use relay_ui::relay_link::resolve_endpoint;
 use relay_ui::shell::{BoxFuture, FilePicker, PickedFile, Shell};
+use relay_ui::updates::{ProgressFn, UpdateFailure, UpdateOffer};
 
 use crate::background::Background;
 use crate::hotkey::HotkeyShared;
 use crate::microphone::{MicrophoneGate, System};
 use crate::options::DesktopOptions;
 use crate::ptt::PttControl;
+use crate::updates::UpdateService;
 use relay_ui::tr;
 
 pub struct DesktopShell {
@@ -35,6 +37,8 @@ pub struct DesktopShell {
 	hotkey: Arc<HotkeyShared>,
 	/// `background.available` as last seen; closing hides to the tray only while it is on.
 	background: Arc<Background>,
+	/// Self-update; absent (`UpdateService::none`) unless the app wires one in.
+	updates: UpdateService,
 }
 
 impl DesktopShell {
@@ -53,7 +57,14 @@ impl DesktopShell {
 			ptt: None,
 			hotkey: Arc::default(),
 			background: Arc::default(),
+			updates: UpdateService::none(),
 		}
+	}
+
+	/// Offer self-update through `updates`.
+	pub fn with_updates(mut self, updates: UpdateService) -> Self {
+		self.updates = updates;
+		self
 	}
 
 	/// Share the background-availability state that the sink keeps current.
@@ -194,7 +205,33 @@ impl Shell for DesktopShell {
 	}
 
 	fn quit(&self) {
+		// A download still running stops; the app is going away.
+		self.updates.cancel();
 		self.ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+	}
+
+	fn can_self_update(&self) -> bool {
+		self.updates.can_update()
+	}
+
+	fn update_check_on_launch(&self) -> bool {
+		self.options.update_check_on_launch()
+	}
+
+	fn set_update_check_on_launch(&self, on: bool) {
+		self.options.set_update_check_on_launch(on);
+	}
+
+	fn check_for_update(&self) -> BoxFuture<'_, Result<Option<UpdateOffer>, UpdateFailure>> {
+		Box::pin(self.updates.check())
+	}
+
+	fn install_update(
+		&self,
+		offer: UpdateOffer,
+		progress: ProgressFn,
+	) -> BoxFuture<'_, Result<(), UpdateFailure>> {
+		Box::pin(self.updates.install(offer, progress))
 	}
 
 	fn hides_to_tray(&self) -> bool {

@@ -20,6 +20,8 @@ pub type SystemLocales = Box<dyn Fn() -> Vec<String> + Send + Sync>;
 
 pub struct DesktopOptions {
 	notify: AtomicBool,
+	/// The opt-in update check at launch (off by default).
+	update_check: AtomicBool,
 	/// The language the user picked; `None` while the system language is followed.
 	chosen: Mutex<Option<Language>>,
 	/// The system language matched to the supported list, as last detected.
@@ -45,6 +47,7 @@ impl DesktopOptions {
 		let system = detect(&locales);
 		Self {
 			notify: AtomicBool::new(prefs.notify_incoming),
+			update_check: AtomicBool::new(prefs.check_updates_on_launch),
 			chosen: Mutex::new(chosen),
 			system: AtomicUsize::new(system.index()),
 			locales,
@@ -71,6 +74,7 @@ impl DesktopOptions {
 			Some(path) => DesktopPrefs {
 				notify_incoming: self.notify.load(Ordering::Acquire),
 				language: self.chosen.lock_unpoisoned().map(|l| l.code().to_owned()),
+				check_updates_on_launch: self.update_check.load(Ordering::Acquire),
 			}
 			.save(path),
 			None => Ok(()),
@@ -78,6 +82,18 @@ impl DesktopOptions {
 		*self.save_failure.lock_unpoisoned() = result
 			.err()
 			.map(|e| tr!("options-save-failed", error = e.to_string()));
+	}
+}
+
+impl DesktopOptions {
+	/// Whether the app checks for a newer release once at launch (opt-in, off by default).
+	pub fn update_check_on_launch(&self) -> bool {
+		self.update_check.load(Ordering::Acquire)
+	}
+
+	pub fn set_update_check_on_launch(&self, on: bool) {
+		self.update_check.store(on, Ordering::Release);
+		self.save();
 	}
 }
 

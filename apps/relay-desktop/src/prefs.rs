@@ -16,6 +16,9 @@ pub struct DesktopPrefs {
 	/// The language the user picked, as its code (`de`, `pt-BR`). `None` follows the system
 	/// language; an unknown code is treated the same way.
 	pub language: Option<String>,
+	/// Ask GitHub for a newer release once, shortly after start. Off until the user turns it on:
+	/// it is the only internet call the app makes.
+	pub check_updates_on_launch: bool,
 }
 
 impl Default for DesktopPrefs {
@@ -23,6 +26,7 @@ impl Default for DesktopPrefs {
 		Self {
 			notify_incoming: true,
 			language: None,
+			check_updates_on_launch: false,
 		}
 	}
 }

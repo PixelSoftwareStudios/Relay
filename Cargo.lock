@@ -5930,6 +5930,7 @@ dependencies = [
  "relay-io",
  "relay-platform",
  "relay-ui",
+ "relay-update",
  "rfd",
  "serde",
  "sys-locale",

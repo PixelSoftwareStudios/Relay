@@ -22,6 +22,7 @@ relay-api.workspace = true
 relay-client.workspace = true
 relay-daemon.workspace = true
 relay-platform.workspace = true
+relay-update.workspace = true
 eframe.workspace = true
 egui.workspace = true
 tray-icon.workspace = true

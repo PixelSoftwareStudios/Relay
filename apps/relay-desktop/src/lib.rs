@@ -14,3 +14,4 @@ pub mod prefs;
 pub mod ptt;
 pub mod ringtone_file;
 pub mod tray;
+pub mod updates;

@@ -10,7 +10,10 @@
 
 Relay lets devices on the same LAN find each other and talk, with low latency and encrypted audio. Each
 device runs a small per-user engine (`relayd`); a desktop app, a terminal client (`relay`) and an Android
-app control it. Nothing leaves your network unless you opt in to an overlay such as Tailscale.
+app control it. Nothing leaves your network unless you opt in to an overlay such as Tailscale. The one
+thing the desktop app can ask the internet is "is there a newer version?" (GitHub), and only when you
+turn on the check at launch or press "Check for updates"; it sends nothing else and there is no
+telemetry.
 
 > **Status: pre-release.** The code, tests and release pipeline exist, but no version has been tagged and
 > several qualification gates are still open (real-device latency, two-machine runs, independent security
@@ -18,6 +21,9 @@ app control it. Nothing leaves your network unless you opt in to an overlay such
 
 ## Features
 
+- **Signed in-place updates (desktop).** "Update to <version>" appears above Settings when a newer
+  release exists; it downloads, verifies a minisign signature, replaces the app and restarts it.
+  Off until you opt in or press "Check for updates"; see [docs/updates.md](docs/updates.md).
 - **LAN-only discovery.** Devices find each other with mDNS on the local network. You can also dial a
   `relay://ip:port#fingerprint` connection string (shown as text and QR code). Visibility is a setting:
   advertise with your name, or stay hidden.
