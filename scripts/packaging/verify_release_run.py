@@ -6,7 +6,8 @@ import subprocess
 
 import package_release as release
 
-REQUIRED_JOBS = [f"Build {target}" for target in release.TARGETS] + ["Build Android APK"]
+REQUIRED_JOBS = ([f"Build {target}" for target in release.TARGETS]
+                 + ["Build Android APK", "Sign update packages"])
 
 
 def verify(run, jobs, tag_sha):

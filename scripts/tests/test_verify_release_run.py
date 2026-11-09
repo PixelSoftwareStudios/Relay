@@ -23,6 +23,13 @@ class RunTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             run.verify(info, jobs, SHA)
 
+    def test_signing_job_is_required(self):
+        info, jobs = good()
+        self.assertIn("Sign update packages", run.REQUIRED_JOBS)
+        jobs = [job for job in jobs if job["name"] != "Sign update packages"]
+        with self.assertRaises(ValueError):
+            run.verify(info, jobs, SHA)
+
     def test_wrong_commit_workflow_or_event_is_refused(self):
         info, jobs = good()
         for change in ({"head_sha": "b" * 40}, {"path": ".github/workflows/ci.yml"},

@@ -32,7 +32,8 @@ class ReleaseTests(unittest.TestCase):
         for name in release.expected_assets(self.version):
             path = self.output / name
             path.write_bytes(b"fixture " + name.encode())
-            release.write_checksum(path)
+            if name in release.package_assets(self.version):
+                release.write_checksum(path)
 
     def test_tag_must_match_workspace_version(self):
         release.validate("")
@@ -52,7 +53,12 @@ class ReleaseTests(unittest.TestCase):
     def test_asset_names_cover_every_platform(self):
         v = self.version
         names = release.expected_assets(v)
-        self.assertEqual(len(names), 23)
+        self.assertEqual(len(names), 45)
+        self.assertEqual(len(release.package_assets(v)), 23)
+        self.assertEqual(len(release.signed_assets(v)), 22)
+        self.assertIn(f"relay-{v}-macos-arm64-update.zip.minisig", names)
+        self.assertNotIn(f"relay-{v}-android-arm64-v8a.apk.minisig", names)
+        self.assertFalse([n for n in names if n.endswith(".sha256") or "SHA256" in n])
         for expected in (
                 f"relay-{v}-android-arm64-v8a.apk",
                 f"relay-{v}-windows-x64.msi", f"relay-{v}-windows-arm64-portable.zip",
@@ -121,7 +127,8 @@ class ReleaseTests(unittest.TestCase):
         self.full_set()
         release.verify_assets(self.version, self.output, finalize=True)
         sums = (self.output / "SHA256SUMS.txt").read_text().splitlines()
-        self.assertEqual(len(sums), 23)
+        self.assertEqual(len(sums), 45)
+        self.assertTrue(any(line.endswith(".deb.minisig") for line in sums))
         self.assertFalse(list(self.output.glob("*.sha256")))
         release.verify_assets(self.version, self.output)
 
@@ -141,6 +148,12 @@ class ReleaseTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "missing"):
             release.verify_assets(self.version, self.output, finalize=True)
 
+    def test_finalize_requires_every_signature(self):
+        self.full_set()
+        (self.output / f"relay-{self.version}-linux-x64.deb.minisig").unlink()
+        with self.assertRaisesRegex(ValueError, r"missing=.*\.deb\.minisig"):
+            release.verify_assets(self.version, self.output, finalize=True)
+
     def test_notes_list_downloads_and_reject_empty_changes(self):
         text = release.release_notes(self.version, "### Features\n- one\n")
         self.assertIn("- one", text)
@@ -150,6 +163,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertIn("Other ABIs", text)
         self.assertIn("not code-signed", text)
         self.assertIn("release key", text)
+        self.assertIn(".minisig", text)
         self.assertNotIn("CHANGELOG.md", text)
         with self.assertRaises(ValueError):
             release.release_notes(self.version, "  \n")

@@ -170,7 +170,8 @@ def package(version, target, bin_dir, output):
     print(archive)
 
 
-def expected_assets(version):
+def package_assets(version):
+    """Every package a build job produces (the APK included), before signatures."""
     names = {f"relay-{version}-{ANDROID_SUFFIX}.apk"}
     for target, suffix in TARGETS.items():
         name = f"relay-{version}-{suffix}"
@@ -184,6 +185,16 @@ def expected_assets(version):
     return names
 
 
+def signed_assets(version):
+    """Packages that get a detached minisign signature: all but the APK (own signing scheme)."""
+    return package_assets(version) - {f"relay-{version}-{ANDROID_SUFFIX}.apk"}
+
+
+def expected_assets(version):
+    """Every published file except SHA256SUMS.txt: packages and the .minisig of each signed one."""
+    return package_assets(version) | {name + ".minisig" for name in signed_assets(version)}
+
+
 def verify_assets(version, output, finalize=False):
     if version != workspace_version():
         raise ValueError("Asset version must match the workspace manifest")
@@ -191,7 +202,8 @@ def verify_assets(version, output, finalize=False):
     manifest = output / "SHA256SUMS.txt"
     if manifest.is_symlink():
         raise ValueError("Refusing symlink SHA256SUMS.txt")
-    required = assets | ({name + ".sha256" for name in assets} if finalize else {manifest.name})
+    packages = package_assets(version)
+    required = assets | ({name + ".sha256" for name in packages} if finalize else {manifest.name})
     actual = {p.name for p in output.iterdir()}
     if finalize:
         actual.discard(manifest.name)
@@ -204,7 +216,7 @@ def verify_assets(version, output, finalize=False):
         if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
             raise ValueError(f"Invalid release asset: {name}")
         line = checksum_line(path)
-        if finalize:
+        if finalize and name in packages:
             sidecar = output / (name + ".sha256")
             if sidecar.is_symlink() or sidecar.read_bytes() != line:
                 raise ValueError(f"Checksum verification failed: {name}")
@@ -212,7 +224,7 @@ def verify_assets(version, output, finalize=False):
     expected = b"".join(lines)
     if finalize:
         manifest.write_bytes(expected)
-        for name in assets:
+        for name in packages:
             (output / (name + ".sha256")).unlink()
     elif manifest.read_bytes() != expected:
         raise ValueError("SHA256SUMS.txt does not match the complete release")
@@ -244,7 +256,8 @@ def release_notes(version, changes):
         "Anyway, or right-click, Open before macOS 15) and Windows installers are unsigned "
         "(SmartScreen warns).", "",
         "Verify downloads with `sha256sum --check --ignore-missing SHA256SUMS.txt` "
-        "(`shasum -a 256 -c` on macOS).", "",
+        "(`shasum -a 256 -c` on macOS). Every package except the APK also has a `.minisig` "
+        "minisign signature (see docs/releasing.md).", "",
         f"[Commit history]({REPOSITORY}/commits/v{version})", ""])
 
 

@@ -1,0 +1,3 @@
+# Key ids (16 hex digits, as printed by minisign) of TEST-ONLY update keys. sign_release.py
+# check-key refuses a release whose crates/relay-update/update-key.pub matches one of these or
+# any .pub in crates/relay-update/tests/fixtures. With neither present the check fails closed.

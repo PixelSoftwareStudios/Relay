@@ -77,6 +77,10 @@ jobs:
           RELEASE_TAG: ${{ inputs.publish-tag }}
         run: python scripts/packaging/verify_release_run.py --repo "$GITHUB_REPOSITORY" --run "$SOURCE_RUN" --tag "$RELEASE_TAG"
       - run: python -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: The compiled-in update public key is not the test key
+        # Same gate as the sign job: nothing can be published with the test key.
+        if: inputs.artifacts-run == '' && github.event_name != 'pull_request'
+        run: python scripts/packaging/sign_release.py check-key
       - name: Generate the complete changelog
         if: inputs.artifacts-run == ''
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4
@@ -305,10 +309,55 @@ jobs:
           compression-level: 0
           retention-days: 7
 
+  sign:
+    name: Sign update packages
+    # Never on pull requests: the signing environment only opens for main and v* tags.
+    if: inputs.artifacts-run == '' && github.event_name != 'pull_request'
+    environment: update-signing
+    needs: [version, build]
+    runs-on: ubuntu-22.04
+    timeout-minutes: 15
+    env:
+      # minisign 0.12 static Linux build, https://github.com/jedisct1/minisign/releases/tag/0.12
+      MINISIGN_URL: https://github.com/jedisct1/minisign/releases/download/0.12/minisign-0.12-linux.tar.gz
+      MINISIGN_SHA256: 9a599b48ba6eb7b1e80f12f36b94ceca7c00b7a5173c95c3efc88d9822957e73
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
+        with:
+          python-version: '3.13'
+      - name: Install minisign (pinned release, SHA-256 verified; no third-party action holds the key)
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location --output "$RUNNER_TEMP/minisign.tar.gz" "$MINISIGN_URL"
+          echo "$MINISIGN_SHA256  $RUNNER_TEMP/minisign.tar.gz" | sha256sum --check -
+          mkdir "$RUNNER_TEMP/minisign"
+          tar -xzf "$RUNNER_TEMP/minisign.tar.gz" -C "$RUNNER_TEMP/minisign" minisign-linux/x86_64/minisign
+          install -m 755 "$RUNNER_TEMP/minisign/minisign-linux/x86_64/minisign" "$RUNNER_TEMP/minisign-bin"
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
+        with:
+          pattern: relay-${{ needs.version.outputs.version }}-*
+          path: dist
+          merge-multiple: true
+      - name: The compiled-in update public key is not the test key
+        run: python scripts/packaging/sign_release.py check-key
+      - name: Sign and verify every package
+        env:
+          UPDATE_SIGNING_KEY: ${{ secrets.UPDATE_SIGNING_KEY }}
+          UPDATE_SIGNING_PASSWORD: ${{ secrets.UPDATE_SIGNING_PASSWORD }}
+        run: python scripts/packaging/sign_release.py sign --version ${{ needs.version.outputs.version }} --assets dist --output signatures --minisign "$RUNNER_TEMP/minisign-bin"
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: relay-${{ needs.version.outputs.version }}-signatures
+          path: signatures/*.minisig
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
   assemble:
     name: Verify complete release and checksums
-    needs: [version, build, android]
-    if: ${{ !cancelled() && needs.version.result == 'success' && ((needs.build.result == 'success' && needs.android.result == 'success') || (needs.build.result == 'skipped' && needs.android.result == 'skipped')) }}
+    needs: [version, build, android, sign]
+    if: ${{ !cancelled() && needs.version.result == 'success' && ((needs.build.result == 'success' && needs.android.result == 'success' && needs.sign.result == 'success') || (needs.build.result == 'skipped' && needs.android.result == 'skipped' && needs.sign.result == 'skipped')) }}
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
