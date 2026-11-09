@@ -201,7 +201,8 @@ fn adjust_gain(model: &Model, delta: f32) -> Option<TuiCommand> {
 	} else {
 		RELEASE_DELAY_STEP_MS
 	};
-	let settings = model.snapshot.settings.clone().unwrap_or_default();
+	let defaults = Default::default();
+	let settings = model.snapshot.settings.as_ref().unwrap_or(&defaults);
 	let step = |v: f32| (v + delta).clamp(0.0, GAIN_MAX);
 	match model.selection(Tab::Settings) {
 		0 => Some(TuiCommand::MicGain(step(settings.microphone_gain))),

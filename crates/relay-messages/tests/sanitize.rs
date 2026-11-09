@@ -154,7 +154,7 @@ proptest! {
 		let f = sanitize_file_name(&s);
 		prop_assert_eq!(sanitize_file_name(f.as_str()), f);
 		if let Ok(t) = sanitize_text(&s) {
-			prop_assert_eq!(sanitize_text(&t), Ok(t.clone()));
+			prop_assert_eq!(sanitize_text(&t), Ok(t));
 		}
 		let long = format!("{s}{}", "é ".repeat(40));
 		let f = sanitize_file_name(&format!("{long}.{s}"));

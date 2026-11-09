@@ -97,8 +97,9 @@ pub fn select(
 	let package = match platform.asset_name(&offered) {
 		None => None,
 		Some(name) => {
-			let asset = find(doc, endpoint, repository, &name)?
-				.ok_or_else(|| Error::AssetMissing(name.clone()))?;
+			let Some(asset) = find(doc, endpoint, repository, &name)? else {
+				return Err(Error::AssetMissing(name));
+			};
 			if asset.size == 0 || asset.size > MAX_ASSET_BYTES {
 				return Err(Error::BadRelease(format!(
 					"asset {name} has size {}",

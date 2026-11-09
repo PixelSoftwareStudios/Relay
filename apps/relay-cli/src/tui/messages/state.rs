@@ -193,10 +193,10 @@ impl MessagesState {
 
 	/// The pane in view, mutable.
 	pub fn pane_mut(&mut self) -> Option<&mut SessionPane> {
-		let id = self.current.clone()?;
+		let id = self.current.as_ref()?;
 		self.sessions
 			.iter_mut()
-			.find(|s| s.summary.session_id == id)
+			.find(|s| &s.summary.session_id == id)
 	}
 
 	/// Show the next (`1`) or previous (`-1`) session.

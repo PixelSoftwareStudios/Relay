@@ -192,9 +192,11 @@ impl Ops {
 }
 
 /// The shared wire command for a UI command that mutates the engine.
-fn wire_command(command: Command) -> Option<WireCommand> {
-	Some(match command {
-		Command::AcquireController { .. } | Command::SetAutostart { .. } => return None,
+fn wire_command(command: Command) -> Result<WireCommand, Command> {
+	Ok(match command {
+		command @ (Command::AcquireController { .. } | Command::SetAutostart { .. }) => {
+			return Err(command);
+		}
 		Command::StartCall { peer_id } => WireCommand::StartCall(CallTarget::Peer(peer_id)),
 		Command::AcceptCall {
 			call_id,
@@ -341,7 +343,7 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 			confirmed_feedback: false,
 		},
 		Command::StopMicTest => WireCommand::StopMicTest,
-		Command::CreateInvite { .. } => return None,
+		command @ Command::CreateInvite { .. } => return Err(command),
 	})
 }
 
@@ -356,8 +358,9 @@ fn call_action(action: CallAction, call_id: Vec<u8>, generation: u64) -> WireCom
 #[async_trait]
 impl Operations for Ops {
 	async fn run(&self, command: Command) -> Result<Outcome, EngineError> {
-		let Some(wire) = wire_command(command.clone()) else {
-			return self.run_unwired(command).await;
+		let wire = match wire_command(command) {
+			Ok(wire) => wire,
+			Err(command) => return self.run_unwired(command).await,
 		};
 		let operation = send(&mut *self.client.lock().await, wire)
 			.await

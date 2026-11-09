@@ -79,10 +79,6 @@ pub struct Host {
 }
 
 impl Host {
-	pub fn endpoint(&self) -> &Endpoint {
-		&self.endpoint
-	}
-
 	/// Starts the engine, or returns the running one (a recreated activity
 	/// calls this again).
 	pub fn start(
@@ -108,14 +104,14 @@ impl Host {
 		let socket = root.join("run").join("engine.sock");
 		let sealer = Arc::new(KeystoreSealer(bridge.clone()));
 		let (hints, source) = hint_channel();
-		let mut options = RunOptions::new(paths.clone());
+		let mut options = RunOptions::new(paths);
 		options.transport = Transport::Unix(Some(socket));
 		options.identity_store = Some(Box::new(SealedIdentityStore::new(
-			paths.data_dir().join("identity.sealed"),
+			options.paths.data_dir().join("identity.sealed"),
 			sealer.clone(),
 		)));
 		options.channel_vault = Some(Arc::new(SealedVault::new(
-			paths.data_dir().join("channel-sealed"),
+			options.paths.data_dir().join("channel-sealed"),
 			sealer,
 		)));
 		options.audio = audio_setup(bridge.clone());
@@ -312,12 +308,13 @@ impl Host {
 	}
 
 	fn on_call(&self, summary: CallSummary) {
-		self.in_call.store(summary.active, Ordering::Release);
-		self.bridge.call_changed(summary.clone());
-		if !summary.active {
+		let active = summary.active;
+		self.in_call.store(active, Ordering::Release);
+		self.bridge.call_changed(summary);
+		if !active {
 			self.ptt.cancel();
 		}
-		if !summary.active && !self.foreground.load(Ordering::Acquire) {
+		if !active && !self.foreground.load(Ordering::Acquire) {
 			self.detach();
 		}
 	}

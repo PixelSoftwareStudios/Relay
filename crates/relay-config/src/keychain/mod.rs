@@ -1,6 +1,6 @@
 //! One credential-store item per user holding every secret Relay keeps.
 //!
-//! Identity key and channel secrets live together in a single versioned [`Bundle`]
+//! Identity key and channel secrets live together in a single versioned credential bundle
 //! under `relay-voice` / `vault`, so the OS asks for access once instead of once per
 //! secret. Every change is a locked read-modify-write: an in-process mutex, then the
 //! cross-process [`ProcessLock`] on a lock file, so two processes of one user never

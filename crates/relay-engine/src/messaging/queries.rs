@@ -63,7 +63,11 @@ impl Hub {
 			.keys()
 			.filter_map(|sid| self.summary(*sid))
 			.collect();
-		all.sort_by_key(|s| (s.started_at_unix_ms, s.session_id.clone()));
+		all.sort_by(|a, b| {
+			a.started_at_unix_ms
+				.cmp(&b.started_at_unix_ms)
+				.then_with(|| a.session_id.cmp(&b.session_id))
+		});
 		all
 	}
 

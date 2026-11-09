@@ -18,6 +18,9 @@ pub struct FrameAssembler<T> {
 
 impl<T: Copy + Default> FrameAssembler<T> {
 	/// `max_push` is the largest slice a single [`Self::push`] will carry.
+	///
+	/// # Panics
+	/// Panics if `frame_len` is zero or the requested capacity overflows `usize`.
 	pub fn new(frame_len: usize, max_push: usize) -> Self {
 		assert!(frame_len > 0, "frame length must be non-zero");
 		let capacity = frame_len - 1 + max_push;
@@ -44,6 +47,9 @@ impl<T: Copy + Default> FrameAssembler<T> {
 	}
 
 	/// Appends samples. Pop every ready frame before the next push.
+	///
+	/// # Errors
+	/// Returns [`AssemblyError::Overflow`] if the remaining capacity cannot hold the samples.
 	pub fn push(&mut self, samples: &[T]) -> Result<(), AssemblyError> {
 		let capacity = self.buf.len();
 		if self.len + samples.len() > capacity {
@@ -62,6 +68,9 @@ impl<T: Copy + Default> FrameAssembler<T> {
 
 	/// Copies one frame into `out` (which must hold `frame_len` samples).
 	/// Returns `false` when not enough samples are buffered.
+	///
+	/// # Panics
+	/// Panics if a complete frame is ready but `out` holds fewer than `frame_len` samples.
 	pub fn pop_frame(&mut self, out: &mut [T]) -> bool {
 		if !self.has_frame() {
 			return false;

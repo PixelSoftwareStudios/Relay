@@ -2,6 +2,16 @@
 
 use thiserror::Error;
 
+/// A configuration field cannot satisfy the protocol component's numeric invariants.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[error("invalid configuration: {0}")]
+pub struct ConfigError(pub &'static str);
+
+/// A nearest extended counter value lies beyond the representable timeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
+#[error("extended counter exhausted")]
+pub struct ExtendError;
+
 /// Reasons an RTP datagram is rejected or cannot be serialized.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Error)]
 pub enum RtpError {

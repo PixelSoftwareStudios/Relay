@@ -6,21 +6,32 @@ use relay_client::refresh::{Daemon, Outcome, Policy, Probe, RefreshError, refres
 #[derive(Default)]
 struct Fake {
 	probe: Option<Probe>,
-	stop_error: Option<String>,
-	start_error: Option<String>,
+	stop_error: Option<FakeError>,
+	start_error: Option<FakeError>,
 	log: Vec<&'static str>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{0}")]
+struct FakeError(String);
+
+impl From<&str> for FakeError {
+	fn from(value: &str) -> Self {
+		Self(value.to_owned())
+	}
+}
+
 impl Daemon for Fake {
-	async fn probe(&mut self) -> Result<Option<Probe>, String> {
+	type Error = FakeError;
+	async fn probe(&mut self) -> Result<Option<Probe>, Self::Error> {
 		self.log.push("probe");
 		Ok(self.probe.clone())
 	}
-	async fn stop(&mut self) -> Result<(), String> {
+	async fn stop(&mut self) -> Result<(), Self::Error> {
 		self.log.push("stop");
 		self.stop_error.clone().map_or(Ok(()), Err)
 	}
-	async fn start(&mut self) -> Result<(), String> {
+	async fn start(&mut self) -> Result<(), Self::Error> {
 		self.log.push("start");
 		self.start_error.clone().map_or(Ok(()), Err)
 	}
@@ -121,7 +132,7 @@ async fn a_daemon_that_will_not_stop_is_reported_and_no_new_one_is_started() {
 	let mut d = daemon(Some(current(false)));
 	d.stop_error = Some("operation timed out".into());
 	let error = refresh(&mut d, Policy::AnyIdle).await.unwrap_err();
-	assert!(matches!(error, RefreshError::StopTimedOut(_)));
+	assert!(matches!(error, RefreshError::Stop(_)));
 	assert_eq!(d.log, ["probe", "stop"], "it does not loop or start twice");
 }
 
@@ -131,6 +142,27 @@ async fn a_failed_start_is_reported() {
 	d.start_error = Some("no relayd".into());
 	let error = refresh(&mut d, Policy::StaleOnly).await.unwrap_err();
 	assert_eq!(error, RefreshError::Start("no relayd".into()));
+}
+
+#[test]
+fn refresh_preserves_typed_api_causes_and_does_not_label_every_stop_as_a_timeout() {
+	use relay_client::refresh::DaemonError;
+	use std::error::Error;
+	let timeout = RefreshError::Stop(DaemonError::Api(relay_api::ApiError::OperationTimeout));
+	let source = timeout
+		.source()
+		.unwrap()
+		.downcast_ref::<DaemonError>()
+		.unwrap();
+	assert!(matches!(
+		source,
+		DaemonError::Api(relay_api::ApiError::OperationTimeout)
+	));
+	let refusal = RefreshError::Stop(DaemonError::Api(relay_api::ApiError::NotRegistered));
+	assert!(matches!(
+		refusal,
+		RefreshError::Stop(DaemonError::Api(relay_api::ApiError::NotRegistered))
+	));
 }
 
 #[cfg(unix)]

@@ -291,7 +291,7 @@ impl ControlHandle {
 
 	/// Submits a client request to the domain.
 	pub async fn submit(&self, request: Request) -> Result<Applied, ServiceError> {
-		let may_wait = Input::Client(request.clone()).is_safety_deny();
+		let may_wait = request.is_safety_deny();
 		self.ask(|reply| Msg::Submit { request, reply }, may_wait)
 			.await?
 	}

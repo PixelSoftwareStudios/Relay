@@ -2,6 +2,7 @@
 
 use std::path::Path;
 
+use comfy_table::Cell;
 use relay_api::pb::SessionSummary;
 use relay_api::pb::transcript_entry::Body;
 use serde::Serialize;
@@ -118,14 +119,14 @@ fn offers_table(rows: &[OfferRow]) -> String {
 			notes.push(reason.clone());
 		}
 		t.add_row([
-			o.short().to_owned(),
-			format!("#{}", r.message),
-			(if o.outgoing { "out" } else { "in" }).into(),
-			o.name.clone(),
-			size(o.size),
-			o.state.into(),
-			progress,
-			notes.join("; "),
+			Cell::new(o.short().to_owned()),
+			Cell::new(format!("#{}", r.message)),
+			Cell::new(if o.outgoing { "out" } else { "in" }),
+			Cell::new(&o.name),
+			Cell::new(size(o.size)),
+			Cell::new(o.state),
+			Cell::new(progress),
+			Cell::new(notes.join("; ")),
 		]);
 	}
 	table::render(t)

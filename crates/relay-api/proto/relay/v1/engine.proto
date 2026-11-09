@@ -125,7 +125,7 @@ message EngineInfo {
   uint32 api_minor = 4;
   repeated string capabilities = 5;
   ResourceLimits limits = 6;
-  string build_revision = 7; // git commit of the daemon build, or "<version>-dev"
+  string build_revision = 7; // git commit of the daemon build, or `version-dev`
   uint32 api_revision = 8; // bumped when the API changes in a way clients depend on
   Startup startup = 9; // absent or READY once the service is fully running
 }

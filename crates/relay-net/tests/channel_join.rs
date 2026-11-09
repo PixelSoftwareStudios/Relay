@@ -330,8 +330,8 @@ fn concurrent_exchanges_are_bounded() {
 
 #[test]
 fn service_type_is_cloneable_for_many_links() {
-	let w = world(OPEN, None, &owner().fingerprint());
-	let _second: AdmissionService = w.service.clone();
+	fn assert_clone<T: Clone>() {}
+	assert_clone::<AdmissionService>();
 }
 
 mod common;

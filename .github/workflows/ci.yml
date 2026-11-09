@@ -17,6 +17,61 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
+  android-check:
+    name: Android Clippy at the declared MSRV
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+        with:
+          toolchain: "1.99.0"
+          targets: aarch64-linux-android
+          components: clippy
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39
+        with:
+          tool: cargo-ndk@4.1.2
+      - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779
+        with:
+          ndk-version: r28c
+          local-cache: true
+      - run: cargo +1.99.0 ndk -t arm64-v8a -P 28 clippy --locked --manifest-path apps/relay-android/Cargo.toml --lib -- -D warnings
+
+  documentation:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+        with:
+          toolchain: "1.99.1"
+      - run: sudo apt-get update && sudo apt-get install -y libasound2-dev libgtk-3-dev libxkbcommon-dev libwayland-dev libayatana-appindicator3-dev
+      - name: Check public documentation links
+        env:
+          RUSTDOCFLAGS: "-D rustdoc::broken_intra_doc_links -D rustdoc::invalid_html_tags"
+        run: cargo doc --locked --workspace --all-features --no-deps
+
+  concurrency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+        with:
+          toolchain: "1.99.1"
+      - name: Model stream health with Loom
+        env:
+          RUSTFLAGS: "--cfg loom"
+        run: cargo test --locked --manifest-path checks/concurrency/Cargo.toml
+
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+        with:
+          toolchain: nightly-2026-11-04
+          components: miri
+      - run: cargo +nightly-2026-11-04 miri test --locked -p relay-protocol --test boundaries
+      - run: cargo +nightly-2026-11-04 miri test --locked -p relay-testkit --test counting
+
   fmt:
     runs-on: ubuntu-latest
     steps:

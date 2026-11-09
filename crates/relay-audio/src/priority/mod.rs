@@ -40,6 +40,7 @@ use macos::System;
 #[cfg(target_os = "windows")]
 use windows::System;
 
+#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 use policy::OsPriority;
 
 /// Which worker is being promoted; sizes the period hint given to the OS.
@@ -93,9 +94,24 @@ type Undo = ();
 
 /// Keeps a promotion alive; dropping it restores the previous priority where the OS allows.
 /// Drop it on the thread that was promoted: the restore applies to the calling thread.
+///
+/// ```compile_fail
+/// fn move_guard(guard: relay_audio::priority::PriorityGuard) {
+///     std::thread::spawn(move || drop(guard));
+/// }
+/// ```
 #[must_use = "dropping the guard demotes the thread immediately"]
 pub struct PriorityGuard {
 	undo: Option<Undo>,
+	_thread_bound: std::marker::PhantomData<std::rc::Rc<()>>,
+}
+
+impl std::fmt::Debug for PriorityGuard {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("PriorityGuard")
+			.field("active", &self.undo.is_some())
+			.finish_non_exhaustive()
+	}
 }
 
 impl Drop for PriorityGuard {
@@ -116,12 +132,24 @@ pub fn promote_current_thread(
 	#[cfg(any(target_os = "macos", target_os = "linux", target_os = "windows"))]
 	{
 		let (promotion, undo) = policy::promote_with(&mut System, kind, period_frames, sample_rate);
-		(promotion, PriorityGuard { undo })
+		(
+			promotion,
+			PriorityGuard {
+				undo,
+				_thread_bound: std::marker::PhantomData,
+			},
+		)
 	}
 	#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 	{
 		let _ = (kind, period_frames, sample_rate);
-		(Promotion::Unsupported, PriorityGuard { undo: None })
+		(
+			Promotion::Unsupported,
+			PriorityGuard {
+				undo: None,
+				_thread_bound: std::marker::PhantomData,
+			},
+		)
 	}
 }
 

@@ -157,7 +157,9 @@ impl AudioBackend for AAudioBackend {
 			.performance_mode(AudioPerformanceMode::LowLatency)
 			.sharing_mode(AudioSharingMode::Shared)
 			.data_callback(Box::new(move |_, data, frames| {
-				// AAudio hands over `frames` mono i16 samples.
+				// SAFETY: this PCM_I16 mono stream supplies an aligned buffer of `frames`
+				// readable samples for this callback. AAudio supplies a positive frame count;
+				// the borrowed slice is consumed synchronously and never escapes the callback.
 				let samples =
 					unsafe { std::slice::from_raw_parts(data.cast::<i16>(), frames as usize) };
 				callback.process(samples);
@@ -213,6 +215,10 @@ impl AudioBackend for AAudioBackend {
 			.performance_mode(AudioPerformanceMode::LowLatency)
 			.sharing_mode(AudioSharingMode::Shared)
 			.data_callback(Box::new(move |_, data, frames| {
+				// SAFETY: this PCM_I16 stream was configured with `width` channels. AAudio
+				// supplies exclusive access to an aligned output buffer of `frames * width`
+				// samples for this invocation. Both counts describe the allocated device
+				// buffer, and the mutable slice does not escape the callback.
 				let samples = unsafe {
 					std::slice::from_raw_parts_mut(data.cast::<i16>(), frames as usize * width)
 				};

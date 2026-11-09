@@ -1,0 +1,18 @@
+[package]
+name = "relay-concurrency-checks"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.99"
+publish = false
+
+[workspace]
+
+[dev-dependencies]
+loom = "=0.7.2"
+
+[lints.rust]
+unexpected_cfgs = { level = "deny", check-cfg = ['cfg(loom)'] }
+
+[[test]]
+name = "health"
+path = "tests/health.rs"

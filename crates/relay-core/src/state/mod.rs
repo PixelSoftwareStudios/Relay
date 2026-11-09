@@ -237,7 +237,7 @@ impl State {
 			Lookup::Conflict => return (Err(Reject::OperationIdReused), false),
 			Lookup::Miss => {}
 		}
-		let result = self.execute(client, command.clone(), now);
+		let result = self.execute(client, &command, now);
 		let known = self.clients.contains_key(&client);
 		if known && !matches!(command, Command::Detach) {
 			self.ops
@@ -246,14 +246,14 @@ impl State {
 		(result, false)
 	}
 
-	fn execute(&mut self, client: ClientId, command: Command, now: MonoTime) -> OpResult {
+	fn execute(&mut self, client: ClientId, command: &Command, now: MonoTime) -> OpResult {
 		if matches!(command, Command::Attach) {
 			return self.attach(client);
 		}
 		if !self.clients.contains_key(&client) {
 			return Err(Reject::UnknownClient);
 		}
-		match command {
+		match *command {
 			Command::Attach => Err(Reject::AlreadyAttached),
 			Command::Detach => {
 				self.detach(client);

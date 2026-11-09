@@ -75,7 +75,7 @@ fn preview_counts_toward_budget() {
 fn global_eviction_drops_oldest_ended_first_and_spares_active() {
 	let clock = TestClock::new();
 	let per = 1000 + MESSAGE_OVERHEAD_BYTES;
-	let mut h = HistoryManager::with_budget(clock.clone(), per * 2 + 10);
+	let mut h = HistoryManager::with_budget(clock, per * 2 + 10);
 	for n in 1..=4u8 {
 		h.start_session(info(n, n), Permissions::default());
 		let s = h.get_mut(SessionId([n; 16])).unwrap();

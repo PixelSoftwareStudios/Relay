@@ -54,7 +54,8 @@ pub fn peers(frame: &mut Frame, area: Rect, model: &Model) {
 }
 
 pub fn devices(frame: &mut Frame, area: Rect, model: &Model) {
-	let settings = model.snapshot.settings.clone().unwrap_or_default();
+	let defaults = Default::default();
+	let settings = model.snapshot.settings.as_ref().unwrap_or(&defaults);
 	let items: Vec<ListItem> = model
 		.snapshot
 		.devices
@@ -87,7 +88,8 @@ pub fn devices(frame: &mut Frame, area: Rect, model: &Model) {
 }
 
 pub fn settings(frame: &mut Frame, area: Rect, model: &Model) {
-	let s = model.snapshot.settings.clone().unwrap_or_default();
+	let defaults = Default::default();
+	let s = model.snapshot.settings.as_ref().unwrap_or(&defaults);
 	let gain = |v: f32| {
 		format!(
 			"[{}] x{v:.2}",

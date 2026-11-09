@@ -43,7 +43,6 @@ fn not_advertising(link: Link) -> String {
 		"visibility-not-advertising-reason",
 		reason = link_label(link)
 	)
-	.to_owned()
 }
 
 /// A small coloured dot and the state, cut with an ellipsis when narrow.

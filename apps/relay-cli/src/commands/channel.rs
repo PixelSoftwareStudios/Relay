@@ -6,6 +6,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use comfy_table::Cell;
 use relay_api::pb::{ChannelInfo, ChannelPolicy, NearbyChannel};
 use serde::Serialize;
 
@@ -71,11 +72,11 @@ impl ChannelList {
 				access.push("open");
 			}
 			t.add_row([
-				c.id.chars().take(8).collect::<String>(),
-				c.name.clone(),
-				c.role.clone(),
-				access.join(", "),
-				c.shared_peers.to_string(),
+				Cell::new(c.id.chars().take(8).collect::<String>()),
+				Cell::new(&c.name),
+				Cell::new(&c.role),
+				Cell::new(access.join(", ")),
+				Cell::new(c.shared_peers),
 			]);
 		}
 		table::render(t)
@@ -124,15 +125,15 @@ impl NearbyList {
 		let mut t = table::with_header(layout, &["NAME", "DEVICES", "NOTE"]);
 		for c in &self.0 {
 			t.add_row([
-				c.name.clone(),
-				c.devices.to_string(),
-				if c.ambiguous {
+				Cell::new(&c.name),
+				Cell::new(c.devices),
+				Cell::new(if c.ambiguous {
 					"ambiguous: two channels use this name, join with its id".to_owned()
 				} else if c.password {
 					"password".to_owned()
 				} else {
 					String::new()
-				},
+				}),
 			]);
 		}
 		table::render(t)

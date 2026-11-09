@@ -170,7 +170,7 @@ fn truncated_trailing_and_bad_length_files_are_rejected() {
 	let mut short = ok.clone();
 	short[4..8].copy_from_slice(&((ok.len() as u32) - 100).to_le_bytes());
 	not_canonical(&short);
-	let mut chunk_len = ok.clone();
+	let mut chunk_len = ok;
 	chunk_len[16..20].copy_from_slice(&0x00ff_ffffu32.to_le_bytes());
 	not_canonical(&chunk_len);
 }

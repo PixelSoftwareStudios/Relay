@@ -7,6 +7,7 @@ use std::time::Duration;
 use relay_api::pb::Problem;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
+use tracing::Instrument;
 
 use crate::channels::ChannelHub;
 use crate::media::{EventSink, MediaEvent, MediaSystem};
@@ -96,43 +97,46 @@ pub(super) fn media_events(handle: ControlHandle) -> (EventSink, JoinHandle<()>)
 	let sink: EventSink = Arc::new(move |event| {
 		let _ = tx.send(event);
 	});
-	let task = tokio::spawn(async move {
-		while let Some(event) = rx.recv().await {
-			let sent = match event {
-				MediaEvent::System(event) => handle.system(event).await,
-				MediaEvent::Peer(event) => handle.peer(event).await,
-				MediaEvent::OutputLost => {
-					let warning = problem(
-						OUTPUT_DEVICE_LOST,
-						"The playback device went away; remote audio is paused.".to_owned(),
-						"select_output_device",
-					);
-					handle.attention(None, warning).await
+	let task = tokio::spawn(
+		async move {
+			while let Some(event) = rx.recv().await {
+				let sent = match event {
+					MediaEvent::System(event) => handle.system(event).await,
+					MediaEvent::Peer(event) => handle.peer(event).await,
+					MediaEvent::OutputLost => {
+						let warning = problem(
+							OUTPUT_DEVICE_LOST,
+							"The playback device went away; remote audio is paused.".to_owned(),
+							"select_output_device",
+						);
+						handle.attention(None, warning).await
+					}
+					MediaEvent::OutputRestored => handle.clear_warning(OUTPUT_DEVICE_LOST).await,
+					MediaEvent::CaptureUnavailable(reason) => {
+						let warning = problem(
+							MICROPHONE_UNAVAILABLE,
+							microphone_unavailable_message(&reason),
+							"check_microphone_access",
+						);
+						handle.attention(None, warning).await
+					}
+					MediaEvent::CaptureOpened => handle.clear_warning(MICROPHONE_UNAVAILABLE).await,
+					MediaEvent::WorkerFailed(failure) => {
+						let warning = problem(
+							"MEDIA_WORKER_FAILED",
+							worker_failed_message(&failure),
+							worker_failed_recovery(&failure),
+						);
+						handle.attention(None, warning).await
+					}
+				};
+				if sent.is_err() {
+					break;
 				}
-				MediaEvent::OutputRestored => handle.clear_warning(OUTPUT_DEVICE_LOST).await,
-				MediaEvent::CaptureUnavailable(reason) => {
-					let warning = problem(
-						MICROPHONE_UNAVAILABLE,
-						microphone_unavailable_message(&reason),
-						"check_microphone_access",
-					);
-					handle.attention(None, warning).await
-				}
-				MediaEvent::CaptureOpened => handle.clear_warning(MICROPHONE_UNAVAILABLE).await,
-				MediaEvent::WorkerFailed(failure) => {
-					let warning = problem(
-						"MEDIA_WORKER_FAILED",
-						worker_failed_message(&failure),
-						worker_failed_recovery(&failure),
-					);
-					handle.attention(None, warning).await
-				}
-			};
-			if sent.is_err() {
-				break;
 			}
 		}
-	});
+		.instrument(tracing::info_span!("media_events")),
+	);
 	(sink, task)
 }
 

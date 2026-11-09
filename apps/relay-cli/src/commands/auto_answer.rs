@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use comfy_table::Cell;
 use relay_api::pb::{Snapshot, TrustState};
 use serde::Serialize;
 
@@ -64,9 +65,9 @@ impl Display for AutoAnswerList {
 		let mut t = table::with_header(table::Layout::detect(), &["NAME", "FINGERPRINT", "ONLINE"]);
 		for v in &self.contacts {
 			t.add_row([
-				v.name.clone(),
-				v.fingerprint_short.clone(),
-				if v.reachable { "yes" } else { "no" }.to_owned(),
+				Cell::new(&v.name),
+				Cell::new(&v.fingerprint_short),
+				Cell::new(if v.reachable { "yes" } else { "no" }),
 			]);
 		}
 		f.write_str(&table::render(t))

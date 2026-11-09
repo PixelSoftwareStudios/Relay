@@ -121,7 +121,7 @@ fn concurrent_writers_never_lose_updates() {
 fn shared_in_process_lock_is_used_for_threads_on_one_keychain() {
 	let dir = tempfile::tempdir().unwrap();
 	let backend = Arc::new(SlowBackend::default());
-	let keychain = Arc::new(Keychain::new(backend.clone(), dir.path().join("k.lock")));
+	let keychain = Arc::new(Keychain::new(backend, dir.path().join("k.lock")));
 	std::thread::scope(|scope| {
 		for t in 0..8u8 {
 			let vault = KeyringVault::new(keychain.clone());

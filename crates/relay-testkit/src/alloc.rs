@@ -61,12 +61,36 @@ unsafe impl GlobalAlloc for CountingAlloc {
 	}
 }
 
-/// Allocations made on this thread while `f` runs.
+struct Scope {
+	armed: bool,
+	count: u64,
+}
+
+impl Drop for Scope {
+	fn drop(&mut self) {
+		let nested = COUNT.with(Cell::get);
+		COUNT.with(|c| {
+			c.set(if self.armed {
+				self.count.saturating_add(nested)
+			} else {
+				self.count
+			})
+		});
+		ARMED.with(|a| a.set(self.armed));
+	}
+}
+
+/// Allocations made on this thread while `f` runs, including nested measurement scopes.
+/// The prior measurement is restored even when `f` unwinds.
+///
+/// # Panics
+/// Propagates a panic from `f` after restoring the enclosing scope.
 pub fn allocations_in(f: impl FnOnce()) -> u64 {
-	COUNT.with(|c| c.set(0));
-	ARMED.with(|a| a.set(true));
+	let _scope = Scope {
+		count: COUNT.with(|c| c.replace(0)),
+		armed: ARMED.with(|a| a.replace(true)),
+	};
 	f();
-	ARMED.with(|a| a.set(false));
 	COUNT.with(Cell::get)
 }
 

@@ -5,6 +5,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use comfy_table::Cell;
 use relay_api::pb::{CallDirection, CallHistoryEntry, CallOutcome};
 use relay_io::localtime::LocalZone;
 use serde::Serialize;
@@ -106,16 +107,16 @@ impl HistoryList {
 		);
 		for e in &self.0 {
 			t.add_row([
-				e.when.clone(),
-				e.peer_name.clone(),
-				e.peer_fingerprint_short.clone(),
-				e.direction.to_owned(),
-				e.outcome.to_owned(),
-				if e.outcome == "completed" {
+				Cell::new(&e.when),
+				Cell::new(&e.peer_name),
+				Cell::new(&e.peer_fingerprint_short),
+				Cell::new(e.direction),
+				Cell::new(e.outcome),
+				Cell::new(if e.outcome == "completed" {
 					clock(e.duration_ms)
 				} else {
 					"-".to_owned()
-				},
+				}),
 			]);
 		}
 		table::render(t)

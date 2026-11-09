@@ -34,6 +34,37 @@ pub struct DriftConfig {
 }
 
 impl DriftConfig {
+	/// Checks finite gains, nonnegative limits, and positive time/rate divisors.
+	///
+	/// # Errors
+	/// Returns [`crate::error::ConfigError`] for non-finite or out-of-range parameters.
+	pub fn validate(&self) -> Result<(), crate::error::ConfigError> {
+		use crate::error::ConfigError;
+		let nonnegative = [
+			self.limit_ppm,
+			self.slew_ppm_per_s,
+			self.kp,
+			self.ki,
+			self.error_clamp,
+			self.transient_samples,
+			self.transient_accept_s,
+		];
+		if nonnegative.iter().any(|v| !v.is_finite() || *v < 0.0) || self.limit_ppm > 1_000_000.0 {
+			return Err(ConfigError(
+				"drift gains and limits must be finite and nonnegative; limit must not exceed one million ppm",
+			));
+		}
+		if !self.sample_rate.is_finite()
+			|| self.sample_rate < 1.0
+			|| !self.filter_tau_s.is_finite()
+			|| self.filter_tau_s <= 0.0
+		{
+			return Err(ConfigError(
+				"drift rate must be at least one Hz and filter time must be positive",
+			));
+		}
+		Ok(())
+	}
 	/// Defaults sized for the +-300 ppm initial drift limit.
 	pub const DEFAULT: Self = Self {
 		limit_ppm: 300.0,
@@ -74,8 +105,24 @@ pub struct DriftEstimator {
 }
 
 impl DriftEstimator {
+	/// Creates an estimator for trusted tuning parameters.
+	///
+	/// # Panics
+	/// Panics for invalid tuning; use [`Self::try_new`] for externally supplied configuration.
 	pub fn new(cfg: DriftConfig, target_occupancy_samples: u32) -> Self {
-		Self {
+		Self::try_new(cfg, target_occupancy_samples).expect("invalid drift configuration")
+	}
+
+	/// Creates an estimator after checking all tuning parameters.
+	///
+	/// # Errors
+	/// Returns [`crate::error::ConfigError`] for invalid numeric parameters.
+	pub fn try_new(
+		cfg: DriftConfig,
+		target_occupancy_samples: u32,
+	) -> Result<Self, crate::error::ConfigError> {
+		cfg.validate()?;
+		Ok(Self {
 			cfg,
 			target: f64::from(target_occupancy_samples),
 			filtered: None,
@@ -84,7 +131,7 @@ impl DriftEstimator {
 			transient_s: 0.0,
 			settled_s: 0.0,
 			discarded: 0,
-		}
+		})
 	}
 
 	/// Changes the occupancy the loop steers towards (margin change).
@@ -102,6 +149,9 @@ impl DriftEstimator {
 	/// Feeds one observation. `elapsed_samples` is the output time since the
 	/// previous observation. Returns the ratio correction in ppm.
 	pub fn update(&mut self, occupancy_samples: u32, elapsed_samples: u32) -> f64 {
+		if elapsed_samples == 0 {
+			return self.ratio_ppm;
+		}
 		let dt = f64::from(elapsed_samples) / self.cfg.sample_rate;
 		let occupancy = f64::from(occupancy_samples);
 		let Some(filtered) = self.filtered else {

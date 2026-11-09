@@ -249,3 +249,60 @@ async fn a_stuck_key_is_released_at_once_after_a_minute() {
 	tokio::time::sleep(Duration::from_secs(1)).await;
 	assert_eq!(rig.seen().len(), sent, "no more renewals once released");
 }
+
+#[tokio::test]
+async fn release_interrupts_a_stalled_open_without_transmitting_a_queued_press() {
+	let rig = rig().await;
+	rig.harness
+		.engine
+		.input_delay_ms
+		.store(500, Ordering::Relaxed);
+	rig.worker.press(CALL);
+	rig.until("pending stream open", |r| {
+		r.harness.engine.streams_opened.load(Ordering::SeqCst) == 1
+	})
+	.await;
+	for _ in 0..10_000 {
+		rig.worker.press(CALL);
+	}
+	rig.worker.release();
+	// The 500ms RPC is still blocked; releasing must not wait for it.
+	tokio::time::timeout(Duration::from_millis(200), rig.state(PttState::Idle))
+		.await
+		.unwrap();
+	tokio::time::sleep(Duration::from_millis(550)).await;
+	assert!(
+		rig.seen().is_empty(),
+		"a released pending press must never be transmitted"
+	);
+}
+
+#[tokio::test]
+async fn cancel_followed_by_a_press_closes_the_old_source_even_when_coalesced() {
+	let rig = rig().await;
+	rig.worker.press(CALL);
+	rig.state(PttState::Transmitting).await;
+	rig.worker.cancel();
+	rig.worker.press(CALL);
+	rig.until("replacement source", |r| {
+		r.harness.engine.streams_opened.load(Ordering::SeqCst) == 2
+	})
+	.await;
+	rig.until("old source closed", |r| {
+		r.harness.engine.streams_closed.load(Ordering::SeqCst) == 1
+	})
+	.await;
+	rig.until("second press", |r| {
+		r.seen()
+			.iter()
+			.filter(|m| m.action == InputAction::Press as i32)
+			.count() == 2
+	})
+	.await;
+	let presses: Vec<_> = rig
+		.seen()
+		.into_iter()
+		.filter(|m| m.action == InputAction::Press as i32)
+		.collect();
+	assert_ne!(presses[0].source_id, presses[1].source_id);
+}

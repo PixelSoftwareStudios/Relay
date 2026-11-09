@@ -345,12 +345,14 @@ impl Actions {
 async fn load_picked(file: PickedFile) -> Result<Picked, String> {
 	let media_type = avatar_check(&file.bytes)?;
 	let bytes = file.bytes;
-	let for_preview = bytes.clone();
-	let preview = tokio::task::spawn_blocking(move || decode_for_texture(&for_preview))
-		.await
-		.ok()
-		.flatten()
-		.ok_or_else(|| tr!("err-unreadable-image").to_owned())?;
+	let (bytes, preview) = tokio::task::spawn_blocking(move || {
+		let preview = decode_for_texture(&bytes);
+		(bytes, preview)
+	})
+	.await
+	.ok()
+	.ok_or_else(|| tr!("err-unreadable-image").to_owned())?;
+	let preview = preview.ok_or_else(|| tr!("err-unreadable-image").to_owned())?;
 	Ok(Picked {
 		bytes,
 		media_type,

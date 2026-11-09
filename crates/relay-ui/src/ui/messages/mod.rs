@@ -201,7 +201,10 @@ impl MessagesUi {
 				(tr!("msg-no-session"), Some(theme::WARN))
 			};
 			let text = RichText::new(text);
-			ui.label(color.map_or(text.clone().weak(), |c| text.color(c)));
+			ui.label(match color {
+				Some(c) => text.color(c),
+				None => text.weak(),
+			});
 			return;
 		};
 		let key = session.key.clone();

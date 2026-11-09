@@ -69,31 +69,55 @@ pub enum Outcome {
 
 /// Why a replacement failed.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
-pub enum RefreshError {
+pub enum RefreshError<E: std::error::Error + 'static = DaemonError> {
 	/// The running daemon could not be inspected.
 	#[error("cannot inspect the running daemon: {0}")]
-	Probe(String),
-	/// The daemon did not stop in time and is still running.
+	Probe(#[source] E),
+	/// Stopping the daemon failed; the source distinguishes a timeout from another failure.
 	#[error("the running daemon did not stop: {0}")]
-	StopTimedOut(String),
+	Stop(#[source] E),
 	/// The new daemon did not start.
 	#[error("the new daemon did not start: {0}")]
-	Start(String),
+	Start(#[source] E),
+}
+
+/// Failures of the real endpoint-backed daemon operations.
+#[derive(Debug, thiserror::Error)]
+pub enum DaemonError {
+	/// The engine transport or API operation failed; timeout remains an API variant.
+	#[error(transparent)]
+	Api(#[from] relay_api::ApiError),
+	/// The process start lock could not be acquired.
+	#[error("start lock: {0}")]
+	Lock(#[source] IoError),
+	/// The replacement process could not become ready.
+	#[error("{reason}\n{log_tail}")]
+	Launch {
+		/// Failure reported by the process launcher.
+		reason: String,
+		/// Recent diagnostic output from the replacement process.
+		log_tail: String,
+	},
 }
 
 /// The daemon as [`refresh`] sees it.
 #[allow(async_fn_in_trait)]
 pub trait Daemon {
+	/// Typed failures returned by this daemon implementation.
+	type Error: std::error::Error + Send + Sync + 'static;
 	/// `None` when nothing answers.
-	async fn probe(&mut self) -> Result<Option<Probe>, String>;
+	async fn probe(&mut self) -> Result<Option<Probe>, Self::Error>;
 	/// Asks it to stop and waits until it is gone.
-	async fn stop(&mut self) -> Result<(), String>;
+	async fn stop(&mut self) -> Result<(), Self::Error>;
 	/// Starts a daemon from this program's build and waits until it answers.
-	async fn start(&mut self) -> Result<(), String>;
+	async fn start(&mut self) -> Result<(), Self::Error>;
 }
 
 /// Replaces the daemon according to `policy`.
-pub async fn refresh<D: Daemon>(daemon: &mut D, policy: Policy) -> Result<Outcome, RefreshError> {
+pub async fn refresh<D: Daemon>(
+	daemon: &mut D,
+	policy: Policy,
+) -> Result<Outcome, RefreshError<D::Error>> {
 	let Some(probe) = daemon.probe().await.map_err(RefreshError::Probe)? else {
 		return Ok(Outcome::NotRunning);
 	};
@@ -110,7 +134,7 @@ pub async fn refresh<D: Daemon>(daemon: &mut D, policy: Policy) -> Result<Outcom
 			revision: probe.revision,
 		});
 	}
-	daemon.stop().await.map_err(RefreshError::StopTimedOut)?;
+	daemon.stop().await.map_err(RefreshError::Stop)?;
 	daemon.start().await.map_err(RefreshError::Start)?;
 	Ok(Outcome::Restarted {
 		from: probe.revision,
@@ -141,13 +165,12 @@ struct Live<'a> {
 }
 
 impl Daemon for Live<'_> {
-	async fn probe(&mut self) -> Result<Option<Probe>, String> {
+	type Error = DaemonError;
+	async fn probe(&mut self) -> Result<Option<Probe>, Self::Error> {
 		if !daemon::reachable(self.endpoint).await {
 			return Ok(None);
 		}
-		let mut client = RelayClient::connect(self.endpoint)
-			.await
-			.map_err(|e| e.to_string())?;
+		let mut client = RelayClient::connect(self.endpoint).await?;
 		let revision = client.daemon_revision();
 		if client.startup().state() != relay_api::pb::StartupState::Ready {
 			return Ok(Some(Probe {
@@ -158,9 +181,8 @@ impl Daemon for Live<'_> {
 		}
 		client
 			.register(self.name, env!("CARGO_PKG_VERSION"), &["observe"])
-			.await
-			.map_err(|e| e.to_string())?;
-		let snapshot = client.snapshot().await.map_err(|e| e.to_string())?;
+			.await?;
+		let snapshot = client.snapshot().await?;
 		Ok(Some(Probe {
 			revision,
 			busy: any_call_in_progress(&snapshot.calls),
@@ -168,18 +190,18 @@ impl Daemon for Live<'_> {
 		}))
 	}
 
-	async fn stop(&mut self) -> Result<(), String> {
+	async fn stop(&mut self) -> Result<(), Self::Error> {
 		match daemon::stop(self.endpoint, self.name, self.stop_wait).await {
 			Ok(Stopped::Stopped | Stopped::NotRunning) => Ok(()),
-			Err(error) => Err(error.to_string()),
+			Err(error) => Err(DaemonError::Api(error)),
 		}
 	}
 
-	async fn start(&mut self) -> Result<(), String> {
+	async fn start(&mut self) -> Result<(), Self::Error> {
 		match daemon::start_replacement(&self.options.launch(self.endpoint)).await {
 			Started::Launched { .. } | Started::AlreadyRunning => Ok(()),
 			Started::FailedToStart { reason, log_tail } => {
-				Err(format!("{reason}\n{log_tail}").trim().to_owned())
+				Err(DaemonError::Launch { reason, log_tail })
 			}
 		}
 	}
@@ -203,7 +225,7 @@ pub async fn refresh_endpoint(
 				sleep(Duration::from_millis(50)).await;
 			}
 			Err(IoError::Locked(_)) => return Ok(Outcome::Contended),
-			Err(error) => return Err(RefreshError::Probe(format!("start lock: {error}"))),
+			Err(error) => return Err(RefreshError::Probe(DaemonError::Lock(error))),
 		}
 	};
 	let mut live = Live {

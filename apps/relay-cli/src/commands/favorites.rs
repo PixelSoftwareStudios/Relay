@@ -4,6 +4,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use comfy_table::Cell;
 use relay_api::pb::{Peer, Snapshot};
 use serde::Serialize;
 
@@ -60,10 +61,10 @@ impl Display for FavoriteList {
 		);
 		for v in &self.0 {
 			t.add_row([
-				v.position.to_string(),
-				v.name.clone(),
-				v.fingerprint_short.clone(),
-				if v.reachable { "yes" } else { "no" }.to_owned(),
+				Cell::new(v.position),
+				Cell::new(&v.name),
+				Cell::new(&v.fingerprint_short),
+				Cell::new(if v.reachable { "yes" } else { "no" }),
 			]);
 		}
 		f.write_str(&table::render(t))

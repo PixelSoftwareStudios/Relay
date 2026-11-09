@@ -315,7 +315,7 @@ fn browse_keys_pin_search_offer_accept_and_copy() {
 		handle_key(&mut m, key('r')),
 		Some(TuiCommand::Messages(MsgCommand::Respond {
 			session: SESSION_A.to_vec(),
-			offer: offer.clone(),
+			offer,
 			accept: false,
 			dest: String::new()
 		}))

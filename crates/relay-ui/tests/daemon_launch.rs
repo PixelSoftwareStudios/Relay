@@ -10,20 +10,31 @@ use relay_ui::hub::Hub;
 #[derive(Default)]
 struct Fake {
 	probe: Option<Probe>,
-	stop_error: Option<String>,
+	stop_error: Option<FakeError>,
 	log: Vec<&'static str>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{0}")]
+struct FakeError(String);
+
+impl From<&str> for FakeError {
+	fn from(value: &str) -> Self {
+		Self(value.to_owned())
+	}
+}
+
 impl Daemon for Fake {
-	async fn probe(&mut self) -> Result<Option<Probe>, String> {
+	type Error = FakeError;
+	async fn probe(&mut self) -> Result<Option<Probe>, Self::Error> {
 		self.log.push("probe");
 		Ok(self.probe.clone())
 	}
-	async fn stop(&mut self) -> Result<(), String> {
+	async fn stop(&mut self) -> Result<(), Self::Error> {
 		self.log.push("stop");
 		self.stop_error.clone().map_or(Ok(()), Err)
 	}
-	async fn start(&mut self) -> Result<(), String> {
+	async fn start(&mut self) -> Result<(), Self::Error> {
 		self.log.push("start");
 		Ok(())
 	}

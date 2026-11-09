@@ -14,8 +14,21 @@ pub struct MarginController {
 }
 
 impl MarginController {
+	/// Constructs a margin controller from validated scheduler limits.
+	///
+	/// # Panics
+	/// Panics for invalid configuration; use [`Self::try_new`] to handle external input.
 	pub fn new(cfg: &JitterConfig) -> Self {
-		Self {
+		Self::try_new(cfg).expect("invalid jitter configuration")
+	}
+
+	/// Constructs a controller, checking numeric configuration before use.
+	///
+	/// # Errors
+	/// Returns [`crate::error::ConfigError`] when scheduler limits are invalid.
+	pub fn try_new(cfg: &JitterConfig) -> Result<Self, crate::error::ConfigError> {
+		cfg.validate()?;
+		Ok(Self {
 			min: cfg.min_margin_frames,
 			max: cfg.max_margin_frames,
 			grow_cooldown: cfg.grow_cooldown_frames,
@@ -25,7 +38,7 @@ impl MarginController {
 				.clamp(cfg.min_margin_frames, cfg.max_margin_frames),
 			since_miss: 0,
 			since_grow: u32::MAX,
-		}
+		})
 	}
 
 	pub const fn target(&self) -> u32 {

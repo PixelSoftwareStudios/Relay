@@ -137,7 +137,7 @@ async fn progress_replaces_the_label_and_cannot_be_pressed() {
 			"Downloading 42%",
 		),
 		(UpdateState::Verifying(offer.clone()), "Checking signature…"),
-		(UpdateState::Installing(offer.clone()), "Installing…"),
+		(UpdateState::Installing(offer), "Installing…"),
 	] {
 		let mut phone = rig(false, state);
 		let drawn = phone.settle();

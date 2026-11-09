@@ -168,7 +168,7 @@ fn spawn_discovery(
 			.unwrap_or_default()
 	};
 	let mut published = current(&spec);
-	backend.show(plan(&profile.borrow().clone(), &published))?;
+	backend.show(plan(&profile.borrow(), &published))?;
 	tokio::spawn(async move {
 		loop {
 			tokio::select! {

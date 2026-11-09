@@ -105,7 +105,7 @@ fn the_notification_switch_defaults_on_and_is_stored() {
 	options.set_notify_incoming(false);
 	assert!(!DesktopPrefs::load(&path).notify_incoming);
 	let again = DesktopOptions::new(
-		Some(path.clone()),
+		Some(path),
 		dispatcher.clone(),
 		item(&Arc::default()),
 		Box::new(Vec::new),

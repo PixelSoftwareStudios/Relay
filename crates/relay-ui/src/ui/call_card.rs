@@ -129,7 +129,6 @@ fn menu(ui: &mut Ui, card: &CallCard, cx: &mut Cx) -> f32 {
 fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 	let actions = cx.actions;
 	let call = &card.call;
-	let cid = card.call_id.clone();
 	let live = matches!(card.phase, Phase::Connected | Phase::Interrupted);
 	ui.horizontal(|ui| {
 		if live {
@@ -140,7 +139,7 @@ fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 				(Icon::Mic, tr!("call-mute"))
 			};
 			if icon_toggle(ui, mute, icon, tip).clicked() {
-				let id = cid.clone();
+				let id = card.call_id.clone();
 				actions.run(
 					|c| async move { c.set_call_controls(&id, Some(!mute), None, None).await },
 				);
@@ -151,7 +150,7 @@ fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 				(Icon::Headphones, tr!("call-deafen"))
 			};
 			if icon_toggle(ui, deaf, icon, tip).clicked() {
-				let id = cid.clone();
+				let id = card.call_id.clone();
 				actions.run(
 					|c| async move { c.set_call_controls(&id, None, Some(!deaf), None).await },
 				);
@@ -165,7 +164,7 @@ fn buttons(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 				tr!("call-end")
 			};
 			if icon_label_danger(ui, Icon::HangUp, tip).clicked() {
-				let id = cid.clone();
+				let id = card.call_id.clone();
 				actions.run(|c| async move { c.end_call(&id).await });
 			}
 		});

@@ -44,7 +44,7 @@ pub fn hash_short(hash: &[u8]) -> String {
 /// The time of a message and the text shown on hover.
 #[derive(Debug, PartialEq, Eq)]
 pub struct RowTimes {
-	/// In the app-wide form of [`timefmt`](crate::timefmt): `1:54 AM`,
+	/// In the app-wide form of [`crate::timefmt`]: `1:54 AM`,
 	/// `Yesterday at 6:51 PM` or `11/04/26, 3:33 PM`.
 	pub label: String,
 	pub hover: String,

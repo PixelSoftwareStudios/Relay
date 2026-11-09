@@ -2,7 +2,7 @@
 //! state honestly and supervise the shared `PttWorker` against the running engine.
 //!
 //! The backend must be started on the process main thread (macOS), so
-//! [`start`] is synchronous and called from `main` before tokio takes over;
+//! [`HotkeyBackend::start`] is synchronous and called from `main` before tokio takes over;
 //! everything after that is async and runs on worker threads.
 
 mod binding;

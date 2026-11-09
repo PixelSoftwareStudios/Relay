@@ -51,3 +51,32 @@ fn total_counts_every_allocation() {
 	drop(std::hint::black_box(Box::new(1u64)));
 	assert!(total_allocations() > before);
 }
+
+#[test]
+fn nested_measurements_preserve_the_outer_count() {
+	let outer = allocations_in(|| {
+		drop(std::hint::black_box(Box::new(1u64)));
+		assert_eq!(
+			allocations_in(|| {
+				drop(std::hint::black_box(Box::new(2u64)));
+			}),
+			1
+		);
+		drop(std::hint::black_box(Box::new(3u64)));
+	});
+	assert_eq!(outer, 3);
+}
+
+#[test]
+fn panicking_scope_restores_an_enclosing_measurement() {
+	let outer = allocations_in(|| {
+		let result = std::panic::catch_unwind(|| allocations_in(|| panic!("measurement probe")));
+		assert!(result.is_err());
+		let before = allocations_in(|| {
+			drop(std::hint::black_box(Box::new(1u64)));
+		});
+		assert_eq!(before, 1);
+	});
+	assert!(outer >= 1);
+	assert_eq!(allocations_in(|| {}), 0);
+}

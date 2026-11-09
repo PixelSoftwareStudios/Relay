@@ -6,11 +6,22 @@
 
 use std::fmt;
 
+macro_rules! numeric_formats {
+	($name:ident, $($trait:ident),+ $(,)?) => {
+		$(impl fmt::$trait for $name {
+			fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+				fmt::$trait::fmt(&self.0, f)
+			}
+		})+
+	};
+}
+
 macro_rules! wide_id {
 	($(#[$meta:meta])* $name:ident) => {
 		$(#[$meta])*
 		#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 		pub struct $name(u128);
+		numeric_formats!($name, LowerHex, UpperHex, Octal, Binary);
 
 		impl $name {
 			/// Wraps a raw 128-bit value (supplied by an entropy adapter).
@@ -47,6 +58,7 @@ macro_rules! counter {
 		$(#[$meta])*
 		#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 		pub struct $name(u64);
+		numeric_formats!($name, LowerHex, UpperHex, Octal, Binary);
 
 		impl $name {
 			/// The initial value.

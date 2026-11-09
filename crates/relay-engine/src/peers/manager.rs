@@ -46,12 +46,6 @@ fn hold_superseded(link: Established) {
 	});
 }
 
-enum Outbox {
-	Sent,
-	Full,
-	Closed,
-}
-
 pub(super) struct Entry {
 	pub(super) link: Established,
 	pub(super) trusted: bool,
@@ -269,31 +263,22 @@ impl Actor {
 
 	pub(super) async fn send(&mut self, peer: Fingerprint, envelope: Envelope) {
 		self.note_stranger_decline(peer, &envelope);
-		let outcome = self.trusted_link(&peer).map(|entry| {
-			match entry.link.outbox.try_send(envelope.clone()) {
-				Ok(()) => Outbox::Sent,
-				Err(mpsc::error::TrySendError::Full(_)) => Outbox::Full,
-				Err(mpsc::error::TrySendError::Closed(_)) => Outbox::Closed,
-			}
-		});
-		match outcome {
-			Some(Outbox::Sent | Outbox::Closed) => {}
-			Some(Outbox::Full) => {
+		if let Some(entry) = self.trusted_link(&peer) {
+			if let Err(mpsc::error::TrySendError::Full(_)) = entry.link.outbox.try_send(envelope) {
 				// A control queue that cannot drain means a dead or hostile peer.
 				if let Some(id) = self.canonical.get(&peer).copied() {
 					self.drop_link(id).await;
 				}
 			}
-			None => {
-				if self.send_untrusted(peer, &envelope).await {
-					return;
-				}
-				let queue = self.pending.entry(peer).or_default();
-				if queue.len() >= PENDING_PER_PEER {
-					queue.pop_front();
-				}
-				queue.push_back(envelope);
+		} else {
+			if self.send_untrusted(peer, &envelope).await {
+				return;
 			}
+			let queue = self.pending.entry(peer).or_default();
+			if queue.len() >= PENDING_PER_PEER {
+				queue.pop_front();
+			}
+			queue.push_back(envelope);
 		}
 	}
 

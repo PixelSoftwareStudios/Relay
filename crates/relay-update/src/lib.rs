@@ -1,13 +1,20 @@
 //! Signed self-update for the Relay desktop app. See `docs/updates.md` for the design and the
 //! threat model.
 //!
-//! ```text
+//! # Examples
+//!
+//! ```no_run
+//! use relay_update::Updater;
+//! use std::ops::ControlFlow;
+//! # fn main() -> relay_update::Result<()> {
 //! let updater = Updater::detect("0.1.0")?; // the running version
 //! if let Some(available) = updater.check()? {                  // one GET: releases/latest
 //!     let verified = updater.download(&available, &mut |p| ControlFlow::Continue(()))?;
 //!     let relaunch = updater.apply(verified)?;                  // swap on disk, start helper
 //!     // quit now: the helper starts the new version once this process has exited
 //! }
+//! # Ok(())
+//! # }
 //! ```
 //!
 //! The API is blocking: call it from a worker thread.
@@ -124,6 +131,7 @@ impl Verified {
 	}
 }
 
+/// Blocking updater configured for one installation and its trusted signing key.
 pub struct Updater {
 	current: Version,
 	platform: Platform,
@@ -132,9 +140,21 @@ pub struct Updater {
 	key: minisign_verify::PublicKey,
 }
 
+impl std::fmt::Debug for Updater {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		f.debug_struct("Updater")
+			.field("current", &self.current)
+			.field("platform", &self.platform)
+			.finish_non_exhaustive()
+	}
+}
+
 impl Updater {
 	/// The production updater: GitHub over HTTPS, the compiled-in key, `Relay/<version>` as the
 	/// User-Agent. Nothing here reads the environment except platform detection.
+	///
+	/// # Errors
+	/// Returns an error if the current version or compiled signing key is malformed.
 	pub fn new(current_version: &str, platform: Platform) -> Result<Self> {
 		Self::build(
 			current_version,
@@ -145,6 +165,9 @@ impl Updater {
 	}
 
 	/// [`Updater::new`] with [`Platform::detect`].
+	///
+	/// # Errors
+	/// Returns an error if the version or signing key is malformed.
 	pub fn detect(current_version: &str) -> Result<Self> {
 		Self::new(current_version, Platform::detect())
 	}
@@ -202,6 +225,11 @@ impl Updater {
 	}
 
 	/// Asks GitHub for the latest release (one request). `None`: nothing newer to offer.
+	///
+	/// # Errors
+	/// Returns an error if the request fails, the document is malformed, or a newer in-place
+	/// release lacks the required installer or signature.
+	#[tracing::instrument(name = "update_check", skip_all)]
 	pub fn check(&self) -> Result<Option<Available>> {
 		let url = format!(
 			"{}/repos/{REPOSITORY}/releases/latest",
@@ -215,6 +243,9 @@ impl Updater {
 	}
 
 	/// The decision part of [`Updater::check`] on an already fetched document.
+	///
+	/// # Errors
+	/// Returns an error if release metadata, URLs, version tags, or required assets are invalid.
 	pub fn available_from(&self, doc: &ReleaseDoc) -> Result<Option<Available>> {
 		let endpoint = self.client.endpoint();
 		let Some(selection) =
@@ -240,6 +271,10 @@ impl Updater {
 
 	/// Downloads the installer and its signature into a private directory beside the install
 	/// (same filesystem for the final rename) and verifies the signature while streaming.
+	///
+	/// # Errors
+	/// Returns an error for an incompatible plan, cancellation, network/I/O failure, a size
+	/// mismatch, or an invalid signature or trusted comment. Partial staging data is removed.
 	pub fn download(
 		&self,
 		available: &Available,
@@ -323,39 +358,48 @@ impl Updater {
 
 	/// Replaces this installation with the verified installer. On success the caller must quit
 	/// promptly (see [`Relaunch`]).
+	///
+	/// # Errors
+	/// Returns an error if the payload changed, is not newer or compatible, cannot be installed,
+	/// or the restart helper cannot start. Helper failure can occur after replacement; the
+	/// caller should show the error and allow a manual restart.
 	pub fn apply(&self, verified: Verified) -> Result<Relaunch> {
 		self.ensure_newer(&verified.version)?;
 		if verified.kind != self.platform.install {
 			return Err(Error::ManualOnly);
 		}
 		verified.recheck()?;
-		match verified.kind.clone() {
+		match verified.kind {
 			#[cfg(unix)]
-			InstallKind::MacosBundle { bundle } => apply::macos::apply(
-				&bundle,
+			InstallKind::MacosBundle { ref bundle } => apply::macos::apply(
+				bundle,
 				&verified.payload,
 				verified.dir.path(),
 				&verified.version,
 			),
 			#[cfg(unix)]
-			InstallKind::LinuxAppImage { path } => {
-				apply::linux::apply(&path, &verified.payload, &verified.version)
+			InstallKind::LinuxAppImage { ref path } => {
+				apply::linux::apply(path, &verified.payload, &verified.version)
 			}
 			#[cfg(windows)]
-			InstallKind::WindowsMsi { dir } => {
+			InstallKind::WindowsMsi { ref dir } => {
 				let hash = verified.sha256_hex();
-				let (payload, version) = (verified.payload.clone(), verified.version.clone());
-				apply::windows::apply_msi(&dir, &payload, &hash, verified.dir.keep(), &version)
+				apply::windows::apply_msi(
+					dir,
+					&verified.payload,
+					&hash,
+					verified.dir.keep(),
+					&verified.version,
+				)
 			}
 			#[cfg(windows)]
-			InstallKind::WindowsPortable { dir } => {
-				let (payload, name, version) = (
-					verified.payload.clone(),
-					verified.asset_name.clone(),
-					verified.version.clone(),
-				);
-				apply::windows::apply_portable(&dir, &payload, verified.dir.keep(), &name, &version)
-			}
+			InstallKind::WindowsPortable { ref dir } => apply::windows::apply_portable(
+				dir,
+				&verified.payload,
+				verified.dir.keep(),
+				&verified.asset_name,
+				&verified.version,
+			),
 			_ => Err(Error::UnsupportedPlatform),
 		}
 	}

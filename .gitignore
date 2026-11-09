@@ -1,5 +1,6 @@
 /docs/temp
 /target
+/checks/concurrency/target
 .DS_Store
 .codesight/
 

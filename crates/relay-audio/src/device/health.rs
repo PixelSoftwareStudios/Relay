@@ -1,7 +1,15 @@
 //! Stream health published by error callbacks and consumed by control code.
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering};
+#[cfg(loom)]
+use loom::sync::{
+	Arc,
+	atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
+};
+#[cfg(not(loom))]
+use std::sync::{
+	Arc,
+	atomic::{AtomicBool, AtomicU8, AtomicU64, Ordering},
+};
 
 use super::Direction;
 

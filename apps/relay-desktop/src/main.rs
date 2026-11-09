@@ -108,7 +108,7 @@ fn main() -> eframe::Result {
 				shared: shared.clone(),
 				shell,
 			});
-			let (switch, front, repaint) = (options.clone(), host.clone(), host.clone());
+			let (switch, front, repaint) = (options, host.clone(), host.clone());
 			let respond = notification_replies(&actions);
 			let notify = Arc::new(
 				NotifySink::new(
@@ -126,7 +126,7 @@ fn main() -> eframe::Result {
 			));
 			runtime.spawn(emitter::run(hub.clone(), sink, Cadence::default()));
 			if mock_mode {
-				runtime.spawn(mock::run(hub.clone(), slot));
+				runtime.spawn(mock::run(hub, slot));
 				runtime.spawn(messaging::mock::run(
 					shared.messages.clone(),
 					actions.shell.clone(),

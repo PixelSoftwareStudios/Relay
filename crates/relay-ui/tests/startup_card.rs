@@ -170,8 +170,19 @@ struct Fake {
 	log: Vec<&'static str>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+#[error("{0}")]
+struct FakeError(String);
+
+impl From<&str> for FakeError {
+	fn from(value: &str) -> Self {
+		Self(value.to_owned())
+	}
+}
+
 impl Daemon for Fake {
-	async fn probe(&mut self) -> Result<Option<Probe>, String> {
+	type Error = FakeError;
+	async fn probe(&mut self) -> Result<Option<Probe>, Self::Error> {
 		self.log.push("probe");
 		Ok(Some(Probe {
 			revision: Revision::local(),
@@ -179,11 +190,11 @@ impl Daemon for Fake {
 			starting: true,
 		}))
 	}
-	async fn stop(&mut self) -> Result<(), String> {
+	async fn stop(&mut self) -> Result<(), Self::Error> {
 		self.log.push("stop");
 		Ok(())
 	}
-	async fn start(&mut self) -> Result<(), String> {
+	async fn start(&mut self) -> Result<(), Self::Error> {
 		self.log.push("start");
 		Ok(())
 	}

@@ -77,50 +77,75 @@ pub enum PttState {
 	Failed(String),
 }
 
-pub(crate) enum Msg {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Input {
 	Press(String),
 	Release,
 	Cancel,
-	/// The engine's answer to message `sequence`.
-	Ack {
-		sequence: u64,
-		accepted: bool,
-		transmitting: bool,
-		code: String,
-	},
 }
 
-/// Sender side: cheap to call from any thread, never blocks.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct Intent {
+	input: Input,
+	// Changes even if a cancel and a new press arrive before the worker wakes.
+	cancellation: u64,
+}
+
+pub(crate) struct Ack {
+	source: [u8; 16],
+	sequence: u64,
+	accepted: bool,
+	transmitting: bool,
+	code: String,
+}
+
+/// Sender side: never blocks and retains only the latest desired key state.
+/// Repeated presses coalesce; release/cancel interrupt pending connection work.
 pub struct PttWorker {
-	msgs: mpsc::UnboundedSender<Msg>,
+	intent: watch::Sender<Intent>,
 	state: watch::Receiver<PttState>,
 }
 
 impl PttWorker {
 	/// Start the worker on `handle`. It connects on the first press.
 	pub fn spawn(handle: &Handle, endpoint: Endpoint, resolve: Resolve) -> Self {
-		let (msgs, inbox) = mpsc::unbounded_channel();
+		let (intent, inbox) = watch::channel(Intent {
+			input: Input::Cancel,
+			cancellation: 0,
+		});
+		let (acks, replies) = mpsc::channel(8);
 		let (state_tx, state) = watch::channel(PttState::Idle);
-		let worker = worker::Worker::new(endpoint, resolve, msgs.clone(), state_tx);
-		handle.spawn(worker.run(inbox));
-		Self { msgs, state }
+		let worker = worker::Worker::new(endpoint, resolve, acks, state_tx);
+		handle.spawn(worker.run(inbox, replies));
+		Self { intent, state }
 	}
 
 	/// The key for `call` (hex id) went down.
 	pub fn press(&self, call: impl Into<String>) {
-		let _ = self.msgs.send(Msg::Press(call.into()));
+		let call = call.into();
+		self.intent.send_if_modified(|desired| {
+			if matches!(&desired.input, Input::Press(current) if current == &call) {
+				return false;
+			}
+			desired.input = Input::Press(call);
+			true
+		});
 	}
 
 	/// The key went up. The engine keeps the gate for its release delay.
 	pub fn release(&self) {
-		let _ = self.msgs.send(Msg::Release);
+		self.intent
+			.send_modify(|desired| desired.input = Input::Release);
 	}
 
 	/// The key vanished (pause, focus loss, client detach, call end, mode
 	/// change, quit): close the stream, which releases at once. The next press
 	/// opens a new one.
 	pub fn cancel(&self) {
-		let _ = self.msgs.send(Msg::Cancel);
+		self.intent.send_modify(|desired| {
+			desired.input = Input::Cancel;
+			desired.cancellation = desired.cancellation.wrapping_add(1);
+		});
 	}
 
 	/// The worker's state, updated as the engine answers.

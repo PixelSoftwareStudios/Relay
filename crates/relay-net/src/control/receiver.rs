@@ -89,7 +89,7 @@ impl<R: AsyncRead + Unpin> ControlReceiver<R> {
 		if opened.kind != RecordKind::Envelope {
 			return Err(ControlError::WrongKind);
 		}
-		let envelope =
+		let mut envelope =
 			Envelope::decode(opened.body.as_slice()).map_err(|_| ControlError::Decode)?;
 		validate_envelope(&envelope)?;
 		if !self.hello_seen && !matches!(envelope.body, Some(Body::Hello(_))) {
@@ -104,7 +104,7 @@ impl<R: AsyncRead + Unpin> ControlReceiver<R> {
 		{
 			return Err(ControlError::RateLimited);
 		}
-		let duplicate = self.note_message_id(&envelope)?;
+		let duplicate = self.note_message_id(&mut envelope)?;
 
 		// Fully accepted: only now does receive state advance.
 		self.last_sequence = Some(header.sequence());
@@ -115,10 +115,10 @@ impl<R: AsyncRead + Unpin> ControlReceiver<R> {
 	}
 
 	/// Returns true for an identical duplicate, errors for a conflicting one.
-	fn note_message_id(&mut self, envelope: &Envelope) -> Result<bool, ControlError> {
-		let mut normalized = envelope.clone();
-		normalized.message_id.clear();
-		let digest = blake3::hash(&normalized.encode_to_vec());
+	fn note_message_id(&mut self, envelope: &mut Envelope) -> Result<bool, ControlError> {
+		let message_id = std::mem::take(&mut envelope.message_id);
+		let digest = blake3::hash(&envelope.encode_to_vec());
+		envelope.message_id = message_id;
 		if let Some(previous) = self.seen.get(&envelope.message_id) {
 			return if *previous == digest {
 				Ok(true)

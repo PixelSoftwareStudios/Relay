@@ -45,7 +45,7 @@ fn every_supported_input_format_is_accepted() {
 	for (img, fmt) in [
 		(rgb.clone(), ImageFormat::Jpeg),
 		(rgb.clone(), ImageFormat::Bmp),
-		(rgb.clone(), ImageFormat::Tiff),
+		(rgb, ImageFormat::Tiff),
 		(rgba.clone(), ImageFormat::Gif),
 		(rgba.clone(), ImageFormat::WebP),
 		(rgba, ImageFormat::Png),

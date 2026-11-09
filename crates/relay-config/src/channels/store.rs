@@ -76,6 +76,10 @@ impl ChannelStorage {
 	/// Atomic read-modify-write. `apply` runs once while nothing else can write
 	/// (the connection is held for the whole operation). Returns false if the channel
 	/// does not exist.
+	/// The callback must not re-enter this database, including through a cloned handle.
+	///
+	/// # Errors
+	/// Returns an error if reading, validating, storing, or cleaning up channel data fails.
 	pub fn update(&self, id: &[u8; 16], apply: &mut dyn FnMut(&mut ChannelData)) -> Result<bool> {
 		self.db.with(|conn| {
 			let Some(mut data) = self.load(conn, id)? else {

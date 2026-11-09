@@ -63,14 +63,21 @@ pub struct JitterBuffer<T> {
 }
 
 impl<T> JitterBuffer<T> {
+	/// Creates a receive scheduler for a trusted, static configuration.
+	///
+	/// # Panics
+	/// Panics for invalid configuration; use [`Self::try_new`] for external input.
 	pub fn new(cfg: JitterConfig) -> Self {
-		assert!(
-			cfg.slots >= 2 && cfg.frame_samples > 0,
-			"invalid jitter config"
-		);
-		assert!(cfg.slots <= 128, "replay window covers at most 128 slots");
-		let margin = MarginController::new(&cfg);
-		Self {
+		Self::try_new(cfg).expect("invalid jitter configuration")
+	}
+
+	/// Creates a scheduler after validating all configuration bounds.
+	///
+	/// # Errors
+	/// Returns [`crate::error::ConfigError`] for invalid slot, frame, or margin limits.
+	pub fn try_new(cfg: JitterConfig) -> Result<Self, crate::error::ConfigError> {
+		let margin = MarginController::try_new(&cfg)?;
+		Ok(Self {
 			slots: (0..cfg.slots).map(|_| None).collect(),
 			seq: SeqExtender::new(),
 			ts: TimestampExtender::new(),
@@ -86,7 +93,7 @@ impl<T> JitterBuffer<T> {
 			jitter: InterarrivalJitter::new(),
 			stats: JitterStats::default(),
 			cfg,
-		}
+		})
 	}
 
 	pub const fn stats(&self) -> &JitterStats {
@@ -141,8 +148,13 @@ impl<T> JitterBuffer<T> {
 	/// Offers one authenticated packet.
 	pub fn insert(&mut self, meta: PacketMeta, payload: T) -> InsertOutcome {
 		self.stats.received += 1;
-		let seq = self.seq.resolve(meta.sequence);
-		let ts = self.ts.resolve(meta.timestamp);
+		let (Ok(seq), Ok(ts)) = (
+			self.seq.try_resolve(meta.sequence),
+			self.ts.try_resolve(meta.timestamp),
+		) else {
+			self.stats.rejected_far += 1;
+			return InsertOutcome::TooFar;
+		};
 
 		match self.seen.check(seq) {
 			ReplayVerdict::Duplicate => {
@@ -329,11 +341,11 @@ impl<T> JitterBuffer<T> {
 	/// Deliberate silence ahead of a contiguous packet.
 	fn gap(&mut self, head_ts: u64) -> Playout<T> {
 		let frame = u64::from(self.cfg.frame_samples);
-		self.play_ts += frame;
+		self.play_ts = self.play_ts.saturating_add(frame);
 		if self.effective_margin > self.margin.target()
 			&& head_ts >= self.play_ts.saturating_add(frame)
 		{
-			self.play_ts += frame;
+			self.play_ts = self.play_ts.saturating_add(frame);
 			self.effective_margin -= 1;
 			self.stats.shrinks += 1;
 		}
@@ -352,7 +364,7 @@ impl<T> JitterBuffer<T> {
 			self.stats.interruptions += 1;
 			return Playout::Skip(SkipReason::Interrupted);
 		}
-		self.play_ts += frame;
+		self.play_ts = self.play_ts.saturating_add(frame);
 		self.stats.concealed += 1;
 		Playout::Conceal(Concealment {
 			run_frames: self.conceal_run,

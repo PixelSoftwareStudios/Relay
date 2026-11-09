@@ -1,5 +1,5 @@
 //! The time of a history row: "Just now" for under a minute, then the
-//! app-wide formats of [`timefmt`](crate::timefmt) (`1:54 AM`,
+//! app-wide formats of [`crate::timefmt`] (`1:54 AM`,
 //! `Yesterday at 6:51 PM`, `11/04/26, 3:33 PM`).
 //!
 //! Pure functions of an explicit "now" and a [`LocalZone`], so tests choose both: the shell

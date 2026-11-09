@@ -220,7 +220,7 @@ pub fn run_backend(name: &str, pairs: &[Pair]) -> Result<BackendResult> {
 	let prepare_ns = u64::try_from(started.elapsed().as_nanos()).unwrap_or(u64::MAX);
 	let delay_impulse =
 		measure_delay_samples(probe.ns.as_mut(), FRAME_SAMPLES, 9_600).map_err(dsp)?;
-	let descriptor = probe.ns.descriptor().clone();
+	let descriptor = probe.ns.descriptor();
 
 	let mut files = Vec::new();
 	let mut all_times = Vec::new();

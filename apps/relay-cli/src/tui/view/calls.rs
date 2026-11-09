@@ -31,7 +31,8 @@ pub fn calls(frame: &mut Frame, area: Rect, model: &Model) {
 }
 
 fn card(frame: &mut Frame, area: Rect, model: &Model, call: &relay_api::pb::Call, selected: bool) {
-	let transmit = call.transmit.clone().unwrap_or_default();
+	let defaults = Default::default();
+	let transmit = call.transmit.as_ref().unwrap_or(&defaults);
 	let sample = model
 		.telemetry
 		.as_ref()

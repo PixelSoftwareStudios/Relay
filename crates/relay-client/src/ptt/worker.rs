@@ -8,7 +8,7 @@ use tokio::task::JoinHandle;
 use tokio::time::Instant;
 use tokio_stream::wrappers::ReceiverStream;
 
-use super::{LEASE_MS, MAX_HOLD, Msg, PttState, PttTarget, RENEW, Resolve};
+use super::{Ack, Input, Intent, LEASE_MS, MAX_HOLD, PttState, PttTarget, RENEW, Resolve};
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const SEND_TIMEOUT: Duration = Duration::from_millis(500);
@@ -41,7 +41,7 @@ pub(super) struct Worker {
 	endpoint: Endpoint,
 	resolve: Resolve,
 	/// Weak: the worker ends when the last handle is dropped.
-	msgs: mpsc::WeakUnboundedSender<Msg>,
+	acks: mpsc::Sender<Ack>,
 	state: watch::Sender<PttState>,
 	session: Option<Session>,
 	held: Option<Held>,
@@ -51,58 +51,84 @@ impl Worker {
 	pub(super) fn new(
 		endpoint: Endpoint,
 		resolve: Resolve,
-		msgs: mpsc::UnboundedSender<Msg>,
+		acks: mpsc::Sender<Ack>,
 		state: watch::Sender<PttState>,
 	) -> Self {
 		Self {
 			endpoint,
 			resolve,
-			msgs: msgs.downgrade(),
+			acks,
 			state,
 			session: None,
 			held: None,
 		}
 	}
 
-	pub(super) async fn run(mut self, mut inbox: mpsc::UnboundedReceiver<Msg>) {
+	pub(super) async fn run(
+		mut self,
+		mut inbox: watch::Receiver<Intent>,
+		mut replies: mpsc::Receiver<Ack>,
+	) {
 		let mut tick = tokio::time::interval(RENEW);
 		tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+		let mut cancellation = 0;
+		let mut pending = None;
 		loop {
-			tokio::select! {
-				msg = inbox.recv() => match msg {
-					Some(msg) => {
-						let pressed = matches!(msg, Msg::Press(_));
-						self.handle(msg).await;
-						if pressed {
-							tick.reset();
+			let action = if let Some(input) = pending.take() {
+				Some(input)
+			} else {
+				tokio::select! {
+					biased;
+					changed = inbox.changed() => {
+						if changed.is_err() { break; }
+						let desired = inbox.borrow_and_update().clone();
+						if desired.cancellation != cancellation {
+							self.close();
+							cancellation = desired.cancellation;
 						}
+						Some(desired.input)
 					}
-					None => break,
-				},
-				_ = tick.tick(), if self.held.is_some() => self.renew().await,
+					Some(ack) = replies.recv() => {
+						if self.session.as_ref().is_some_and(|s| s.source.as_slice() == ack.source) {
+							self.acked(ack.sequence, ack.accepted, ack.transmitting, ack.code);
+						}
+						continue;
+					}
+					_ = tick.tick(), if self.held.is_some() => None,
+				}
+			};
+			let pressed = matches!(&action, Some(Input::Press(_)));
+			// Canceling any partially completed send closes its session. A queued key-up
+			// must never wait for connection setup or a full transport buffer.
+			let changed = tokio::select! {
+				biased;
+				changed = inbox.changed() => Some(changed),
+				() = async {
+					match action {
+						Some(Input::Press(call)) => self.press(call).await,
+						Some(Input::Release) => self.release().await,
+						Some(Input::Cancel) => self.close(),
+						None => self.renew().await,
+					}
+				} => None,
+			};
+			if let Some(changed) = changed {
+				self.close();
+				if changed.is_err() {
+					break;
+				}
+				let desired = inbox.borrow_and_update().clone();
+				cancellation = desired.cancellation;
+				pending = Some(desired.input);
+			} else if pressed {
+				tick.reset();
 			}
 		}
-		// Dropping the session closes the stream: an immediate release.
-		self.held = None;
-		self.session = None;
+		self.close();
 	}
 
 	fn set(&self, state: PttState) {
 		self.state.send_replace(state);
-	}
-
-	async fn handle(&mut self, msg: Msg) {
-		match msg {
-			Msg::Press(call) => self.press(call).await,
-			Msg::Release => self.release().await,
-			Msg::Cancel => self.close(),
-			Msg::Ack {
-				sequence,
-				accepted,
-				transmitting,
-				code,
-			} => self.acked(sequence, accepted, transmitting, code),
-		}
 	}
 
 	fn acked(&mut self, sequence: u64, accepted: bool, transmitting: bool, code: String) {
@@ -136,9 +162,6 @@ impl Worker {
 	}
 
 	async fn press(&mut self, call_hex: String) {
-		if self.held.as_ref().is_some_and(|h| h.call_hex == call_hex) {
-			return; // auto-repeat of a key already down
-		}
 		self.release().await;
 		let Some(target) = (self.resolve)(&call_hex) else {
 			tracing::info!("push-to-talk ignored: not a controlled push-to-talk call");
@@ -246,19 +269,19 @@ impl Worker {
 				.await
 				.map_err(|e| e.to_string())?
 				.into_inner();
-			let msgs = self.msgs.clone();
+			let replies = self.acks.clone();
+			let source = relay_io::entropy::random_bytes::<16>();
 			let acks = tokio::spawn(async move {
 				while let Ok(Some(ack)) = acks.message().await {
-					let Some(msgs) = msgs.upgrade() else {
+					if replies.send(answer(&ack, source)).await.is_err() {
 						break;
-					};
-					let _ = msgs.send(answer(&ack));
+					}
 				}
 			});
 			Ok::<_, String>(Session {
 				input,
 				context,
-				source: relay_io::entropy::random_bytes::<16>().to_vec(),
+				source: source.to_vec(),
 				sequence: 0,
 				acks,
 				_client: client,
@@ -270,8 +293,9 @@ impl Worker {
 	}
 }
 
-fn answer(ack: &InputControlAck) -> Msg {
-	Msg::Ack {
+fn answer(ack: &InputControlAck, source: [u8; 16]) -> Ack {
+	Ack {
+		source,
 		sequence: ack.input_sequence,
 		accepted: ack.accepted,
 		transmitting: ack.effective_transmitting,

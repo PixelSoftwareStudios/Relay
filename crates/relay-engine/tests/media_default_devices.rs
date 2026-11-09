@@ -246,7 +246,7 @@ fn a_vanished_pinned_device_falls_back_to_the_default() {
 		interface: None,
 	};
 	let rig = start(Selection {
-		input: DeviceSelection::Pinned(gone.clone()),
+		input: DeviceSelection::Pinned(gone),
 		output: DeviceSelection::FollowDefault,
 	});
 	assert!(rig.open_mic(1));

@@ -240,8 +240,7 @@ impl Thread {
 		&mut self,
 		generation: AudioGeneration,
 	) -> Result<Box<dyn StreamHandle>, AudioError> {
-		let selection = self.setup.selection.input.clone();
-		let device = self.resolve(Direction::Input, &selection)?;
+		let device = self.resolve(Direction::Input)?;
 		let stream = self.backend.open_capture(device, &self.setup.request)?;
 		self.setup.buffers.set_capture(
 			stream
@@ -286,8 +285,7 @@ impl Thread {
 		if self.open_playback.is_some() {
 			return Ok(());
 		}
-		let selection = self.setup.selection.output.clone();
-		let device = self.resolve(Direction::Output, &selection)?;
+		let device = self.resolve(Direction::Output)?;
 		let stream = self.backend.open_playback(device, &self.setup.request)?;
 		tracing::info!(
 			rate = stream.config.sample_rate,
@@ -351,7 +349,7 @@ impl Thread {
 	/// is no reason to tell anyone; the user hears about an output that stays
 	/// gone, once, and about it coming back.
 	fn keep_playback_alive(&mut self) {
-		let Some(health) = self.playback_health.clone() else {
+		let Some(health) = &self.playback_health else {
 			return;
 		};
 		let now = u64::try_from(self.started.elapsed().as_millis()).unwrap_or(u64::MAX);
@@ -382,9 +380,12 @@ impl Thread {
 	fn resolve(
 		&mut self,
 		direction: Direction,
-		selection: &DeviceSelection,
 	) -> Result<relay_audio::device::DeviceHandle, AudioError> {
 		let enumeration = self.backend.enumerate()?;
+		let selection = match direction {
+			Direction::Input => &self.setup.selection.input,
+			Direction::Output => &self.setup.selection.output,
+		};
 		let resolved = enumeration.resolve(direction, selection);
 		let fallback = enumeration.resolve(direction, &DeviceSelection::FollowDefault);
 		self.listing.store(Arc::new(enumeration.devices));

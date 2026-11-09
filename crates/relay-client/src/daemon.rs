@@ -136,8 +136,8 @@ pub async fn reachable(endpoint: &Endpoint) -> bool {
 	timeout(PROBE, attempt).await.unwrap_or(false)
 }
 
-/// The tail of a log file: at most [`TAIL_LINES`] lines from the last
-/// [`TAIL_BYTES`], starting no earlier than byte `from`.
+/// The tail of a log file: at most 20 lines from the last 4 KiB,
+/// starting no earlier than byte `from`.
 pub fn log_tail(path: &Path, from: u64) -> String {
 	read_tail(path, from, TAIL_BYTES, TAIL_LINES)
 }

@@ -123,6 +123,7 @@ pub enum LinkEvent {
 }
 
 /// Runs the handshake over `stream` and starts the link tasks.
+#[tracing::instrument(name = "peer_link", skip_all, fields(link = id))]
 pub async fn establish(
 	mut stream: TcpStream,
 	role: Role,
@@ -234,6 +235,7 @@ async fn write_loop<W: tokio::io::AsyncWrite + Unpin>(
 	let _ = sender.shutdown().await;
 }
 
+#[tracing::instrument(name = "peer_link_read", skip_all, fields(link = id))]
 async fn read_loop<R: tokio::io::AsyncRead + Unpin>(
 	mut receiver: relay_net::control::ControlReceiver<R>,
 	outbox: mpsc::Sender<Envelope>,

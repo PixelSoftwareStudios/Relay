@@ -31,7 +31,7 @@ pub struct System;
 
 /// What to restore.
 pub enum Undo {
-	/// An MMCSS registration (the handle as an integer so the guard stays `Send`).
+	/// An MMCSS registration, restored only on the registering thread by PriorityGuard.
 	Mmcss(usize),
 	/// The thread priority level before it was raised.
 	Level(i32),

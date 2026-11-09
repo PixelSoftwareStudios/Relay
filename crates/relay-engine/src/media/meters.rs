@@ -16,7 +16,7 @@ pub const SPEAKING_HOLD_FRAMES: u8 = 30;
 /// Level above which a frame counts as audible speech.
 pub const SPEAKING_DBFS: f32 = -50.0;
 
-/// Root-mean-square level of a frame in dBFS, floored at [`FLOOR_DBFS`].
+/// Root-mean-square level of a frame in dBFS, with a finite silence floor.
 pub fn level_dbfs(samples: &[f32]) -> f32 {
 	if samples.is_empty() {
 		return FLOOR_DBFS;

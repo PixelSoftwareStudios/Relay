@@ -74,7 +74,7 @@ impl<'a> Builder<'a> {
 		}
 	}
 
-	fn push_block(&mut self, block: Block) {
+	fn push_block(&mut self, mut block: Block) {
 		if let (
 			Block::List {
 				ordered,
@@ -86,10 +86,10 @@ impl<'a> Builder<'a> {
 				items,
 				..
 			}),
-		) = (&block, self.blocks.last_mut())
+		) = (&mut block, self.blocks.last_mut())
 			&& ordered == prev
 		{
-			items.extend(more.iter().cloned());
+			items.append(more);
 			return;
 		}
 		self.blocks.push(block);

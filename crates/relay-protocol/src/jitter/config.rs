@@ -27,6 +27,39 @@ pub struct JitterConfig {
 }
 
 impl JitterConfig {
+	/// Checks slot bounds, margin ordering, and representable frame delays.
+	///
+	/// # Errors
+	/// Returns [`crate::error::ConfigError`] for invalid capacity, timing, or margin fields.
+	pub fn validate(&self) -> Result<(), crate::error::ConfigError> {
+		use crate::error::ConfigError;
+		if !(2..=128).contains(&self.slots) || self.frame_samples == 0 {
+			return Err(ConfigError(
+				"jitter requires 2..=128 slots and nonzero frame samples",
+			));
+		}
+		if self.min_margin_frames > self.max_margin_frames {
+			return Err(ConfigError("minimum jitter margin exceeds maximum"));
+		}
+		if self
+			.max_margin_frames
+			.checked_mul(self.frame_samples)
+			.is_none()
+		{
+			return Err(ConfigError("jitter delay exceeds u32 samples"));
+		}
+		if self
+			.max_plc_frames
+			.checked_add(self.fade_frames)
+			.and_then(|v| v.checked_add(1))
+			.is_none()
+		{
+			return Err(ConfigError(
+				"concealment limit leaves no representable interruption frame",
+			));
+		}
+		Ok(())
+	}
 	/// Balanced LAN profile: 15 ms start, 5-40 ms range, 10 ms frames.
 	pub const BALANCED: Self = Self {
 		frame_samples: 480,
@@ -58,12 +91,12 @@ impl JitterConfig {
 
 	/// Frames of lookahead admitted past the playhead.
 	pub fn horizon_frames(&self) -> u64 {
-		let wanted = u64::from(self.max_margin_frames + self.reorder_slack_frames);
-		wanted.min(self.slots as u64 - 1)
+		let wanted = u64::from(self.max_margin_frames) + u64::from(self.reorder_slack_frames);
+		wanted.min((self.slots as u64).saturating_sub(1))
 	}
 
-	/// Worst-case buffering delay in samples the planner can ever add.
+	/// Worst-case buffering delay, saturated for an unvalidated configuration.
 	pub fn max_delay_samples(&self) -> u32 {
-		self.max_margin_frames * self.frame_samples
+		self.max_margin_frames.saturating_mul(self.frame_samples)
 	}
 }

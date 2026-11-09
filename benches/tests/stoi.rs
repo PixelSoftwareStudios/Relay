@@ -27,7 +27,7 @@ fn level_changes_do_not_matter() {
 #[test]
 fn appended_silence_is_removed() {
 	let x = clean();
-	let mut padded = x.clone();
+	let mut padded = x;
 	padded.extend(std::iter::repeat_n(0.0, 96_000));
 	let s = stoi(&padded, &padded, RATE).unwrap();
 	assert!((s.stoi - 1.0).abs() < 1e-9);

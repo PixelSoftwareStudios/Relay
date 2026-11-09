@@ -19,6 +19,20 @@ pub struct Request {
 	pub command: Command,
 }
 
+impl Request {
+	/// Whether this request revokes transmit permission and must not be dropped
+	/// merely because the ordinary command queue is full.
+	pub fn is_safety_deny(&self) -> bool {
+		match &self.command {
+			Command::Ptt(update) => !update.pressed,
+			Command::SetGlobalControls {
+				muted, deafened, ..
+			} => *muted == Some(true) || *deafened == Some(true),
+			_ => false,
+		}
+	}
+}
+
 /// A client command.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
@@ -279,13 +293,7 @@ impl Input {
 				SystemEvent::Session(SessionEvent::Locked | SessionEvent::Suspended)
 					| SystemEvent::CaptureLost { .. }
 			),
-			Self::Client(request) => match &request.command {
-				Command::Ptt(update) => !update.pressed,
-				Command::SetGlobalControls {
-					muted, deafened, ..
-				} => *muted == Some(true) || *deafened == Some(true),
-				_ => false,
-			},
+			Self::Client(request) => request.is_safety_deny(),
 			Self::Peer(_) => false,
 		}
 	}

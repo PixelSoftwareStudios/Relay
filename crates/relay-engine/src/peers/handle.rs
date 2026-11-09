@@ -307,7 +307,7 @@ pub struct PeerSnapshot {
 	pub callable: bool,
 	/// Trust state if pinned.
 	pub trust: Option<TrustState>,
-	/// Live round-trip timer of the link (see `rtt.rs`); read it with [`RttCell::get`].
+	/// Live round-trip timer of the link; read it with [`super::rtt::RttCell::get`].
 	pub probe: Option<Arc<super::rtt::RttCell>>,
 }
 

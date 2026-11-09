@@ -2,6 +2,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
+use comfy_table::Cell;
 use relay_api::pb::{Call, Device, Peer, Settings, Snapshot};
 use serde::Serialize;
 
@@ -67,15 +68,15 @@ impl PeerList {
 		);
 		for p in &self.0 {
 			t.add_row([
-				short(&p.id),
-				p.name.clone(),
-				p.fingerprint_short.clone(),
-				match &p.previous_fingerprint_short {
+				Cell::new(short(&p.id)),
+				Cell::new(&p.name),
+				Cell::new(&p.fingerprint_short),
+				Cell::new(match &p.previous_fingerprint_short {
 					Some(was) if p.key_changed => format!("KEY CHANGED, blocked (was {was})"),
 					_ => p.trust.to_owned(),
-				},
-				if p.reachable { "yes" } else { "no" }.to_owned(),
-				p.addresses.join(", "),
+				}),
+				Cell::new(if p.reachable { "yes" } else { "no" }),
+				Cell::new(p.addresses.join(", ")),
 			]);
 		}
 		table::render(t)
@@ -232,12 +233,13 @@ pub struct DeviceList(pub Vec<DeviceView>);
 
 impl DeviceList {
 	pub fn from_snapshot(snapshot: &Snapshot) -> Self {
-		let settings = snapshot.settings.clone().unwrap_or_default();
+		let defaults = Default::default();
+		let settings = snapshot.settings.as_ref().unwrap_or(&defaults);
 		Self(
 			snapshot
 				.devices
 				.iter()
-				.map(|d| device_view(d, &settings))
+				.map(|d| device_view(d, settings))
 				.collect(),
 		)
 	}
@@ -272,11 +274,11 @@ impl DeviceList {
 				notes.push("unavailable");
 			}
 			t.add_row([
-				if d.selected { "*" } else { "" }.to_owned(),
-				d.direction.to_owned(),
-				d.name.clone(),
-				d.id.clone(),
-				notes.join(", "),
+				Cell::new(if d.selected { "*" } else { "" }),
+				Cell::new(d.direction),
+				Cell::new(&d.name),
+				Cell::new(&d.id),
+				Cell::new(notes.join(", ")),
 			]);
 		}
 		table::render(t)

@@ -83,8 +83,7 @@ pub fn log_dir_from(
 	tmp: &Path,
 ) -> PathBuf {
 	let home = |relative: &str| {
-		home.clone()
-			.map_or_else(|| tmp.to_path_buf(), PathBuf::from)
+		home.map_or_else(|| tmp.to_path_buf(), PathBuf::from)
 			.join(relative)
 	};
 	if cfg!(windows) {

@@ -175,7 +175,7 @@ impl Engine for FakeEngine {
 			let live = self.events.subscribe();
 			let initial = match after {
 				None => vec![StateEnvelope {
-					engine_incarnation: incarnation.clone(),
+					engine_incarnation: incarnation,
 					revision: state.revision,
 					body: Some(Body::Snapshot(self.snapshot_locked(&state))),
 				}],
@@ -191,7 +191,7 @@ impl Engine for FakeEngine {
 						.collect()
 				}
 				Some(_) => vec![StateEnvelope {
-					engine_incarnation: incarnation.clone(),
+					engine_incarnation: incarnation,
 					revision: state.revision,
 					body: Some(Body::Resync(ResyncRequired {
 						current_revision: state.revision,

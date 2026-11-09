@@ -136,7 +136,7 @@ pub fn date_time(language: Language, c: &Civil) -> String {
 	}
 }
 
-/// [`format`] for an explicit language and "Yesterday at" wording, so tests
+/// [`format()`] for an explicit language and "Yesterday at" wording, so tests
 /// need not switch the active language.
 pub fn format_in(
 	language: Language,

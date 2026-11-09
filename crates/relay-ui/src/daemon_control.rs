@@ -117,7 +117,9 @@ pub enum LaunchRefresh {
 }
 
 /// Turns what the refresh found into [`LaunchRefresh`].
-pub fn launch_result(result: Result<Outcome, RefreshError>) -> LaunchRefresh {
+pub fn launch_result<E: std::error::Error + 'static>(
+	result: Result<Outcome, RefreshError<E>>,
+) -> LaunchRefresh {
 	match result {
 		Ok(Outcome::Restarted { .. }) => LaunchRefresh::Restarted,
 		Ok(Outcome::KeptBusy { .. }) => LaunchRefresh::KeptBusy,
@@ -127,11 +129,11 @@ pub fn launch_result(result: Result<Outcome, RefreshError>) -> LaunchRefresh {
 			tracing::debug!(%why, "the running daemon was not inspected at launch");
 			LaunchRefresh::Nothing
 		}
-		Err(RefreshError::StopTimedOut(why)) => {
-			LaunchRefresh::Failed(tr!("daemon-stop-failed", error = why))
+		Err(RefreshError::Stop(why)) => {
+			LaunchRefresh::Failed(tr!("daemon-stop-failed", error = why.to_string()))
 		}
 		Err(RefreshError::Start(reason)) => {
-			LaunchRefresh::Failed(tr!("daemon-start-failed", reason = reason))
+			LaunchRefresh::Failed(tr!("daemon-start-failed", reason = reason.to_string()))
 		}
 	}
 }

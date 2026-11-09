@@ -28,7 +28,6 @@ pub fn load_verified(dir: &Path, id: &str, files: &[&str]) -> Result<(Vec<Vec<u8
 	let expected = manifest
 		.model
 		.sha256
-		.clone()
 		.ok_or_else(|| err(id, "manifest has no sha256"))?;
 	let mut hasher = Sha256::new();
 	let mut blobs = Vec::new();

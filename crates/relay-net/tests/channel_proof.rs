@@ -103,8 +103,7 @@ fn a_copied_proof_is_useless_on_another_session_or_for_another_key() {
 	assert!(out.proven.is_none() && out.matched.is_none());
 
 	// Even with a correct reference for his own session, Alice's certificate names Alice's key.
-	let mut stolen = g.alice_record.clone();
-	stolen.cert = g.alice_record.cert.clone();
+	let stolen = g.alice_record;
 	let forged_ref = make_proof(&stolen, &other.joiner_binding, NOW).unwrap();
 	let out = check_proof(
 		std::slice::from_ref(&owner),
@@ -121,7 +120,7 @@ fn a_copied_proof_is_useless_on_another_session_or_for_another_key() {
 fn someone_who_knows_the_id_but_has_no_certificate_gets_nothing() {
 	let g = group();
 	let link = Pair::new();
-	let mut keyless = g.alice_record.clone();
+	let mut keyless = g.alice_record;
 	keyless.cert = None;
 	assert!(make_proof(&keyless, &link.joiner_binding, NOW).is_none());
 }

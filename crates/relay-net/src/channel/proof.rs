@@ -2,7 +2,7 @@
 //!
 //! Two steps, so that a peer who is not in a channel learns nothing about it:
 //!
-//! 1. Each side sends a [`ChannelRef`](crate::proto::ChannelRef) per channel: a keyed hash of
+//! 1. Each side sends a [`crate::proto::ChannelRef`] per channel: a keyed hash of
 //!    the session binding and the sender's role under the channel key. It proves knowledge of
 //!    the channel id and reveals nothing to a peer without it.
 //! 2. A side sends its certificate ([`make_proof`]) only to a peer whose reference for that

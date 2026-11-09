@@ -24,6 +24,8 @@ pub struct FakeEngine {
 	/// Input streams the client opened, and how many of them ended.
 	pub streams_opened: Arc<std::sync::atomic::AtomicUsize>,
 	pub streams_closed: Arc<std::sync::atomic::AtomicUsize>,
+	/// Delay before accepting InputControl, for cancellation tests.
+	pub input_delay_ms: Arc<std::sync::atomic::AtomicU64>,
 }
 
 /// The engine's answer to a push-to-talk message.
@@ -523,6 +525,8 @@ impl Engine for FakeEngine {
 		let (inputs, reply) = (self.inputs.clone(), self.reply.clone());
 		let closed = self.streams_closed.clone();
 		self.streams_opened.fetch_add(1, Ordering::SeqCst);
+		let delay = self.input_delay_ms.load(Ordering::Relaxed);
+		tokio::time::sleep(std::time::Duration::from_millis(delay)).await;
 		tokio::spawn(async move {
 			while let Ok(Some(message)) = incoming.message().await {
 				inputs.lock().unwrap().push(message.clone());
@@ -576,6 +580,7 @@ impl Harness {
 			inputs: Arc::default(),
 			reply: Arc::default(),
 			streams_opened: Arc::default(),
+			input_delay_ms: Arc::default(),
 			streams_closed: Arc::default(),
 		};
 		let listener = UdsListener::bind(&socket).await.expect("bind");

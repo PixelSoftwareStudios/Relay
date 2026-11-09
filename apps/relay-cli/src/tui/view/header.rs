@@ -17,7 +17,8 @@ pub fn header(frame: &mut Frame, area: Rect, model: &Model) {
 		ConnectionState::Resyncing(why) => (format!("resyncing ({why})"), Color::Yellow),
 		ConnectionState::Lost(why) => (format!("offline ({why})"), Color::Red),
 	};
-	let settings = model.snapshot.settings.clone().unwrap_or_default();
+	let defaults = Default::default();
+	let settings = model.snapshot.settings.as_ref().unwrap_or(&defaults);
 	let mic = model.telemetry.as_ref().and_then(|t| t.microphone_dbfs);
 	let first = Line::from(vec![
 		Span::styled("relay ", Style::new().add_modifier(Modifier::BOLD)),

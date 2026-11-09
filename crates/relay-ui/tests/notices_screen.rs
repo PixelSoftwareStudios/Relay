@@ -80,7 +80,7 @@ async fn dismissing_hides_a_notice_and_it_stays_hidden_after_a_refresh() {
 		!has(&phone.settle(), "Warning number 0"),
 		"same notice, refreshed"
 	);
-	let mut again = state.clone();
+	let mut again = state;
 	again.warnings[0].message = "Warning number 0, again".into();
 	phone.show_state(&again);
 	assert!(has(&phone.settle(), "again"), "a new occurrence shows");

@@ -1,7 +1,7 @@
 //! Self-update, as the shared UI sees it. The UI never talks to the network and does not depend
 //! on the update crate (which brings an HTTP client and zip reader that the Android build must not
-//! carry): a shell that can update itself says so through [`Shell::can_self_update`] and does the
-//! work in [`Shell::check_for_update`] and [`Shell::install_update`]. Everything here is plain
+//! carry): a shell that can update itself says so through [`crate::shell::Shell::can_self_update`] and does the
+//! work in [`crate::shell::Shell::check_for_update`] and [`crate::shell::Shell::install_update`]. Everything here is plain
 //! data and the glue that keeps [`UpdateState`] current.
 //!
 //! The check is the only internet call the app makes. It runs at launch only when the user opted

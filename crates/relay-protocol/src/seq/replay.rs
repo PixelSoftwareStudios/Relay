@@ -28,7 +28,13 @@ impl<const WORDS: usize> ReplayWindow<WORDS> {
 	/// Number of distinct numbers remembered.
 	pub const SIZE: u64 = WORDS as u64 * 64;
 
+	/// Creates an empty window; `WORDS` must be nonzero.
+	///
+	/// ```compile_fail
+	/// let _ = relay_protocol::seq::ReplayWindow::<0>::new();
+	/// ```
 	pub const fn new() -> Self {
+		const { assert!(WORDS > 0, "replay window requires at least one word") };
 		Self {
 			bits: [0; WORDS],
 			highest: None,

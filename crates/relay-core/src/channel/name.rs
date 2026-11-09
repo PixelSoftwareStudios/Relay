@@ -16,6 +16,10 @@ pub enum NameError {
 pub struct ChannelName(String);
 
 impl ChannelName {
+	/// Parses a trimmed display name, rejecting forbidden characters and invalid length.
+	///
+	/// # Errors
+	/// Returns [`NameError`] if the name is too short/long or contains forbidden characters.
 	pub fn new(raw: &str) -> Result<Self, NameError> {
 		let trimmed = raw.trim();
 		let count = trimmed.chars().count();
@@ -30,6 +34,22 @@ impl ChannelName {
 
 	pub fn as_str(&self) -> &str {
 		&self.0
+	}
+}
+
+impl std::str::FromStr for ChannelName {
+	type Err = NameError;
+
+	fn from_str(raw: &str) -> Result<Self, Self::Err> {
+		Self::new(raw)
+	}
+}
+
+impl TryFrom<&str> for ChannelName {
+	type Error = NameError;
+
+	fn try_from(raw: &str) -> Result<Self, Self::Error> {
+		Self::new(raw)
 	}
 }
 

@@ -15,7 +15,7 @@ use crate::limits::MEDIA_REPLAY_WINDOW;
 use crate::record::RecordKind;
 use crate::session::{SealError, SecureSession};
 
-/// Replay window sized for [`MEDIA_REPLAY_WINDOW`](crate::limits::MEDIA_REPLAY_WINDOW)
+/// Replay window sized for [`crate::limits::MEDIA_REPLAY_WINDOW`]
 /// sequences. `check` is read-only; `accept` is called only after the record has
 /// authenticated and passed structural validation, so forged counters cannot move it.
 pub type ReplayWindow = relay_protocol::seq::ReplayWindow<{ (MEDIA_REPLAY_WINDOW / 64) as usize }>;

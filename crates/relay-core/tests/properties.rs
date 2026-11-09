@@ -71,7 +71,7 @@ fn step() -> impl Strategy<Value = Step> {
 		1 => (0u8..4).prop_map(Step::Session),
 		4 => (0u16..400).prop_map(Step::Advance),
 		2 => (0u16..2100).prop_map(Step::SetDelay),
-		2 => (idx.clone(), idx.clone(), 0u8..3).prop_map(|(c, k, s)| Step::PttImmediate(c, k, s)),
+		2 => (idx.clone(), idx, 0u8..3).prop_map(|(c, k, s)| Step::PttImmediate(c, k, s)),
 	]
 }
 

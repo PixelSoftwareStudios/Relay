@@ -42,7 +42,7 @@ pub fn take_paste(ui: &Ui) -> Option<String> {
 }
 
 pub fn link(ui: &mut Ui, gate: &mut LinkGate, intents: &mut Vec<Intent>) {
-	let Some(prompt) = gate.pending().cloned() else {
+	let Some(prompt) = gate.pending() else {
 		return;
 	};
 	let (mut open, mut cancel) = (false, false);

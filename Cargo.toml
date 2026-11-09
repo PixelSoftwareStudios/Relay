@@ -229,9 +229,11 @@ blake2 = "0.10.6"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(loom)'] }
 
 [workspace.lints.clippy]
 undocumented_unsafe_blocks = "deny"
+redundant_clone = "warn"
 
 # Line tables keep backtraces readable but cut debug builds (and the many test
 # binaries) several times in size; full debuginfo filled the disk repeatedly.

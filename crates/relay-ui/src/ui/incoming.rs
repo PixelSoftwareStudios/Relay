@@ -50,20 +50,19 @@ fn prompt(ui: &mut Ui, card: &CallCard, cx: &mut Cx) {
 					&tr!("incoming-unknown", fingerprint = card.fingerprint.as_str()),
 				);
 			}
-			let id = card.call_id.clone();
 			let actions = cx.actions;
 			button_row(ui, |ui| {
 				if icon_label_primary(ui, Icon::Call, tr!("call-accept")).clicked() {
-					let id = id.clone();
+					let id = card.call_id.clone();
 					cx.local.goto = Some(crate::layout::Page::Calls);
 					actions.run(|c| async move { c.accept_call(&id).await });
 				}
 				if icon_label_danger(ui, Icon::HangUp, tr!("call-decline")).clicked() {
-					let id = id.clone();
+					let id = card.call_id.clone();
 					actions.run(|c| async move { c.decline_call(&id).await });
 				}
 				if ui.button(tr!("call-block")).clicked() {
-					let (id, peer) = (id.clone(), card.peer_id.clone());
+					let (id, peer) = (card.call_id.clone(), card.peer_id.clone());
 					actions.run(|c| async move {
 						c.decline_call(&id).await?;
 						c.block_peer(&peer).await
