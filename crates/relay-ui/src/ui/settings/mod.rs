@@ -86,7 +86,7 @@ pub fn show_regular(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 				.id_salt(("settings-page", selected))
 				.auto_shrink([false, false])
 				.show(ui, |ui| {
-					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
+					// Settings uses the whole window next to the categories: no reading-width cap.
 					category_page(ui, selected, cx);
 				});
 		});
