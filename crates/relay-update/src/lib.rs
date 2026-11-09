@@ -1,0 +1,410 @@
+//! Signed self-update for the Relay desktop app. See `docs/updates.md` for the design and the
+//! threat model.
+//!
+//! ```text
+//! let updater = Updater::detect("0.1.0")?; // the running version
+//! if let Some(available) = updater.check()? {                  // one GET: releases/latest
+//!     let verified = updater.download(&available, &mut |p| ControlFlow::Continue(()))?;
+//!     let relaunch = updater.apply(verified)?;                  // swap on disk, start helper
+//!     // quit now: the helper starts the new version once this process has exited
+//! }
+//! ```
+//!
+//! The API is blocking: call it from a worker thread.
+
+pub mod apply;
+mod error;
+pub mod helper;
+pub mod http;
+mod platform;
+#[cfg(unix)]
+mod plist;
+pub mod release;
+pub mod verify;
+pub mod version;
+pub mod zipx;
+
+use std::fs::{self, OpenOptions};
+use std::io::Write;
+use std::ops::ControlFlow;
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+
+use semver::Version;
+use sha2::{Digest, Sha256};
+
+pub use apply::Relaunch;
+pub use error::{Error, Result};
+pub use http::Endpoint;
+pub use platform::{Arch, DetectInput, InstallKind, ManualReason, Os, Platform};
+pub use release::ReleaseDoc;
+
+/// The repository releases are read from. Compiled in; no setting, file or environment variable
+/// can change it.
+pub const REPOSITORY: &str = "PixelSoftwareStudios/Relay";
+
+/// Prefix of the directories downloads are staged in.
+const STAGING_PREFIX: &str = ".relay-update-";
+
+/// What to do with an available release.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Plan {
+	/// Download, verify and replace this installation.
+	InPlace(InstallKind),
+	/// Show the link; this installation is never replaced in place.
+	Manual { release_url: String },
+}
+
+/// A newer release this build may install or show.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct Available {
+	pub version: Version,
+	/// File name of the installer, `None` for [`Plan::Manual`].
+	pub asset_name: Option<String>,
+	/// Bytes of the installer as listed by the release.
+	pub asset_size: Option<u64>,
+	/// The release page (`html_url`), for the release notes.
+	pub release_url: String,
+	pub plan: Plan,
+	package: Option<release::Package>,
+}
+
+/// Download progress; the callback may return `Break` to cancel.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Progress {
+	pub received: u64,
+	pub total: u64,
+}
+
+/// A downloaded installer whose signature and trusted comment verified. Owns a private staging
+/// directory that is deleted on drop.
+#[derive(Debug)]
+pub struct Verified {
+	dir: tempfile::TempDir,
+	payload: PathBuf,
+	version: Version,
+	asset_name: String,
+	sha256: [u8; 32],
+	kind: InstallKind,
+}
+
+impl Verified {
+	pub fn version(&self) -> &Version {
+		&self.version
+	}
+
+	pub fn asset_name(&self) -> &str {
+		&self.asset_name
+	}
+
+	pub fn payload(&self) -> &Path {
+		&self.payload
+	}
+
+	pub fn staging_dir(&self) -> &Path {
+		self.dir.path()
+	}
+
+	pub fn sha256_hex(&self) -> String {
+		self.sha256.iter().map(|b| format!("{b:02x}")).collect()
+	}
+
+	/// The payload must still be the verified bytes: it sat in a private directory, but it is
+	/// hashed again right before use.
+	fn recheck(&self) -> Result<()> {
+		let mut hasher = Sha256::new();
+		let mut file = fs::File::open(&self.payload).map_err(Error::io("reopen the download"))?;
+		std::io::copy(&mut file, &mut hasher).map_err(Error::io("reread the download"))?;
+		if hasher.finalize().as_slice() == self.sha256 {
+			Ok(())
+		} else {
+			Err(Error::PayloadChanged)
+		}
+	}
+}
+
+pub struct Updater {
+	current: Version,
+	platform: Platform,
+	client: http::Client,
+}
+
+impl Updater {
+	/// The production updater: GitHub over HTTPS, the compiled-in key, `Relay/<version>` as the
+	/// User-Agent. Nothing here reads the environment except platform detection.
+	pub fn new(current_version: &str, platform: Platform) -> Result<Self> {
+		Self::build(current_version, platform, Endpoint::github())
+	}
+
+	/// [`Updater::new`] with [`Platform::detect`].
+	pub fn detect(current_version: &str) -> Result<Self> {
+		Self::new(current_version, Platform::detect())
+	}
+
+	/// Tests only: a local endpoint. Not compiled without the `test-util` feature, which no
+	/// dependent enables.
+	#[cfg(any(test, feature = "test-util"))]
+	pub fn with_endpoint(
+		current_version: &str,
+		platform: Platform,
+		endpoint: Endpoint,
+	) -> Result<Self> {
+		Self::build(current_version, platform, endpoint)
+	}
+
+	fn build(current_version: &str, platform: Platform, endpoint: Endpoint) -> Result<Self> {
+		let current = version::parse(current_version)
+			.ok_or_else(|| Error::BadCurrentVersion(current_version.to_owned()))?;
+		let client = http::Client::new(endpoint, &format!("Relay/{current}"));
+		Ok(Self {
+			current,
+			platform,
+			client,
+		})
+	}
+
+	pub fn platform(&self) -> &Platform {
+		&self.platform
+	}
+
+	pub fn endpoint(&self) -> &Endpoint {
+		self.client.endpoint()
+	}
+
+	/// Asks GitHub for the latest release (one request). `None`: nothing newer to offer.
+	pub fn check(&self) -> Result<Option<Available>> {
+		let url = format!(
+			"{}/repos/{REPOSITORY}/releases/latest",
+			self.client.endpoint().api_base
+		);
+		let body =
+			self.client
+				.get_bytes(&url, "application/vnd.github+json", release::MAX_API_BYTES)?;
+		let doc = release::parse(&body)?;
+		self.available_from(&doc)
+	}
+
+	/// The decision part of [`Updater::check`] on an already fetched document.
+	pub fn available_from(&self, doc: &ReleaseDoc) -> Result<Option<Available>> {
+		let endpoint = self.client.endpoint();
+		let Some(selection) =
+			release::select(doc, &self.current, &self.platform, endpoint, REPOSITORY)?
+		else {
+			return Ok(None);
+		};
+		let plan = match &self.platform.install {
+			InstallKind::Manual(_) => Plan::Manual {
+				release_url: selection.release_url.clone(),
+			},
+			kind => Plan::InPlace(kind.clone()),
+		};
+		Ok(Some(Available {
+			version: selection.version,
+			asset_name: selection.package.as_ref().map(|p| p.asset.name.clone()),
+			asset_size: selection.package.as_ref().map(|p| p.asset.size),
+			release_url: selection.release_url,
+			plan,
+			package: selection.package,
+		}))
+	}
+
+	/// Downloads the installer and its signature into a private directory beside the install
+	/// (same filesystem for the final rename) and verifies the signature while streaming.
+	pub fn download(
+		&self,
+		available: &Available,
+		progress: &mut dyn FnMut(Progress) -> ControlFlow<()>,
+	) -> Result<Verified> {
+		let (Plan::InPlace(kind), Some(package)) = (&available.plan, &available.package) else {
+			return Err(Error::ManualOnly);
+		};
+		self.ensure_newer(&available.version)?;
+		if *kind != self.platform.install {
+			return Err(Error::ManualOnly);
+		}
+		#[cfg(unix)]
+		if let InstallKind::MacosBundle { bundle } = kind {
+			apply::macos::preflight(bundle)?;
+		}
+		let dir = staging_dir(kind)?;
+		let key = verify::public_key()?;
+		let signature_text = self.client.get_bytes(
+			&package.signature.url,
+			"application/octet-stream",
+			package.signature.size,
+		)?;
+		if signature_text.len() as u64 != package.signature.size {
+			return Err(Error::SizeMismatch {
+				expected: package.signature.size,
+				received: signature_text.len() as u64,
+			});
+		}
+		let signature =
+			verify::parse_signature(&signature_text, &available.version, &package.asset.name)?;
+		let mut verifier = verify::start(&key, &signature)?;
+		let payload = dir.path().join(&package.asset.name);
+		let mut file = OpenOptions::new()
+			.write(true)
+			.create_new(true)
+			.open(&payload)
+			.map_err(Error::io("create the download file"))?;
+		let mut hasher = Sha256::new();
+		let mut received = 0u64;
+		let mut write_error = None;
+		let total = package.asset.size;
+		let counted = self.client.get(
+			&package.asset.url,
+			"application/octet-stream",
+			total,
+			&mut |chunk, _| {
+				if let Err(error) = file.write_all(chunk) {
+					write_error = Some(error);
+					return ControlFlow::Break(());
+				}
+				verifier.update(chunk);
+				hasher.update(chunk);
+				received += chunk.len() as u64;
+				progress(Progress { received, total })
+			},
+		);
+		if let Some(source) = write_error {
+			return Err(Error::Io {
+				context: "write the download",
+				source,
+			});
+		}
+		let counted = counted?;
+		if counted != total {
+			return Err(Error::SizeMismatch {
+				expected: total,
+				received: counted,
+			});
+		}
+		file.sync_all().map_err(Error::io("flush the download"))?;
+		verify::finish(verifier)?;
+		Ok(Verified {
+			dir,
+			payload,
+			version: available.version.clone(),
+			asset_name: package.asset.name.clone(),
+			sha256: hasher.finalize().into(),
+			kind: kind.clone(),
+		})
+	}
+
+	/// Replaces this installation with the verified installer. On success the caller must quit
+	/// promptly (see [`Relaunch`]).
+	pub fn apply(&self, verified: Verified) -> Result<Relaunch> {
+		self.ensure_newer(&verified.version)?;
+		if verified.kind != self.platform.install {
+			return Err(Error::ManualOnly);
+		}
+		verified.recheck()?;
+		match verified.kind.clone() {
+			#[cfg(unix)]
+			InstallKind::MacosBundle { bundle } => apply::macos::apply(
+				&bundle,
+				&verified.payload,
+				verified.dir.path(),
+				&verified.version,
+			),
+			#[cfg(unix)]
+			InstallKind::LinuxAppImage { path } => {
+				apply::linux::apply(&path, &verified.payload, &verified.version)
+			}
+			#[cfg(windows)]
+			InstallKind::WindowsMsi { dir } => {
+				let hash = verified.sha256_hex();
+				let (payload, version) = (verified.payload.clone(), verified.version.clone());
+				apply::windows::apply_msi(&dir, &payload, &hash, verified.dir.keep(), &version)
+			}
+			#[cfg(windows)]
+			InstallKind::WindowsPortable { dir } => {
+				let (payload, name, version) = (
+					verified.payload.clone(),
+					verified.asset_name.clone(),
+					verified.version.clone(),
+				);
+				apply::windows::apply_portable(&dir, &payload, verified.dir.keep(), &name, &version)
+			}
+			_ => Err(Error::UnsupportedPlatform),
+		}
+	}
+
+	fn ensure_newer(&self, offered: &Version) -> Result<()> {
+		if version::is_offerable(&self.current, offered) {
+			Ok(())
+		} else {
+			Err(Error::NotNewer {
+				offered: offered.to_string(),
+				current: self.current.to_string(),
+			})
+		}
+	}
+}
+
+/// A private (0700) directory beside the installation, on the same filesystem as the final rename.
+fn staging_dir(kind: &InstallKind) -> Result<tempfile::TempDir> {
+	let parent = match kind {
+		InstallKind::MacosBundle { bundle } => bundle.parent(),
+		InstallKind::LinuxAppImage { path } => path.parent(),
+		InstallKind::WindowsPortable { dir } => Some(dir.as_path()),
+		_ => None,
+	};
+	let mut builder = tempfile::Builder::new();
+	builder.prefix(STAGING_PREFIX);
+	// The default is 0o777 minus the umask. Private to the user from the first moment.
+	#[cfg(unix)]
+	{
+		use std::os::unix::fs::PermissionsExt;
+		builder.permissions(fs::Permissions::from_mode(0o700));
+	}
+	match parent {
+		Some(parent) => builder
+			.tempdir_in(parent)
+			.map_err(|_| Error::ParentNotWritable(parent.to_path_buf())),
+		None => builder
+			.tempdir()
+			.map_err(Error::io("create a temporary directory")),
+	}
+}
+
+/// Removes what an earlier update left beside this installation: old bundles and programs moved
+/// aside, and staging directories older than a day (a crashed download). Call once at start.
+pub fn cleanup_leftovers(platform: &Platform) {
+	let parent = match &platform.install {
+		#[cfg(unix)]
+		InstallKind::MacosBundle { bundle } => {
+			apply::macos::cleanup_stale(bundle);
+			bundle.parent()
+		}
+		InstallKind::WindowsPortable { dir } => {
+			apply::windows::cleanup_stale(dir);
+			Some(dir.as_path())
+		}
+		InstallKind::LinuxAppImage { path } => path.parent(),
+		_ => None,
+	};
+	let Some(parent) = parent else { return };
+	let Ok(entries) = fs::read_dir(parent) else {
+		return;
+	};
+	for entry in entries.flatten() {
+		let stale = entry
+			.file_name()
+			.to_string_lossy()
+			.starts_with(STAGING_PREFIX)
+			&& entry
+				.file_type()
+				.is_ok_and(|t| t.is_dir() && !t.is_symlink())
+			&& entry.metadata().and_then(|m| m.modified()).is_ok_and(|t| {
+				SystemTime::now()
+					.duration_since(t)
+					.is_ok_and(|d| d > Duration::from_secs(86_400))
+			});
+		if stale {
+			let _ = fs::remove_dir_all(entry.path());
+		}
+	}
+}

@@ -13,6 +13,7 @@ members = [
 	"crates/relay-ui",
 	"crates/relay-messages",
 	"crates/relay-io",
+	"crates/relay-update",
 	"apps/relay-cli",
 	"apps/relay-daemon",
 	"apps/relay-desktop",
@@ -35,6 +36,7 @@ default-members = [
 	"crates/relay-client",
 	"crates/relay-messages",
 	"crates/relay-io",
+	"crates/relay-update",
 	"crates/relay-ui",
 	"apps/relay-cli",
 	"apps/relay-daemon",
@@ -62,6 +64,7 @@ relay-client = { path = "crates/relay-client" }
 relay-ui = { path = "crates/relay-ui" }
 relay-messages = { path = "crates/relay-messages" }
 relay-io = { path = "crates/relay-io" }
+relay-update = { path = "crates/relay-update" }
 relay-daemon = { path = "apps/relay-daemon" }
 # Test and bench support (dev-dependency only; not a default member)
 relay-testkit = { path = "crates/relay-testkit" }
@@ -197,6 +200,15 @@ sys-locale = "0.3.2"
 notify-rust = { version = "4.18.2", default-features = false, features = ["z"] }
 auto-launch = "0.6.0"
 
+# Self-update (relay-update): blocking HTTPS client on rustls (ring, bundled Mozilla roots, no
+# cookies, no gzip), minisign signature verification, semver ordering and safe zip reading.
+ureq = { version = "3.5.0", default-features = false, features = ["rustls"] }
+minisign-verify = "0.3.0"
+semver = "1.0.28"
+zip = { version = "9.1.3", default-features = false, features = ["deflate-flate2"] }
+# The deflate backend zip uses (pure Rust miniz_oxide, already in the tree)
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
+
 # Errors and diagnostics
 thiserror = "2.0.21"
 anyhow = "1.0.104"
@@ -212,6 +224,8 @@ hound = "3.5.1"
 cpu-time = "1.0.0"
 claxon = "0.4.3"
 sha2 = "0.10"
+# Test-only minisign signer for relay-update (prehashed Ed25519, as the minisign tool writes)
+blake2 = "0.10.6"
 
 [workspace.lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
