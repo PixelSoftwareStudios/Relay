@@ -235,7 +235,7 @@ Permissions and why:
 
 ## Signing and debuggable
 
-`just android-apk` (and the release workflow) runs `assembleDebug`, but the app is built with `debuggable=false` and no minification: a debuggable APK lets anyone with adb or `run-as` read the app's private files. `-Prelay.debuggable=true` turns it back on for a development build, and `scripts/packaging/check_android_apk.py` fails an APK that is debuggable unless `--allow-debuggable` is passed. The APK is still signed with the Gradle debug key, which CI generates fresh for each build, so two releases cannot be installed over each other and Android cannot tell the publisher. A project release key is the maintainer's to create later: generate a keystore, keep it out of the repository, give the workflow its path and passwords as secrets, and point a signing config at it. Until then the debug key stays and the release notes say so.
+`just android-apk` builds a debug-signed APK for development; the release workflow runs `just android-release` (`assembleRelease`), which needs the release key from the environment (see `docs/releasing.md`). Both are built with `debuggable=false` and no minification: a debuggable APK lets anyone with adb or `run-as` read the app's private files. `-Prelay.debuggable=true` turns it back on for a development build, and `scripts/packaging/check_android_apk.py` fails an APK that is debuggable unless `--allow-debuggable` is passed. `scripts/packaging/check_android_signature.py` fails a release APK that is debug-signed or whose signer does not match the published fingerprint.
 
 ## Release file name
 

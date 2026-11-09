@@ -35,7 +35,7 @@ app control it. Nothing leaves your network unless you opt in to an overlay such
   alerts you.
 - **Background availability.** With the setting on, the engine stays reachable (advertises, rings,
   auto-answers) without a window open. On Android this runs as a foreground service.
-- **Desktop, CLI and Android.** Windows, macOS and Linux (x64 and arm64) in releases; Android (arm64) builds from source for now.
+- **Desktop, CLI and Android.** Windows, macOS and Linux (x64 and arm64), and Android (arm64).
 - **Nine languages** in the app: English, German, Spanish, Hindi, Japanese, Korean, Brazilian Portuguese,
   Russian and Simplified Chinese. Only English is reviewed; see [Security and limits](#security-and-limits).
   The CLI is English only.
@@ -56,6 +56,7 @@ Names follow `relay-<version>-<platform>.<ext>`; `<platform>` is `windows-x64`, 
 | Windows | `.msi` installer, or `-portable.zip` | `.zip` |
 | macOS | `.dmg` (also `-update.zip`, used by the self-updater) | `.tar.gz` |
 | Linux | `.AppImage`, `.deb`, `.rpm` or `.tar.gz` | `.tar.gz` |
+| Android | `relay-<version>-android-arm64-v8a.apk` | |
 
 Verify a download with `sha256sum -c SHA256SUMS.txt` (macOS: `shasum -a 256 -c SHA256SUMS.txt`).
 
@@ -65,6 +66,8 @@ Nothing is code-signed by a trusted authority, so each system warns on first run
   (Or allow it under System Settings, Privacy & Security.)
 - **Windows:** installers are unsigned, so SmartScreen shows "Windows protected your PC". Choose
   **More info**, then **Run anyway**.
+- **Android:** the APK is signed with the Relay release key and installed by sideloading: allow "install unknown apps" for your
+  browser or file manager, then open the file. Only 64-bit ARM (arm64-v8a) is built.
 - **Linux:** `chmod +x` the AppImage, or install the `.deb` / `.rpm` with your package manager.
 
 ## Quick start
@@ -88,7 +91,7 @@ relay doctor                   # check devices and setup
 
 All commands, flags, `--json` output and exit codes are in [docs/cli.md](docs/cli.md).
 
-**Android.** Releases do not include the APK yet (it waits for a signing key); build it yourself with `just android-apk` (see below). Install it, grant microphone (and notification) permission, and open the app. Both
+**Android.** Install the APK, grant microphone (and notification) permission, and open the app. Both
 phones must be on the same Wi-Fi. See [docs/android.md](docs/android.md) for what has and has not been
 tested on real hardware. The app has no telemetry, no analytics and no Google services; it asks for
 `INTERNET` only because Android requires it for any network socket, including the local-network ones.
