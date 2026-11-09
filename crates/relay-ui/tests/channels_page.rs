@@ -52,7 +52,10 @@ async fn empty_page_is_one_card_with_two_actions_and_hidden_forms() {
 			.iter()
 			.any(|l| l.contains("never turns your microphone on"))
 	);
-	assert!(top(&drawn, NONE) < top(&drawn, CREATE));
+	// Actions first, then "Your channels" with its empty line, then the network section.
+	assert!(top(&drawn, CREATE) < top(&drawn, "Your channels"));
+	assert!(top(&drawn, "Your channels") < top(&drawn, NONE));
+	assert!(top(&drawn, NONE) < top(&drawn, "Channels on your network"));
 
 	phone.click_label(CREATE);
 	let drawn = phone.settle();

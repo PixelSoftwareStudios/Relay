@@ -5,6 +5,7 @@
 
 channels-heading = 채널
 channels-none = 참가 중인 채널이 없습니다.
+channels-yours = 내 채널
 channel-listed = 공개 목록
 channel-password = 비밀번호
 channel-invite-only = 초대 전용

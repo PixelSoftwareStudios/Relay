@@ -5,6 +5,7 @@
 
 channels-heading = 频道
 channels-none = 你尚未加入任何频道。
+channels-yours = 你的频道
 channel-listed = 公开列出
 channel-password = 密码
 channel-invite-only = 仅限邀请

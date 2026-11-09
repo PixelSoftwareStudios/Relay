@@ -3,6 +3,7 @@
 
 channels-heading = Каналы
 channels-none = Вы не состоите ни в одном канале.
+channels-yours = Ваши каналы
 channel-listed = в списке
 channel-password = пароль
 channel-invite-only = по приглашениям

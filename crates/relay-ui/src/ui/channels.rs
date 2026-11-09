@@ -26,7 +26,6 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	open_join_for_failed_name(local);
 	kit::card(ui, |ui| {
 		if cx.state.channels.is_empty() {
-			ui.label(RichText::new(tr!("channels-none")).size(crate::theme::TEXT_HEADING));
 			kit::help(ui, tr!("channels-none-help"));
 		}
 		action_buttons(ui, local);
@@ -38,11 +37,27 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	});
 	kit::gap(ui);
 	invite_box(ui, actions, local);
-	for channel in &cx.state.channels {
-		kit::card(ui, |ui| channel_row(ui, channel, actions, local));
-		kit::gap(ui);
-	}
+	your_channels(ui, cx);
 	super::channels_nearby::section(ui, cx);
+}
+
+/// "Your channels": the channels this device is in, one calm card with a row each.
+fn your_channels(ui: &mut Ui, cx: &mut Cx) {
+	kit::section_title(ui, tr!("channels-yours"));
+	let (actions, local) = (cx.actions, &mut *cx.local);
+	kit::card(ui, |ui| {
+		let Some(last) = cx.state.channels.len().checked_sub(1) else {
+			ui.label(RichText::new(tr!("channels-none")).color(ui.visuals().weak_text_color()));
+			return;
+		};
+		for (i, channel) in cx.state.channels.iter().enumerate() {
+			channel_row(ui, channel, actions, local);
+			if i < last {
+				ui.separator();
+			}
+		}
+	});
+	kit::gap(ui);
 }
 
 /// A join started from the nearby list was refused (most likely it needs a password): show the

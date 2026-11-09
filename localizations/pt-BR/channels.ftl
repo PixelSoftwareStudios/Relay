@@ -3,6 +3,7 @@
 
 channels-heading = Canais
 channels-none = Você não está em nenhum canal.
+channels-yours = Seus canais
 channel-listed = listado
 channel-password = senha
 channel-invite-only = só por convite

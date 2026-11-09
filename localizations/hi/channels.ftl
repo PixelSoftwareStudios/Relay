@@ -4,6 +4,7 @@
 
 channels-heading = चैनल
 channels-none = आप किसी चैनल में नहीं हैं।
+channels-yours = आपके चैनल
 channel-listed = सूचीबद्ध
 channel-password = पासवर्ड
 channel-invite-only = सिर्फ़ आमंत्रण से

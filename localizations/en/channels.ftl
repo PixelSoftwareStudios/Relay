@@ -6,6 +6,7 @@
 
 channels-heading = Channels
 channels-none = You are not in any channel.
+channels-yours = Your channels
 channel-listed = listed
 channel-password = password
 channel-invite-only = invite only

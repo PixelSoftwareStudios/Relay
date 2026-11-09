@@ -3,6 +3,7 @@
 
 channels-heading = チャンネル
 channels-none = どのチャンネルにも参加していません。
+channels-yours = 参加中のチャンネル
 channel-listed = 公開
 channel-password = パスワード
 channel-invite-only = 招待制
