@@ -48,8 +48,10 @@ programs; the headless archive carries only `relay` and `relayd`, built without 
 | `.msi` | `%ProgramFiles%\Relay\` (all three, install folder added to the machine `PATH`), licences in `doc\` |
 | `.dmg`, `-update.zip` | `Relay.app/Contents/MacOS/{relay-desktop,relay,relayd}` |
 
-The `.app` is ad-hoc signed with one fixed identifier (`dev.relay.relayd`) on all three programs, so
-the keychain designated requirement is by identifier only; Developer ID
+The `.app` is ad-hoc signed with one fixed identifier (`dev.relay.relayd`) on all three programs. The
+identifier alone does NOT make the designated requirement: an ad-hoc signature made with `--identifier`
+and no `-r` has the requirement `cdhash H"..."`, which changes with every build (measured; see
+`docs/updates.md`), so the keychain asks again after each update. Developer ID
 signing and notarization remain open. `relay` inside the bundle is not on `PATH`; link it with
 `ln -s /Applications/Relay.app/Contents/MacOS/relay /usr/local/bin/relay` if wanted. The service
 units from `contrib/` ship as examples only (Linux packages and archives: `relayd.service`; macOS
