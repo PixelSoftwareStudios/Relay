@@ -39,10 +39,16 @@ android-apk abis="arm64-v8a":
 	echo "$apk"
 
 # The release APK: signed with the key in RELAY_KEYSTORE_FILE, _PASSWORD, RELAY_KEY_ALIAS, RELAY_KEY_PASSWORD
-# (CI's android-signing environment). Refuses to run without them or if the result is debug-signed.
+# (CI's android-signing environment, or secrets/android-signing.env locally). Refuses to run without them or if the result is debug-signed.
 android-release:
 	#!/usr/bin/env bash
 	set -euo pipefail
+	# Local signing: an untracked env file (default secrets/android-signing.env, git-ignored) may set the
+	# four variables. CI sets them itself, so the file is only read when one is missing.
+	env_file="${RELAY_SIGNING_ENV:-secrets/android-signing.env}"
+	if [ -z "${RELAY_KEYSTORE_FILE:-}" ] && [ -f "$env_file" ]; then
+		set -a; . "$env_file"; set +a
+	fi
 	for v in RELAY_KEYSTORE_FILE RELAY_KEYSTORE_PASSWORD RELAY_KEY_ALIAS RELAY_KEY_PASSWORD; do
 		[ -n "${!v:-}" ] || { echo "$v is not set: the release APK needs the signing key" >&2; exit 1; }
 	done
