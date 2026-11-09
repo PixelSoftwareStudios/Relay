@@ -9,6 +9,7 @@
 //! - [`operation`]: waiting for an accepted operation to settle.
 //! - [`meter`]: level scaling for meters.
 //! - [`ptt`]: the one push-to-talk lease worker.
+//! - [`reset`]: deleting the local database when the daemon cannot start.
 //!
 //! UI toolkits, argument parsing and each client's own error taxonomy stay in
 //! the apps. Nothing here carries audio.
@@ -21,6 +22,7 @@ pub mod meter;
 pub mod operation;
 pub mod ptt;
 pub mod refresh;
+pub mod reset;
 pub mod wire;
 
 pub use command::{CallAction, CallTarget, ChannelOptions, Command, Secret};
