@@ -157,6 +157,7 @@ pub fn seed() -> AppState {
 			auto_answer_enabled: true,
 			daemon_build_revision: relay_api::BUILD_REVISION.into(),
 			daemon_api_revision: relay_api::API_REVISION,
+			daemon_version: relay_api::VERSION.into(),
 			display_name: "Me".into(),
 			avatar_hash: String::new(),
 			inbound: Inbound::Anyone,

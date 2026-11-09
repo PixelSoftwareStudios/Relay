@@ -149,23 +149,24 @@ async fn a_kept_daemon_is_replaced_by_itself_when_the_call_ends() {
 }
 
 #[test]
-fn only_the_api_revision_decides_whether_a_daemon_is_current() {
+fn the_api_revision_and_release_decide_whether_a_daemon_is_current() {
 	let same_api_other_text = Revision {
 		build: "abcdef123456-dirty".into(),
-		api: Revision::local().api,
+		..Revision::local()
 	};
 	assert!(
 		same_api_other_text.is_current(),
 		"build text is display only"
 	);
 	let older = Revision {
-		build: Revision::local().build,
 		api: Revision::local().api - 1,
+		..Revision::local()
 	};
 	assert!(!older.is_current());
 	let ancient = Revision {
 		build: String::new(),
 		api: 0,
+		version: String::new(),
 	};
 	assert!(
 		!ancient.is_current(),

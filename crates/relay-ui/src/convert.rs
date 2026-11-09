@@ -208,6 +208,7 @@ pub fn settings(s: &pb::Settings) -> Settings {
 		auto_answer_enabled: s.auto_answer_enabled,
 		daemon_build_revision: s.daemon_build_revision.clone(),
 		daemon_api_revision: s.daemon_api_revision,
+		daemon_version: s.daemon_version.clone(),
 		display_name: s.display_name.clone(),
 		avatar_hash: hex::encode(&s.avatar_sha256),
 		// An unspecified value is the conservative reading.

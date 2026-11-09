@@ -324,6 +324,7 @@ message Settings {
   bool background_available = 33; // background.available: stay reachable with no window open; read by the OS shells
   string call_alert = 34; // calls.alert: "system", "ring_and_vibrate", "vibrate" or "silent"
   bool auto_answer_enabled = 35; // calls.auto_answer_enabled: global switch; false ignores every per-contact flag
+  string daemon_version = 36; // release version of the daemon (EngineInfo.application_version); an updated app flags a daemon from another release
 }
 message Snapshot {
   bytes engine_incarnation = 1;

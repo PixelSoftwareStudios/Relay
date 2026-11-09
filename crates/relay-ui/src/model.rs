@@ -216,6 +216,8 @@ pub struct Settings {
 	pub daemon_build_revision: String,
 	/// API revision of the running daemon.
 	pub daemon_api_revision: u32,
+	/// Release version of the running daemon (empty from a daemon that does not report one).
+	pub daemon_version: String,
 	pub display_name: String,
 	/// Hex SHA-256 of the local avatar; empty when none is set.
 	pub avatar_hash: String,
@@ -397,13 +399,16 @@ pub struct AppState {
 }
 
 impl AppState {
-	/// The running daemon speaks another API revision than this app: it is a stale background
-	/// service and should be restarted. Only the API revision decides (the build text may differ
-	/// between binaries of one tree). False until settings arrive.
+	/// The running daemon is not the one this app belongs with: it speaks another API revision,
+	/// or it is another release (an update replaced the app but not the background service that
+	/// was already running). It should be restarted. The build text is ignored (it may differ
+	/// between binaries of one tree); a development tree has one workspace version, so only an
+	/// installed release shows a version difference. False until settings arrive.
 	pub fn daemon_out_of_date(&self) -> bool {
-		self.settings
-			.as_ref()
-			.is_some_and(|s| s.daemon_api_revision != relay_api::API_REVISION)
+		self.settings.as_ref().is_some_and(|s| {
+			s.daemon_api_revision != relay_api::API_REVISION
+				|| s.daemon_version != relay_api::VERSION
+		})
 	}
 }
 

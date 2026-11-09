@@ -39,6 +39,7 @@ fn stale(busy: bool) -> Probe {
 		revision: Revision {
 			build: "0ld0ld0ld0ld".into(),
 			api: relay_api::API_REVISION + 1,
+			version: relay_api::VERSION.into(),
 		},
 		busy,
 		starting: false,

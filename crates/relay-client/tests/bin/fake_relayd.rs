@@ -49,7 +49,7 @@ mod fake {
 	impl Control {
 		fn info(&self) -> EngineInfo {
 			EngineInfo {
-				application_version: "fake".into(),
+				application_version: relay_api::VERSION.into(),
 				api_major: 1,
 				build_revision: relay_api::BUILD_REVISION.into(),
 				api_revision: relay_api::API_REVISION,

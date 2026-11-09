@@ -112,6 +112,7 @@ impl RelayClient {
 		crate::Revision {
 			build: self.info.build_revision.clone(),
 			api: self.info.api_revision,
+			version: self.info.application_version.clone(),
 		}
 	}
 

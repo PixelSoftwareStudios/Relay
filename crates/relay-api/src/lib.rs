@@ -37,7 +37,7 @@ pub use error::ApiError;
 pub use limits::{AVATAR_MAX_BYTES, ApiLimits};
 pub use middleware::{GuardConfig, GuardLayer, SENSITIVE_METHODS, StreamGuard, StreamLimiter};
 pub use registry::{ClientId, ClientRegistry, ClientValidator};
-pub use revision::{API_REVISION, BUILD_REVISION, Revision};
+pub use revision::{API_REVISION, BUILD_REVISION, Revision, VERSION};
 pub use server::{EngineService, engine_server, serve_tcp, serve_tcp_service};
 pub use switch::{EngineSlot, EngineSwitch, LateValidator, StartupControl};
 pub use tcp::{TcpProfile, bind_loopback, profile_path};

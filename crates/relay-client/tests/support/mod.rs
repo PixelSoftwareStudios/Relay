@@ -60,7 +60,7 @@ impl Engine for FakeEngine {
 	async fn get_info(&self, _: Request<Empty>) -> Resp<EngineInfo> {
 		Ok(Response::new(EngineInfo {
 			engine_incarnation: self.registry.incarnation().to_vec(),
-			application_version: "test-engine".into(),
+			application_version: relay_api::VERSION.into(),
 			api_major: 1,
 			api_minor: 0,
 			build_revision: "test".into(),
