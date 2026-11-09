@@ -51,12 +51,10 @@ pub fn show_regular(ui: &mut Ui, choice: &mut Option<SettingsCategory>, cx: &mut
 	*choice = Some(selected);
 	let mut back = false;
 	ui.horizontal(|ui| {
-		if ui
-			.button(format!("\u{2039} {}", tr!("action-back")))
-			.clicked()
-		{
+		if crate::icons::icon_label(ui, crate::icons::Icon::Back, tr!("action-back")).clicked() {
 			back = true;
 		}
+		ui.add_space(theme::SPACE_S);
 		ui.label(
 			RichText::new(tr!("nav-settings"))
 				.size(theme::TEXT_TITLE)
