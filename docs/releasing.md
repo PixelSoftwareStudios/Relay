@@ -17,7 +17,8 @@ for the headless pair (`relay`, `relayd`). Platforms: `windows-x64`, `windows-ar
 | Linux | `.AppImage`, `.deb`, `.rpm`, `.tar.gz` | `.tar.gz` |
 | Android | `relay-<version>-android-arm64-v8a.apk` | |
 
-23 assets plus `SHA256SUMS.txt`. The desktop packages are not code-signed or notarized: macOS apps are ad-hoc signed,
+45 assets plus `SHA256SUMS.txt`: 23 packages (the APK among them) and a `.minisig` signature for each of the
+22 non-APK packages (see "Update signing"). The desktop packages are not code-signed or notarized: macOS apps are ad-hoc signed,
 Windows installers are unsigned. The APK is built non-debuggable and signed with the Relay release key (see
 "Android signing" below); it is arm64-v8a only (64-bit ARM, nearly every phone since about 2016), and the release notes say so.
 
@@ -36,8 +37,10 @@ Windows installers are unsigned. The APK is built non-debuggable and signed with
    - `android`: environment `android-signing`; NDK r28c (`28.2.13676358`) from `nttld/setup-ndk` (pinned, local
      cache) and a version check; then `just android-release` (JDK 21, `aarch64-linux-android`, cargo-ndk),
      renamed by `package_android.py`.
-   - `assemble`: `package_release.py finalize` requires exactly the expected asset set, merges the
-     per-asset `.sha256` files into `SHA256SUMS.txt`, and `sha256sum --check` confirms it.
+   - `sign`: environment `update-signing`, never on pull requests; signs every package but the APK
+     (see "Update signing") and uploads `relay-<version>-signatures`.
+   - `assemble`: `package_release.py finalize` requires exactly the expected asset set (packages and
+     signatures), merges the per-asset `.sha256` files and the signatures' hashes into `SHA256SUMS.txt`, and `sha256sum --check` confirms it.
    - `publish`: creates a draft release, uploads, diffs the uploaded names against `dist/`, and only
      then un-drafts it (prerelease when the version has a `-` suffix). A published release is never
      modified: use a new tag.
@@ -114,13 +117,13 @@ One-time, by the maintainer (the workflows use only the built-in `GITHUB_TOKEN`;
    `0.1.0-rc.1`, run `cargo update --workspace` so `Cargo.lock` agrees (the builds use `--locked`),
    commit, tag `v0.1.0-rc.1` and push the tag. The tag must equal the version, so the real `v0.1.0`
    tag needs the version `0.1.0` back. Afterwards delete the release and the tag.
-6. Look for: all eight jobs green (six `Build ...`, `Build Android APK`, assemble); on Windows the
+6. Look for: all nine jobs green (six `Build ...`, `Build Android APK`, `Sign update packages`, assemble); on Windows the
    "Verify MSI install, repair and uninstall" step; on Linux the package inspection step; a release
-   marked pre-release with 23 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
+   marked pre-release with 45 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
    `.rpm` versions `0.1.0~rc.1`; `gh attestation verify <asset> -R PixelSoftwareStudios/Relay`.
 7. Tag the real release from a green `main` commit: `git tag -a v0.1.0 && git push origin v0.1.0`.
 
-Expected, not defects: nothing is signed. Windows SmartScreen warns; macOS blocks the first launch (Open
+Expected, not defects: the desktop installers are not code-signed (only the update signatures above). Windows SmartScreen warns; macOS blocks the first launch (Open
 Anyway in Privacy & Security); attestations prove which
 workflow built the files, not who the publisher is.
 
@@ -141,6 +144,55 @@ Check a downloaded APK with `apksigner verify --print-certs relay-<version>-andr
 
 Keep an offline backup of the keystore, alias and both passwords. If the key is lost, nobody can update in
 place and everyone has to uninstall first. Rotating it has the same cost.
+
+## Update signing
+
+Every package except the APK and `SHA256SUMS.txt` gets a detached minisign (Ed25519) signature, published as
+`<asset-file-name>.minisig`. The self-updater (`crates/relay-update`) verifies it with the public key compiled in
+from `crates/relay-update/update-key.pub`. The APK keeps its own signing (see above). Total: 23 packages + 22
+signatures = 45 assets, plus `SHA256SUMS.txt`, which covers the signatures too.
+
+**Trusted comment rule.** The signed trusted comment must be exactly `relay-update <version> <asset-file-name>`
+(for example `relay-update 0.1.1 relay-0.1.1-macos-arm64-update.zip`; `<version>` has no `v`). The updater rejects
+a signature whose comment names another version or file, so an old signed package cannot be replayed as a new
+release. `sign_release.py` passes it with `minisign -t`, then verifies every signature with the public key and
+re-checks the comment; any failure fails the job.
+
+**Generating the key (once, by the maintainer, on a trusted machine).**
+
+```sh
+minisign -G -p update-key.pub -s relay-update.key   # asks for a password; use a long random one
+```
+
+Commit `update-key.pub` as `crates/relay-update/update-key.pub` (replacing the test key). Store
+`relay-update.key` and its password in an OFFLINE backup (password manager plus an encrypted drive in another
+place). If the secret key is lost, installed apps can never verify an update again: a new app version with a new
+public key must then be installed by hand on every machine.
+
+**Secrets.** Create the GitHub environment `update-signing` (deployment branches and tags: `main` and `v*`, like
+`android-signing`) with secrets `UPDATE_SIGNING_KEY` (the full content of `relay-update.key`) and
+`UPDATE_SIGNING_PASSWORD`. Only the `sign` job declares the environment, so it is skipped on pull requests. The
+job installs minisign 0.12 from a pinned release URL checked against a SHA-256 (no third-party action sees the
+key), writes the key to a 0600 temp file that is deleted in a `finally` block, and gives the password to minisign
+on stdin, never on a command line.
+
+**Test-key gate.** `update-key.pub` currently holds a TEST-ONLY key. `sign_release.py check-key` (run in the
+`version` and `sign` jobs, outside pull requests) fails when that key equals a key in
+`crates/relay-update/tests/fixtures/*.pub` or a key id in `scripts/packaging/test_update_key_id.txt`, and also
+when neither exists. The Rust test `release_key_is_not_the_test_key` (`cargo test -p relay-update -- --ignored`)
+checks the same.
+
+**Verify by hand.**
+
+```sh
+minisign -Vm relay-0.1.1-linux-x64.deb -P <public key from update-key.pub, second line>
+```
+
+It also prints the trusted comment, which must match the rule above.
+
+**Rotation plan.** (1) Generate the new pair. (2) Release a version whose updater trusts both the old and the new
+public key, still signed with the old key. (3) Once users have it, sign releases with the new key only. (4) A
+later release drops the old key. Skipping step 2 strands every installed app on the old key.
 
 ## Verification status
 

@@ -58,7 +58,7 @@ Names follow `relay-<version>-<platform>.<ext>`; `<platform>` is `windows-x64`, 
 | Linux | `.AppImage`, `.deb`, `.rpm` or `.tar.gz` | `.tar.gz` |
 | Android | `relay-<version>-android-arm64-v8a.apk` | |
 
-Verify a download with `sha256sum -c SHA256SUMS.txt` (macOS: `shasum -a 256 -c SHA256SUMS.txt`).
+Verify a download with `sha256sum -c SHA256SUMS.txt` (macOS: `shasum -a 256 -c SHA256SUMS.txt`). Every package except the APK also has a minisign signature: `minisign -Vm <file> -P <public key>` with the key in [`crates/relay-update/update-key.pub`](crates/relay-update/update-key.pub) (see [docs/releasing.md](docs/releasing.md#update-signing)).
 
 Nothing is code-signed by a trusted authority, so each system warns on first run:
 
