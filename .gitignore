@@ -8,3 +8,8 @@
 /dist
 /apps/relay-android/.kotlin
 __pycache__/
+
+# Signing keys and anything secret: never commit
+/secrets/
+*.jks
+*.keystore
