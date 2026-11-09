@@ -52,6 +52,8 @@ pub struct Local {
 	pub leave_confirm: Option<String>,
 	/// The "Quit daemon" confirmation is showing.
 	pub confirm_quit_daemon: bool,
+	/// The "Reset Relay data" confirmation is showing.
+	pub confirm_reset_data: bool,
 	/// The "Quit this app" confirmation (calls are live) is showing.
 	pub confirm_quit_app: bool,
 

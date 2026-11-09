@@ -268,6 +268,14 @@ impl Shell for DesktopShell {
 		})
 	}
 
+	fn can_reset_data(&self) -> bool {
+		true
+	}
+
+	fn reset_local_data(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(daemon_control::reset_local_data())
+	}
+
 	fn retry_secure_storage(&self) -> BoxFuture<'_, Result<(), String>> {
 		Box::pin(async {
 			let endpoint = resolve_endpoint().map_err(|e| e.to_string())?;

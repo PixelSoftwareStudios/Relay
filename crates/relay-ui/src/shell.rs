@@ -126,6 +126,16 @@ pub trait Shell: FilePicker {
 	fn use_file_storage(&self) -> BoxFuture<'_, Result<(), String>> {
 		Box::pin(async { Err(tr!("err-cannot-start-daemon").to_owned()) })
 	}
+	/// Whether this shell can delete Relay's local database itself, with no daemon (desktops).
+	/// Where it cannot, the UI points to the system's storage settings instead.
+	fn can_reset_data(&self) -> bool {
+		false
+	}
+	/// Delete the local database and avatar cache (never the device identity), refusing while a
+	/// daemon holds them. Never stops a process. The caller starts the daemon again after `Ok`.
+	fn reset_local_data(&self) -> BoxFuture<'_, Result<(), String>> {
+		Box::pin(async { Err(tr!("reset-unsupported").to_owned()) })
+	}
 	/// Ask the daemon to stop. Distinct from [`Shell::quit`], which only
 	/// closes this app.
 	fn stop_daemon(&self) -> BoxFuture<'_, Result<(), String>> {

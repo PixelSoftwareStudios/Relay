@@ -151,3 +151,17 @@ hotkey-reason-taken = 无法注册，可能其他程序已在使用
 hotkey-reason-unsupported = 此会话不允许全局快捷键
 hotkey-reason-permission = 系统尚未允许
 hotkey-reason-other = { $detail }
+
+reset-heading = 重置 Relay 数据
+reset-what = 删除此设备上的 Relay 数据库。守护进程无法启动，或你想从头开始时可以使用。即使守护进程没有运行，也可以使用。
+reset-ask = 重置 Relay 数据…
+reset-confirm-title = 要删除此设备上的所有 Relay 数据吗？
+reset-deletes = 你的联系人和信任设置、历史记录、设置以及头像将被永久删除。
+reset-keeps = 设备身份会保留，因此其他设备仍能识别此设备。之后 Relay 会以空数据重新启动。
+reset-confirm = 删除数据并重新启动
+reset-done = Relay 数据已重置，守护进程正在重新启动。
+reset-unsupported = 在 Android 上，请在系统设置中清除 Relay 的存储（应用、Relay、存储）。
+reset-err-running = Relay 守护进程正在运行并占用数据。请先退出守护进程，再重置。
+reset-err-unavailable = 无法重置 Relay 数据：{ $error }
+reset-err-incomplete = 部分文件无法删除：{ $files }。请关闭正在使用它们的程序后重试。
+limits-reset-hint = 如果守护进程因旧数据而无法启动，可以在“高级”中重置。

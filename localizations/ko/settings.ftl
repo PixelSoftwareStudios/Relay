@@ -151,3 +151,17 @@ hotkey-reason-taken = 등록하지 못했습니다. 다른 프로그램이 이�
 hotkey-reason-unsupported = 이 세션에서는 전역 단축키를 쓸 수 없습니다
 hotkey-reason-permission = 시스템이 아직 허용하지 않았습니다
 hotkey-reason-other = { $detail }
+
+reset-heading = Relay 데이터 초기화
+reset-what = 이 기기의 Relay 데이터베이스를 삭제합니다. 데몬이 시작되지 않거나 처음부터 다시 시작하고 싶을 때 사용하세요. 데몬이 실행 중이 아니어도 동작합니다.
+reset-ask = Relay 데이터 초기화…
+reset-confirm-title = 이 기기의 Relay 데이터를 모두 삭제할까요?
+reset-deletes = 연락처와 신뢰 설정, 기록, 설정, 프로필 사진이 영구적으로 삭제됩니다.
+reset-keeps = 기기 ID는 유지되므로 다른 기기가 이 기기를 계속 알아봅니다. 이후 Relay는 빈 데이터로 다시 시작합니다.
+reset-confirm = 데이터 삭제 후 다시 시작
+reset-done = Relay 데이터를 초기화했고 데몬을 다시 시작하는 중입니다.
+reset-unsupported = Android에서는 시스템 설정(앱, Relay, 저장공간)에서 Relay 저장공간을 지우세요.
+reset-err-running = Relay 데몬이 실행 중이며 데이터를 사용하고 있습니다. 먼저 데몬을 종료한 다음 초기화하세요.
+reset-err-unavailable = Relay 데이터를 초기화하지 못했습니다: { $error }
+reset-err-incomplete = 일부 파일을 삭제하지 못했습니다: { $files }. 해당 파일을 사용하는 프로그램을 닫고 다시 시도하세요.
+limits-reset-hint = 오래된 데이터 때문에 데몬이 시작되지 않으면 고급 설정에서 초기화할 수 있습니다.

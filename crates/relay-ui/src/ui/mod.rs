@@ -35,6 +35,7 @@ mod nav;
 mod nearby;
 mod notice_strip;
 mod outdated;
+mod reset;
 mod settings;
 mod sidebar;
 mod startup;
@@ -360,8 +361,14 @@ impl RelayApp {
 				.show(ui, |ui| {
 					ui.set_max_width(ui.available_width().min(theme::CONTENT_MAX_WIDTH));
 					let expanded = cx.local.notices.expanded;
-					outcome =
-						banners::show(ui, &state, error.as_deref(), &notices, expanded, cx.actions);
+					outcome = banners::show(
+						ui,
+						&state,
+						error.as_deref(),
+						&notices,
+						expanded,
+						(cx.actions, &mut cx.local.confirm_reset_data),
+					);
 					let incoming: Vec<_> = cards.iter().filter(|c| c.incoming).collect();
 					incoming::show(ui, &incoming, &mut cx);
 				});

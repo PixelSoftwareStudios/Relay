@@ -27,7 +27,7 @@ pub fn show(
 	error: Option<&str>,
 	notices: &[Notice],
 	expanded: bool,
-	actions: &Actions,
+	(actions, confirm_reset): (&Actions, &mut bool),
 ) -> Outcome {
 	if state.mock {
 		banner(ui, tr!("banner-mock"), false);
@@ -49,6 +49,10 @@ pub fn show(
 		banner(ui, &text, state.link == Link::Offline);
 		if state.link == Link::Offline && actions.shell.can_manage_daemon() {
 			start_daemon_button(ui, actions);
+		}
+		// A daemon that cannot start (an old database) must not leave the user stuck.
+		if state.link == Link::Offline && actions.shell.can_manage_daemon() {
+			super::reset::controls(ui, actions, confirm_reset);
 		}
 	}
 	if let Some(e) = error {

@@ -52,6 +52,31 @@ impl Actions {
 		self.storage_job(true);
 	}
 
+	/// Delete the local database with no daemon involved, then start the daemon again. Shares
+	/// the daemon busy flag, so it cannot overlap a start or stop.
+	pub fn reset_local_data(&self) {
+		use std::sync::atomic::Ordering;
+		if self.shared.daemon_busy.swap(true, Ordering::AcqRel) {
+			return;
+		}
+		let (shared, shell, hub) = (self.shared.clone(), self.shell.clone(), self.hub.clone());
+		self.runtime.spawn(async move {
+			shared.clear_error();
+			match shell.reset_local_data().await {
+				Ok(()) => {
+					shared.autostart.user_start();
+					match shell.start_daemon().await {
+						Ok(_) => hub.update(|s| s.notice = Some(tr!("reset-done").to_owned())),
+						Err(message) => shared.set_error(message),
+					}
+				}
+				Err(message) => shared.set_error(message),
+			}
+			shared.daemon_busy.store(false, Ordering::Release);
+			shell.request_repaint();
+		});
+	}
+
 	fn storage_job(&self, file_store: bool) {
 		let (shared, shell, hub) = (self.shared.clone(), self.shell.clone(), self.hub.clone());
 		self.runtime.spawn(async move {

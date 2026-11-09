@@ -53,6 +53,7 @@ impl RelayApp {
 		let l = &self.local;
 		l.confirm_quit_app
 			|| l.confirm_quit_daemon
+			|| l.confirm_reset_data
 			|| l.confirm_remove_avatar
 			|| l.history_confirm_clear
 			|| l.revoke_confirm.is_some()
@@ -67,6 +68,7 @@ impl RelayApp {
 		let l = &mut self.local;
 		mem::take(&mut l.confirm_quit_app)
 			|| mem::take(&mut l.confirm_quit_daemon)
+			|| mem::take(&mut l.confirm_reset_data)
 			|| mem::take(&mut l.confirm_remove_avatar)
 			|| mem::take(&mut l.history_confirm_clear)
 			|| l.revoke_confirm.take().is_some()

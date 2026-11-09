@@ -164,6 +164,13 @@ impl Shell for PhoneShell {
 		self.daemon_log.lock().unwrap().push("stop");
 		Box::pin(async { Ok(()) })
 	}
+	fn can_reset_data(&self) -> bool {
+		self.manage_daemon.load(Ordering::SeqCst)
+	}
+	fn reset_local_data(&self) -> BoxFuture<'_, Result<(), String>> {
+		self.daemon_log.lock().unwrap().push("reset");
+		Box::pin(async { Ok(()) })
+	}
 	fn retry_secure_storage(&self) -> BoxFuture<'_, Result<(), String>> {
 		self.daemon_log.lock().unwrap().push("retry");
 		Box::pin(async { Ok(()) })

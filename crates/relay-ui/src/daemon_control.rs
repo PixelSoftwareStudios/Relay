@@ -47,6 +47,39 @@ pub async fn stop(endpoint: &Endpoint) -> Result<(), String> {
 	}
 }
 
+/// The text for a finished reset: nothing on success, or what to do about the failure.
+pub fn reset_message(
+	result: Result<Vec<std::path::PathBuf>, relay_client::reset::ResetError>,
+) -> Result<(), String> {
+	use relay_client::reset::ResetError;
+	match result {
+		Ok(_) => Ok(()),
+		Err(ResetError::DaemonRunning) => Err(tr!("reset-err-running").to_owned()),
+		Err(ResetError::Unavailable(error)) => Err(tr!("reset-err-unavailable", error = error)),
+		Err(ResetError::Incomplete { failed, .. }) => {
+			let files = failed
+				.iter()
+				.map(|(path, why)| {
+					let name = path
+						.file_name()
+						.map_or_else(String::new, |n| n.to_string_lossy().into_owned());
+					format!("{name} ({why})")
+				})
+				.collect::<Vec<_>>()
+				.join(", ");
+			Err(tr!("reset-err-incomplete", files = files))
+		}
+	}
+}
+
+/// Deletes the database and avatar cache of this user (not the identity), off the UI thread.
+pub async fn reset_local_data() -> Result<(), String> {
+	let result = tokio::task::spawn_blocking(relay_client::reset::reset_platform)
+		.await
+		.map_err(|e| e.to_string())?;
+	reset_message(result)
+}
+
 /// Asks the running background service to read the secure storage again.
 pub async fn retry_secure_storage(endpoint: &Endpoint) -> Result<(), String> {
 	let mut client = relay_api::RelayClient::connect(endpoint)

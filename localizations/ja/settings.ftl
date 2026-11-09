@@ -149,3 +149,17 @@ hotkey-reason-taken = 登録できませんでした。ほかのプログラム�
 hotkey-reason-unsupported = このセッションではグローバルショートカットを使えません
 hotkey-reason-permission = システムがまだ許可していません
 hotkey-reason-other = { $detail }
+
+reset-heading = Relay のデータをリセット
+reset-what = このデバイスの Relay のデータベースを削除します。デーモンが起動しないときや、最初からやり直したいときに使います。デーモンが動いていなくても使えます。
+reset-ask = Relay のデータをリセット…
+reset-confirm-title = このデバイスの Relay のデータをすべて削除しますか？
+reset-deletes = 連絡先と信頼の設定、履歴、設定、プロフィール画像が完全に削除されます。
+reset-keeps = デバイスの ID は残るため、ほかのデバイスはこのデバイスを引き続き認識します。その後、Relay は空のデータで再起動します。
+reset-confirm = データを削除して再起動
+reset-done = Relay のデータをリセットし、デーモンを再起動しています。
+reset-unsupported = Android では、システム設定（アプリ、Relay、ストレージ）で Relay のストレージを消去してください。
+reset-err-running = Relay のデーモンが実行中で、データを使用しています。先にデーモンを終了してからリセットしてください。
+reset-err-unavailable = Relay のデータをリセットできませんでした: { $error }
+reset-err-incomplete = 一部のファイルを削除できませんでした: { $files }。それらを使用しているものを閉じて、もう一度お試しください。
+limits-reset-hint = 古いデータが原因でデーモンが起動しない場合は、詳細設定でリセットできます。

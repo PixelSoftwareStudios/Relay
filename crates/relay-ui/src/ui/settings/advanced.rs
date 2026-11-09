@@ -21,6 +21,9 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	kit::card(ui, |ui| daemon(ui, cx, caps));
 	kit::gap(ui);
 	kit::card(ui, |ui| about(ui, cx));
+	kit::gap(ui);
+	let (actions, confirm) = (cx.actions, &mut cx.local.confirm_reset_data);
+	kit::card(ui, |ui| super::super::reset::card(ui, actions, confirm));
 }
 
 fn daemon(ui: &mut Ui, cx: &mut Cx, caps: Capabilities) {

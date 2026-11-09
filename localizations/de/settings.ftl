@@ -152,3 +152,17 @@ hotkey-reason-taken = sie ließ sich nicht reservieren, vielleicht nutzt ein and
 hotkey-reason-unsupported = diese Sitzung erlaubt keine globalen Tastenkombinationen
 hotkey-reason-permission = das System hat es noch nicht erlaubt
 hotkey-reason-other = { $detail }
+
+reset-heading = Relay-Daten zurücksetzen
+reset-what = Löscht die Relay-Datenbank auf diesem Gerät: nützlich, wenn der Daemon nicht startet oder du neu beginnen willst. Das funktioniert auch, wenn der Daemon nicht läuft.
+reset-ask = Relay-Daten zurücksetzen…
+reset-confirm-title = Alle Relay-Daten auf diesem Gerät löschen?
+reset-deletes = Dauerhaft gelöscht werden deine Kontakte samt Vertrauen, dein Verlauf, deine Einstellungen und dein Profilbild.
+reset-keeps = Die Identität dieses Geräts bleibt erhalten, andere Geräte erkennen es also weiterhin. Danach startet Relay mit leeren Daten neu.
+reset-confirm = Daten löschen und neu starten
+reset-done = Die Relay-Daten wurden zurückgesetzt, der Daemon startet neu.
+reset-unsupported = Unter Android lösche den Speicher von Relay in den Systemeinstellungen (Apps, Relay, Speicher).
+reset-err-running = Der Relay-Daemon läuft und verwendet die Daten. Beende zuerst den Daemon und setze dann zurück.
+reset-err-unavailable = Die Relay-Daten konnten nicht zurückgesetzt werden: { $error }
+reset-err-incomplete = Einige Dateien konnten nicht gelöscht werden: { $files }. Schließe alles, was sie verwendet, und versuche es erneut.
+limits-reset-hint = Wenn der Daemon wegen alter Daten nicht startet, kannst du sie unter Erweitert zurücksetzen.

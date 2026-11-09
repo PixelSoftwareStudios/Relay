@@ -7,6 +7,7 @@ use egui::{self, RichText, Ui};
 
 use crate::engine::SettingOutcome;
 use crate::limits_settings::{DEFS, Def, LimitsPanel, outcome_text};
+use crate::model::Link;
 use crate::theme;
 
 use super::super::kit::{self, Cx};
@@ -61,6 +62,9 @@ fn body(ui: &mut Ui, cx: &mut Cx, panel: &mut LimitsPanel) {
 		}
 		Some(Err(message)) => {
 			banner(ui, message, true);
+			if cx.state.link != Link::Connected {
+				kit::help(ui, tr!("limits-reset-hint"));
+			}
 			if ui.button(tr!("action-try-again")).clicked() {
 				panel.requested = false;
 				panel.stored = None;

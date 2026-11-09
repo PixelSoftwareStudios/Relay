@@ -154,3 +154,17 @@ hotkey-reason-taken = it could not be reserved, perhaps another program already 
 hotkey-reason-unsupported = this session does not allow global shortcuts
 hotkey-reason-permission = the system has not allowed it yet
 hotkey-reason-other = { $detail }
+
+reset-heading = Reset Relay data
+reset-what = Deletes Relay's database on this device: use it when the daemon cannot start or you want a clean start. It works even when the daemon is not running.
+reset-ask = Reset Relay data…
+reset-confirm-title = Delete all Relay data on this device?
+reset-deletes = This permanently deletes your contacts and trust, your history, your settings and your profile picture.
+reset-keeps = Your device identity is kept, so other devices still recognize this one. Relay then starts again with empty data.
+reset-confirm = Delete data and restart
+reset-done = Relay data was reset and the daemon is starting again.
+reset-unsupported = On Android, clear Relay's storage in the system settings (Apps, Relay, Storage).
+reset-err-running = The Relay daemon is running and holds the data. Quit the daemon first, then reset.
+reset-err-unavailable = Relay data could not be reset: { $error }
+reset-err-incomplete = Some files could not be deleted: { $files }. Close anything that uses them and try again.
+limits-reset-hint = If the daemon cannot start because of old data, you can reset it under Advanced.
