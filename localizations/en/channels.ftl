@@ -5,7 +5,6 @@
 # See docs/i18n.md.
 
 channels-heading = Channels
-channels-note = A channel decides who can see and call you. It never turns your microphone on.
 channels-none = You are not in any channel.
 channel-listed = listed
 channel-password = password
@@ -53,7 +52,7 @@ connection-fingerprint = Fingerprint { $fingerprint }
 connection-warning = Anyone with this address can call you. It does not make them trusted and gives no access to your microphone.
 connection-qr-too-long = The address is too long for a QR code.
 channel-hidden = hidden
-channels-none-help = Create a channel to talk with several people at once, or join one with an invite.
+channels-none-help = A channel decides who can see and call you, and never turns your microphone on. Create one, or join with an invite.
 connection-copy = Copy address
 connection-error-next = Check that Relay is running in the background, then try again.
 connection-qr-help = Scan this code with another device to add this one.

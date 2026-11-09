@@ -3,7 +3,6 @@
 # Same ids and $variables as localizations/en/channels.ftl. See docs/i18n.md.
 
 channels-heading = चैनल
-channels-note = चैनल तय करता है कि कौन आपको देख सकता है और आपको कॉल कर सकता है। यह आपका माइक्रोफ़ोन कभी चालू नहीं करता।
 channels-none = आप किसी चैनल में नहीं हैं।
 channel-listed = सूचीबद्ध
 channel-password = पासवर्ड
@@ -51,7 +50,7 @@ connection-fingerprint = फ़िंगरप्रिंट { $fingerprint }
 connection-warning = इस पते वाला कोई भी आपको कॉल कर सकता है। इससे वह भरोसेमंद नहीं बनता और माइक्रोफ़ोन की पहुँच भी नहीं मिलती।
 connection-qr-too-long = पता QR कोड के लिए बहुत लंबा है।
 channel-hidden = छिपा हुआ
-channels-none-help = कई लोगों से एक साथ बात करने के लिए चैनल बनाएँ, या आमंत्रण से किसी में शामिल हों।
+channels-none-help = चैनल तय करता है कि कौन आपको देख और कॉल कर सकता है, और यह आपका माइक्रोफ़ोन कभी चालू नहीं करता। चैनल बनाएँ या आमंत्रण से शामिल हों।
 connection-copy = पता कॉपी करें
 connection-error-next = जाँचें कि Relay बैकग्राउंड में चल रहा है, फिर दोबारा कोशिश करें।
 connection-qr-help = इस डिवाइस को जोड़ने के लिए दूसरे डिवाइस से यह कोड स्कैन करें।

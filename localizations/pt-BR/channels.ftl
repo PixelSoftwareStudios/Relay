@@ -2,7 +2,6 @@
 # Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
 
 channels-heading = Canais
-channels-note = Um canal define quem pode ver e ligar para você. Ele nunca liga o seu microfone.
 channels-none = Você não está em nenhum canal.
 channel-listed = listado
 channel-password = senha
@@ -52,7 +51,7 @@ connection-fingerprint = Impressão digital { $fingerprint }
 connection-warning = Qualquer pessoa com este endereço pode ligar para você. Isso não a torna confiável nem dá acesso ao seu microfone.
 connection-qr-too-long = O endereço é longo demais para um código QR.
 channel-hidden = oculto
-channels-none-help = Crie um canal para falar com várias pessoas ao mesmo tempo, ou entre em um com um convite.
+channels-none-help = Um canal define quem pode ver e ligar para você, e nunca liga o seu microfone. Crie um ou entre com um convite.
 connection-copy = Copiar endereço
 connection-error-next = Verifique se o Relay está em execução em segundo plano e tente de novo.
 connection-qr-help = Escaneie este código com outro dispositivo para adicionar este.

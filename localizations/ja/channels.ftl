@@ -2,7 +2,6 @@
 # Project Fluent. Same ids and $variables as localizations/en/channels.ftl. See docs/i18n.md.
 
 channels-heading = チャンネル
-channels-note = チャンネルは、誰があなたを見つけて発信できるかを決めます。マイクがオンになることはありません。
 channels-none = どのチャンネルにも参加していません。
 channel-listed = 公開
 channel-password = パスワード
@@ -48,7 +47,7 @@ connection-fingerprint = フィンガープリント { $fingerprint }
 connection-warning = このアドレスを知っている人は誰でもあなたに発信できます。信頼されるわけではなく、マイクにもアクセスできません。
 connection-qr-too-long = アドレスが長すぎて QR コードにできません。
 channel-hidden = 非公開
-channels-none-help = チャンネルを作成して複数人で話すか、招待で参加してください。
+channels-none-help = チャンネルは誰があなたを見つけて発信できるかを決め、マイクをオンにすることはありません。作成するか、招待で参加してください。
 connection-copy = アドレスをコピー
 connection-error-next = Relay がバックグラウンドで動いているか確認して、もう一度試してください。
 connection-qr-help = 別のデバイスでこのコードをスキャンすると、このデバイスを追加できます。

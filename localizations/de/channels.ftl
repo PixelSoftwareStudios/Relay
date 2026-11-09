@@ -3,7 +3,6 @@
 # Fingerabdruck, Vertrauen, Profilbild, Sitzung, Dateiangebot. See docs/i18n.md.
 
 channels-heading = Kanäle
-channels-note = Ein Kanal bestimmt, wer dich sehen und anrufen kann. Er schaltet nie dein Mikrofon ein.
 channels-none = Du bist in keinem Kanal.
 channel-listed = gelistet
 channel-password = Passwort
@@ -51,7 +50,7 @@ connection-fingerprint = Fingerabdruck { $fingerprint }
 connection-warning = Jeder mit dieser Adresse kann dich anrufen. Sie macht niemanden vertrauenswürdig und gibt keinen Zugriff auf dein Mikrofon.
 connection-qr-too-long = Die Adresse ist für einen QR-Code zu lang.
 channel-hidden = verborgen
-channels-none-help = Erstelle einen Kanal, um mit mehreren Personen gleichzeitig zu sprechen, oder tritt mit einer Einladung bei.
+channels-none-help = Ein Kanal bestimmt, wer dich sehen und anrufen kann, und schaltet nie dein Mikrofon ein. Erstelle einen oder tritt mit einer Einladung bei.
 connection-copy = Adresse kopieren
 connection-error-next = Prüfe, ob Relay im Hintergrund läuft, und versuche es dann erneut.
 connection-qr-help = Scanne diesen Code mit einem anderen Gerät, um dieses hinzuzufügen.

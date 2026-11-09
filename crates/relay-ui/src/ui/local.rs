@@ -10,6 +10,13 @@ use crate::inbox::Invite;
 use crate::model::ConnectionView;
 use crate::tr;
 
+/// The two actions of the Channels page; the chosen one shows its form in place.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum ChannelForm {
+	Create,
+	Join,
+}
+
 #[derive(Default)]
 pub struct NewChannel {
 	pub name: String,
@@ -132,6 +139,8 @@ pub struct Local {
 	pub history_saving: bool,
 
 	pub new_channel: NewChannel,
+	/// Which inline form of the Channels page is open.
+	pub channel_form: Option<ChannelForm>,
 	pub join_target: String,
 	pub join_password: String,
 	pub invite_channel: Option<String>,

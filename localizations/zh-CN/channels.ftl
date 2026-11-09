@@ -4,7 +4,6 @@
 # See docs/i18n.md.
 
 channels-heading = 频道
-channels-note = 频道决定谁能看到并呼叫你，不会开启你的麦克风。
 channels-none = 你尚未加入任何频道。
 channel-listed = 公开列出
 channel-password = 密码
@@ -50,7 +49,7 @@ connection-fingerprint = 指纹 { $fingerprint }
 connection-warning = 任何知道此地址的人都可以呼叫你。这不会让对方成为受信任设备，也不会让对方使用你的麦克风。
 connection-qr-too-long = 地址太长，无法生成二维码。
 channel-hidden = 隐藏
-channels-none-help = 创建频道可与多人同时通话，或通过邀请加入频道。
+channels-none-help = 频道决定谁能看到并呼叫你，不会开启你的麦克风。创建频道，或通过邀请加入。
 connection-copy = 复制地址
 connection-error-next = 请确认 Relay 正在后台运行，然后重试。
 connection-qr-help = 用另一台设备扫描此二维码，即可添加本设备。

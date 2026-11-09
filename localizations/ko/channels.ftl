@@ -4,7 +4,6 @@
 # See docs/i18n.md.
 
 channels-heading = 채널
-channels-note = 채널은 누가 나를 보고 전화할 수 있는지를 정합니다. 마이크를 켜지는 않습니다.
 channels-none = 참가 중인 채널이 없습니다.
 channel-listed = 공개 목록
 channel-password = 비밀번호
@@ -50,7 +49,7 @@ connection-fingerprint = 지문 { $fingerprint }
 connection-warning = 이 주소가 있으면 누구나 나에게 전화할 수 있습니다. 그렇다고 신뢰받는 것은 아니며 마이크에 접근할 수도 없습니다.
 connection-qr-too-long = 주소가 너무 길어 QR 코드로 만들 수 없습니다.
 channel-hidden = 숨김
-channels-none-help = 채널을 만들어 여러 사람과 함께 이야기하거나 초대로 참가하세요.
+channels-none-help = 채널은 누가 나를 보고 전화할 수 있는지를 정하며 마이크를 켜지 않습니다. 채널을 만들거나 초대로 참가하세요.
 connection-copy = 주소 복사
 connection-error-next = Relay가 백그라운드에서 실행 중인지 확인한 뒤 다시 시도하세요.
 connection-qr-help = 다른 기기로 이 코드를 스캔하면 이 기기를 추가할 수 있습니다.

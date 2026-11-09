@@ -2,7 +2,6 @@
 # Translation of localizations/en/channels.ftl; same ids and $variables. See docs/i18n.md.
 
 channels-heading = Canales
-channels-note = Un canal decide quién puede verte y llamarte. Nunca activa tu micrófono.
 channels-none = No estás en ningún canal.
 channel-listed = listado
 channel-password = contraseña
@@ -52,7 +51,7 @@ connection-fingerprint = Huella { $fingerprint }
 connection-warning = Cualquiera con esta dirección puede llamarte. No le da confianza ni acceso a tu micrófono.
 connection-qr-too-long = La dirección es demasiado larga para un código QR.
 channel-hidden = oculto
-channels-none-help = Crea un canal para hablar con varias personas a la vez, o únete a uno con una invitación.
+channels-none-help = Un canal decide quién puede verte y llamarte, y nunca activa tu micrófono. Crea uno o únete con una invitación.
 connection-copy = Copiar dirección
 connection-error-next = Comprueba que Relay se esté ejecutando en segundo plano y vuelve a intentarlo.
 connection-qr-help = Escanea este código con otro dispositivo para añadir este.
