@@ -1,4 +1,4 @@
-//! `relay channel create|join|leave|list|invite|revoke`.
+//! `relay channel create|join|leave|list|nearby|invite|revoke`.
 //!
 //! Passwords and invite tokens are read from a hidden prompt or one line of
 //! stdin, never from arguments, and are not printed or logged. The only secret
@@ -6,7 +6,7 @@
 
 use std::fmt::{self, Display, Formatter};
 
-use relay_api::pb::{ChannelInfo, ChannelPolicy};
+use relay_api::pb::{ChannelInfo, ChannelPolicy, NearbyChannel};
 use serde::Serialize;
 
 use super::resolve::resolve_channel;
@@ -88,6 +88,58 @@ impl Display for ChannelList {
 	}
 }
 
+/// One channel listed on the network.
+#[derive(Debug, Serialize)]
+pub struct NearbyView {
+	pub name: String,
+	pub devices: u32,
+	/// Two channels use this name: join it with its channel id (join code), not by name.
+	pub ambiguous: bool,
+}
+
+impl From<&NearbyChannel> for NearbyView {
+	fn from(c: &NearbyChannel) -> Self {
+		Self {
+			name: c.name.clone(),
+			devices: c.devices,
+			ambiguous: c.ambiguous,
+		}
+	}
+}
+
+/// Channels listed on the network.
+#[derive(Debug, Serialize)]
+#[serde(transparent)]
+pub struct NearbyList(pub Vec<NearbyView>);
+
+impl NearbyList {
+	/// Text table, or the empty-result message.
+	pub fn render(&self, layout: Layout) -> String {
+		if self.0.is_empty() {
+			return "no channels found on your network".into();
+		}
+		let mut t = table::with_header(layout, &["NAME", "DEVICES", "NOTE"]);
+		for c in &self.0 {
+			t.add_row([
+				c.name.clone(),
+				c.devices.to_string(),
+				if c.ambiguous {
+					"ambiguous: two channels use this name, join with its id".to_owned()
+				} else {
+					String::new()
+				},
+			]);
+		}
+		table::render(t)
+	}
+}
+
+impl Display for NearbyList {
+	fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+		f.write_str(&self.render(Layout::detect()))
+	}
+}
+
 /// A minted invite. The text form is the bare token so it can be piped.
 #[derive(Debug, Serialize)]
 pub struct InviteView {
@@ -114,6 +166,10 @@ pub async fn run<C: Manage>(
 			out.emit(&ChannelList(
 				channels.iter().map(ChannelView::from).collect(),
 			))
+		}
+		ChannelCommand::Nearby => {
+			let nearby = client.nearby_channels().await?;
+			out.emit(&NearbyList(nearby.iter().map(NearbyView::from).collect()))
 		}
 		ChannelCommand::Leave { channel } => {
 			let id = channel_id(client, &channel).await?;

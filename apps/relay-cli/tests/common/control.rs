@@ -206,6 +206,9 @@ impl Manage for FakeControl {
 	async fn list_channels(&mut self) -> Result<Vec<ChannelInfo>, ApiError> {
 		Ok(self.snapshot.channels.clone())
 	}
+	async fn nearby_channels(&mut self) -> Result<Vec<relay_api::pb::NearbyChannel>, ApiError> {
+		Ok(self.snapshot.nearby_channels.clone())
+	}
 	async fn create_channel(
 		&mut self,
 		name: &str,

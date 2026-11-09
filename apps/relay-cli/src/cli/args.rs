@@ -259,6 +259,8 @@ pub enum ChannelCommand {
 	},
 	/// List your channels.
 	List,
+	/// List the channels other devices list on your network (not joined yet).
+	Nearby,
 	/// Mint an invite token (printed once; treat it as a secret).
 	Invite {
 		/// Channel name or id prefix.

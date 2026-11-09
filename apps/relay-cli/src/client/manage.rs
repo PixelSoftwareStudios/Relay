@@ -9,7 +9,7 @@ use relay_api::ApiError;
 use relay_api::pb::{
 	AdvertMode, CallHistoryPage, ChannelInfo, ChannelPolicy, ConnectionInfo, CreateChannelRequest,
 	CreateInviteRequest, CreateInviteResponse, InboundPolicy, JoinChannelRequest,
-	LeaveChannelRequest, ListChannelsRequest, Operation, RevokeChannelMemberRequest,
+	LeaveChannelRequest, ListChannelsRequest, NearbyChannel, Operation, RevokeChannelMemberRequest,
 	SetPrivacyRequest, SettingResult, StartCallRequest, start_call_request,
 };
 use relay_client::operation::settle;
@@ -53,6 +53,8 @@ pub trait Manage {
 	) -> Result<Operation, ApiError>;
 	/// Channels this device belongs to.
 	async fn list_channels(&mut self) -> Result<Vec<ChannelInfo>, ApiError>;
+	/// Listed channels other devices advertise on the network (not joined).
+	async fn nearby_channels(&mut self) -> Result<Vec<NearbyChannel>, ApiError>;
 	/// Create a channel owned by this device.
 	async fn create_channel(
 		&mut self,
@@ -192,6 +194,10 @@ impl Manage for RealClient {
 			.await?
 			.into_inner();
 		Ok(response.channels)
+	}
+
+	async fn nearby_channels(&mut self) -> Result<Vec<NearbyChannel>, ApiError> {
+		Ok(self.client_mut().snapshot().await?.nearby_channels)
 	}
 
 	async fn create_channel(
