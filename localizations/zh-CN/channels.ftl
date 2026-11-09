@@ -81,3 +81,5 @@ nearby-devices = { $count } 台设备
 nearby-none = 你的网络中还没有发现频道
 nearby-none-offline = 此设备已离线，看不到其他设备。
 nearby-ambiguous = 有两个频道使用这个名称。请改用代码加入。
+nearby-needs-password = 需要密码
+channel-invite-unlisted = 仅限邀请的频道不会在网络上列出。

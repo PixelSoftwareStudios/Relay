@@ -81,3 +81,5 @@ nearby-devices = 기기 { $count }대
 nearby-none = 네트워크에서 아직 채널을 찾지 못했습니다
 nearby-none-offline = 이 기기는 오프라인이라 다른 기기를 볼 수 없습니다.
 nearby-ambiguous = 두 채널이 같은 이름을 사용합니다. 코드로 참가하세요.
+nearby-needs-password = 비밀번호가 필요합니다
+channel-invite-unlisted = 초대 전용 채널은 네트워크에 표시되지 않습니다.

@@ -35,6 +35,11 @@ impl RelayApp {
 	/// Close the chat, else step out of Settings (a category to the list on
 	/// the phone layout, Settings to the page it was opened from).
 	pub(super) fn step_out(&mut self) -> bool {
+		if self.local.nearby_prompt.take().is_some() {
+			self.local.nearby_focused = false;
+			self.local.nearby_password.clear();
+			return true;
+		}
 		if self.local.chat.take().is_some() {
 			return true;
 		}

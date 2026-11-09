@@ -222,9 +222,19 @@ fn create_form(ui: &mut Ui, actions: &Actions, local: &mut Local) {
 			.hint_text(tr!("channel-name-hint"))
 			.char_limit(32),
 	);
-	ui.checkbox(&mut f.listed, tr!("channel-listed-label"));
+	// An invite-only channel is never named on the network, so the two exclude each other.
+	if f.invite_only {
+		f.listed = false;
+	}
+	ui.add_enabled(
+		!f.invite_only,
+		egui::Checkbox::new(&mut f.listed, tr!("channel-listed-label")),
+	);
 	ui.checkbox(&mut f.password_required, tr!("channel-password-label"));
 	ui.checkbox(&mut f.invite_only, tr!("channel-invite-only-label"));
+	if f.invite_only {
+		kit::help(ui, tr!("channel-invite-unlisted"));
+	}
 	if f.password_required {
 		ui.add(
 			egui::TextEdit::singleline(&mut f.password)

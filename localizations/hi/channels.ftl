@@ -85,3 +85,5 @@ nearby-devices = { $count ->
 nearby-none = आपके नेटवर्क पर अभी कोई चैनल नहीं मिला
 nearby-none-offline = यह डिवाइस ऑफ़लाइन है, इसलिए दूसरे डिवाइस नहीं देख सकता।
 nearby-ambiguous = दो चैनल इसी नाम का उपयोग करते हैं। इसके बजाय कोड से जुड़ें।
+nearby-needs-password = पासवर्ड चाहिए
+channel-invite-unlisted = केवल आमंत्रण वाले चैनल नेटवर्क पर कभी सूचीबद्ध नहीं होते।

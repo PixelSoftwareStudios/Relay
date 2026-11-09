@@ -79,3 +79,5 @@ nearby-devices = { $count } 台のデバイス
 nearby-none = ネットワーク上にチャンネルはまだ見つかっていません
 nearby-none-offline = このデバイスはオフラインのため、他のデバイスを見られません。
 nearby-ambiguous = 同じ名前のチャンネルが 2 つあります。コードで参加してください。
+nearby-needs-password = パスワードが必要です
+channel-invite-unlisted = 招待のみのチャンネルはネットワークに表示されません。

@@ -86,3 +86,5 @@ nearby-devices = { $count ->
 nearby-none = Nenhum canal encontrado na sua rede ainda
 nearby-none-offline = Este dispositivo está offline e não consegue ver outros dispositivos.
 nearby-ambiguous = Dois canais usam este nome. Entre com um código.
+nearby-needs-password = Precisa de senha
+channel-invite-unlisted = Canais só por convite nunca aparecem na rede.
