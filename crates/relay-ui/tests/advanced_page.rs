@@ -53,8 +53,8 @@ async fn the_reset_card_is_short_and_has_no_revision_counter() {
 #[tokio::test]
 async fn back_leaves_settings() {
 	let (mut phone, drawn) = advanced();
-	assert!(drawn.labels.iter().any(|l| l == "Back"));
-	phone.click_label("Back");
+	assert!(phone::has_icon(&drawn, relay_ui::icons::Icon::Back));
+	phone.click_icon(relay_ui::icons::Icon::Back);
 	let after = phone.settle();
 	assert!(
 		!after.labels.iter().any(|l| l == "Storage and limits"),
