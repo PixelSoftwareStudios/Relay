@@ -21,11 +21,18 @@ const ENTRY_HEIGHT: f32 = 36.0;
 /// Room for an entry icon, and its glyph size.
 const ICON_SLOT: f32 = 22.0;
 const ICON_SIZE: f32 = 18.0;
+/// The Relay mark beside the name, and how far it sits below the middle of the row.
+const LOGO_SIZE: f32 = 24.0;
+const LOGO_DROP: f32 = 1.8;
 
 pub fn show(ui: &mut Ui, page: &mut Page, logo: &egui::TextureHandle, cx: &mut Cx, incoming: bool) {
 	ui.add_space(theme::SPACE_S);
 	ui.horizontal(|ui| {
-		ui.image((logo.id(), egui::vec2(24.0, 24.0)));
+		// egui centres the text's whole line box, descender room included, so the letters sit
+		// below the middle of the line; the mark follows them down to centre on the capitals.
+		let (rect, _) = ui.allocate_exact_size(egui::vec2(LOGO_SIZE, LOGO_SIZE), Sense::hover());
+		egui::Image::new((logo.id(), rect.size()))
+			.paint_at(ui, rect.translate(egui::vec2(0.0, LOGO_DROP)));
 		ui.label(RichText::new("Relay").size(theme::TEXT_HEADING).strong());
 	});
 	ui.add_space(theme::SPACE_M);
