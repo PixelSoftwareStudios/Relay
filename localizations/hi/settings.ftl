@@ -123,7 +123,6 @@ advanced-about = जानकारी
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = डिवाइस { $peers } · कॉल { $calls } · चैनल { $channels }
-advanced-revision = संस्करण क्रम { $revision }
 history-setting-label = कॉल इतिहास रखें
 history-setting-help = यह केवल इसी डिवाइस पर याद रखता है कि किसने किसे कॉल किया, कॉल कैसे समाप्त हुआ और कितनी देर चला। यह दूसरे व्यक्ति को कभी नहीं भेजा जाता और किसी भी समय हटाया जा सकता है। बंद होने पर कुछ नया दर्ज नहीं होता और मौजूदा प्रविष्टियाँ आपके हटाने तक बनी रहती हैं।
 setting-unsupported = चल रही बैकग्राउंड सेवा इसका समर्थन नहीं करती: उसे फिर से शुरू करें।
@@ -154,7 +153,6 @@ hotkey-reason-permission = सिस्टम ने अभी इसकी अ�
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay डेटा रीसेट करें
-reset-what = इस डिवाइस पर Relay का डेटाबेस हटाता है: जब डेमन शुरू न हो या आप नए सिरे से शुरू करना चाहें, तब इसका उपयोग करें। डेमन न चल रहा हो तब भी यह काम करता है।
 reset-ask = Relay डेटा रीसेट करें…
 reset-confirm-title = इस डिवाइस का सारा Relay डेटा हटाएँ?
 reset-deletes = आपके संपर्क और भरोसे की सेटिंग, इतिहास, सेटिंग और प्रोफ़ाइल फ़ोटो हमेशा के लिए हट जाएँगे।

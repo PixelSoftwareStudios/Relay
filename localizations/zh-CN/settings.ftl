@@ -122,7 +122,6 @@ advanced-about = 关于
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = 设备 { $peers } · 通话 { $calls } · 频道 { $channels }
-advanced-revision = 修订 { $revision }
 history-setting-label = 保留通话记录
 history-setting-help = 仅在此设备上记住谁呼叫了谁、通话如何结束以及持续了多久。这些内容绝不会发送给对方，并且可以随时清除。关闭后不会记录新的通话，现有条目会保留，直到你清除。
 setting-unsupported = 正在运行的后台服务不支持此项：请重启它。
@@ -153,7 +152,6 @@ hotkey-reason-permission = 系统尚未允许
 hotkey-reason-other = { $detail }
 
 reset-heading = 重置 Relay 数据
-reset-what = 删除此设备上的 Relay 数据库。守护进程无法启动，或你想从头开始时可以使用。即使守护进程没有运行，也可以使用。
 reset-ask = 重置 Relay 数据…
 reset-confirm-title = 要删除此设备上的所有 Relay 数据吗？
 reset-deletes = 你的联系人和信任设置、历史记录、设置以及头像将被永久删除。

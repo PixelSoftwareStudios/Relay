@@ -123,7 +123,6 @@ advanced-about = Info
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Geräte { $peers } · Anrufe { $calls } · Kanäle { $channels }
-advanced-revision = Revision { $revision }
 history-setting-label = Anrufverlauf speichern
 history-setting-help = Merkt sich, wer wen angerufen hat, wie der Anruf endete und wie lange er dauerte, nur auf diesem Gerät. Nichts davon wird an die andere Person gesendet, und der Verlauf lässt sich jederzeit löschen. Ist dies aus, wird nichts Neues aufgezeichnet, und vorhandene Einträge bleiben, bis du sie löschst.
 setting-unsupported = Vom laufenden Hintergrunddienst nicht unterstützt: Starte ihn neu.
@@ -154,7 +153,6 @@ hotkey-reason-permission = das System hat es noch nicht erlaubt
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay-Daten zurücksetzen
-reset-what = Löscht die Relay-Datenbank auf diesem Gerät: nützlich, wenn der Daemon nicht startet oder du neu beginnen willst. Das funktioniert auch, wenn der Daemon nicht läuft.
 reset-ask = Relay-Daten zurücksetzen…
 reset-confirm-title = Alle Relay-Daten auf diesem Gerät löschen?
 reset-deletes = Dauerhaft gelöscht werden deine Kontakte samt Vertrauen, dein Verlauf, deine Einstellungen und dein Profilbild.

@@ -120,7 +120,6 @@ advanced-about = 情報
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = デバイス { $peers } · 通話 { $calls } · チャンネル { $channels }
-advanced-revision = リビジョン { $revision }
 history-setting-label = 通話履歴を保存する
 history-setting-help = 誰が誰に電話したか、どのように終了したか、通話時間を、このデバイスにのみ記録します。相手に送信されることはなく、いつでも削除できます。オフにすると新しい記録は残らず、既存の項目は削除するまで残ります。
 setting-unsupported = 実行中のバックグラウンドサービスは対応していません。再起動してください。
@@ -151,7 +150,6 @@ hotkey-reason-permission = システムがまだ許可していません
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay のデータをリセット
-reset-what = このデバイスの Relay のデータベースを削除します。デーモンが起動しないときや、最初からやり直したいときに使います。デーモンが動いていなくても使えます。
 reset-ask = Relay のデータをリセット…
 reset-confirm-title = このデバイスの Relay のデータをすべて削除しますか？
 reset-deletes = 連絡先と信頼の設定、履歴、設定、プロフィール画像が完全に削除されます。

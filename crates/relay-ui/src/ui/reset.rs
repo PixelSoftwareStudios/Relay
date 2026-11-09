@@ -23,7 +23,7 @@ pub fn controls(ui: &mut Ui, actions: &Actions, confirming: &mut bool) {
 	let busy = actions.shared.daemon_busy.load(Ordering::Acquire);
 	if !*confirming {
 		if ui
-			.add_enabled(!busy, egui::Button::new(tr!("reset-ask")))
+			.add_enabled(!busy, kit::danger_button_widget(tr!("reset-ask")))
 			.clicked()
 		{
 			*confirming = true;
@@ -47,9 +47,8 @@ pub fn controls(ui: &mut Ui, actions: &Actions, confirming: &mut bool) {
 	});
 }
 
-/// Advanced: the card with the explanation above the controls.
+/// Advanced: the card, a title above the controls (the confirmation explains the rest).
 pub fn card(ui: &mut Ui, actions: &Actions, confirming: &mut bool) {
 	kit::card_title(ui, tr!("reset-heading"));
-	kit::help(ui, tr!("reset-what"));
 	controls(ui, actions, confirming);
 }

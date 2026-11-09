@@ -125,7 +125,6 @@ advanced-about = About
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Devices { $peers } · Calls { $calls } · Channels { $channels }
-advanced-revision = Revision { $revision }
 history-setting-label = Keep call history
 history-setting-help = Remembers who called whom, how each call ended and how long it lasted, on this device only. It is never sent to the other person and can be cleared at any time. When this is off, nothing new is recorded and existing entries stay until you clear them.
 setting-unsupported = Not supported by the running background service: restart it.
@@ -156,7 +155,6 @@ hotkey-reason-permission = the system has not allowed it yet
 hotkey-reason-other = { $detail }
 
 reset-heading = Reset Relay data
-reset-what = Deletes Relay's database on this device: use it when the daemon cannot start or you want a clean start. It works even when the daemon is not running.
 reset-ask = Reset Relay data…
 reset-confirm-title = Delete all Relay data on this device?
 reset-deletes = This permanently deletes your contacts and trust, your history, your settings and your profile picture.

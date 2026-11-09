@@ -124,7 +124,6 @@ advanced-about = Acerca de
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = Dispositivos { $peers } · Llamadas { $calls } · Canales { $channels }
-advanced-revision = Revisión { $revision }
 history-setting-label = Guardar el historial de llamadas
 history-setting-help = Recuerda quién llamó a quién, cómo terminó cada llamada y cuánto duró, solo en este dispositivo. Nunca se envía a la otra persona y se puede borrar en cualquier momento. Si está desactivado, no se registra nada nuevo y las entradas existentes permanecen hasta que las borres.
 setting-unsupported = El servicio en segundo plano en ejecución no lo admite: reinícialo.
@@ -155,7 +154,6 @@ hotkey-reason-permission = el sistema todavía no lo ha permitido
 hotkey-reason-other = { $detail }
 
 reset-heading = Restablecer los datos de Relay
-reset-what = Elimina la base de datos de Relay de este dispositivo: úsalo cuando el daemon no pueda iniciarse o quieras empezar de cero. Funciona incluso con el daemon detenido.
 reset-ask = Restablecer los datos de Relay…
 reset-confirm-title = ¿Eliminar todos los datos de Relay de este dispositivo?
 reset-deletes = Se eliminan para siempre tus contactos y la confianza concedida, tu historial, tus ajustes y tu foto de perfil.

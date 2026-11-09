@@ -20,10 +20,10 @@ pub fn show(ui: &mut Ui, cx: &mut Cx) {
 	outdated::card(ui, cx);
 	kit::card(ui, |ui| daemon(ui, cx, caps));
 	kit::gap(ui);
-	kit::card(ui, |ui| about(ui, cx));
-	kit::gap(ui);
 	let (actions, confirm) = (cx.actions, &mut cx.local.confirm_reset_data);
 	kit::card(ui, |ui| super::super::reset::card(ui, actions, confirm));
+	kit::gap(ui);
+	kit::card(ui, |ui| about(ui, cx));
 }
 
 fn daemon(ui: &mut Ui, cx: &mut Cx, caps: Capabilities) {
@@ -102,7 +102,6 @@ fn about(ui: &mut Ui, cx: &mut Cx) {
 				calls = cx.state.calls.len(),
 				channels = cx.state.channels.len()
 			));
-			ui.label(tr!("advanced-revision", revision = cx.state.revision));
 		});
 	}
 }

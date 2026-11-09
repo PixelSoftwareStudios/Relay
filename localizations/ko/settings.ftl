@@ -122,7 +122,6 @@ advanced-about = 정보
 advanced-app-version = Relay { $version }
 advanced-api = API { $major }.{ $minor }
 advanced-counts = 기기 { $peers } · 통화 { $calls } · 채널 { $channels }
-advanced-revision = 리비전 { $revision }
 history-setting-label = 통화 기록 보관
 history-setting-help = 누가 누구에게 전화했는지, 통화가 어떻게 끝났는지, 얼마나 오래 했는지를 이 기기에만 기억합니다. 상대방에게 전송되지 않으며 언제든 삭제할 수 있습니다. 끄면 새 기록은 저장되지 않고 기존 항목은 삭제할 때까지 남아 있습니다.
 setting-unsupported = 실행 중인 백그라운드 서비스가 지원하지 않습니다. 다시 시작하세요.
@@ -153,7 +152,6 @@ hotkey-reason-permission = 시스템이 아직 허용하지 않았습니다
 hotkey-reason-other = { $detail }
 
 reset-heading = Relay 데이터 초기화
-reset-what = 이 기기의 Relay 데이터베이스를 삭제합니다. 데몬이 시작되지 않거나 처음부터 다시 시작하고 싶을 때 사용하세요. 데몬이 실행 중이 아니어도 동작합니다.
 reset-ask = Relay 데이터 초기화…
 reset-confirm-title = 이 기기의 Relay 데이터를 모두 삭제할까요?
 reset-deletes = 연락처와 신뢰 설정, 기록, 설정, 프로필 사진이 영구적으로 삭제됩니다.
