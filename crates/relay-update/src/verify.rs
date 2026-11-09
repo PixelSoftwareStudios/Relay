@@ -17,9 +17,16 @@ pub fn trusted_comment(version: &Version, asset_name: &str) -> String {
 }
 
 pub fn public_key() -> Result<PublicKey> {
-	PublicKey::decode(PUBLIC_KEY)
-		.map_err(|e| Error::SignatureInvalid(format!("compiled-in key: {e}")))
+	decode_key(PUBLIC_KEY)
 }
+
+pub(crate) fn decode_key(text: &str) -> Result<PublicKey> {
+	PublicKey::decode(text).map_err(|e| Error::SignatureInvalid(format!("bad public key: {e}")))
+}
+
+/// The TEST-ONLY key. Only compiled for tests; production code cannot reach it.
+#[cfg(any(test, feature = "test-util"))]
+pub const TEST_ONLY_PUBLIC_KEY: &str = include_str!("../tests/fixtures/TEST-ONLY-update-key.pub");
 
 /// Decodes a `.minisig` and checks its trusted comment text (the cryptographic check of that
 /// comment happens in [`finish`]).
@@ -51,14 +58,14 @@ pub fn finish(mut verifier: StreamVerifier<'_>) -> Result<()> {
 
 /// Verifies a whole in-memory payload (used by tests and small files).
 pub fn verify_bytes(
+	key: &PublicKey,
 	payload: &[u8],
 	raw_signature: &[u8],
 	version: &Version,
 	asset_name: &str,
 ) -> Result<()> {
-	let key = public_key()?;
 	let signature = parse_signature(raw_signature, version, asset_name)?;
-	let mut verifier = start(&key, &signature)?;
+	let mut verifier = start(key, &signature)?;
 	verifier.update(payload);
 	finish(verifier)
 }

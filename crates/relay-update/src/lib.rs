@@ -128,13 +128,20 @@ pub struct Updater {
 	current: Version,
 	platform: Platform,
 	client: http::Client,
+	/// The key every download must verify against: the compiled-in release key, except in tests.
+	key: minisign_verify::PublicKey,
 }
 
 impl Updater {
 	/// The production updater: GitHub over HTTPS, the compiled-in key, `Relay/<version>` as the
 	/// User-Agent. Nothing here reads the environment except platform detection.
 	pub fn new(current_version: &str, platform: Platform) -> Result<Self> {
-		Self::build(current_version, platform, Endpoint::github())
+		Self::build(
+			current_version,
+			platform,
+			Endpoint::github(),
+			verify::public_key()?,
+		)
 	}
 
 	/// [`Updater::new`] with [`Platform::detect`].
@@ -150,10 +157,31 @@ impl Updater {
 		platform: Platform,
 		endpoint: Endpoint,
 	) -> Result<Self> {
-		Self::build(current_version, platform, endpoint)
+		let key = verify::decode_key(verify::TEST_ONLY_PUBLIC_KEY)?;
+		Self::build(current_version, platform, endpoint, key)
 	}
 
-	fn build(current_version: &str, platform: Platform, endpoint: Endpoint) -> Result<Self> {
+	/// Tests only: a local endpoint but the real compiled-in key (to prove test signatures fail).
+	#[cfg(any(test, feature = "test-util"))]
+	pub fn with_endpoint_release_key(
+		current_version: &str,
+		platform: Platform,
+		endpoint: Endpoint,
+	) -> Result<Self> {
+		Self::build(current_version, platform, endpoint, verify::public_key()?)
+	}
+
+	/// Untrusted comment of the key downloads are verified against.
+	pub fn key_comment(&self) -> Option<&str> {
+		self.key.untrusted_comment()
+	}
+
+	fn build(
+		current_version: &str,
+		platform: Platform,
+		endpoint: Endpoint,
+		key: minisign_verify::PublicKey,
+	) -> Result<Self> {
 		let current = version::parse(current_version)
 			.ok_or_else(|| Error::BadCurrentVersion(current_version.to_owned()))?;
 		let client = http::Client::new(endpoint, &format!("Relay/{current}"));
@@ -161,6 +189,7 @@ impl Updater {
 			current,
 			platform,
 			client,
+			key,
 		})
 	}
 
@@ -228,7 +257,6 @@ impl Updater {
 			apply::macos::preflight(bundle)?;
 		}
 		let dir = staging_dir(kind)?;
-		let key = verify::public_key()?;
 		let signature_text = self.client.get_bytes(
 			&package.signature.url,
 			"application/octet-stream",
@@ -242,7 +270,7 @@ impl Updater {
 		}
 		let signature =
 			verify::parse_signature(&signature_text, &available.version, &package.asset.name)?;
-		let mut verifier = verify::start(&key, &signature)?;
+		let mut verifier = verify::start(&self.key, &signature)?;
 		let payload = dir.path().join(&package.asset.name);
 		let mut file = OpenOptions::new()
 			.write(true)

@@ -3,7 +3,8 @@
 `crates/relay-update` is the core of the desktop self-update: check GitHub Releases, download one
 signed asset, verify it, replace the installation in place, and hand the relaunch to a detached
 helper. It has no UI and no daemon control. Release signing is `scripts/packaging/sign_release.py`
-and the release workflow; the update dialog is a later UI round.
+and the release workflow. The desktop integration (button, settings, host wiring) is described in
+"Desktop behaviour" below.
 
 Status: written and tested on the build host (macOS arm64). **Windows apply is UNVERIFIED on a real
 Windows machine**, the macOS apply was not run against a real signed bundle, and the Linux AppImage
@@ -81,11 +82,12 @@ exactly that folder, which is harmless). An executable under a Cargo `target/` d
 
 Not verified or not protected:
 
-- **The signing key itself.** `update-key.pub` is the TEST-ONLY key until the maintainer replaces it
-  (`crates/relay-update/UPDATE_KEY.md`; `cargo test -p relay-update -- --ignored
-  release_key_is_not_the_test_key` fails until then and belongs in the release job). Whoever has the
-  signing secret can ship code to every user; there is no key rotation, revocation or expiry. Losing the
-  key means shipping a build with a new compiled-in key by hand.
+- **The signing key itself.** `update-key.pub` is the real release key (id `92AC5C640F5EEC91`). Whoever
+  has the signing secret can ship code to every user; there is no revocation or expiry. The TEST-ONLY
+  key lives only in `crates/relay-update/tests/fixtures` and is trusted only by the test-only
+  constructor; `cargo test -p relay-update -- --ignored release_key_is_not_the_test_key` guards the
+  release job. Rotation: `crates/relay-update/UPDATE_KEY.md` (a release signed with the old key must
+  carry the new key first).
 - **Rollback by an attacker who can serve an older signed release as "latest"** is limited by the
   strictly-newer rule and the trusted comment, but a frozen "latest" (withholding updates) is not
   detectable.
@@ -110,9 +112,9 @@ stripped of anything after a `?`.
 
 ## No override
 
-The endpoint, host list, repository and key are constants and `include_str!` data. The production
-constructors `Updater::new` / `Updater::detect` cannot be given an endpoint. `Updater::with_endpoint`
-exists only under `cfg(test)` or the `test-util` feature; `relay-update` enables it for its own tests
+The endpoint, host list, repository and key (a field of `Updater`, set from the compiled-in key) are constants and `include_str!` data. The production
+constructors `Updater::new` / `Updater::detect` cannot be given an endpoint. `Updater::with_endpoint` (which also swaps in the TEST-ONLY key) and `with_endpoint_release_key`
+exist only under `cfg(test)` or the `test-util` feature; `relay-update` enables it for its own tests
 through a self dev-dependency, and no dependent crate may enable it. A test greps the sources for
 `env::var` (only platform detection and `%SystemRoot%` are allowed) and `set_var`. Environment variables
 read: `APPIMAGE`, `ProgramFiles`, `ProgramW6432` (detection) and `SystemRoot` (to find
@@ -191,16 +193,14 @@ run the image with `--appimage-extract-and-run` have no `$APPIMAGE` and are `Man
 ## The old daemon after an update
 
 This crate never stops the daemon. On macOS and Linux the old `relayd` keeps running from the replaced
-(now unlinked or moved-aside) file. Read in `crates/relay-ui/src/model.rs` and
-`crates/relay-api/src/revision.rs`: the "background service is out of date" card
-(`crates/relay-ui/src/ui/outdated.rs`) appears when `daemon_api_revision != API_REVISION`. **That only
-covers a release that bumps `API_REVISION`.** An update between two versions with the same API revision
-(the common case) leaves an old daemon running and the card never shows. `BUILD_REVISION` is the git
-commit (and `-dirty`) and is deliberately not compared. What is missing for self-update: the daemon must
-report its crate version (or the UI must compare it) and `daemon_out_of_date` must also be true when
-the daemon's version differs from the app's in a release build, or every release must bump
-`API_REVISION`. Not changed here (relay-ui is outside this task). The existing restart button is
-already disabled during a call, which is the behaviour wanted after an update too.
+(now unlinked or moved-aside) file. The daemon therefore reports its release version
+(`Settings.daemon_version`, from the workspace version; `EngineInfo.application_version` feeds
+`Revision.version` for the CLI) and `AppState::daemon_out_of_date` is true when either the API revision
+or the release version differs from the app's. The existing out-of-date card and its Restart (disabled
+while a call is active, so a call is never ended without the user doing it) cover an update between two
+versions with the same API revision. `BUILD_REVISION` is still display only. A development tree has one
+workspace version, so only an installed release that an update replaced shows the card. On Windows the
+app stops its own daemon right before `apply` (see below).
 
 ## Dependencies
 
@@ -232,4 +232,40 @@ device entries, zip bombs, bundle checks, macOS swap and rollback on fake bundle
 full of shell metacharacters stays a path), Windows portable swap, rollback and PowerShell encoding, the
 production-endpoint constant and the no-`env::var` guard. All local: a private temp directory per test and
 a loopback server; no network, no real app, data directory, keychain, socket or process is touched.
-`release_key_is_not_the_test_key` is `#[ignore]`d and fails while the test key is compiled in.
+`release_key_is_not_the_test_key` is `#[ignore]`d and passes with the real key. A test-key signature is rejected by a release-key updater.
+
+## Desktop behaviour
+
+`relay-ui` does not depend on `relay-update` (Android shares it and must not carry `ureq` or `zip`).
+The shell trait has default methods that say "no": `can_self_update`, `check_for_update`,
+`install_update`, `open_release`, `update_check_on_launch`. `apps/relay-desktop/src/updates.rs` holds
+the only dependency on this crate, behind `UpdateSource` (tests use a fake; nothing in the tests touches
+the network, the real data directory, keychain or socket).
+
+- **The one internet call.** The update check (`GET api.github.com/repos/.../releases/latest`) is the
+  only request the app makes to the internet. It sends the HTTPS request itself (GitHub sees the IP
+  address and the `Relay/<version>` User-Agent) and nothing else; no telemetry, no identifiers. It runs
+  only (1) once, about four seconds after the window is up, when the user turned on "Check for updates
+  when Relay starts" (`updates.check_on_launch`, off by default), or (2) when the user presses "Check for
+  updates". Never in the background, never on a timer. Downloads happen only after the user presses
+  "Update to <version>" and go to the allow-listed GitHub hosts only.
+- **Where the switch lives.** `check_updates_on_launch` in the per-user `desktop.toml` (`DesktopPrefs`),
+  not in the daemon's settings, so it works when the daemon is broken or missing.
+- **Where the UI is.** The sidebar button sits right above the Settings entry; progress replaces the
+  label (`Downloading N%`, `Checking signature...`, `Installing...`); a failure is one calm sentence and
+  a Try again button; a copy that cannot install itself (deb, rpm, tarball, development build:
+  `Plan::Manual`) gets a View release button that opens the release page. While a call is active the
+  button is disabled with "Finish your call first." because applying quits the app. The compact layout
+  has no sidebar, so the same controls are in Settings, Startup, "Updates" (that page already holds the
+  app's own lifecycle switches and is shown whenever the shell can update itself).
+- **Errors.** `failure_of` maps `relay_update::Error` to `UpdateFailure`: network errors; a quarantined
+  app (move it to Applications); a read-only volume; an unwritable folder; incomplete or damaged
+  downloads; and every security failure (signature, signed comment, host, archive, code signature) as
+  "the update was NOT installed" without any way around the check. The technical text goes to the log.
+- **Install.** Worker thread (`spawn_blocking`), progress callbacks, cancel when the app quits. The
+  session's daemon autostart is paused for the install (undone on failure). On Windows the app stops its
+  own daemon (the normal admin stop, never a foreign process) just before `apply`, because it holds the
+  exe/MSI files. After `apply` succeeds the app quits through the normal quit path and the helper
+  starts the new version. `cleanup_leftovers` runs once at start.
+- **Not verified here.** Windows apply, the real macOS signed-bundle apply and the Linux AppImage apply
+  (see the status at the top); the UI flow was exercised with fakes only.
