@@ -119,10 +119,14 @@ pub struct Raw {
 impl Raw {
 	/// Handshakes with `addr` and exchanges `Hello`.
 	pub async fn connect(addr: std::net::SocketAddr, name: &str) -> Self {
+		Self::connect_as(Identity::generate().unwrap(), addr, name).await
+	}
+
+	/// Like `connect`, with a chosen identity (a second link of the same device).
+	pub async fn connect_as(identity: Identity, addr: std::net::SocketAddr, name: &str) -> Self {
 		use relay_net::control::{control_channel, new_envelope, new_hello};
 		use relay_net::handshake::initiate;
 		use relay_net::proto::envelope::Body;
-		let identity = Identity::generate().unwrap();
 		let mut stream = tokio::net::TcpStream::connect(addr).await.unwrap();
 		let session = Arc::new(initiate(&mut stream, &identity, None).await.unwrap());
 		let (mut sender, mut receiver) = control_channel(stream, session);

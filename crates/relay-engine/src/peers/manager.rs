@@ -33,6 +33,19 @@ const DISCOVERY_TTL: std::time::Duration = std::time::Duration::from_secs(120);
 /// Period of the manager's own upkeep.
 const UPKEEP: std::time::Duration = std::time::Duration::from_secs(5);
 
+/// How long a superseded link stays open after its replacement is installed. The peer may
+/// still be finishing the replacement's handshake; closing the old link first would look to
+/// it like the peer going away and interrupt a live call.
+const SUPERSEDED_GRACE: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Keeps a link that lost the election open for [`SUPERSEDED_GRACE`], then closes it.
+fn hold_superseded(link: Established) {
+	tokio::spawn(async move {
+		tokio::time::sleep(SUPERSEDED_GRACE).await;
+		drop(link);
+	});
+}
+
 enum Outbox {
 	Sent,
 	Full,
@@ -435,7 +448,9 @@ impl Actor {
 				return;
 			}
 			previously_up = old.domain_up;
-			self.links.remove(&old_id);
+			if let Some(superseded) = self.links.remove(&old_id) {
+				hold_superseded(superseded.link);
+			}
 			self.untrusted.release(&old_id);
 		}
 		self.canonical.insert(peer, link.id);

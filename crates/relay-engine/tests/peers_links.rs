@@ -224,3 +224,41 @@ async fn link_loss_reports_down_and_reconnects_with_backoff() {
 	expect(&mut a.output, is_link_up).await;
 	assert_eq!(peer_id(&b_identity.fingerprint()), revived.id());
 }
+
+/// Resolves when the link ends (the far side closed it).
+async fn closed(raw: &mut support_peers::Raw) {
+	while raw.receiver.recv().await.is_ok() {}
+}
+
+/// A link replaced through the election stays open for a while: the peer may still be
+/// completing the new handshake, and a link that vanished first would read as the peer going
+/// away (a live call would be interrupted).
+#[tokio::test]
+async fn a_superseded_link_is_not_closed_before_the_peer_has_the_new_one() {
+	use relay_net::identity::Identity;
+	let a = peer("alpha").await;
+	let addr = a.handle.local_addr();
+	// Two links dialled by the same device tie on the dialler; the higher random epoch
+	// wins, so the replacement happens about every other attempt.
+	for attempt in 1..=40u8 {
+		let device = || Identity::from_secret_bytes([attempt; 32]).unwrap();
+		let mut first = support_peers::Raw::connect_as(device(), addr, "device").await;
+		let mut second = support_peers::Raw::connect_as(device(), addr, "device").await;
+		let outcome = timeout(Duration::from_millis(400), async {
+			tokio::select! {
+				() = closed(&mut first) => 1,
+				() = closed(&mut second) => 2,
+			}
+		})
+		.await;
+		match outcome {
+			// The new link lost the election: the old one carries on and the new one closes.
+			Ok(2) => continue,
+			// The old link was cut at once, ahead of the new one being settled.
+			Ok(_) => panic!("the superseded link was closed immediately"),
+			// The replacement happened and the old link is still held open.
+			Err(_) => return,
+		}
+	}
+	panic!("no replacement happened in 40 attempts");
+}
