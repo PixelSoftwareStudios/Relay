@@ -52,9 +52,9 @@ class ReleaseTests(unittest.TestCase):
     def test_asset_names_cover_every_platform(self):
         v = self.version
         names = release.expected_assets(v)
-        self.assertEqual(len(names), 23)
+        self.assertEqual(len(names), 22)
+        self.assertFalse(any(n.endswith('.apk') for n in names))
         for expected in (
-                f"relay-{v}-android-arm64-v8a.apk",
                 f"relay-{v}-windows-x64.msi", f"relay-{v}-windows-arm64-portable.zip",
                 f"relay-cli-{v}-windows-x64.zip",
                 f"relay-{v}-macos-arm64.dmg", f"relay-{v}-macos-arm64-update.zip",
@@ -121,7 +121,7 @@ class ReleaseTests(unittest.TestCase):
         self.full_set()
         release.verify_assets(self.version, self.output, finalize=True)
         sums = (self.output / "SHA256SUMS.txt").read_text().splitlines()
-        self.assertEqual(len(sums), 23)
+        self.assertEqual(len(sums), 22)
         self.assertFalse(list(self.output.glob("*.sha256")))
         release.verify_assets(self.version, self.output)
 
@@ -145,11 +145,8 @@ class ReleaseTests(unittest.TestCase):
         text = release.release_notes(self.version, "### Features\n- one\n")
         self.assertIn("- one", text)
         self.assertIn(f"relay-{self.version}-macos-arm64-update.zip", text)
-        self.assertIn(f"relay-{self.version}-android-arm64-v8a.apk", text)
-        self.assertIn("64-bit ARM", text)
-        self.assertIn("Other ABIs", text)
+        self.assertNotIn("apk", text.lower())
         self.assertIn("not code-signed", text)
-        self.assertIn("debug key", text)
         self.assertNotIn("CHANGELOG.md", text)
         with self.assertRaises(ValueError):
             release.release_notes(self.version, "  \n")
