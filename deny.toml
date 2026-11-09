@@ -48,6 +48,9 @@ allow = [
 
 # Narrow, reviewed exceptions: not allowed anywhere else.
 exceptions = [
+	# Mozilla's root certificate list as data, bundled by the updater's HTTPS client (ureq/rustls) so
+	# update checks do not depend on locally installed roots. Permissive; no copyleft.
+	{ allow = ["CDLA-Permissive-2.0"], crate = "webpki-roots" },
 	# File-level copyleft; used unmodified through `directories`.
 	{ allow = ["MPL-2.0"], crate = "option-ext" },
 	# File-level copyleft; the custom-ringtone decoder, used unmodified (redistributing the source of
