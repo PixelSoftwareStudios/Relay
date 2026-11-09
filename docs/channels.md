@@ -293,6 +293,36 @@ only for `mono()`; tests move both with `advance`.
 - `RelayClient::create_invite` and the desktop client do not yet read
   `CreateInviteResponse.operation`; a failed invite arrives there with an empty `invite`.
 
+## Channels on your network
+
+A channel is *listed* when its creator chose so (`Policy::listed`). A listed channel advertises its
+name and id in clear in the mDNS record, so every device on the LAN can read them. That is the
+creator's choice: an unlisted channel advertises only blinded tags. Relay shows the listed channels
+of other devices in **Channels on your network** (UI), `relay channel nearby` (CLI) and
+`Snapshot.nearby_channels` (API) so a name is something you can pick instead of typing.
+
+- What is shown: the name, how many distinct devices (by advertised instance id) advertise it, and
+  whether it is *ambiguous*. The id is not exposed; joining goes through `JoinChannel{name}`.
+  Seeing a channel here proves nothing about it and grants nothing: joining still needs the
+  password or invite the channel asks for, and the channel's admitter must accept.
+- Expiry: a device that was not heard for 120 s (`LISTED_TTL`) stops counting; a name with no
+  device left disappears (the 1 s upkeep tick prunes and publishes). A device advertising again
+  within that time keeps it alive. Time is the channel `Clock`, so tests move it.
+- Excluded: channels this device is already in.
+- Ambiguity rule: a name seen with two different ids, or equal to the name of a channel this
+  device is in, is shown as ambiguous and **cannot be joined by name** (`CHANNEL_DENIED`); it is
+  never silently bound to the first id seen. It stays ambiguous while any device advertises it
+  (anyone can therefore make a name unjoinable by name, but cannot make you join their channel).
+  Join such a channel with its id (join code) or an invite. Names are not authenticated: a joinable
+  name is only the one id seen so far, and a device that advertises a name before the real one can
+  still be the one you reach by name, which is why the password or invite check, not the name, is
+  what protects a channel.
+- Bounds: at most 32 names and 64 devices per name are remembered; further names are ignored
+  until old ones expire.
+- Privacy mode: hearing is independent of the device's own advertising mode. A hidden device lists
+  what it hears and, as before, still advertises listed names of its own channels in clear (by
+  its owner's choice) while hiding its own name and fingerprint hint.
+
 ## Engine driver (`crates/relay-engine/src/channels/`)
 
 `ChannelHub` is the one object that implements the four-step driver sketch above inside the
@@ -308,8 +338,9 @@ the channel RPCs stay `UNIMPLEMENTED`.
 | Join (joiner) | `channels/joining.rs` | Argon2 runs on a blocking thread. The joiner tries up to 8 linked devices (invite issuer first). Every failure is `CHANNEL_DENIED`; only the device's own pacing (5 failures, doubling lockout, `AttemptLimiter` keyed by local fingerprint) answers `CHANNEL_LOCKED_OUT`. |
 | Renewal | `channels/proofs.rs` | A member whose certificate has under 3.5 days left asks a peer that proved the channel to renew; the answer is applied with `apply_renewal`. Authority holders refresh their own certificate on the 1 s upkeep tick. |
 | Advertising | `channels/advert.rs` | `ChannelAdvert::build` per joined channel into `AdvertSpec::extra_txt`; hidden mode (from `SetPrivacy`) uses `hidden_instance_id` and rotates it per tag epoch. Rebuilt only when the epoch, mode or channel set changes. A device in no channel publishes no channel TXT at all. |
-| Hints | `channels/advert.rs` | `ChannelAdvert::recognise(.., known_fingerprints, ..)` is given the trusted fingerprints (`PeerHandle::trusted`) and returns the fingerprint to pin. The engine dials `Some(fp)` only, once per fingerprint per 30 s, at most 4 dials per 10 s over all adverts, and never dials a device it already has a link to. A copied advertisement can only produce a pinned dial that fails at message 2. A hit makes the peer a `Candidate`; nothing treats a candidate as shared. Listed names bind to the first id seen; a second id for the same name makes the name ambiguous and joining by that name is refused (use the id). |
+| Hints | `channels/advert.rs` | `ChannelAdvert::recognise(.., known_fingerprints, ..)` is given the trusted fingerprints (`PeerHandle::trusted`) and returns the fingerprint to pin. The engine dials `Some(fp)` only, once per fingerprint per 30 s, at most 4 dials per 10 s over all adverts, and never dials a device it already has a link to. A copied advertisement can only produce a pinned dial that fails at message 2. A hit makes the peer a `Candidate`; nothing treats a candidate as shared. Listed names are tracked in `channels/nearby.rs` (see "Channels on your network"): a second id for the same name makes it ambiguous and joining by that name is refused (use the id). |
 | Ringing | `channels/screen.rs` | `InboundPolicy::decide` runs before an invite reaches the control actor. A dropped invite is answered with a plain `Decline` (indistinguishable from the user's). Only `Proven` counts. |
+| Nearby listed channels | `channels/nearby.rs` | See "Channels on your network" below. `Snapshot.nearby_channels` and one `StateEvent.nearby_channels` (whole list) report them. |
 | Views | `service/directory.rs` | `Snapshot.channels`, `StateEvent.channel` (new), `Peer.shared_channel_ids` (proven only) and `Removed{kind: "channel"}`. |
 
 API behaviour:
@@ -393,7 +424,7 @@ captured-tracing check that no password or invite appears in logs, events, snaps
 operation results. `channels_hardening` covers listed-name binding, demotion of an expired proof
 and invite redaction; `peers_sessions` and `peers_hardening` the per-peer call table, candidate
 subnet filter, untrusted-link cap, key cache churn and look-alike names (review F-05, F-09,
-F-11, F-13, F-14, F-17, F-24).
+F-11, F-13, F-14, F-17, F-24). `channels_nearby` (`cargo test -p relay-engine --test channels_nearby`) covers the nearby list: a listed channel seen by another device, expiry with the injected clock, per-device counting, joined and same-name exclusion, ambiguity, the 32-name bound, a hidden device and the event stream. UI: `relay-ui` `channels_nearby`, `nearby_state`; CLI: `relay-cli` `channel_nearby`.
 
 `crates/relay-net/tests/channel_*.rs` plus unit tests in `relay-core::channel`: PAKE success,
 wrong password, lockout, transcript binding (other session, other keys, other channel), invite

@@ -153,7 +153,11 @@ impl ChannelHub {
 	/// Channel information and per-peer proven sets.
 	pub fn view(&self) -> ChannelView {
 		let state = self.state();
-		view::build(&state.records, state.scopes.iter())
+		view::build(
+			&state.records,
+			state.scopes.iter(),
+			state.nearby(self.mono()),
+		)
 	}
 
 	/// The channels as `ListChannels` reports them.

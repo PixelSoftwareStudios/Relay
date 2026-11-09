@@ -427,10 +427,22 @@ impl Operations for MockOps {
 					cert_expires_unix: 0,
 				});
 			}),
-			Command::JoinChannel { channel_id, .. } => self.hub.update(|s| {
+			Command::JoinChannel {
+				channel_id, name, ..
+			} => self.hub.update(|s| {
+				s.nearby_channels.retain(|n| n.name != name);
+				let id = if channel_id.is_empty() {
+					id(210 + s.channels.len() as u8, 16)
+				} else {
+					hex::encode(channel_id)
+				};
 				s.channels.push(Channel {
-					channel_id: hex::encode(channel_id),
-					name: "joined".into(),
+					channel_id: id,
+					name: if name.is_empty() {
+						"joined".into()
+					} else {
+						name
+					},
 					listed: false,
 					password: true,
 					invite_only: false,

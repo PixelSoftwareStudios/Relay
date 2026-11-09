@@ -209,8 +209,15 @@ async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
 		},
 		Command::JoinChannel {
 			channel_id: Vec::new(),
+			name: String::new(),
 			password: Secret::new(""),
 			invite: Secret::new("RLYI1-abc"),
+		},
+		Command::JoinChannel {
+			channel_id: Vec::new(),
+			name: "Garage".into(),
+			password: Secret::new(""),
+			invite: Secret::new(""),
 		},
 		Command::LeaveChannel {
 			channel_id: vec![1; 16],
@@ -237,7 +244,8 @@ async fn channel_privacy_and_connection_string_commands_reach_the_engine() {
 		[
 			"start_call conn=relay://1.2.3.4:5#ab",
 			"create_channel dorm listed=true pw=true invite=false secret_len=2",
-			"join_channel pw=0 invite=9",
+			"join_channel pw=0 invite=9 name=",
+			"join_channel pw=0 invite=0 name=Garage",
 			"leave_channel",
 			"revoke fp=32",
 			"privacy Some(2) None",

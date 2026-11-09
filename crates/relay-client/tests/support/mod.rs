@@ -159,9 +159,10 @@ impl Engine for FakeEngine {
 		self.op(
 			r.context.as_ref(),
 			format!(
-				"join_channel pw={} invite={}",
+				"join_channel pw={} invite={} name={}",
 				r.password.len(),
-				r.invite.len()
+				r.invite.len(),
+				r.name
 			),
 		)
 	}

@@ -331,6 +331,18 @@ pub struct Channel {
 	pub cert_expires_unix: u64,
 }
 
+/// A listed channel another device advertises on the network and this device is not in.
+/// Joined by name: the id is never part of the view.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NearbyChannel {
+	pub name: String,
+	/// How many devices advertise it.
+	pub devices: u32,
+	/// Two different channels use this name: it cannot be joined by name.
+	pub ambiguous: bool,
+}
+
 impl Channel {
 	/// Owners and admins may invite and revoke.
 	pub fn can_admin(&self) -> bool {
@@ -386,6 +398,8 @@ pub struct AppState {
 	pub calls: Vec<Call>,
 	pub devices: Vec<Device>,
 	pub channels: Vec<Channel>,
+	/// Listed channels advertised on the network, not joined.
+	pub nearby_channels: Vec<NearbyChannel>,
 	pub settings: Option<Settings>,
 	/// Past calls, newest first. Kept across a lost connection.
 	pub history: Vec<HistoryEntry>,
@@ -425,6 +439,7 @@ impl Default for AppState {
 			calls: Vec::new(),
 			devices: Vec::new(),
 			channels: Vec::new(),
+			nearby_channels: Vec::new(),
 			settings: None,
 			history: Vec::new(),
 			warnings: Vec::new(),

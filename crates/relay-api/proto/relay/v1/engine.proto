@@ -335,6 +335,7 @@ message Snapshot {
   Settings settings = 6;
   repeated Problem warnings = 7;
   repeated ChannelInfo channels = 8;
+  repeated NearbyChannel nearby_channels = 9; // listed channels advertised on the network that this device is not in
 }
 message WatchStateRequest {
   ClientContext client = 1;
@@ -358,6 +359,7 @@ message StateEvent {
     Problem warning = 7;
     ChannelInfo channel = 8;
     AutoAnswered auto_answered = 9;
+    NearbyChannels nearby_channels = 10; // the whole current list, replacing the previous one
   }
 }
 message StateEnvelope {
@@ -634,6 +636,13 @@ message ChannelInfo {
   uint32 shared_peers = 5;
   uint64 cert_expires_unix = 6;
 }
+// A listed channel another device advertises right now, by name only: the id is not exposed;
+// join it with JoinChannel{name}. `devices` counts the devices advertising it (bounded).
+// `ambiguous`: two different channels use this name (or it equals a channel this device is
+// in), so joining by name is refused and the join code is required. An entry disappears
+// about two minutes after the last advertisement.
+message NearbyChannel { string name = 1; uint32 devices = 2; bool ambiguous = 3; }
+message NearbyChannels { repeated NearbyChannel channels = 1; }
 message CreateChannelRequest {
   MutationContext context = 1;
   string name = 2;

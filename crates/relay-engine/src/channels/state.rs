@@ -10,9 +10,8 @@ use relay_net::identity::Fingerprint;
 use tokio::sync::oneshot;
 
 use super::failure::Failure;
+use super::nearby::Listed;
 
-/// Listed channel names remembered from adverts (for joining by name).
-pub(super) const LISTED_SEEN_MAX: usize = 32;
 /// A proof already sent for a channel is not repeated on a link sooner than this.
 pub(super) const REPROOF_AFTER: Duration = Duration::from_secs(60);
 /// How long before a proven certificate lapses the peer is asked again.
@@ -113,8 +112,8 @@ pub(super) struct State {
 	pub scopes: BTreeMap<PeerId, PeerScope>,
 	/// Expiry of every proven certificate, so the upkeep tick can demote lapsed proofs.
 	pub proofs: BTreeMap<(PeerId, ChannelId), ProofEntry>,
-	/// Listed name to the first id seen; `None` when two ids claimed the name.
-	pub listed_seen: BTreeMap<String, Option<ChannelId>>,
+	/// Listed channels heard on the network, by name (see `nearby.rs`).
+	pub listed_seen: BTreeMap<String, Listed>,
 	pub dialled: HashMap<Fingerprint, Duration>,
 	pub dial_log: VecDeque<Duration>,
 	pub advert_key: Option<AdvertKey>,

@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use relay_api::pb::{ChannelInfo, ChannelPolicy};
+use relay_api::pb::{ChannelInfo, ChannelPolicy, NearbyChannel};
 use relay_core::PeerId;
 use relay_core::channel::{PeerScope, Role};
 use relay_net::channel::ChannelRecord;
@@ -14,6 +14,8 @@ pub struct ChannelView {
 	pub channels: Vec<ChannelInfo>,
 	/// Channel ids each peer proved on its live trusted link.
 	pub shared: BTreeMap<PeerId, Vec<Vec<u8>>>,
+	/// Listed channels advertised nearby that this device is not in.
+	pub nearby: Vec<NearbyChannel>,
 }
 
 fn role_name(role: Role) -> &'static str {
@@ -43,6 +45,7 @@ pub(super) fn info(record: &ChannelRecord, shared_peers: usize) -> ChannelInfo {
 pub(super) fn build<'a>(
 	records: &[ChannelRecord],
 	scopes: impl Iterator<Item = (&'a PeerId, &'a PeerScope)>,
+	nearby: Vec<NearbyChannel>,
 ) -> ChannelView {
 	let mut shared: BTreeMap<PeerId, Vec<Vec<u8>>> = BTreeMap::new();
 	let mut counts: BTreeMap<[u8; 16], usize> = BTreeMap::new();
@@ -59,5 +62,9 @@ pub(super) fn build<'a>(
 		.iter()
 		.map(|r| info(r, counts.get(r.id.as_bytes()).copied().unwrap_or(0)))
 		.collect();
-	ChannelView { channels, shared }
+	ChannelView {
+		channels,
+		shared,
+		nearby,
+	}
 }

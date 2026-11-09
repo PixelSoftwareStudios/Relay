@@ -97,6 +97,7 @@ pub fn snapshot() -> Snapshot {
 			channel("Dorm", CHANNEL_A, "owner"),
 			channel("Study", CHANNEL_B, "member"),
 		],
+		nearby_channels: Vec::new(),
 	}
 }
 

@@ -254,10 +254,13 @@ pub enum Command {
 		/// Password, when `options.password` is set.
 		password: Secret,
 	},
-	/// Join a channel by id and password, or by invite token.
+	/// Join a channel by id and password, by invite token, or by the name of a listed channel
+	/// seen nearby.
 	JoinChannel {
-		/// Channel id (16 bytes); empty when joining by invite alone.
+		/// Channel id (16 bytes); empty when joining by invite or by name.
 		channel_id: Vec<u8>,
+		/// Name of a nearby listed channel, when neither an id nor an invite is given.
+		name: String,
 		/// Channel password, or empty.
 		password: Secret,
 		/// Invite token, or empty.

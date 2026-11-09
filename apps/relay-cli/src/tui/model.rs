@@ -200,6 +200,7 @@ impl Model {
 				a.device_id == b.device_id && a.direction == b.direction
 			}),
 			Event::Channel(c) => upsert(&mut snap.channels, c, |a, b| a.channel_id == b.channel_id),
+			Event::NearbyChannels(list) => snap.nearby_channels = list.channels,
 			Event::Settings(s) => snap.settings = Some(s),
 			Event::Removed(r) => match r.kind.as_str() {
 				"peer" => snap.peers.retain(|p| p.peer_id != r.id),

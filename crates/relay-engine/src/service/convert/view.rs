@@ -271,6 +271,7 @@ pub fn snapshot_to_pb(
 		settings: Some(settings_to_pb(&core.global, directory)),
 		warnings: directory.warnings(),
 		channels: directory.channels(),
+		nearby_channels: directory.nearby(),
 	}
 }
 

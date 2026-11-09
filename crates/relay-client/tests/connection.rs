@@ -29,6 +29,7 @@ fn rejects_each_kind_of_malformed_input() {
 fn secrets_never_appear_in_debug_output() {
 	let command = Command::JoinChannel {
 		channel_id: vec![1; 16],
+		name: String::new(),
 		password: Secret::new("hunter2"),
 		invite: Secret::new("RLYI1-token"),
 	};

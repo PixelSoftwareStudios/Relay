@@ -35,7 +35,11 @@ impl ChannelHub {
 				binding,
 				message,
 			} => self.message(peer, &binding, &message).await,
-			ChannelEvent::Advert(found) => self.on_advert(&found),
+			ChannelEvent::Advert(found) => {
+				if self.on_advert(&found) {
+					self.publish().await;
+				}
+			}
 		}
 	}
 

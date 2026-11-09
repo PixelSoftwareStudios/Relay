@@ -33,8 +33,17 @@ fn join_targets_are_classified() {
 	);
 	assert!(parse_join_target("RLYI1 with space").is_err());
 	assert!(parse_join_target(&format!("RLYI1{}", "x".repeat(300))).is_err());
-	assert!(parse_join_target("nonsense").is_err());
-	assert!(parse_join_target("abcd").is_err());
+	// Anything else is the name of a channel listed nearby.
+	assert_eq!(
+		parse_join_target(" Garage "),
+		Ok(JoinTarget::Name("Garage".into()))
+	);
+	assert_eq!(
+		parse_join_target("abcd"),
+		Ok(JoinTarget::Name("abcd".into()))
+	);
+	assert!(parse_join_target("").is_err());
+	assert!(parse_join_target(&"n".repeat(33)).is_err());
 }
 
 #[tokio::test]

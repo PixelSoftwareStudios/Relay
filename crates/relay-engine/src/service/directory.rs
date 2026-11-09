@@ -98,6 +98,7 @@ pub struct Directory {
 	warnings: Vec<relay_api::pb::Problem>,
 	flagged: BTreeSet<PeerId>,
 	channels: BTreeMap<Vec<u8>, relay_api::pb::ChannelInfo>,
+	nearby: Vec<relay_api::pb::NearbyChannel>,
 	shared: BTreeMap<PeerId, Vec<Vec<u8>>>,
 	/// Wall clock (unix ms) at which each call became connected.
 	connected: BTreeMap<relay_core::CallId, u64>,
@@ -129,6 +130,7 @@ impl Directory {
 			warnings,
 			flagged: BTreeSet::new(),
 			channels: BTreeMap::new(),
+			nearby: Vec::new(),
 			shared: BTreeMap::new(),
 			connected: BTreeMap::new(),
 			seen: BTreeMap::new(),
@@ -207,6 +209,11 @@ impl Directory {
 		self.channels.values().cloned().collect()
 	}
 
+	/// Listed channels advertised nearby.
+	pub fn nearby(&self) -> Vec<relay_api::pb::NearbyChannel> {
+		self.nearby.clone()
+	}
+
 	/// Replaces the channel state; reports changed channels, left channels and
 	/// every peer whose proven set moved.
 	pub fn set_channels(&mut self, view: ChannelView) -> Vec<StateEvent> {
@@ -225,6 +232,16 @@ impl Directory {
 		}
 		for id in self.channels.keys().filter(|id| !next.contains_key(*id)) {
 			events.push(removed(id.clone(), "channel"));
+		}
+		if self.nearby != view.nearby {
+			events.push(StateEvent {
+				event: Some(state_event::Event::NearbyChannels(
+					relay_api::pb::NearbyChannels {
+						channels: view.nearby.clone(),
+					},
+				)),
+			});
+			self.nearby = view.nearby;
 		}
 		let moved: BTreeSet<PeerId> = self
 			.shared

@@ -35,9 +35,11 @@ impl From<ConnectionStringProblem> for ControlError {
 pub enum JoinTarget {
 	Invite(String),
 	ChannelId(Vec<u8>),
+	/// The name of a listed channel seen nearby.
+	Name(String),
 }
 
-/// Classify the join field: an `RLYI1…` token, or a 32-hex channel id.
+/// Classify the join field: an `RLYI1…` token, a 32-hex channel id, or else a channel name.
 pub fn parse_join_target(text: &str) -> Result<JoinTarget, ControlError> {
 	let text = text.trim();
 	if text.starts_with(INVITE_PREFIX) {
@@ -48,7 +50,14 @@ pub fn parse_join_target(text: &str) -> Result<JoinTarget, ControlError> {
 			Err(ControlError::Invalid(tr!("err-invite-malformed")))
 		};
 	}
-	decode_id(text, CHANNEL_ID_LEN, tr!("err-join-target")).map(JoinTarget::ChannelId)
+	if let Ok(id) = decode_id(text, CHANNEL_ID_LEN, "") {
+		return Ok(JoinTarget::ChannelId(id));
+	}
+	if valid_text(text, NAME_MAX_CHARS) {
+		Ok(JoinTarget::Name(text.to_owned()))
+	} else {
+		Err(ControlError::Invalid(tr!("err-join-target")))
+	}
 }
 
 fn valid_text(text: &str, max: usize) -> bool {
@@ -93,11 +102,13 @@ impl Controller {
 		.map(drop)
 	}
 
-	/// Join with an invite token, or with a channel id plus password.
+	/// Join with an invite token, a channel name, or a channel id plus password.
 	pub async fn join_channel(&self, target: &str, password: &str) -> Result<(), ControlError> {
 		let command = match parse_join_target(target)? {
+			JoinTarget::Name(name) => return self.join_by_name(&name, password).await,
 			JoinTarget::Invite(token) => Command::JoinChannel {
 				channel_id: Vec::new(),
+				name: String::new(),
 				password: Secret::new(""),
 				invite: Secret::new(token),
 			},
@@ -107,12 +118,33 @@ impl Controller {
 				}
 				Command::JoinChannel {
 					channel_id,
+					name: String::new(),
 					password: Secret::new(password),
 					invite: Secret::new(""),
 				}
 			}
 		};
 		self.run(command).await.map(drop)
+	}
+
+	/// Join a channel listed on the network by its name. The password may be empty: an open
+	/// channel needs none, and the engine refuses the rest.
+	pub async fn join_by_name(&self, name: &str, password: &str) -> Result<(), ControlError> {
+		let name = name.trim();
+		if !valid_text(name, NAME_MAX_CHARS) {
+			return Err(ControlError::Invalid(tr!("err-channel-name")));
+		}
+		if !password.is_empty() && !valid_text(password, SECRET_MAX_CHARS) {
+			return Err(ControlError::Invalid(tr!("err-enter-password")));
+		}
+		self.run(Command::JoinChannel {
+			channel_id: Vec::new(),
+			name: name.to_owned(),
+			password: Secret::new(password),
+			invite: Secret::new(""),
+		})
+		.await
+		.map(drop)
 	}
 
 	pub async fn leave_channel(&self, channel_id: &str) -> Result<(), ControlError> {

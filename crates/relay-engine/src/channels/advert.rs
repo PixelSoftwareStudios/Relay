@@ -10,7 +10,7 @@ use relay_net::discovery::DiscoveredPeer;
 use relay_net::identity::Fingerprint;
 
 use super::hub::ChannelHub;
-use super::state::{AdvertKey, DIAL_MEMORY_MAX, DIAL_WINDOW, DIALS_PER_WINDOW, LISTED_SEEN_MAX};
+use super::state::{AdvertKey, DIAL_MEMORY_MAX, DIAL_WINDOW, DIALS_PER_WINDOW};
 use crate::peers::AdvertSpec;
 use crate::service::ports::AdvertMode;
 
@@ -88,15 +88,17 @@ impl ChannelHub {
 	/// that produced it: dial exactly that fingerprint so a proof can follow. A copied
 	/// advertisement can only lead to a pinned dial that fails at the handshake.
 	/// Nothing here counts as shared.
-	pub(super) fn on_advert(&self, found: &DiscoveredPeer) {
+	///
+	/// True when the nearby listed channels changed, so the caller publishes.
+	pub(super) fn on_advert(&self, found: &DiscoveredPeer) -> bool {
 		let Some(advert) = ChannelAdvert::from_map(&found.txt) else {
-			return;
+			return false;
 		};
 		let now = self.now();
 		let mono = self.mono();
-		self.note_listed(&advert);
+		let changed = self.note_listed(&advert, found.instance_id);
 		if found.instance_id == self.advert().instance_id {
-			return;
+			return changed;
 		}
 		let known: Vec<Fingerprint> = self
 			.inner
@@ -161,31 +163,18 @@ impl ChannelHub {
 				}
 			});
 		}
+		changed
 	}
 
-	/// Binds each listed channel name to the first id seen for it. A second, different id
-	/// for the same name marks the name ambiguous, so joining by that name is refused and
-	/// the id (join code) is required.
-	fn note_listed(&self, advert: &ChannelAdvert) {
+	/// Remembers the listed channels of one advertisement (see `nearby.rs` for the rules).
+	fn note_listed(&self, advert: &ChannelAdvert, device: [u8; 16]) -> bool {
+		let mono = self.mono();
 		let mut state = self.state();
+		let mut changed = false;
 		for listed in &advert.listed {
-			if state.memberships.contains(&listed.id) {
-				continue;
-			}
-			let name = listed.name.as_str();
-			if state.listed_seen.len() >= LISTED_SEEN_MAX && !state.listed_seen.contains_key(name) {
-				continue;
-			}
-			match state.listed_seen.get(name).copied() {
-				None => {
-					state.listed_seen.insert(name.to_owned(), Some(listed.id));
-				}
-				Some(Some(first)) if first != listed.id => {
-					state.listed_seen.insert(name.to_owned(), None);
-				}
-				Some(_) => {}
-			}
+			changed |= state.note_listed(listed.name.as_str(), listed.id, device, mono);
 		}
+		changed
 	}
 
 	/// Periodic upkeep: follow the privacy setting, rotate the epoch, keep the
@@ -194,7 +183,9 @@ impl ChannelHub {
 	pub async fn tick(&self) {
 		self.drop_stale_admissions();
 		self.keep_own_certificates();
-		if self.expire_proofs() {
+		let mono = self.mono();
+		let nearby_moved = self.state().prune_listed(mono);
+		if self.expire_proofs() || nearby_moved {
 			self.publish().await;
 		}
 		self.refresh_advert();

@@ -430,6 +430,10 @@ decisions and the full behaviour table. Shape:
 - `Msg::Channels` (via `ControlHandle::channels_changed`) replaces the channel view in the
   `Directory`; that yields `Snapshot.channels`, `StateEvent.channel` and
   `Peer.shared_channel_ids` (proven channels only).
+- `Msg::Channels` also carries the nearby listed channels (`channels/nearby.rs`): `Snapshot.nearby_channels` and one
+  `StateEvent.nearby_channels` carrying the whole list whenever it changes. The upkeep tick prunes
+  names not advertised for `LISTED_TTL` (120 s) and publishes when that changes the list. Time is the
+  channel `Clock` (`advance` in tests).
 - `rpc/channels.rs` serves the six RPCs; secret fields are moved out of the request into
   zeroizing buffers before anything else happens.
 - A 1 s upkeep task (`spawn_maintenance`, `ChannelHub::tick`) follows the privacy mode, rotates

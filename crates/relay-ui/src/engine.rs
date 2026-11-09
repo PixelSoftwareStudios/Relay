@@ -175,6 +175,8 @@ pub enum Command {
 	},
 	JoinChannel {
 		channel_id: Vec<u8>,
+		/// A nearby listed channel's name, when no id or invite is given.
+		name: String,
 		password: Secret,
 		invite: Secret,
 	},

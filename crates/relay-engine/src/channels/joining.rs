@@ -14,6 +14,7 @@ use zeroize::Zeroizing;
 
 use super::failure::Failure;
 use super::hub::ChannelHub;
+use super::nearby::Resolved;
 use super::state::JoinSlot;
 
 /// An admitter gets this long to answer the whole exchange.
@@ -85,7 +86,10 @@ impl ChannelHub {
 
 	/// The channel a listed name stands for, if exactly one id has been seen with it.
 	pub fn listed_id(&self, name: &str) -> Option<ChannelId> {
-		self.state().listed_seen.get(name.trim()).copied().flatten()
+		match self.state().resolve_listed(name.trim(), self.mono()) {
+			Resolved::Id(id) => Some(id),
+			_ => None,
+		}
 	}
 
 	fn resolve(
@@ -104,13 +108,13 @@ impl ChannelHub {
 			(Some(id), Some(token)) if id != token.channel => Err(Failure::Denied),
 			(Some(id), _) => Ok(id),
 			(None, Some(token)) => Ok(token.channel),
-			(None, None) => self
+			(None, None) => match self
 				.state()
-				.listed_seen
-				.get(request.name.trim())
-				.copied()
-				.flatten()
-				.ok_or(Failure::Denied),
+				.resolve_listed(request.name.trim(), self.mono())
+			{
+				Resolved::Id(id) => Ok(id),
+				Resolved::Ambiguous | Resolved::Unknown => Err(Failure::Denied),
+			},
 		}
 	}
 

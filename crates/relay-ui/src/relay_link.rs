@@ -314,10 +314,12 @@ fn wire_command(command: Command) -> Option<WireCommand> {
 		},
 		Command::JoinChannel {
 			channel_id,
+			name,
 			password,
 			invite,
 		} => WireCommand::JoinChannel {
 			channel_id,
+			name,
 			password,
 			invite,
 		},

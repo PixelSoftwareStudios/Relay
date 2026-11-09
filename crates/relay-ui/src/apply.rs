@@ -36,6 +36,12 @@ impl AppState {
 			.take(MAX_ITEMS)
 			.map(convert::channel)
 			.collect();
+		self.nearby_channels = snapshot
+			.nearby_channels
+			.iter()
+			.take(MAX_ITEMS)
+			.map(convert::nearby_channel)
+			.collect();
 		self.devices = snapshot
 			.devices
 			.iter()
@@ -75,6 +81,14 @@ impl AppState {
 				upsert(&mut self.channels, item.clone(), |x| {
 					x.channel_id == item.channel_id
 				});
+			}
+			Event::NearbyChannels(list) => {
+				self.nearby_channels = list
+					.channels
+					.iter()
+					.take(MAX_ITEMS)
+					.map(convert::nearby_channel)
+					.collect();
 			}
 			Event::Settings(s) => self.settings = Some(convert::settings(s)),
 			Event::Removed(r) => self.remove(&r.kind, &r.id),
@@ -117,6 +131,7 @@ impl AppState {
 		self.peers.clear();
 		self.devices.clear();
 		self.channels.clear();
+		self.nearby_channels.clear();
 		self.settings = None;
 		self.warnings.clear();
 		self.client_id.clear();

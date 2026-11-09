@@ -5,8 +5,8 @@ use relay_api::pb;
 
 use crate::model::{
 	Advert, Call, CallMeter, Channel, ConnectionView, Device, Direction, EngineInfo,
-	HistoryDirection, HistoryEntry, HistoryOutcome, Inbound, MAX_ITEMS, Meters, Mode, Peer, Phase,
-	Problem, Settings, Transmit, Trust,
+	HistoryDirection, HistoryEntry, HistoryOutcome, Inbound, MAX_ITEMS, Meters, Mode,
+	NearbyChannel, Peer, Phase, Problem, Settings, Transmit, Trust,
 };
 
 pub fn trust(value: i32) -> Trust {
@@ -108,6 +108,14 @@ pub fn channel(c: &pb::ChannelInfo) -> Channel {
 		role: c.role.clone(),
 		shared_peers: c.shared_peers,
 		cert_expires_unix: c.cert_expires_unix,
+	}
+}
+
+pub fn nearby_channel(c: &pb::NearbyChannel) -> NearbyChannel {
+	NearbyChannel {
+		name: c.name.clone(),
+		devices: c.devices,
+		ambiguous: c.ambiguous,
 	}
 }
 

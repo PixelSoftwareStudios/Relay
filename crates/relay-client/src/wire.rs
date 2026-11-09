@@ -343,13 +343,14 @@ pub async fn send(client: &mut RelayClient, command: Command) -> Result<Operatio
 		}
 		Command::JoinChannel {
 			channel_id,
+			name,
 			password,
 			invite,
 		} => {
 			rpc.join_channel(JoinChannelRequest {
 				context: Some(context),
 				channel_id,
-				name: String::new(),
+				name,
 				password: password.expose().to_owned(),
 				invite: invite.expose().to_owned(),
 			})
