@@ -17,12 +17,14 @@ env:
   CARGO_INCREMENTAL: "0"
 
 jobs:
+  # NOTE: dtolnay/rust-toolchain pinned to its 1.99.1 branch ignores `with: toolchain:` (the branch hard-codes it);
+  # jobs that need another toolchain pin the master branch, which takes the input.
   android-check:
     name: Android Clippy at the declared MSRV
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master: takes a toolchain input
         with:
           toolchain: "1.99.0"
           targets: aarch64-linux-android
@@ -65,7 +67,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
-      - uses: dtolnay/rust-toolchain@d124f86f28ff42855784ff3319f48ac182c248f8
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # master: takes a toolchain input
         with:
           toolchain: nightly-2026-11-04
           components: miri
