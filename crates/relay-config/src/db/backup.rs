@@ -1,6 +1,6 @@
 //! Consistent database snapshots used for recovery.
 
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::path::Path;
 
 use relay_io::fs::{backup_path, restrict_file, sync_dir, with_suffix};
@@ -18,7 +18,10 @@ pub(super) fn snapshot(conn: &Connection, db: &Path) -> Result<()> {
 		.ok_or_else(|| ConfigError::io(&tmp, std::io::Error::other("path is not UTF-8")))?;
 	conn.execute("VACUUM INTO ?1", [target])?;
 	restrict_file(&tmp)?;
-	File::open(&tmp)
+	// Write access: FlushFileBuffers (sync_all) is refused on a read-only handle on Windows.
+	OpenOptions::new()
+		.write(true)
+		.open(&tmp)
 		.and_then(|f| f.sync_all())
 		.map_err(|e| ConfigError::io(&tmp, e))?;
 	fs::rename(&tmp, &bak).map_err(|e| ConfigError::io(&bak, e))?;

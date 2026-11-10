@@ -178,3 +178,23 @@ fn garbage_wal_sidecar_never_silently_keeps_a_recovered_mic() {
 		assert_mic_cleared(&s);
 	}
 }
+
+#[test]
+fn backup_taken_while_open_is_a_standalone_snapshot() {
+	let dir = tempfile::tempdir().unwrap();
+	let s = storage(dir.path());
+	PreferenceStore::open(&s.database)
+		.unwrap()
+		.save(&chosen_mic())
+		.unwrap();
+	s.database.refresh_backup(true);
+	let bak = sidecar(&Paths::under(dir.path()).database_file(), ".bak");
+	assert!(bak.exists());
+	assert!(!sidecar(&bak, ".tmp").exists());
+	assert!(!sidecar(&bak, "-wal").exists());
+	let copy = Connection::open(&bak).unwrap();
+	let check: String = copy
+		.pragma_query_value(None, "quick_check", |r| r.get(0))
+		.unwrap();
+	assert_eq!(check, "ok");
+}
