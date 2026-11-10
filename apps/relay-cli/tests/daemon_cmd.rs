@@ -58,7 +58,7 @@ impl Setup {
 
 	/// `relay daemon <verb>` with a throwaway home and no LAN.
 	async fn daemon(&self, verb: &str) -> Result<String, CliError> {
-		let binary = relayd().to_str().expect("utf8").to_owned();
+		let binary = relayd(self.dir.path()).to_str().expect("utf8").to_owned();
 		let log = self.path("relayd.log");
 		let home = self.path("home");
 		let home = home.to_str().expect("utf8").to_owned();
