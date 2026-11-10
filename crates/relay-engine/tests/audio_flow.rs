@@ -29,11 +29,12 @@ const TONE_B: f32 = 1_700.0;
 
 /// Waits until the speaker of `side` plays `tone` clearly and the other tone only faintly.
 async fn hears(side: &Side, tone: f32, other: f32) {
-	eventually!({
-		let heard = tail(side, 300);
-		(rms(&heard) > 0.02 && power_at(&heard, tone) > 10.0 * power_at(&heard, other))
-			.then_some(())
-	});
+	eventually!(heard_clearly(side, tone, other).then_some(()));
+}
+
+fn heard_clearly(side: &Side, tone: f32, other: f32) -> bool {
+	let heard = tail(side, 300);
+	rms(&heard) > 0.02 && power_at(&heard, tone) > 10.0 * power_at(&heard, other)
 }
 
 async fn silent(side: &Side) {
@@ -126,12 +127,41 @@ async fn push_to_talk_sends_while_held_and_stops_after_release() {
 	tx.send(press(&call, &a.cli, generation, 1, InputAction::Press))
 		.await
 		.expect("press");
-	assert!(acks.message().await.expect("ack").is_some());
-	hears(&b, TONE_A, TONE_B).await;
+	let ack = acks.message().await.expect("ack").expect("an ack");
+	assert!(ack.accepted, "{ack:?}");
 
-	tx.send(press(&call, &a.cli, generation, 2, InputAction::Release))
-		.await
-		.expect("release");
+	// The key stays down while the far side is awaited: a held key is renewed before its
+	// lease runs out (as a real client does), so a slow machine cannot expire the lease
+	// and mute the very audio being waited for.
+	let mut seq = 1;
+	let mut renewed = tokio::time::Instant::now();
+	let deadline = renewed + Duration::from_secs(30);
+	while !heard_clearly(&b, TONE_A, TONE_B) {
+		assert!(
+			tokio::time::Instant::now() < deadline,
+			"the far side never heard the held key"
+		);
+		if renewed.elapsed() >= Duration::from_millis(500) {
+			seq += 1;
+			tx.send(press(&call, &a.cli, generation, seq, InputAction::Renew))
+				.await
+				.expect("renew");
+			let ack = acks.message().await.expect("ack").expect("an ack");
+			assert!(ack.accepted, "{ack:?}");
+			renewed = tokio::time::Instant::now();
+		}
+		tokio::time::sleep(Duration::from_millis(10)).await;
+	}
+
+	tx.send(press(
+		&call,
+		&a.cli,
+		generation,
+		seq + 1,
+		InputAction::Release,
+	))
+	.await
+	.expect("release");
 	assert!(acks.message().await.expect("ack").is_some());
 	// The release delay holds the gate for a moment, then the far side falls silent.
 	eventually!((rms(&tail(&b, 200)) < 1e-3).then_some(()));

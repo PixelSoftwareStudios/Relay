@@ -116,11 +116,14 @@ pub fn assert_failed(op: &Operation, code: &str) {
 	assert_eq!(op.problem.as_ref().expect("problem").code, code);
 }
 
-/// Polls an `Option`-valued async expression until it yields a value.
+/// Polls an `Option`-valued async expression until it yields a value. The budget is a wall
+/// clock deadline, generous because a loaded CI runner can starve the engines for seconds;
+/// it only matters when the condition is never reached.
 macro_rules! eventually {
 	($body:expr) => {{
+		let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(20);
 		let mut found = None;
-		for _ in 0..300 {
+		while tokio::time::Instant::now() < deadline {
 			if let Some(value) = $body {
 				found = Some(value);
 				break;
