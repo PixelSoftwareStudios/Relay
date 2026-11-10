@@ -1,15 +1,15 @@
 # Relay desktop UI catalog, Spanish (es), section: Background (stay available with no window, call alert, answer automatically). Same ids and $variables as localizations/en/background.ftl. See docs/i18n.md.
 
 background-label = Seguir disponible en segundo plano
-background-help = Mantiene Relay accesible y sonando mientras la ventana o la app está cerrada, siempre que este dispositivo esté en la red.
+background-help = Permite que te llamen y que Relay suene aunque la ventana o la app estén cerradas, siempre que este dispositivo esté conectado a la red.
 background-title = Seguir disponible
-background-status-off = Desactivado. Los demás no pueden contactarte con la app cerrada. Activa el interruptor para seguir sonando con la ventana cerrada.
+background-status-off = Desactivado. Nadie puede llamarte con la app cerrada. Activa el interruptor para que Relay siga sonando con la ventana cerrada.
 background-status-running = Relay se ejecuta en segundo plano y puede sonar con el dispositivo bloqueado o la app cerrada.
 background-status-waiting = Esperando Wi-Fi. Relay volverá a estar disponible cuando este dispositivo se una a una red.
 background-status-paused = En pausa. Abre Relay o apaga y enciende este interruptor para reanudar.
-background-status-tray = Relay sigue en ejecución en la bandeja al cerrar la ventana y puede sonar.
+background-status-tray = Al cerrar la ventana, Relay sigue en la bandeja y puede sonar.
 background-ask-title = ¿Seguir disponible en segundo plano?
-background-ask-body = Relay puede seguir escuchando en tu red para que recibas llamadas con la app cerrada. Usa una pequeña notificación permanente. Puedes cambiarlo cuando quieras en Ajustes > Llamadas.
+background-ask-body = Relay puede seguir escuchando en tu red para que recibas llamadas con la app cerrada. Para ello muestra una pequeña notificación permanente. Puedes cambiarlo cuando quieras en Ajustes > Llamadas.
 background-ask-yes = Sí, seguir disponible
 background-ask-no = Solo con la app abierta
 background-chip-on = Disponible en segundo plano
@@ -30,9 +30,9 @@ alert-silent = Silencio
 auto-answer-global = Permitir contestar automáticamente
 auto-answer-global-help = Si está desactivado, no se contesta automáticamente a nadie, ni siquiera a los contactos configurados. Tus ajustes por contacto se conservan.
 contact-auto-answer = Contestar automáticamente
-contact-auto-answer-unverified = Verifica antes este dispositivo
+contact-auto-answer-unverified = Verifica primero este dispositivo
 contact-auto-answer-badge = Contesta automáticamente
-auto-answer-ask = { $name } podrá llamarte y se le contestará sin que toques el dispositivo, abriendo tu micrófono según lo definido en “{ $mode }”. Hazlo solo con personas de confianza.
+auto-answer-ask = { $name } podrá llamarte y la llamada se contestará sin que toques el dispositivo; tu micrófono se abrirá según lo configurado en “{ $mode }”. Hazlo solo con personas de confianza.
 auto-answer-yes = Sí, contestar automáticamente
 call-auto-answered = Contestada automáticamente
-err-auto-answer-verified = La respuesta automática solo se puede activar para un contacto verificado. Antes compara la huella en ambos dispositivos.
+err-auto-answer-verified = La respuesta automática solo se puede activar para un contacto verificado. Compara primero la huella en ambos dispositivos.
