@@ -11,8 +11,14 @@ use relay_cli::commands::Out;
 use relay_cli::commands::config::{run_in, set_live};
 use relay_config::{Paths, Storage};
 
+/// `--socket` exists on Unix only; elsewhere the CLI reaches an engine through a TCP profile.
+#[cfg(unix)]
+const ENDPOINT_FLAG: &str = "--socket";
+#[cfg(not(unix))]
+const ENDPOINT_FLAG: &str = "--tcp-profile";
+
 fn global(socket: &std::path::Path) -> GlobalArgs {
-	Cli::try_parse_from(["relay", "--socket", socket.to_str().unwrap(), "status"])
+	Cli::try_parse_from(["relay", ENDPOINT_FLAG, socket.to_str().unwrap(), "status"])
 		.unwrap()
 		.global
 }
