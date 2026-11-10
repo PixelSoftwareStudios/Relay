@@ -38,6 +38,7 @@ class SignTests(unittest.TestCase):
         sign.sign_release(self.version, self.assets, self.output, FAKE, self.pub,
                           {**self.environ, **changes})
 
+    @unittest.skipIf(sys.platform == "win32", "signing runs on Linux; the fake signer checks the POSIX 0600 mode of the key file")
     def test_signs_every_package_except_the_apk(self):
         self.sign()
         names = {p.name for p in self.output.iterdir()}
@@ -50,6 +51,7 @@ class SignTests(unittest.TestCase):
     def test_trusted_comment_format(self):
         self.assertEqual(sign.trusted_comment("0.1.1", "a.zip"), "relay-update 0.1.1 a.zip")
 
+    @unittest.skipIf(sys.platform == "win32", "signing runs on Linux; the fake signer checks the POSIX 0600 mode of the key file")
     def test_secret_files_are_removed_and_never_logged(self):
         before = set(Path(tempfile.gettempdir()).glob("relay-sign-*"))
         self.sign()

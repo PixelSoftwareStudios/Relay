@@ -1,6 +1,7 @@
 """The macOS bundle, the update ZIP and the DMG/ZIP identity checks, without codesign."""
 from pathlib import Path
 import plistlib
+import sys
 import tempfile
 import unittest
 from unittest.mock import patch
@@ -33,6 +34,7 @@ class MacosTests(unittest.TestCase):
         macos.populate_bundle(binaries, app, self.version)
         return app
 
+    @unittest.skipIf(sys.platform == "win32", "macOS packaging checks POSIX executable bits; it only runs on macOS runners")
     def test_bundle_keeps_the_three_programs_side_by_side(self):
         app = self.bundle()
         for program in release.DESKTOP_PROGRAMS:
@@ -48,6 +50,7 @@ class MacosTests(unittest.TestCase):
         self.assertEqual(info["CFBundleShortVersionString"], release.numeric_version(self.version))
         self.assertIn("microphone", info["NSMicrophoneUsageDescription"])
 
+    @unittest.skipIf(sys.platform == "win32", "macOS packaging checks POSIX executable bits; it only runs on macOS runners")
     def test_update_zip_holds_the_raw_app(self):
         app = self.bundle()
         archive = self.root / "update.zip"
@@ -81,6 +84,7 @@ class MacosTests(unittest.TestCase):
             self.assertIn(f"relay-{self.version}-{suffix}.dmg", names)
             self.assertIn(f"relay-{self.version}-{suffix}-update.zip", names)
 
+    @unittest.skipIf(sys.platform == "win32", "macOS packaging checks POSIX executable bits; it only runs on macOS runners")
     def test_bundle_checks_catch_wrong_architecture_and_modes(self):
         app = self.bundle(ARM)
         verify.check_bundle(app, self.version, ARM)
