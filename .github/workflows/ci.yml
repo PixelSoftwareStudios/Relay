@@ -106,7 +106,13 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
       - run: cargo clippy --locked --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --all-targets -- -D warnings
-      - run: cargo test --locked --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
+        with:
+          tool: cargo-nextest@0.9.151
+      # nextest (one process per test, the real-clock throttle in .config/nextest.toml) is how the tests are
+      # run everywhere; plain `cargo test` shares one process per binary and ignores the throttle.
+      - run: cargo nextest run --locked --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
+      - run: cargo test --locked --doc --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches
       - name: Terminal-only crates have no GUI dependencies
         shell: bash
         run: '! cargo tree --locked -p relay-cli -p relay-daemon | grep -E "eframe|egui|winit"'
@@ -139,7 +145,11 @@ jobs:
           libasound2-dev pkg-config libgtk-3-dev
           libxkbcommon-dev libwayland-dev libayatana-appindicator3-dev
       - run: cargo clippy --locked -p relay-desktop -p relay-ui --all-targets -- -D warnings
-      - run: cargo test --locked -p relay-desktop -p relay-ui
+      - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
+        with:
+          tool: cargo-nextest@0.9.151
+      - run: cargo nextest run --locked -p relay-desktop -p relay-ui --no-fail-fast
+      - run: cargo test --locked --doc -p relay-desktop -p relay-ui
 
   deny:
     runs-on: ubuntu-latest
