@@ -24,3 +24,10 @@ test-group = 'real-clock'
 [[profile.default.overrides]]
 filter = 'package(=relay-client) & (binary(=daemon) | binary(=ensure) | binary(=startup_wait))'
 test-group = 'real-clock'
+
+# The engine's audio tests also play and capture on the real clock. CI runners have two to four slow
+# cores, and with every test binary running at once the ring/capture waits missed their deadlines
+# (media_output_route, support_capture). Only these binaries share the real-clock group.
+[[profile.default.overrides]]
+filter = 'package(=relay-engine) & (binary(~media_) | binary(=audio_flow) | binary(=tone_driver))'
+test-group = 'real-clock'
