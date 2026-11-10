@@ -4,12 +4,12 @@
 action-cancel = キャンセル
 action-close = 閉じる
 action-copy = コピー
-action-hide = 隠す
+action-hide = 非表示
 action-create = 作成
 action-join = 参加
 asking-daemon = デーモンに問い合わせています…
 unit-ms = ms
-action-try-again = もう一度試す
+action-try-again = 再試行
 action-save = 保存
 action-revert = 元に戻す
 nav-settings = 設定

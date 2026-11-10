@@ -6,4 +6,4 @@ notification-unknown-caller = 不明な発信者
 notification-accept = 応答
 notification-decline = 拒否
 notification-open = 開く
-notification-auto-answered = 自動応答しました: { $name }
+notification-auto-answered = { $name } からの着信に自動応答しました

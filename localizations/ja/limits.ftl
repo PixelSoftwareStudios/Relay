@@ -2,7 +2,7 @@
 
 settings-limits = ストレージと上限
 settings-limits-sub = キャッシュの大きさと保存期間
-limits-intro = この上限で、このデバイスがどれだけ保存するかを決めます。すべてこのデバイスにだけ残ります。既定値はほとんどの人に合います。変更はすぐに反映され、使用中のものが途中で切られることはありません。
+limits-intro = この上限で、このデバイスに保存する量を決めます。データはすべてこのデバイス内に保存されます。既定値はほとんどの方に適しています。変更はすぐに反映され、使用中のものが途中で切られることはありません。
 limits-group-pictures = 画像
 limits-group-chats = チャットとファイル
 limits-group-history = 通話履歴
@@ -29,22 +29,22 @@ limits-unit-seconds =
        *[other] 秒
     }
 limits-avatar-label = 画像キャッシュ
-limits-avatar-help = 通話相手の画像をここに保存し、すばやく表示します。キャッシュがいっぱいになると、最も長く使われていない画像から削除されます。自分の画像は削除されません。上限を下げると、画像はすぐに削除されます。
+limits-avatar-help = 通話相手の画像をここに保存し、すばやく表示できるようにします。キャッシュがいっぱいになると、最も長く使われていない画像から削除されます。自分の画像は削除されません。上限を下げると、すぐに画像が削除されます。
 limits-avatar-used = 使用中: { $used } MiB
 limits-session-label = 進行中のチャット 1 件のメモリ
 limits-session-help = 進行中の通話のチャットが使えるメモリの最大量です。いっぱいになると、そのチャットの新しいメッセージとファイルは拒否されます。すでにチャットにあるものは削除されません。
 limits-session-used = 最大の進行中チャット: { $used } MiB
 limits-retained-label = 終了したチャットのメモリ
-limits-retained-help = 終了した通話のチャットは、Relay を閉じるまで読めます。これを超えると、古い終了済みチャットから削除されます。
+limits-retained-help = 終了した通話のチャットは、Relay が終了するまで閲覧できます。この量を超えると、古いものから削除されます。
 limits-retained-used = 終了したチャットの使用量: { $used } MiB
 limits-entries-label = 履歴に残す通話数
-limits-entries-help = 通話履歴に残す通話の最大数です。超えると古いものから削除されます。0 なら残しません。
+limits-entries-help = 通話履歴に残す通話の最大数です。超えると古いものから削除されます。0 にすると何も残しません。
 limits-age-label = 通話を残す期間
 limits-age-help = これより古い通話は履歴から削除されます。
 limits-transfers-label = 同時に扱うファイル数
 limits-transfers-help = 1 回の通話で同時に送受信できるファイルの数です。それ以上のファイルは、どれかが終わるまで拒否されます。
 limits-calls-label = 保持する終了済みチャット
-limits-calls-help = 直近の終了した通話のうち、この件数分のチャットは、終了するまでメモリに保持され、古いものから削除されます。チャットがディスクに保存されることはありません。0 にすると何も保持しません。
+limits-calls-help = 直近に終了した通話のうち、この件数分のチャットがアプリを終了するまでメモリに保持されます。超えた分は古いものから削除されます。チャットがディスクに保存されることはありません。0 にすると何も保持しません。
 limits-ringtone-size-label = 着信音ファイルの最大サイズ
 limits-ringtone-size-help = 着信音として選べる音声ファイルの最大サイズです。これより大きいファイルは受け付けられません。
 limits-ringtone-length-label = 着信音の最大の長さ
@@ -53,7 +53,7 @@ limits-check-range = { $label } は { $min } から { $max } { $unit } の範囲
 limits-check-pair = 終了したチャットのメモリは、進行中のチャット 1 件のメモリより小さくできません。
 limits-reset = 既定値に戻す
 limits-nothing = 変更はありません。
-limits-applied = { $label }: すぐに適用しました
+limits-applied = { $label }: 適用しました
 limits-saved = { $label }: 保存しました。再起動後に有効になります
 limits-saved-reason = { $label }: 保存しました。再起動後に有効になります（{ $reason }）
 limits-rejected = { $label }: 拒否されました
