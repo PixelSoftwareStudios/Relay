@@ -87,8 +87,21 @@ jobs:
         with:
           version: v2.14.2
           args: --output CHANGELOG.md
-      - name: Generate this release's changes
+      - name: Use the hand-written release notes when this version has them
+        id: notes
         if: inputs.artifacts-run == ''
+        env:
+          RELEASE_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          file="docs/release-notes/${RELEASE_VERSION}.md"
+          if [ -f "$file" ]; then
+            cp "$file" RELEASE_CHANGES.md
+            echo "written=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "written=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Generate this release's changes
+        if: inputs.artifacts-run == '' && steps.notes.outputs.written != 'true'
         uses: orhun/git-cliff-action@a9a95522b26fe6403f7bb24031f21fb573d0f5ff # v4
         with:
           version: v2.14.2

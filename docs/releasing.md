@@ -25,8 +25,11 @@ Windows installers are unsigned. The APK is built non-debuggable and signed with
 ## Build and publish
 
 1. Bump `[workspace.package] version` and `Cargo.lock`, commit, tag `vX.Y.Z` (see `docs/release.md`).
-   Release notes are generated from conventional commit subjects by `git-cliff` (`cliff.toml`); there
-   is no hand-written notes file.
+   Release notes: if `docs/release-notes/<version>.md` exists it is the body (a summary of what the
+   release can do and its known limitations; 0.1.0 has one, since the first release has no previous
+   version to compare against). Without that file they are generated from conventional commit subjects
+   by `git-cliff` (`cliff.toml`). Either way the script adds the downloads table, the signing notes and
+   the verification instructions.
 2. Pushing the tag runs `.github/workflows/release.yml`:
    - `version`: `package_release.py validate` (tag equals the workspace version; also outputs the
      toolchain from `rust-toolchain.toml`), the Python unit tests, the git-cliff changelog.
@@ -119,7 +122,7 @@ One-time, by the maintainer (the workflows use only the built-in `GITHUB_TOKEN`;
    tag needs the version `0.1.0` back. Afterwards delete the release and the tag.
 6. Look for: all nine jobs green (six `Build ...`, `Build Android APK`, `Sign update packages`, assemble); on Windows the
    "Verify MSI install, repair and uninstall" step; on Linux the package inspection step; a release
-   marked pre-release with 45 assets plus `SHA256SUMS.txt` and a notes body from `git-cliff`; `.deb` and
+   marked pre-release with 45 assets plus `SHA256SUMS.txt` and a notes body (the hand-written file, else `git-cliff`); `.deb` and
    `.rpm` versions `0.1.0~rc.1`; `gh attestation verify <asset> -R PixelSoftwareStudios/Relay`.
 7. Tag the real release from a green `main` commit: `git tag -a v0.1.0 && git push origin v0.1.0`.
 
