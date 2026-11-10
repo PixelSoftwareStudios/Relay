@@ -4,10 +4,13 @@ use std::process::Command;
 
 use relay_io::IoError;
 use relay_io::fs::{
-	AtomicWrite, TempFile, backup_path, check_private_file, create_private_new,
-	ensure_owned_private_dir, ensure_private_dir, free_space, read_if_exists, read_limited,
-	read_string_limited, remove_if_exists, rename_noreplace, restrict_file, with_suffix,
-	write_private, write_private_fresh,
+	AtomicWrite, backup_path, free_space, read_if_exists, read_limited, read_string_limited,
+	remove_if_exists, rename_noreplace, with_suffix,
+};
+#[cfg(unix)]
+use relay_io::fs::{
+	TempFile, check_private_file, create_private_new, ensure_owned_private_dir,
+	ensure_private_dir, restrict_file, write_private, write_private_fresh,
 };
 
 #[cfg(unix)]
