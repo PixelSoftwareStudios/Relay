@@ -5,7 +5,7 @@
 tray-mock = Relay (Testdaten)
 tray-starting = Relay: Daemon wird gestartet
 tray-connecting = Relay: Verbindung zum Daemon wird aufgebaut
-tray-reconnecting = Relay: Verbindung zum Daemon verloren, neuer Versuch
+tray-reconnecting = Relay: Verbindung zum Daemon verloren, wird wiederhergestellt
 tray-offline = Relay: Daemon läuft nicht
 tray-incoming =
     { $count ->

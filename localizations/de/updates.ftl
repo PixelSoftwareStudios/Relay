@@ -3,18 +3,18 @@
 
 update-heading = Updates
 update-launch-label = Beim Start von Relay nach Updates suchen
-update-privacy = Relay fragt bei github.com nach der neuesten Version. GitHub sieht dabei deine IP-Adresse und die Relay-Version, die du nutzt; mehr wird nicht gesendet. Relay sucht nie von selbst, außer du drückst den Knopf oder schaltest das hier ein.
+update-privacy = Relay fragt bei github.com nach der neuesten Version. GitHub sieht dabei deine IP-Adresse und die Relay-Version, die du nutzt; mehr wird nicht gesendet. Relay sucht nur, wenn du die Schaltfläche drückst oder diese Option einschaltest.
 update-check = Nach Updates suchen
-update-checking = Suche nach Updates …
+update-checking = Suche nach Updates…
 update-up-to-date = Relay { $version } ist aktuell.
 update-available = Relay { $version } ist verfügbar.
 update-button = Auf { $version } aktualisieren
-update-view-release = Release ansehen
-update-downloading = Wird geladen: { $percent } %
-update-verifying = Signatur wird geprüft …
-update-installing = Wird installiert …
-update-finish-call = Beende zuerst dein Gespräch.
-update-manual-note = Diese Kopie von Relay kann sich nicht selbst aktualisieren. Mit „Release ansehen“ holst du Version { $version }.
+update-view-release = Auf GitHub ansehen
+update-downloading = Wird geladen: { $percent } %
+update-verifying = Signatur wird geprüft…
+update-installing = Wird installiert…
+update-finish-call = Beende zuerst deinen Anruf.
+update-manual-note = Diese Kopie von Relay kann sich nicht selbst aktualisieren. Über „Auf GitHub ansehen“ bekommst du Version { $version }.
 update-failed-offline = Relay konnte GitHub nicht erreichen. Prüfe deine Internetverbindung und versuche es erneut.
 update-failed-translocated = Verschiebe Relay zuerst in den Ordner „Programme“ und versuche es dann erneut.
 update-failed-readonly = Relay läuft von einem schreibgeschützten Ort, zum Beispiel einem Disk-Image. Verschiebe es zuerst in den Ordner „Programme“ und versuche es dann erneut.
