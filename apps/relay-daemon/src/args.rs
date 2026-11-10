@@ -2,12 +2,14 @@
 
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use anyhow::{Context, Result, bail};
 use clap::{Parser, ValueEnum};
 use relay_config::Paths;
 use relay_config::identity::{InsecureFileStore, MemoryStore};
 use relay_config::prefs::KeyStorage;
+use relay_config::vault::MemoryVault;
 use relay_engine::daemon::{RunOptions, Transport};
 
 /// Where the identity key is kept.
@@ -17,7 +19,7 @@ pub enum IdentityStore {
 	Os,
 	/// A plaintext file in the home directory. Weaker; for headless machines.
 	File,
-	/// Nowhere: a new identity on every start. For tests.
+	/// Nowhere: a new identity on every start, channel secrets in memory too. For tests.
 	Memory,
 }
 
@@ -80,6 +82,8 @@ impl Args {
 			None | Some(IdentityStore::Os) => {}
 			Some(IdentityStore::Memory) => {
 				options.identity_store = Some(Box::new(MemoryStore::default()));
+				// Channel secrets stay in memory too: nothing may reach the real keychain.
+				options.channel_vault = Some(Arc::new(MemoryVault::default()));
 			}
 			Some(IdentityStore::File) => {
 				let Some(home) = &self.home else {
