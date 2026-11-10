@@ -7,7 +7,7 @@ use relay_update::{Available, Error, Progress, Updater};
 
 mod support;
 use support::server::{Reply, Server};
-use support::{REPO, linux_platform, publish_appimage, sign_asset, tempdir, updater, write};
+use support::{REPO, linux_platform, publish_appimage, tempdir, updater, write};
 
 const PAYLOAD: &[u8] = b"fake appimage payload, not an executable format";
 
@@ -330,5 +330,4 @@ fn leftover_staging_directories_are_cleaned_when_stale_only() {
 		.unwrap();
 	relay_update::cleanup_leftovers(&linux_platform(&f.image));
 	assert!(!stale.exists() && fresh.exists() && unrelated.exists());
-	let _ = sign_asset;
 }
