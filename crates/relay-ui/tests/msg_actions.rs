@@ -27,10 +27,19 @@ fn cmds(e: &FakeEngine) -> Vec<MsgCommand> {
 	e.world.lock().unwrap().commands.clone()
 }
 
+/// An absolute path on this platform (`/tmp/..` has no drive letter on Windows).
+fn absolute(name: &str) -> String {
+	std::env::temp_dir()
+		.join(name)
+		.to_string_lossy()
+		.into_owned()
+}
+
 #[tokio::test]
 async fn download_asks_for_a_folder_then_accepts_into_it() {
 	let (a, shell, engine) = rig(None).await;
-	*shell.path.lock().unwrap() = Some(PathBuf::from("/tmp/downloads"));
+	let folder = absolute("downloads");
+	*shell.path.lock().unwrap() = Some(PathBuf::from(&folder));
 	a.dispatch(Intent::Download {
 		session: key(1),
 		offer: vec![3; 16],
@@ -42,7 +51,7 @@ async fn download_asks_for_a_folder_then_accepts_into_it() {
 			session: sid(1),
 			offer: vec![3; 16],
 			accept: true,
-			destination_dir: "/tmp/downloads".into()
+			destination_dir: folder.clone()
 		}]
 	);
 }
@@ -75,7 +84,8 @@ async fn a_relative_path_is_never_sent_to_the_daemon() {
 #[tokio::test]
 async fn export_and_offer_send_absolute_paths() {
 	let (a, shell, engine) = rig(None).await;
-	*shell.path.lock().unwrap() = Some(PathBuf::from("/tmp/out.json"));
+	let out = absolute("out.json");
+	*shell.path.lock().unwrap() = Some(PathBuf::from(&out));
 	a.dispatch(Intent::Export {
 		session: key(1),
 		suggested_name: "x.json".into(),
@@ -83,10 +93,10 @@ async fn export_and_offer_send_absolute_paths() {
 	a.dispatch(Intent::OfferFile { session: key(1) });
 	until(|| cmds(&engine).len() == 2).await;
 	let c = cmds(&engine);
-	assert!(c.iter().any(|c| matches!(c, MsgCommand::Export { destination, embed_images: false, .. } if destination == "/tmp/out.json")));
+	assert!(c.iter().any(|c| matches!(c, MsgCommand::Export { destination, embed_images: false, .. } if *destination == out)));
 	assert!(
 		c.iter()
-			.any(|c| matches!(c, MsgCommand::OfferFile { path, .. } if path == "/tmp/out.json"))
+			.any(|c| matches!(c, MsgCommand::OfferFile { path, .. } if *path == out))
 	);
 }
 
