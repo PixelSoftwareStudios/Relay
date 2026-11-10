@@ -24,6 +24,13 @@ class SignatureTests(unittest.TestCase):
         self.assertEqual(sig.problems(output("CN=Relay"), colons), [])
         self.assertTrue(sig.problems(output("CN=Relay"), "00" * 32))
 
+    def test_the_newer_apksigner_wording_is_understood(self):
+        newer = ("Verifies\nSigner (minSdkVersion=28, maxSdkVersion=2147483647) certificate DN: CN=Relay\n"
+                 f"Signer (minSdkVersion=28, maxSdkVersion=2147483647) certificate SHA-256 digest: {DIGEST.upper()}\n")
+        self.assertEqual(sig.problems(newer, DIGEST), [])
+        debug = newer.replace("CN=Relay", "C=US, O=Android, CN=Android Debug")
+        self.assertTrue(sig.problems(debug))
+
     def test_exactly_one_signer(self):
         self.assertTrue(sig.problems(output("CN=Relay", signers=2)))
         self.assertTrue(sig.problems(""))

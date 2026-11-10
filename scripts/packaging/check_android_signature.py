@@ -26,15 +26,19 @@ def find_apksigner():
 
 def certificates(output):
     """(subject, sha256) of each signer in `apksigner verify --print-certs` output."""
-    subjects = re.findall(r"^Signer #\d+ certificate DN: (.*)$", output, re.M)
-    digests = re.findall(r"^Signer #\d+ certificate SHA-256 digest: ([0-9a-f]+)$", output, re.M)
-    return list(zip(subjects, digests))
+    # Older apksigner prints "Signer #1 certificate DN: ..."; newer build-tools print the scheme's
+    # range instead: "Signer (minSdkVersion=28, maxSdkVersion=2147483647) certificate DN: ...".
+    who = r"Signer(?: #\d+| \([^)]*\))"
+    subjects = re.findall(rf"^{who} certificate DN: (.*)$", output, re.M)
+    digests = re.findall(rf"^{who} certificate SHA-256 digest: ([0-9a-fA-F]+)\s*$", output, re.M)
+    return list(zip(subjects, [d.lower() for d in digests]))
 
 
 def problems(output, fingerprint=None):
     signers = certificates(output)
     if len(signers) != 1:
-        return [f"expected exactly one signer, found {len(signers)}"]
+        # The output is public (certificate names and digests), so show it to make this debuggable.
+        return [f"expected exactly one signer, found {len(signers)}; apksigner said:\n{output.strip()[:2000]}"]
     subject, digest = signers[0]
     found = []
     if "android debug" in subject.lower():
