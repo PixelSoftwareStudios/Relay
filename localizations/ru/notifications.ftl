@@ -6,4 +6,4 @@ notification-unknown-caller = Неизвестный абонент
 notification-accept = Принять
 notification-decline = Отклонить
 notification-open = Открыть
-notification-auto-answered = Отвечено автоматически: { $name }
+notification-auto-answered = Принят автоматически: { $name }
