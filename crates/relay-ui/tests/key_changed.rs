@@ -173,7 +173,7 @@ async fn trust_is_enabled_only_for_the_exact_fingerprint() {
 	let (mut phone, ops) = rig(360.0, 2400.0, Language::En, false, false);
 	phone.click_label("Compare and trust new key");
 	let drawn = phone.settle();
-	assert!(has(&drawn, "New key seen from this device"));
+	assert!(has(&drawn, "New key received from this device"));
 	assert!(has(&drawn, "59F1 59F1 59F1 59F1"), "{:?}", drawn.labels);
 
 	// Part of it, another device's, or one wrong digit: nothing is sent.
