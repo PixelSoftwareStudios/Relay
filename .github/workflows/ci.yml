@@ -110,7 +110,7 @@ jobs:
           tool: cargo-nextest@0.9.151
       # nextest (one process per test, the real-clock throttle in .config/nextest.toml) is how the tests are
       # run everywhere; plain `cargo test` shares one process per binary and ignores the throttle.
-      - run: cargo nextest run --locked --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
+      - run: cargo nextest run --locked --profile ci --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
       - run: cargo test --locked --doc --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches
       - name: Terminal-only crates have no GUI dependencies
         shell: bash

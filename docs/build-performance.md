@@ -42,11 +42,14 @@ Flake rates over five full nextest runs each (calls_fit excluded, see below):
 | optimised deps | 3 of 5 | media_capture_faults, media_rekey, daemon_cmd x2 |
 | optimised deps, every engine test binary throttled to two at a time | 3 of 5 | media_rekey x3, service_forget |
 
-Throttling did not remove the failures and made the run 40 percent slower, so only the tests
-that start real `relayd` processes are grouped (`.config/nextest.toml`). The remaining
-failures are not load related: media_rekey logs "prepare refused: media for this call
-already exists", which looks like a real race. They need fixing in the code, not
-retries (retries stay off).
+That experiment was local (ten fast cores). On the two-to-four core CI runners, with nextest
+running tests of different binaries at once, the engine's real-time audio and e2e tests missed
+their deadlines (service_e2e, channels_calls, messages_isolation, media_release_delay,
+media_tone_playback, media_output_route), so every `relay-engine` test now shares the
+`real-clock` group (two at a time) and CI runs `--profile ci`. Measured locally,
+`cargo nextest run -p relay-engine` went from 34 s to 114 s. The failures that remain after
+that are real races (media_rekey: "prepare refused: media for this call already exists") and
+need fixing in the code, not retries (retries stay off).
 
 Found by process isolation, not fixed here (relay-ui and engine sources belong to others):
 

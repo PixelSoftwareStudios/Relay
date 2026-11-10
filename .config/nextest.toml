@@ -11,9 +11,7 @@ slow-timeout = { period = "30s", terminate-after = 4 }
 
 # Tests that start real relayd processes and wait on the real clock. With ten test
 # processes running at once they have been seen to miss their deadlines, so at most
-# two of them run at the same time. Nothing else is throttled: throttling the engine
-# tests cost 40 percent of the run time and did not remove their (real, not
-# load-related) races. See docs/build-performance.md.
+# two of them run at the same time. See docs/build-performance.md.
 [test-groups]
 real-clock = { max-threads = 2 }
 
@@ -25,9 +23,17 @@ test-group = 'real-clock'
 filter = 'package(=relay-client) & (binary(=daemon) | binary(=ensure) | binary(=startup_wait))'
 test-group = 'real-clock'
 
-# The engine's audio tests also play and capture on the real clock. CI runners have two to four slow
-# cores, and with every test binary running at once the ring/capture waits missed their deadlines
-# (media_output_route, support_capture). Only these binaries share the real-clock group.
+# Every engine test binary drives real-time audio, media and peer links on the real clock (the e2e
+# harness plays hardware in 10 ms ticks). CI runners have two to four slow cores, and with every
+# binary running at once the ring/capture/consent waits missed their deadlines (media_output_route,
+# service_e2e, channels_calls, media_release_delay). Only two engine tests run at the same time.
 [[profile.default.overrides]]
-filter = 'package(=relay-engine) & (binary(~media_) | binary(=audio_flow) | binary(=tone_driver))'
+filter = 'package(=relay-engine)'
 test-group = 'real-clock'
+
+# CI: the same limits, and a longer kill time for the tests that start whole daemons on a slow
+# runner. Selected with `--profile ci`.
+[profile.ci]
+retries = 0
+fail-fast = false
+slow-timeout = { period = "60s", terminate-after = 5 }
