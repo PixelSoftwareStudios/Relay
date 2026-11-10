@@ -1,7 +1,7 @@
 # Relay desktop UI catalog, Portuguese (Brazil) (pt-BR), section: Tray menu and tooltip.
 # Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
 
-tray-mock = Relay (dados de teste)
+tray-mock = Relay (dados fictícios)
 tray-starting = Relay: iniciando o daemon
 tray-connecting = Relay: conectando ao daemon
 tray-reconnecting = Relay: conexão com o daemon perdida, reconectando

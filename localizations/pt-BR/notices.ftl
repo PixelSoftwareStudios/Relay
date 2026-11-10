@@ -2,7 +2,7 @@
 # Same ids and $variables as localizations/en/notices.ftl. See docs/i18n.md.
 
 notice-dismiss-all = Dispensar tudo
-notice-more = +{ $count } mais
+notice-more = Mais { $count }
 notice-fewer = Mostrar menos
 notice-repeated = { $title } ({ $count } vezes)
 notice-key-changed-title = A chave de segurança de { $name } mudou
@@ -15,10 +15,10 @@ notice-audio-failed-step = Reinicie o Relay.
 notice-mic-restarted-title = Seu microfone parou.
 notice-render-restarted-title = O áudio do outro lado parou.
 notice-worker-restarted-step = O Relay o reiniciou.
-notice-output-lost-title = O alto-falante ou o fone foi desconectado
-notice-output-lost-step = O áudio remoto está em pausa. Reconecte-o ou escolha outra saída em Configurações.
+notice-output-lost-title = O alto-falante ou os fones de ouvido foram desconectados
+notice-output-lost-step = O áudio da outra pessoa está em pausa. Reconecte o dispositivo ou escolha outra saída em Configurações.
 notice-mic-title = O microfone não está disponível
-notice-mic-step = Verifique se o Relay pode usá-lo e se nenhum outro app o está usando, e tente de novo.
+notice-mic-step = Verifique se o Relay tem permissão para usá-lo e se nenhum outro app está usando o microfone. Depois, tente de novo.
 notice-avatar-title = Uma foto de perfil não foi aceita
 notice-avatar-step = Nada mais foi afetado.
 notice-prefs-recovered-title = Suas configurações foram reparadas

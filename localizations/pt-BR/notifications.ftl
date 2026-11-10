@@ -2,7 +2,7 @@
 # Tradução para o português do Brasil; ids e $variáveis iguais aos do inglês.
 
 notification-title = Chamada recebida no Relay
-notification-unknown-caller = Chamador desconhecido
+notification-unknown-caller = Desconhecido
 notification-accept = Aceitar
 notification-decline = Recusar
 notification-open = Abrir
