@@ -139,6 +139,21 @@ fn atomic_write_replaces_and_keeps_a_backup_on_request() {
 }
 
 #[test]
+fn a_stale_read_only_backup_is_replaced() {
+	let tmp = tempfile::tempdir().unwrap();
+	let file = tmp.path().join("cfg");
+	let bak = backup_path(&file);
+	fs::write(&file, b"one").unwrap();
+	fs::write(&bak, b"stale").unwrap();
+	let mut perms = fs::metadata(&bak).unwrap().permissions();
+	perms.set_readonly(true);
+	fs::set_permissions(&bak, perms).unwrap();
+	AtomicWrite::new(&file).backup(true).write(b"two").unwrap();
+	assert_eq!(fs::read(&bak).unwrap(), b"one");
+	assert_eq!(fs::read(&file).unwrap(), b"two");
+}
+
+#[test]
 fn staged_content_is_invisible_until_commit() {
 	let tmp = tempfile::tempdir().unwrap();
 	let file = tmp.path().join("cfg");

@@ -76,6 +76,7 @@ impl AtomicWrite {
 			tmp,
 			target: self.path.clone(),
 			backup: self.backup,
+			private: self.private,
 		})
 	}
 
@@ -91,6 +92,7 @@ pub struct Staged {
 	tmp: PathBuf,
 	target: PathBuf,
 	backup: bool,
+	private: bool,
 }
 
 impl Staged {
@@ -103,17 +105,40 @@ impl Staged {
 	pub fn commit(self) -> Result<()> {
 		let path = &self.target;
 		if self.backup && path.exists() {
-			let bak = backup_path(path);
-			fs::copy(path, &bak).map_err(|e| IoError::io(&bak, e))?;
-			File::open(&bak)
-				.and_then(|f| f.sync_all())
-				.map_err(|e| IoError::io(&bak, e))?;
+			self.write_backup(path)?;
 		}
 		fs::rename(&self.tmp, path).map_err(|e| IoError::io(path, e))?;
 		if let Some(dir) = path.parent() {
 			sync_dir(dir);
 		}
 		Ok(())
+	}
+}
+
+impl Staged {
+	/// Copies `path` to `<path>.bak`. The copy is written through one writable
+	/// handle that is also the one fsynced: on Windows `FlushFileBuffers` needs
+	/// write access (a read-only `File::open` fails with "Access is denied"), and a
+	/// stale or read-only backup is removed first instead of being written over.
+	fn write_backup(&self, path: &Path) -> Result<()> {
+		let bak = backup_path(path);
+		match fs::remove_file(&bak) {
+			Ok(()) => {}
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+			Err(e) => return Err(IoError::io(&bak, e)),
+		}
+		let mut src = File::open(path).map_err(|e| IoError::io(path, e))?;
+		let mut dst = if self.private {
+			create_private_new(&bak)?
+		} else {
+			fs::OpenOptions::new()
+				.write(true)
+				.create_new(true)
+				.open(&bak)
+				.map_err(|e| IoError::io(&bak, e))?
+		};
+		std::io::copy(&mut src, &mut dst).map_err(|e| IoError::io(&bak, e))?;
+		dst.sync_all().map_err(|e| IoError::io(&bak, e))
 	}
 }
 
