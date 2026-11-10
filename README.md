@@ -45,7 +45,7 @@ telemetry.
   `relay config set background.available true`.
 - **Desktop, CLI and Android.** Windows, macOS and Linux (x64 and arm64), and Android (arm64).
 - **Nine languages** in the app: English, German, Spanish, Hindi, Japanese, Korean, Brazilian Portuguese,
-  Russian and Simplified Chinese. Only English is reviewed; see [Security and limits](#security-and-limits).
+  Russian and Simplified Chinese. Translations are model-reviewed; native-speaker review is welcome (see [Security and limits](#security-and-limits)).
   The CLI is English only.
 
 ## Screenshots
@@ -123,8 +123,8 @@ in [docs/architecture.md](docs/architecture.md), with the wire formats in
   [docs/reviews/security-net-channels.md](docs/reviews/security-net-channels.md)).
 - Relay is LAN-only by design. Internet calling is not supported; an opt-in overlay (Tailscale) mode is
   unit-tested but has no real-world call yet.
-- The eight non-English translations were machine-written and have not been reviewed by native speakers;
-  Hindi is flagged experimental ([docs/i18n.md](docs/i18n.md)).
+- The eight non-English translations were machine-written and reviewed by a model, not yet by native
+  speakers; a native review is welcome. Hindi is flagged experimental ([docs/i18n.md](docs/i18n.md)).
 - The Android app has only been verified on an emulator so far; there is no echo cancellation yet, so use
   headphones or a handset ([docs/roadmap.md](docs/roadmap.md)).
 - Release builds are not code-signed or notarized.
