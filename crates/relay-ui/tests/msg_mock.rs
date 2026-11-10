@@ -81,7 +81,8 @@ async fn mock_send_goes_sending_then_delivered_and_fail_can_be_retried() {
 #[tokio::test]
 async fn mock_download_progresses_to_completed() {
 	let shell = Arc::new(FakeShell::default());
-	*shell.path.lock().unwrap() = Some("/tmp/dl".into());
+	// An absolute path on this platform: `/tmp/dl` has no drive letter on Windows and is rejected there.
+	*shell.path.lock().unwrap() = Some(std::env::temp_dir().join("dl"));
 	let a = actions(shell.clone());
 	let hub = a.shared.messages.clone();
 	tokio::spawn(run(hub.clone(), shell));
