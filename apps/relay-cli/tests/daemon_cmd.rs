@@ -43,6 +43,19 @@ impl Setup {
 		Ok(String::from_utf8(out).expect("utf8"))
 	}
 
+	/// `daemon status` once the engine finished starting: the socket answers a moment before
+	/// the identity is open, and a slow runner can ask in between (it then says `starting`).
+	async fn running_status(&self) -> String {
+		let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+		loop {
+			let status = self.daemon("status").await.expect("status");
+			if !status.starts_with("daemon starting") || std::time::Instant::now() > deadline {
+				return status;
+			}
+			tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+		}
+	}
+
 	/// `relay daemon <verb>` with a throwaway home and no LAN.
 	async fn daemon(&self, verb: &str) -> Result<String, CliError> {
 		let binary = relayd().to_str().expect("utf8").to_owned();
@@ -110,7 +123,7 @@ async fn the_daemon_is_started_inspected_and_stopped_by_the_cli() {
 			.expect("again")
 			.contains("already running")
 	);
-	let status = s.daemon("status").await.expect("status");
+	let status = s.running_status().await;
 	assert!(
 		status.contains("running") && status.contains("engine"),
 		"{status}"
