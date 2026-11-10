@@ -64,7 +64,10 @@ def sign_bundle(bundle):
     """Ad-hoc only. One fixed identifier keeps the designated requirement, and so the keychain
     approval, the same whichever program started the daemon."""
     macos = bundle / "Contents/MacOS"
-    for program in release.DESKTOP_PROGRAMS:
+    # relay-desktop is the bundle's main executable: signing it signs the bundle, which needs the
+    # other programs inside signed first. (arm64 binaries already carry the linker's ad-hoc
+    # signature, so only Intel builds notice the order.)
+    for program in (*release.CLI_PROGRAMS, "relay-desktop"):
         subprocess.run(["/usr/bin/codesign", "--force", "--sign", "-", "--timestamp=none",
                         "--identifier", IDENTIFIER, str(macos / program)],
                        check=True)

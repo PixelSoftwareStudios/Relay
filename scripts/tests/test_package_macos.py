@@ -34,6 +34,15 @@ class MacosTests(unittest.TestCase):
         macos.populate_bundle(binaries, app, self.version)
         return app
 
+    def test_the_main_executable_is_signed_after_the_helpers_inside_the_bundle(self):
+        # codesign treats Contents/MacOS/relay-desktop as the bundle itself and refuses while the
+        # other programs are unsigned (Intel builds carry no linker signature).
+        calls = []
+        with patch.object(macos.subprocess, "run", lambda cmd, **kw: calls.append(cmd)):
+            macos.sign_bundle(Path("Relay.app"))
+        signed = [Path(c[-1]).name for c in calls if "--sign" in c]
+        self.assertEqual(signed, ["relay", "relayd", "relay-desktop", "Relay.app"])
+
     @unittest.skipIf(sys.platform == "win32", "macOS packaging checks POSIX executable bits; it only runs on macOS runners")
     def test_bundle_keeps_the_three_programs_side_by_side(self):
         app = self.bundle()
