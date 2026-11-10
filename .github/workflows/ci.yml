@@ -108,9 +108,14 @@ jobs:
       - uses: taiki-e/install-action@cfdb7ed4ccc7c7dce37759eae89dc5674b469b39 # v2
         with:
           tool: cargo-nextest@0.9.151
-      # nextest (one process per test, the real-clock throttle in .config/nextest.toml) is how the tests are
-      # run everywhere; plain `cargo test` shares one process per binary and ignores the throttle.
-      - run: cargo nextest run --locked --profile ci --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
+      # nextest (one process per test, the real-clock throttle in .config/nextest.toml) runs the tests on
+      # Linux and Windows. On the macOS runner (three slow cores) the end-to-end audio tests missed their
+      # deadlines in numbers when every test started its own process, while plain `cargo test` (one
+      # process per binary) passed them, so macOS keeps `cargo test`.
+      - if: runner.os != 'macOS'
+        run: cargo nextest run --locked --profile ci --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
+      - if: runner.os == 'macOS'
+        run: cargo test --locked --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches --no-fail-fast
       - run: cargo test --locked --doc --workspace --exclude relay-ui --exclude relay-desktop --exclude relay-benches
       - name: Terminal-only crates have no GUI dependencies
         shell: bash
