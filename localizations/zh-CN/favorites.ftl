@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, zh-CN, section: Favorites (the quick-call grid). Same ids and $variables as localizations/en/favorites.ftl. See docs/i18n.md.
 
-err-favorites-full = 最多可以有 6 个收藏
+err-favorites-full = 最多只能收藏 6 个联系人
 favorites-heading = 收藏
 favorites-empty-title = 还没有收藏
 favorites-empty-help = 把常用联系人固定在这里，一键呼叫。在“联系人”中给联系人加星标即可。

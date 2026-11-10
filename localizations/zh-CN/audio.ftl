@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Audio, levels and ringing.
-# Terms: 通话 call, 挂断 hang up, 静音 mute, 拒听 deafen, 按键通话 push-to-talk, 对等端 peer, 频道 channel,
-# 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
+# Terms: 通话 call, 呼叫 to call, 挂断 hang up, 静音 mute, 关闭声音 deafen, 按住说话 push-to-talk, 后台服务 daemon, 设备 device/peer, 频道 channel,
+# 邀请码 invite code, 指纹 fingerprint, 信任 trust, 验证 verify, 屏蔽 block, 来电 incoming call, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
 
 duration-ms = { $millis } ms
@@ -8,7 +8,7 @@ release-delay-off = 关闭（立即停止）
 level-dbfs = { $value } dBFS
 level-no-data = 无信号数据
 gain-percent = { $value }%
-audio-none = 守护进程连接后才会显示音频设置。
+audio-none = 连接后台服务后才会显示音频设置。
 audio-device-default = { $name }（系统默认）
 audio-system-default = 系统默认
 audio-pinned-missing = 所选设备未连接，改用系统默认设备。
@@ -25,7 +25,7 @@ ring-sounds = 接通和挂断提示音
 ring-test = 试听铃声
 ring-test-hover = 在此设备上播放两秒铃声。
 meter-hover = { $label }：{ $level }
-slider-release-delay = 按键通话松开延迟
+slider-release-delay = 按住说话松开延迟
 audio-mute-all = 全部静音
 audio-deafen-all = 全部关闭声音
 audio-devices = 设备
@@ -47,4 +47,4 @@ audio-ns-level-low = 低
 audio-ns-level-moderate = 中
 audio-ns-level-high = 高
 audio-agc = 自动平衡我的音量
-audio-processing-help = 在发送之前应用于你的声音。如果声音听起来单薄或被截断，请关闭。
+audio-processing-help = 在发送前处理你的声音。如果声音发薄或断断续续，请关闭此功能。

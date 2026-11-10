@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Channels, privacy and the connection string.
-# Terms: 通话 call, 挂断 hang up, 静音 mute, 拒听 deafen, 按键通话 push-to-talk, 对等端 peer, 频道 channel,
-# 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
+# Terms: 通话 call, 呼叫 to call, 挂断 hang up, 静音 mute, 关闭声音 deafen, 按住说话 push-to-talk, 后台服务 daemon, 设备 device/peer, 频道 channel,
+# 邀请码 invite code, 指纹 fingerprint, 信任 trust, 验证 verify, 屏蔽 block, 来电 incoming call, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
 
 channels-heading = 频道
@@ -14,13 +14,13 @@ channel-summary = { $role } · { $flags } · { $peers ->
     }
 channel-invite = 邀请…
 channel-leave-yes = 是，退出
-channel-leave-stay = 留下
+channel-leave-stay = 暂不退出
 channel-leave = 退出
 invite-uses = { $count ->
        *[other] { $count } 次使用
     }
 invite-create = 创建邀请
-invite-token-note = 邀请码（请保密）。持有者在其过期或用完之前都可以加入：
+invite-token-note = 邀请码（请保密）。在过期或次数用完前，任何持有此码的人都可以加入：
 channel-create-heading = 创建频道
 channel-name-hint = 频道名称
 channel-listed-label = 公开列出：向成员的设备显示名称
@@ -30,27 +30,27 @@ password-hint = 密码
 channel-join-heading = 加入频道
 channel-join-note = 粘贴邀请码，或输入频道名称或 ID 及其密码。
 channel-join-hint = 邀请码、频道名称或 ID
-password-optional-hint = 密码（使用邀请时无需填写）
-privacy-none = 守护进程连接后才会显示隐私设置。
+password-optional-hint = 密码（使用邀请码时无需填写）
+privacy-none = 连接后台服务后才会显示隐私设置。
 privacy-inbound-anyone = 网络中的任何人
 privacy-inbound-shared = 仅我的频道成员
-privacy-inbound-nobody = 没有人
+privacy-inbound-nobody = 不允许任何人
 privacy-inbound-nobody-help = 没有人可以呼叫此设备。你仍然可以呼叫其他人。
 privacy-who-rings = 谁可以呼叫我
-privacy-advert-visible = 附近设备可见
-privacy-advert-hidden = 隐藏（只能通过连接字符串联系）
+privacy-advert-visible = 对附近设备可见
+privacy-advert-hidden = 隐藏（仅能通过连接字符串呼叫）
 privacy-visibility = 网络可见性
 invite-ttl-hour = 1 小时
 invite-ttl-day = 1 天
 invite-ttl-week = 7 天
-connection-none = Relay 没有找到可分享的地址。请确认它正在运行，然后重试。
+connection-none = Relay 没有找到可分享的地址。请确认 Relay 正在运行，然后重试。
 connection-share = 分享此地址，网络中的其他设备即可呼叫你：
 connection-addresses = 地址：{ $addresses } · 端口 { $port }
 connection-fingerprint = 指纹 { $fingerprint }
-connection-warning = 任何知道此地址的人都可以呼叫你。这不会让对方成为受信任设备，也不会让对方使用你的麦克风。
+connection-warning = 任何知道此地址的人都可以呼叫你，但这不会使对方成为受信任设备，也不会授予对方使用你麦克风的权限。
 connection-qr-too-long = 地址太长，无法生成二维码。
 channel-hidden = 隐藏
-channels-none-help = 频道决定谁能看到并呼叫你，不会开启你的麦克风。创建频道，或通过邀请加入。
+channels-none-help = 频道决定谁能看到并呼叫你，但绝不会开启你的麦克风。你可以创建频道，或通过邀请码加入。
 connection-copy = 复制地址
 connection-error-next = 请确认 Relay 正在后台运行，然后重试。
 connection-qr-help = 用另一台设备扫描此二维码，即可添加本设备。
@@ -62,24 +62,24 @@ privacy-trusted-none = 你还没有信任任何设备。
 privacy-trusted-help = 忘记某台设备即可取消对它的信任。
 connection-scan = 扫描二维码
 scan-wrong = 这个二维码不是 Relay 地址。
-scan-camera-denied = Relay 需要使用相机来扫描二维码。请允许后再试一次。
+scan-camera-denied = Relay 需要使用相机来扫描二维码。请允许后重试。
 scan-camera-blocked = Relay 的相机权限已关闭。请在系统设置中打开后再扫描。
 scan-unavailable = 此设备无法扫描二维码。请改为复制地址。
-scan-failed = 扫描没有成功。请再试一次，或改为复制地址。
+scan-failed = 扫描未成功。请重试，或改为复制地址。
 scan-help = 扫描另一台设备上显示的二维码，即可将其添加到联系人。
 scan-trusting = 正在连接并信任…
 scan-added = 已将 { $name } 添加到联系人。
 scan-added-unnamed = 已将该设备添加到联系人。
 scan-unreachable = 无法连接到该设备。请确认它在同一网络中且已打开 Relay，然后重新扫描。
-scan-mismatch = 该设备与二维码不符，因此没有信任它。
+scan-mismatch = 该设备与二维码不匹配，因此未信任该设备。
 scan-trust-failed = 无法添加该设备：{ $reason }
 privacy-blocked = 已屏蔽的设备
 privacy-blocked-none = 你没有屏蔽任何设备。
-privacy-blocked-help = 已屏蔽的设备无法呼叫你，也不会显示在附近。解除屏蔽后可再次被发现，但不会成为联系人。
-nearby-heading = 你网络中的频道
+privacy-blocked-help = 已屏蔽的设备无法呼叫你，也不会显示在附近。解除屏蔽后，该设备可再次被发现，但不会因此成为联系人。
+nearby-heading = 你所在网络中的频道
 nearby-devices = { $count } 台设备
-nearby-none = 你的网络中还没有发现频道
+nearby-none = 尚未在你的网络中发现频道
 nearby-none-offline = 此设备已离线，看不到其他设备。
-nearby-ambiguous = 有两个频道使用这个名称。请改用代码加入。
+nearby-ambiguous = 有两个频道使用这个名称。请改用邀请码加入。
 nearby-needs-password = 需要密码
 channel-invite-unlisted = 仅限邀请的频道不会在网络上列出。

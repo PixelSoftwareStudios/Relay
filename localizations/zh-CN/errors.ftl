@@ -1,9 +1,9 @@
 # Relay desktop UI catalog, Simplified Chinese (zh-CN), section: Errors the UI words itself.
-# Terms: 通话 call, 挂断 hang up, 静音 mute, 拒听 deafen, 按键通话 push-to-talk, 对等端 peer, 频道 channel,
-# 邀请 invite, 指纹 fingerprint, 信任 trust, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
+# Terms: 通话 call, 呼叫 to call, 挂断 hang up, 静音 mute, 关闭声音 deafen, 按住说话 push-to-talk, 后台服务 daemon, 设备 device/peer, 频道 channel,
+# 邀请码 invite code, 指纹 fingerprint, 信任 trust, 验证 verify, 屏蔽 block, 来电 incoming call, 头像 avatar, 会话 session, 文件分享 file offer. Chinese has only the "other" plural category.
 # See docs/i18n.md.
 
-err-not-connected = 未连接到 Relay 守护进程
+err-not-connected = 未连接到 Relay 后台服务
 err-release-delay = 松开延迟必须在 0 到 2000 ms 之间
 err-gain = 增益必须是 0 到 4 之间的有限数值
 err-bad-call-id = 通话 ID 格式不正确
@@ -27,26 +27,26 @@ err-invite-admin-only = 只有所有者或管理员可以创建邀请
 err-invite-range = 邀请有效期或使用次数超出范围
 err-no-invite = 引擎没有返回邀请
 err-revoke-admin-only = 只有所有者或管理员可以移除成员
-err-not-member = 该设备未被证实是此频道的成员
+err-not-member = 无法确认该设备是此频道的成员
 err-nothing-to-change = 没有需要更改的内容
 err-bad-avatar-hash = 头像哈希格式不正确
 conn-missing-fingerprint = 连接字符串缺少 #指纹 部分。
 conn-bad-fingerprint = 指纹必须是 64 位十六进制字符。
-conn-bad-address = 地址必须是 ip:port 的字面形式，不能是名称。
+conn-bad-address = 地址必须为 IP:端口 形式，不能使用主机名。
 watch-resync = 引擎要求重新同步：{ $reason }
-watch-closed = 守护进程已关闭连接
+watch-closed = 后台服务已关闭连接
 err-unsupported = 此引擎不支持该请求
-err-daemon-unreachable = 无法连接 Relay 守护进程：{ $reason }
-err-engine-timeout = 引擎未在规定时间内响应
+err-daemon-unreachable = 无法连接 Relay 后台服务：{ $reason }
+err-engine-timeout = 引擎未及时响应
 err-connection = 连接问题：{ $reason }
 err-unreadable-image = 该文件不是可读取的图片。
 err-engine-rejected = 引擎拒绝了该请求
-err-no-paths = 此设备无法为 Relay 守护进程选择文件或文件夹。
-err-cannot-start-daemon = 此设备无法启动 Relay 守护进程。
-err-cannot-stop-daemon = 此设备无法停止 Relay 守护进程。
+err-no-paths = 此设备无法为 Relay 后台服务选择文件或文件夹。
+err-cannot-start-daemon = 此设备无法启动 Relay 后台服务。
+err-cannot-stop-daemon = 此设备无法停止 Relay 后台服务。
 err-read-file = 无法读取文件：{ $error }
 err-fingerprint-mismatch = 这不是该设备新密钥的指纹。
-err-trust-full = 已达到 { $limit } 台已保存设备的上限。请在联系人中移除一些。
+err-trust-full = 已保存的设备已达上限（{ $limit } 台）。请在联系人中移除部分设备。
 err-save-failed = Relay 无法保存此更改。请重试，或重新启动应用。
-err-trust-unreachable = Relay 无法连接到该设备以信任它。请确认它在同一网络且已打开 Relay，然后重试。
-err-trust-mismatch = 该设备没有向你显示的密钥，因此未被信任。没有保存任何内容。
+err-trust-unreachable = Relay 无法连接到该设备，因此无法信任它。请确认它在同一网络中且已打开 Relay，然后重试。
+err-trust-mismatch = 该设备的密钥与向你显示的不一致，因此未信任该设备。未保存任何内容。
