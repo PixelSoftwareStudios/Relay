@@ -3,6 +3,7 @@
 mod common;
 
 use clap::Parser;
+#[cfg(unix)]
 use common::engine::EngineHarness;
 use common::{FakeControl, run_with};
 use relay_api::pb::{CallDirection, CallHistoryEntry, CallOutcome};
@@ -84,6 +85,7 @@ fn the_limit_must_be_within_range() {
 	assert!(Cli::try_parse_from(["relay", "history", "--limit", "200", "--json"]).is_ok());
 }
 
+#[cfg(unix)]
 #[tokio::test]
 async fn clear_reaches_a_socket_engine() {
 	let harness = EngineHarness::start().await;

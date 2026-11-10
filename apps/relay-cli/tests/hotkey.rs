@@ -2,24 +2,15 @@
 
 mod common;
 
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
-
 use clap::Parser;
-use common::FakeControl;
-use common::engine::EngineHarness;
-use common::fixtures;
-use relay_api::pb::{CallState, InputAction, InputControlMessage};
 use relay_cli::cli::{Cli, Command, HotkeyCommand, exit};
 use relay_cli::hotkey::{
-	HotkeyReport, HotkeyUpdate, TargetStatus, configured_binding, ptt_label, start_with, supervise,
-	validate_accelerator,
+	HotkeyReport, configured_binding, ptt_label, start_with, validate_accelerator,
 };
 use relay_client::ptt::PttState;
-use relay_client::wire::connect_registered;
 use relay_config::{Paths, Storage};
 use relay_platform::hotkey::{BackendStatus, HotkeyEvent, PermissionKind};
-use relay_platform::testing::{FakeBackend, FakeKeyboard};
+use relay_platform::testing::FakeBackend;
 
 #[test]
 fn an_available_backend_reports_active_and_delivers_edges() {
@@ -142,166 +133,182 @@ fn set_saves_a_valid_key_and_rejects_bad_or_locked() {
 	assert!(err.to_string().contains("holds the settings lock"), "{err}");
 }
 
-async fn until(what: &str, mut ready: impl FnMut() -> bool) {
-	for _ in 0..300 {
-		if ready() {
-			return;
+/// Needs the in-process engine over a unix socket.
+#[cfg(unix)]
+mod supervised {
+	use std::sync::{Arc, Mutex};
+	use std::time::Duration;
+
+	use super::common::engine::EngineHarness;
+	use super::common::{FakeControl, fixtures};
+	use relay_api::pb::{CallState, InputAction, InputControlMessage};
+	use relay_cli::hotkey::{HotkeyUpdate, TargetStatus, start_with, supervise};
+	use relay_client::ptt::PttState;
+	use relay_client::wire::connect_registered;
+	use relay_platform::hotkey::{BackendStatus, HotkeyEvent};
+	use relay_platform::testing::{FakeBackend, FakeKeyboard};
+
+	async fn until(what: &str, mut ready: impl FnMut() -> bool) {
+		for _ in 0..300 {
+			if ready() {
+				return;
+			}
+			tokio::time::sleep(Duration::from_millis(10)).await;
 		}
-		tokio::time::sleep(Duration::from_millis(10)).await;
-	}
-	panic!("timed out waiting for {what}");
-}
-
-struct Run {
-	updates: Arc<Mutex<Vec<HotkeyUpdate>>>,
-	engine: EngineHarness,
-	/// Keeps the controlling client registered.
-	_client: relay_api::RelayClient,
-	keyboard: FakeKeyboard,
-	stop: tokio::sync::oneshot::Sender<()>,
-	task: tokio::task::JoinHandle<(FakeControl, Result<(), relay_cli::cli::CliError>)>,
-}
-
-impl Run {
-	fn inputs(&self) -> Vec<InputControlMessage> {
-		self.engine.engine.inputs.lock().unwrap().clone()
+		panic!("timed out waiting for {what}");
 	}
 
-	fn actions(&self) -> Vec<InputAction> {
-		self.inputs()
-			.iter()
-			.map(|m| InputAction::try_from(m.action).unwrap())
-			.collect()
+	struct Run {
+		updates: Arc<Mutex<Vec<HotkeyUpdate>>>,
+		engine: EngineHarness,
+		/// Keeps the controlling client registered.
+		_client: relay_api::RelayClient,
+		keyboard: FakeKeyboard,
+		stop: tokio::sync::oneshot::Sender<()>,
+		task: tokio::task::JoinHandle<(FakeControl, Result<(), relay_cli::cli::CliError>)>,
 	}
-}
 
-async fn start(control: FakeControl) -> Run {
-	let (mut backend, keyboard) = FakeBackend::new(BackendStatus::Available);
-	let keys = start_with(&mut backend, "Ctrl+Alt+Space").stream.unwrap();
-	let engine = EngineHarness::start().await;
-	let client = connect_registered(&engine.endpoint(), "test", "0", &["observe"])
-		.await
-		.unwrap();
-	let client_id = client.context().unwrap().client_id;
-	let endpoint = engine.endpoint();
-	let updates: Arc<Mutex<Vec<HotkeyUpdate>>> = Arc::default();
-	let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
-	let notified = Arc::clone(&updates);
-	let task = tokio::spawn(async move {
-		let mut control = control;
-		let result = supervise(
-			&mut control,
-			endpoint,
-			client_id,
-			keys,
-			move |u| notified.lock().unwrap().push(u),
-			async {
-				let _ = stopped.await;
-			},
-		)
+	impl Run {
+		fn inputs(&self) -> Vec<InputControlMessage> {
+			self.engine.engine.inputs.lock().unwrap().clone()
+		}
+
+		fn actions(&self) -> Vec<InputAction> {
+			self.inputs()
+				.iter()
+				.map(|m| InputAction::try_from(m.action).unwrap())
+				.collect()
+		}
+	}
+
+	async fn start(control: FakeControl) -> Run {
+		let (mut backend, keyboard) = FakeBackend::new(BackendStatus::Available);
+		let keys = start_with(&mut backend, "Ctrl+Alt+Space").stream.unwrap();
+		let engine = EngineHarness::start().await;
+		let client = connect_registered(&engine.endpoint(), "test", "0", &["observe"])
+			.await
+			.unwrap();
+		let client_id = client.context().unwrap().client_id;
+		let endpoint = engine.endpoint();
+		let updates: Arc<Mutex<Vec<HotkeyUpdate>>> = Arc::default();
+		let (stop, stopped) = tokio::sync::oneshot::channel::<()>();
+		let notified = Arc::clone(&updates);
+		let task = tokio::spawn(async move {
+			let mut control = control;
+			let result = supervise(
+				&mut control,
+				endpoint,
+				client_id,
+				keys,
+				move |u| notified.lock().unwrap().push(u),
+				async {
+					let _ = stopped.await;
+				},
+			)
+			.await;
+			(control, result)
+		});
+		Run {
+			updates,
+			engine,
+			_client: client,
+			keyboard,
+			stop,
+			task,
+		}
+	}
+
+	#[tokio::test]
+	async fn pressing_the_key_holds_a_lease_on_the_connected_call_and_release_ends_it() {
+		let run = start(FakeControl::new()).await;
+		until("the call to be bound", || {
+			run.updates
+				.lock()
+				.unwrap()
+				.iter()
+				.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::Call(_))))
+		})
 		.await;
-		(control, result)
-	});
-	Run {
-		updates,
-		engine,
-		_client: client,
-		keyboard,
-		stop,
-		task,
+		// The target reaches the driver on the same turn; give it a moment.
+		tokio::time::sleep(Duration::from_millis(50)).await;
+		run.keyboard.send(HotkeyEvent::Pressed);
+		until("press", || run.actions().contains(&InputAction::Press)).await;
+		until("transmitting", || {
+			run.updates
+				.lock()
+				.unwrap()
+				.iter()
+				.any(|u| matches!(u, HotkeyUpdate::Ptt(PttState::Transmitting)))
+		})
+		.await;
+		run.keyboard.send(HotkeyEvent::Released);
+		until("release", || run.actions().contains(&InputAction::Release)).await;
+
+		let press = &run.inputs()[0];
+		assert_eq!(press.call_id, fixtures::CALL);
+		assert_eq!(
+			press.controller_generation, 5,
+			"the lease generation the engine granted"
+		);
+		assert_eq!(
+			press.transmit_route_generation, 7,
+			"the call's route generation"
+		);
+		let _ = run.stop.send(());
+		let (control, result) = run.task.await.unwrap();
+		result.unwrap();
+		assert!(control.log.iter().any(|l| l.starts_with("lease ")));
 	}
-}
 
-#[tokio::test]
-async fn pressing_the_key_holds_a_lease_on_the_connected_call_and_release_ends_it() {
-	let run = start(FakeControl::new()).await;
-	until("the call to be bound", || {
-		run.updates
-			.lock()
-			.unwrap()
-			.iter()
-			.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::Call(_))))
-	})
-	.await;
-	// The target reaches the driver on the same turn; give it a moment.
-	tokio::time::sleep(Duration::from_millis(50)).await;
-	run.keyboard.send(HotkeyEvent::Pressed);
-	until("press", || run.actions().contains(&InputAction::Press)).await;
-	until("transmitting", || {
-		run.updates
-			.lock()
-			.unwrap()
-			.iter()
-			.any(|u| matches!(u, HotkeyUpdate::Ptt(PttState::Transmitting)))
-	})
-	.await;
-	run.keyboard.send(HotkeyEvent::Released);
-	until("release", || run.actions().contains(&InputAction::Release)).await;
+	#[tokio::test]
+	async fn without_a_connected_call_the_key_is_blocked_not_sent() {
+		let mut control = FakeControl::new();
+		control.snapshot.calls[0].state = CallState::OutgoingRinging as i32;
+		let run = start(control).await;
+		until("no-call status", || {
+			run.updates
+				.lock()
+				.unwrap()
+				.iter()
+				.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::NoCall)))
+		})
+		.await;
+		tokio::time::sleep(Duration::from_millis(50)).await;
+		run.keyboard.send(HotkeyEvent::Pressed);
+		until("blocked", || {
+			run.updates
+				.lock()
+				.unwrap()
+				.iter()
+				.any(|u| matches!(u, HotkeyUpdate::Ptt(PttState::NoTarget)))
+		})
+		.await;
+		assert!(
+			run.inputs().is_empty(),
+			"nothing reaches the engine without a target"
+		);
+		let _ = run.stop.send(());
+		run.task.await.unwrap().1.unwrap();
+	}
 
-	let press = &run.inputs()[0];
-	assert_eq!(press.call_id, fixtures::CALL);
-	assert_eq!(
-		press.controller_generation, 5,
-		"the lease generation the engine granted"
-	);
-	assert_eq!(
-		press.transmit_route_generation, 7,
-		"the call's route generation"
-	);
-	let _ = run.stop.send(());
-	let (control, result) = run.task.await.unwrap();
-	result.unwrap();
-	assert!(control.log.iter().any(|l| l.starts_with("lease ")));
-}
-
-#[tokio::test]
-async fn without_a_connected_call_the_key_is_blocked_not_sent() {
-	let mut control = FakeControl::new();
-	control.snapshot.calls[0].state = CallState::OutgoingRinging as i32;
-	let run = start(control).await;
-	until("no-call status", || {
-		run.updates
-			.lock()
-			.unwrap()
-			.iter()
-			.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::NoCall)))
-	})
-	.await;
-	tokio::time::sleep(Duration::from_millis(50)).await;
-	run.keyboard.send(HotkeyEvent::Pressed);
-	until("blocked", || {
-		run.updates
-			.lock()
-			.unwrap()
-			.iter()
-			.any(|u| matches!(u, HotkeyUpdate::Ptt(PttState::NoTarget)))
-	})
-	.await;
-	assert!(
-		run.inputs().is_empty(),
-		"nothing reaches the engine without a target"
-	);
-	let _ = run.stop.send(());
-	run.task.await.unwrap().1.unwrap();
-}
-
-#[tokio::test]
-async fn two_connected_calls_are_ambiguous_and_never_guessed() {
-	let mut control = FakeControl::new();
-	let mut second = control.snapshot.calls[0].clone();
-	second.call_id = vec![0xd2; 16];
-	control.snapshot.calls.push(second);
-	let run = start(control).await;
-	until("ambiguous status", || {
-		run.updates
-			.lock()
-			.unwrap()
-			.iter()
-			.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::Ambiguous)))
-	})
-	.await;
-	let _ = run.stop.send(());
-	run.task.await.unwrap().1.unwrap();
+	#[tokio::test]
+	async fn two_connected_calls_are_ambiguous_and_never_guessed() {
+		let mut control = FakeControl::new();
+		let mut second = control.snapshot.calls[0].clone();
+		second.call_id = vec![0xd2; 16];
+		control.snapshot.calls.push(second);
+		let run = start(control).await;
+		until("ambiguous status", || {
+			run.updates
+				.lock()
+				.unwrap()
+				.iter()
+				.any(|u| matches!(u, HotkeyUpdate::Target(TargetStatus::Ambiguous)))
+		})
+		.await;
+		let _ = run.stop.send(());
+		run.task.await.unwrap().1.unwrap();
+	}
 }
 
 #[test]
