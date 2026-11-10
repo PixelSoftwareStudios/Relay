@@ -254,7 +254,8 @@ jobs:
     if: inputs.artifacts-run == '' && github.event_name != 'pull_request'
     environment: android-signing
     needs: [version]
-    runs-on: ubuntu-22.04
+    # 24.04: the prebuilt cargo-ndk binary needs glibc 2.39 (22.04 has 2.35)
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
