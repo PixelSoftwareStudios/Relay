@@ -9,8 +9,8 @@ use relay_io::fs::{
 };
 #[cfg(unix)]
 use relay_io::fs::{
-	TempFile, check_private_file, create_private_new, ensure_owned_private_dir,
-	ensure_private_dir, restrict_file, write_private, write_private_fresh,
+	TempFile, check_private_file, create_private_new, ensure_owned_private_dir, ensure_private_dir,
+	restrict_file, write_private, write_private_fresh,
 };
 
 #[cfg(unix)]
