@@ -286,14 +286,16 @@ jobs:
         uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
         with:
           ndk-version: r28c
-          local-cache: true
+          # No local-cache: a cache saved by an earlier run restored an NDK without its toolchains/ clang.
       # The action only reports the path (an output) and adds it to PATH: it sets no environment variable.
       - name: Use the NDK and check its version
         env:
           NDK_PATH: ${{ steps.ndk.outputs.ndk-path }}
         run: |
           grep -q 'Pkg.Revision = 28.2.13676358' "$NDK_PATH/source.properties"
+          # The runner image sets ANDROID_NDK_ROOT to an older NDK; point both variables at r28c.
           echo "ANDROID_NDK_HOME=$NDK_PATH" >> "$GITHUB_ENV"
+          echo "ANDROID_NDK_ROOT=$NDK_PATH" >> "$GITHUB_ENV"
       - name: Build the release APK signed with the release key
         env:
           KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}

@@ -35,7 +35,6 @@ jobs:
       - uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779
         with:
           ndk-version: r28c
-          local-cache: true
       - run: cargo +1.99.0 ndk -t arm64-v8a -P 28 clippy --locked --manifest-path apps/relay-android/Cargo.toml --lib -- -D warnings
 
   documentation:
