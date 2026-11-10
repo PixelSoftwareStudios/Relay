@@ -217,7 +217,7 @@ jobs:
             ldd "$RELEASE_DIR/$program" | tee "dependencies-$program.txt"
             if grep -q 'not found' "dependencies-$program.txt"; then exit 1; fi
           done
-          dpkg-deb --contents dist/*.deb | grep -E ' \./usr/bin/relayd$'
+          dpkg-deb --contents dist/*.deb | grep -E ' (\./)?usr/bin/relayd$'
           rpm -qlp dist/*.rpm | grep -x /usr/bin/relayd
           appimage=$(realpath dist/*.AppImage)
           inspection=$(mktemp -d)
