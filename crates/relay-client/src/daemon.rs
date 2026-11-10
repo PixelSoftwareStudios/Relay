@@ -366,6 +366,14 @@ pub async fn stop(
 	if !reachable(endpoint).await {
 		return Ok(Stopped::NotRunning);
 	}
+	// A daemon that serves its endpoint but is still opening its secure storage cannot register
+	// anyone, so wait (within `limit`) until it is ready. One that failed to start falls
+	// through: registering reports why.
+	match wait_ready(endpoint, limit, &mut |_| {}).await {
+		Ok(()) | Err(NotReady::Failed { .. }) => {}
+		Err(NotReady::TimedOut) => return Err(ApiError::OperationTimeout),
+		Err(NotReady::Gone) => return Ok(Stopped::NotRunning),
+	}
 	let mut client = RelayClient::connect(endpoint).await?;
 	client
 		.register(client_name, env!("CARGO_PKG_VERSION"), &["admin"])
