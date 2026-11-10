@@ -248,7 +248,7 @@ async fn export_prints_json_or_writes_a_new_file_and_never_replaces() {
 		c.chat
 			.log
 			.iter()
-			.filter(|l| l.starts_with("export dest=/"))
+			.filter(|l| l.starts_with("export dest=") && l.contains(path))
 			.count() == 1
 	);
 }

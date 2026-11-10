@@ -83,6 +83,8 @@ fn links_and_devices_are_refused() {
 	for kind in [0o020644u32, 0o010644, 0o140644] {
 		let mut bytes = zip_of(&[("Relay.app/dev", b"", 0o644)]);
 		let at = bytes.windows(4).position(|w| w == b"PK\x01\x02").unwrap();
+		// Version-made-by system byte = Unix, so the mode bits are honoured on every host.
+		bytes[at + 5] = 3;
 		bytes[at + 38..at + 42].copy_from_slice(&(kind << 16).to_le_bytes());
 		let (_, result) = run(&bytes, &Limits::APP);
 		assert!(

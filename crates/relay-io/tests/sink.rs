@@ -2,7 +2,9 @@ use std::fs;
 
 use relay_io::clock::SystemClock;
 use relay_io::entropy::OsEntropy;
-use relay_io::paths::{log_dir_from, runtime_dir_from};
+use relay_io::paths::log_dir_from;
+#[cfg(unix)]
+use relay_io::paths::runtime_dir_from;
 use relay_io::sink::DirSink;
 use relay_messages::sanitize::sanitize_file_name;
 use relay_messages::transfer::FileSink;
@@ -95,18 +97,22 @@ fn clocks_and_entropy_implement_the_pure_crate_ports() {
 #[test]
 fn per_user_directories_follow_the_documented_rules() {
 	let tmp = std::path::Path::new("/tmp");
-	assert_eq!(
-		runtime_dir_from(Some("/run/user/1000".into()), tmp, 1000),
-		std::path::Path::new("/run/user/1000/relay")
-	);
-	assert_eq!(
-		runtime_dir_from(Some("relative".into()), tmp, 501),
-		std::path::Path::new("/tmp/relay-501")
-	);
-	assert_eq!(
-		runtime_dir_from(None, tmp, 501),
-		std::path::Path::new("/tmp/relay-501")
-	);
+	// POSIX absolute paths and a POSIX temp dir: these rules are Unix-only.
+	#[cfg(unix)]
+	{
+		assert_eq!(
+			runtime_dir_from(Some("/run/user/1000".into()), tmp, 1000),
+			std::path::Path::new("/run/user/1000/relay")
+		);
+		assert_eq!(
+			runtime_dir_from(Some("relative".into()), tmp, 501),
+			std::path::Path::new("/tmp/relay-501")
+		);
+		assert_eq!(
+			runtime_dir_from(None, tmp, 501),
+			std::path::Path::new("/tmp/relay-501")
+		);
+	}
 	let log = log_dir_from(Some("/home/u".into()), None, None, tmp);
 	assert!(log.starts_with("/home/u") || cfg!(windows));
 	assert!(relay_io::paths::UserDirs::platform().is_ok());

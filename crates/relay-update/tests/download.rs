@@ -102,6 +102,7 @@ fn a_correctly_signed_download_verifies_and_reports_progress() {
 	assert!(f.leftovers().is_empty(), "staging removed on drop");
 }
 
+#[cfg(unix)]
 #[test]
 fn apply_replaces_the_appimage_atomically_and_keeps_its_mode() {
 	let f = fixture();
@@ -312,6 +313,7 @@ fn an_unwritable_install_directory_is_reported_before_downloading() {
 	));
 }
 
+#[cfg(unix)]
 #[test]
 fn leftover_staging_directories_are_cleaned_when_stale_only() {
 	let f = fixture();
