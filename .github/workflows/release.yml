@@ -233,6 +233,9 @@ jobs:
         run: python scripts/packaging/package_windows.py --version ${{ needs.version.outputs.version }} --target ${{ matrix.target }} --bin-dir "$RELEASE_DIR" --output dist
       - name: Verify MSI install, repair and uninstall
         if: runner.os == 'Windows'
+        # Normally about a minute. A hung msiexec once held a runner for the whole job limit; fail fast
+        # instead, so the installer-log upload below runs.
+        timeout-minutes: 15
         shell: pwsh
         run: ./scripts/packaging/verify_windows_install.ps1 -Installer (Get-ChildItem dist/*.msi).FullName -BinDir $env:RELEASE_DIR
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
