@@ -31,8 +31,24 @@ class SignatureTests(unittest.TestCase):
         debug = newer.replace("CN=Relay", "C=US, O=Android, CN=Android Debug")
         self.assertTrue(sig.problems(debug))
 
+    def test_the_real_apksigner_output_from_the_release_build(self):
+        real = (
+            "Verifies\nVerified using v1 scheme (JAR signing): false\n"
+            "Verified using v2 scheme (APK Signature Scheme v2): true\nNumber of signers: 1\n"
+            "V2 Signer: certificate DN: CN=PixelSoftwareStudios, OU=PixelSoftwareStudios, O=PixelSoftwareStudios, L=San Francisco, ST=California, C=US\n"
+            "V2 Signer: certificate SHA-256 digest: 0b6375ad94a1dc965d2a0f993c065161c89e8eb2de724c81c895d25e4aec80bb\n"
+            "V2 Signer: certificate SHA-1 digest: 0f57f452b17696315ed86ab0fb8bd0e0b9c7fce1\n")
+        pinned = "0B:63:75:AD:94:A1:DC:96:5D:2A:0F:99:3C:06:51:61:C8:9E:8E:B2:DE:72:4C:81:C8:95:D2:5E:4A:EC:80:BB"
+        self.assertEqual(sig.problems(real, pinned), [])
+        self.assertTrue(sig.problems(real, "00" * 32))
+
+    def test_one_certificate_verified_under_several_schemes_is_one_signer(self):
+        twice = output("CN=Relay").replace("Signer #1", "V2 Signer:") + output("CN=Relay").replace("Signer #1", "V3 Signer:")
+        self.assertEqual(sig.problems(twice), [])
+
     def test_exactly_one_signer(self):
-        self.assertTrue(sig.problems(output("CN=Relay", signers=2)))
+        two_keys = output("CN=Relay") + "\n" + output("CN=Other", digest="cd" * 32).replace("Signer #1", "Signer #2")
+        self.assertTrue(sig.problems(two_keys))
         self.assertTrue(sig.problems(""))
 
 

@@ -25,13 +25,16 @@ def find_apksigner():
 
 
 def certificates(output):
-    """(subject, sha256) of each signer in `apksigner verify --print-certs` output."""
-    # Older apksigner prints "Signer #1 certificate DN: ..."; newer build-tools print the scheme's
-    # range instead: "Signer (minSdkVersion=28, maxSdkVersion=2147483647) certificate DN: ...".
-    who = r"Signer(?: #\d+| \([^)]*\))"
+    """The distinct (subject, sha256) signing certificates in `apksigner verify --print-certs` output.
+
+    apksigner words the lines differently by version and signature scheme: "Signer #1 certificate DN: ...",
+    "Signer (minSdkVersion=28, maxSdkVersion=...) certificate DN: ...", or "V2 Signer: certificate DN: ...".
+    An APK verified under several schemes lists the same certificate once per scheme, so equal pairs count once.
+    """
+    who = r"(?:V[0-9.]+ )?Signer(?: #\d+| \([^)]*\))?:?"
     subjects = re.findall(rf"^{who} certificate DN: (.*)$", output, re.M)
     digests = re.findall(rf"^{who} certificate SHA-256 digest: ([0-9a-fA-F]+)\s*$", output, re.M)
-    return list(zip(subjects, [d.lower() for d in digests]))
+    return sorted(set(zip(subjects, [d.lower() for d in digests])))
 
 
 def problems(output, fingerprint=None):
