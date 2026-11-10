@@ -101,6 +101,13 @@ fn exit_codes_are_distinct_per_failure_class() {
 	assert_eq!(unique.len(), codes.len());
 }
 
+/// The flag that points at an engine endpoint: a Unix socket, or on Windows (where
+/// `--socket` is a usage error) a TCP profile file. Both name a file that is absent here.
+#[cfg(unix)]
+const ENDPOINT_FLAG: &str = "--socket";
+#[cfg(not(unix))]
+const ENDPOINT_FLAG: &str = "--tcp-profile";
+
 fn relay() -> Command {
 	Command::new(env!("CARGO_BIN_EXE_relay"))
 }
@@ -113,7 +120,7 @@ fn binary_exits_2_on_bad_usage_and_3_without_an_engine() {
 	let dir = tempfile::tempdir().unwrap();
 	let socket = dir.path().join("absent.sock");
 	let out = relay()
-		.args(["--json", "--no-autostart", "--socket"])
+		.args(["--json", "--no-autostart", ENDPOINT_FLAG])
 		.arg(&socket)
 		.arg("status")
 		.output()
@@ -126,7 +133,7 @@ fn binary_exits_2_on_bad_usage_and_3_without_an_engine() {
 	// The environment switch does the same as the flag.
 	let out = relay()
 		.env("RELAY_NO_AUTOSTART", "1")
-		.args(["--json", "--socket"])
+		.args(["--json", ENDPOINT_FLAG])
 		.arg(&socket)
 		.arg("status")
 		.output()
