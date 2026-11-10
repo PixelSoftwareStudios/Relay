@@ -2,10 +2,11 @@
 
 use relay_api::Revision;
 use relay_client::refresh::{Daemon, Policy, Probe, refresh};
-use relay_ui::actions::Shared;
-use relay_ui::autostart::AutoStart;
-use relay_ui::daemon_control::{LaunchRefresh, launch_result, restart_idle_at_launch};
-use relay_ui::hub::Hub;
+use relay_ui::daemon_control::{LaunchRefresh, launch_result};
+#[cfg(unix)]
+use relay_ui::{
+	actions::Shared, autostart::AutoStart, daemon_control::restart_idle_at_launch, hub::Hub,
+};
 
 #[derive(Default)]
 struct Fake {
