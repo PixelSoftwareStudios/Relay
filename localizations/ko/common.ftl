@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, Korean (ko), section: Shared words and buttons.
 # Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
-# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 전송 요청, push-to-talk = 눌러서 말하기.
 # See docs/i18n.md.
 
 action-cancel = 취소

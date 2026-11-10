@@ -1,17 +1,17 @@
 # Relay desktop UI catalog, Korean (ko), section: Audio, levels and ringing.
 # Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
-# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 전송 요청, push-to-talk = 눌러서 말하기.
 # See docs/i18n.md.
 
 duration-ms = { $millis } ms
-release-delay-off = 끔 (즉시 닫힘)
+release-delay-off = 끔 (즉시 꺼짐)
 level-dbfs = { $value } dBFS
 level-no-data = 신호 데이터 없음
 gain-percent = { $value }%
 audio-none = 데몬에 연결되면 오디오 설정이 표시됩니다.
 audio-device-default = { $name } (시스템 기본값)
 audio-system-default = 시스템 기본값
-audio-pinned-missing = 선택한 장치가 연결되어 있지 않습니다. 대신 시스템 기본값을 사용합니다.
+audio-pinned-missing = 선택한 오디오 장치가 연결되어 있지 않습니다. 대신 시스템 기본값을 사용합니다.
 audio-microphone = 마이크 (입력)
 audio-speakers = 스피커 (출력)
 audio-mic-gain = 마이크 감도
@@ -25,17 +25,17 @@ ring-sounds = 연결 및 종료 효과음
 ring-test = 벨소리 테스트
 ring-test-hover = 이 기기에서 벨소리를 2초 동안 재생합니다.
 meter-hover = { $label }: { $level }
-slider-release-delay = 푸시 투 토크 해제 지연
+slider-release-delay = 눌러서 말하기 해제 지연
 audio-mute-all = 모두 음소거
 audio-deafen-all = 모두 듣기 끄기
-audio-devices = 장치
+audio-devices = 오디오 장치
 audio-devices-help = 변경 사항은 모든 통화에 한 번에 적용됩니다.
-audio-levels = 음량 수준
+audio-levels = 음량
 audio-all-calls = 모든 통화
-audio-all-help = 이 스위치는 지금과 이후의 모든 통화에 적용됩니다.
+audio-all-help = 이 스위치는 현재와 이후의 모든 통화에 적용됩니다.
 audio-mic-test = 마이크 테스트
-mic-test-help = 말을 하면 점이 움직입니다. 소리는 이 기기에만 머물며 전송되거나 녹음되지 않습니다.
-mic-test-running = 말해도 점이 켜지지 않으면 Relay가 마이크를 사용할 수 있는지, 위에서 올바른 마이크를 골랐는지 확인하세요.
+mic-test-help = 말하면 점이 움직입니다. 소리는 이 기기에만 머물며 전송되거나 녹음되지 않습니다.
+mic-test-running = 말해도 점이 켜지지 않으면 Relay가 마이크를 사용할 수 있는지, 위에서 올바른 마이크를 선택했는지 확인하세요.
 mic-test-start = 테스트 시작
 mic-test-stop = 테스트 중지
 mic-test-silent-words = 무음
@@ -46,5 +46,5 @@ audio-ns-level = 강도
 audio-ns-level-low = 낮음
 audio-ns-level-moderate = 보통
 audio-ns-level-high = 높음
-audio-agc = 내 음량을 자동으로 고르게 맞추기
-audio-processing-help = 보내기 전에 내 목소리에 적용됩니다. 목소리가 가늘거나 끊겨 들리면 꺼 두세요.
+audio-agc = 내 음량 자동 조절
+audio-processing-help = 보내기 전에 내 목소리에 적용됩니다. 목소리가 가늘거나 끊겨 들리면 끄세요.

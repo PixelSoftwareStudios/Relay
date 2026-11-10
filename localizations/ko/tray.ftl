@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, Korean (ko), section: Tray menu and tooltip.
 # Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
-# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 전송 요청, push-to-talk = 눌러서 말하기.
 # See docs/i18n.md.
 
 tray-mock = Relay (모의 데이터)
@@ -19,6 +19,6 @@ tray-active =
 tray-idle = Relay: 대기 중
 tray-show = Relay 열기
 tray-quit = 이 앱 종료 (데몬은 계속 실행)
-tray-status-available = 연결 가능
-tray-status-unavailable = 연결 불가
-tray-stay-available = 백그라운드에서 계속 연결 가능 상태 유지
+tray-status-available = 수신 가능
+tray-status-unavailable = 수신 불가
+tray-stay-available = 백그라운드에서 수신 대기

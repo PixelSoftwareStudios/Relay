@@ -1,12 +1,12 @@
 # Relay desktop UI catalog, Korean (ko), section: Channels, privacy and the connection string.
 # Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
-# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 전송 요청, push-to-talk = 눌러서 말하기.
 # See docs/i18n.md.
 
 channels-heading = 채널
 channels-none = 참가 중인 채널이 없습니다.
 channels-yours = 내 채널
-channel-listed = 공개 목록
+channel-listed = 목록 공개
 channel-password = 비밀번호
 channel-invite-only = 초대 전용
 channel-summary = { $role } · { $flags } · { $peers ->
@@ -14,52 +14,52 @@ channel-summary = { $role } · { $flags } · { $peers ->
     }
 channel-invite = 초대…
 channel-leave-yes = 예, 나가기
-channel-leave-stay = 머무르기
+channel-leave-stay = 계속 참가
 channel-leave = 나가기
 invite-uses = { $count ->
        *[other] { $count }회 사용
     }
 invite-create = 초대 만들기
-invite-token-note = 초대 코드(비밀로 유지하세요). 가진 사람은 누구나 만료되거나 소진될 때까지 참가할 수 있습니다:
+invite-token-note = 초대 코드(외부에 공개하지 마세요). 코드가 있으면 누구나 만료되거나 사용 횟수가 소진될 때까지 참가할 수 있습니다:
 channel-create-heading = 채널 만들기
 channel-name-hint = 채널 이름
-channel-listed-label = 공개 목록: 멤버 기기에 이름 표시
+channel-listed-label = 목록 공개: 멤버 기기에 이름 표시
 channel-password-label = 참가 시 비밀번호 필요
 channel-invite-only-label = 초대 전용
 password-hint = 비밀번호
 channel-join-heading = 채널 참가
 channel-join-note = 초대 코드를 붙여넣거나, 채널 이름 또는 ID와 비밀번호를 입력하세요.
 channel-join-hint = 초대 코드, 채널 이름 또는 ID
-password-optional-hint = 비밀번호 (초대 시에는 불필요)
+password-optional-hint = 비밀번호 (초대 코드 사용 시 불필요)
 privacy-none = 데몬에 연결되면 개인정보 보호 설정이 표시됩니다.
-privacy-inbound-anyone = 네트워크의 누구나
+privacy-inbound-anyone = 네트워크의 모든 사람
 privacy-inbound-shared = 내 채널 멤버만
-privacy-inbound-nobody = 아무도 없음
-privacy-inbound-nobody-help = 아무도 이 기기로 전화를 걸 수 없습니다. 다른 사람에게는 여전히 전화할 수 있습니다.
-privacy-who-rings = 나를 호출할 수 있는 사람
+privacy-inbound-nobody = 없음
+privacy-inbound-nobody-help = 아무도 이 기기로 전화할 수 없습니다. 내가 다른 사람에게 전화하는 것은 가능합니다.
+privacy-who-rings = 나에게 전화할 수 있는 사람
 privacy-advert-visible = 근처 기기에 표시
-privacy-advert-hidden = 숨김 (연결 문자열로만 접속 가능)
+privacy-advert-hidden = 숨김 (연결 문자열로만 연결 가능)
 privacy-visibility = 네트워크 공개 범위
 invite-ttl-hour = 1시간
 invite-ttl-day = 1일
 invite-ttl-week = 7일
 connection-none = 공유할 주소를 찾지 못했습니다. Relay가 실행 중인지 확인한 뒤 다시 시도하세요.
-connection-share = 네트워크의 다른 기기에서 내게 전화하려면 이 주소를 공유하세요:
+connection-share = 네트워크의 다른 기기에서 나에게 전화하려면 이 주소를 공유하세요:
 connection-addresses = 주소: { $addresses } · 포트 { $port }
 connection-fingerprint = 지문 { $fingerprint }
-connection-warning = 이 주소가 있으면 누구나 나에게 전화할 수 있습니다. 그렇다고 신뢰받는 것은 아니며 마이크에 접근할 수도 없습니다.
+connection-warning = 이 주소가 있으면 누구나 나에게 전화할 수 있습니다. 하지만 그것만으로 신뢰하는 기기가 되거나 내 마이크에 접근할 수 있는 것은 아닙니다.
 connection-qr-too-long = 주소가 너무 길어 QR 코드로 만들 수 없습니다.
 channel-hidden = 숨김
-channels-none-help = 채널은 누가 나를 보고 전화할 수 있는지를 정하며 마이크를 켜지 않습니다. 채널을 만들거나 초대로 참가하세요.
+channels-none-help = 채널은 누가 나를 보고 나에게 전화할 수 있는지를 정하며, 마이크를 켜지는 않습니다. 채널을 만들거나 초대로 참가하세요.
 connection-copy = 주소 복사
 connection-error-next = Relay가 백그라운드에서 실행 중인지 확인한 뒤 다시 시도하세요.
 connection-qr-help = 다른 기기로 이 코드를 스캔하면 이 기기를 추가할 수 있습니다.
-privacy-who-rings-help = 누가 내게 전화를 걸 수 있는지 정합니다.
+privacy-who-rings-help = 누가 나에게 전화를 걸 수 있는지 정합니다.
 privacy-visibility-help = 숨겨진 기기에도 연결 문자열로 전화할 수 있습니다.
 privacy-messages = 메시지
 privacy-trusted = 신뢰하는 기기
 privacy-trusted-none = 신뢰하는 기기가 아직 없습니다.
-privacy-trusted-help = 신뢰를 끝내려면 기기를 삭제하세요.
+privacy-trusted-help = 신뢰를 해제하려면 기기를 삭제하세요.
 connection-scan = QR 코드 스캔
 scan-wrong = 이 QR 코드는 Relay 주소가 아닙니다.
 scan-camera-denied = 코드를 스캔하려면 Relay에 카메라 권한이 필요합니다. 허용한 뒤 다시 시도하세요.
@@ -80,6 +80,6 @@ nearby-heading = 내 네트워크의 채널
 nearby-devices = 기기 { $count }대
 nearby-none = 네트워크에서 아직 채널을 찾지 못했습니다
 nearby-none-offline = 이 기기는 오프라인이라 다른 기기를 볼 수 없습니다.
-nearby-ambiguous = 두 채널이 같은 이름을 사용합니다. 코드로 참가하세요.
-nearby-needs-password = 비밀번호가 필요합니다
+nearby-ambiguous = 같은 이름을 쓰는 채널이 두 개 있습니다. 코드로 참가하세요.
+nearby-needs-password = 비밀번호 필요
 channel-invite-unlisted = 초대 전용 채널은 네트워크에 표시되지 않습니다.

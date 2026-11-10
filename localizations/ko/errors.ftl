@@ -1,6 +1,6 @@
 # Relay desktop UI catalog, Korean (ko), section: Errors the UI words itself.
 # Terms: call = 통화, hang up = 끊기, mute = 음소거, deafen = 듣기 끄기, peer = 사용자, channel = 채널,
-# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 제안.
+# invite = 초대, fingerprint = 지문, trust = 신뢰, avatar = 프로필 사진, file offer = 파일 전송 요청, push-to-talk = 눌러서 말하기.
 # See docs/i18n.md.
 
 err-not-connected = Relay 데몬에 연결되어 있지 않습니다
@@ -45,8 +45,8 @@ err-no-paths = 이 기기에서는 Relay 데몬용 파일이나 폴더를 선택
 err-cannot-start-daemon = 이 기기에서는 Relay 데몬을 시작할 수 없습니다.
 err-cannot-stop-daemon = 이 기기에서는 Relay 데몬을 중지할 수 없습니다.
 err-read-file = 파일을 읽을 수 없습니다: { $error }
-err-fingerprint-mismatch = 이 기기의 새 키 지문이 아닙니다.
+err-fingerprint-mismatch = 이 기기의 새 키 지문과 다릅니다.
 err-trust-full = 저장된 기기 한도({ $limit }대)에 도달했습니다. 연락처에서 일부를 삭제하세요.
 err-save-failed = Relay가 이 변경을 저장하지 못했습니다. 다시 시도하거나 앱을 다시 시작하세요.
-err-trust-unreachable = 신뢰하기 위해 해당 기기에 연결하지 못했습니다. 같은 네트워크에서 Relay가 열려 있는지 확인한 뒤 다시 시도하세요.
-err-trust-mismatch = 해당 기기는 표시된 키를 가지고 있지 않아 신뢰하지 않았습니다. 아무것도 저장되지 않았습니다.
+err-trust-unreachable = 해당 기기에 연결하지 못해 신뢰할 수 없습니다. 같은 네트워크에서 Relay가 열려 있는지 확인한 뒤 다시 시도하세요.
+err-trust-mismatch = 해당 기기의 키가 표시된 키와 달라 신뢰하지 않았습니다. 아무것도 저장되지 않았습니다.

@@ -3,7 +3,7 @@
 
 update-heading = 업데이트
 update-launch-label = Relay를 시작할 때 업데이트 확인
-update-privacy = Relay는 github.com에 최신 버전이 무엇인지 묻습니다. GitHub는 사용자의 IP 주소와 사용 중인 Relay 버전을 볼 수 있으며, 그 밖의 정보는 전송되지 않습니다. 버튼을 누르거나 이 옵션을 켜지 않으면 Relay는 스스로 확인하지 않습니다.
+update-privacy = Relay는 github.com에서 최신 버전을 확인합니다. GitHub는 사용자의 IP 주소와 사용 중인 Relay 버전을 볼 수 있으며, 그 밖의 정보는 전송되지 않습니다. 버튼을 누르거나 이 옵션을 켜지 않으면 Relay는 스스로 확인하지 않습니다.
 update-check = 업데이트 확인
 update-checking = 업데이트 확인 중…
 update-up-to-date = Relay { $version }이(가) 최신 버전입니다.
@@ -19,6 +19,6 @@ update-failed-offline = Relay가 GitHub에 연결하지 못했습니다. 인터�
 update-failed-translocated = 먼저 Relay를 응용 프로그램 폴더로 옮긴 다음 다시 시도하세요.
 update-failed-readonly = Relay가 디스크 이미지 같은 읽기 전용 위치에서 실행되고 있습니다. 먼저 응용 프로그램 폴더로 옮긴 다음 다시 시도하세요.
 update-failed-not-writable = Relay가 설치된 위치에서는 스스로를 교체할 수 없습니다. 쓰기가 가능한 폴더로 옮긴 다음 다시 시도하세요.
-update-failed-rejected = 업데이트가 설치되지 않았습니다. Relay 팀이 만든 것이 맞는지 확인하지 못했습니다. 기기에서는 아무것도 바뀌지 않았습니다.
-update-failed-damaged = 업데이트가 설치되지 않았습니다. 다운로드가 불완전하거나 손상되었습니다. 기기에서는 아무것도 바뀌지 않았습니다. 다시 시도하세요.
+update-failed-rejected = 업데이트를 설치하지 않았습니다. Relay 팀이 배포한 것인지 확인할 수 없었습니다. 기기에서는 아무것도 바뀌지 않았습니다.
+update-failed-damaged = 업데이트를 설치하지 않았습니다. 다운로드가 불완전하거나 손상되었습니다. 기기에서는 아무것도 바뀌지 않았습니다. 다시 시도하세요.
 update-failed-other = 문제가 생겨 업데이트가 설치되지 않았습니다. 현재 버전은 계속 사용할 수 있습니다.
