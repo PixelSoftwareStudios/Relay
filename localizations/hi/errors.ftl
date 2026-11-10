@@ -2,8 +2,8 @@
 # Terms: call=कॉल, mute=म्यूट, deafen=सुनना बंद, peer=डिवाइस, channel=चैनल, invite=आमंत्रण, trust=भरोसा, file offer=फ़ाइल प्रस्ताव.
 # Same ids and $variables as localizations/en/errors.ftl. See docs/i18n.md.
 
-err-not-connected = Relay डेमन से नहीं जुड़ा है
-err-release-delay = छोड़ने की देरी 0 से 2000 ms के बीच होनी चाहिए
+err-not-connected = Relay की बैकग्राउंड सेवा से कनेक्शन नहीं है
+err-release-delay = छोड़ने में देरी 0 से 2000 ms के बीच होनी चाहिए
 err-gain = गेन 0 से 4 के बीच की संख्या होनी चाहिए
 err-bad-call-id = कॉल आईडी गलत रूप में है
 err-unknown-call = अज्ञात कॉल
@@ -33,16 +33,16 @@ conn-missing-fingerprint = कनेक्शन स्ट्रिंग मे
 conn-bad-fingerprint = फ़िंगरप्रिंट 64 हेक्साडेसिमल अक्षरों का होना चाहिए।
 conn-bad-address = पता सीधा ip:port होना चाहिए, नाम नहीं।
 watch-resync = इंजन ने फिर से सिंक करने को कहा: { $reason }
-watch-closed = डेमन ने कनेक्शन बंद कर दिया
-err-unsupported = यह इंजन उस अनुरोध को समर्थन नहीं देता
-err-daemon-unreachable = Relay डेमन तक पहुँचा नहीं जा सकता: { $reason }
+watch-closed = बैकग्राउंड सेवा ने कनेक्शन बंद कर दिया
+err-unsupported = यह इंजन इस अनुरोध का समर्थन नहीं करता
+err-daemon-unreachable = Relay की बैकग्राउंड सेवा तक पहुँचा नहीं जा सकता: { $reason }
 err-engine-timeout = इंजन ने समय पर जवाब नहीं दिया
 err-connection = कनेक्शन की समस्या: { $reason }
-err-unreadable-image = वह फ़ाइल पढ़ने योग्य चित्र नहीं है।
+err-unreadable-image = वह फ़ाइल पढ़ने योग्य तस्वीर नहीं है।
 err-engine-rejected = इंजन ने अनुरोध अस्वीकार कर दिया
-err-no-paths = यह डिवाइस Relay डेमन के लिए फ़ाइलें या फ़ोल्डर नहीं चुन सकता।
-err-cannot-start-daemon = यह डिवाइस Relay डेमन शुरू नहीं कर सकता।
-err-cannot-stop-daemon = यह डिवाइस Relay डेमन बंद नहीं कर सकता।
+err-no-paths = यह डिवाइस Relay की बैकग्राउंड सेवा के लिए फ़ाइलें या फ़ोल्डर नहीं चुन सकता।
+err-cannot-start-daemon = यह डिवाइस Relay की बैकग्राउंड सेवा शुरू नहीं कर सकता।
+err-cannot-stop-daemon = यह डिवाइस Relay की बैकग्राउंड सेवा बंद नहीं कर सकता।
 err-read-file = फ़ाइल पढ़ी नहीं जा सकी: { $error }
 err-fingerprint-mismatch = यह इस डिवाइस की नई कुंजी का फ़िंगरप्रिंट नहीं है।
 err-trust-full = आप { $limit } सहेजे गए डिवाइस की सीमा तक पहुँच गए हैं। संपर्क में से कुछ हटाएँ।
