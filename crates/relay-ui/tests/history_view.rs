@@ -40,6 +40,7 @@ fn state(history: Vec<HistoryEntry>) -> AppState {
 fn every_outcome_has_its_marker_word() {
 	use HistoryDirection::{Incoming, Outgoing};
 	use HistoryOutcome::*;
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	let state = state(vec![
 		entry(1, 2, Incoming, Completed, 61_000),

@@ -15,6 +15,7 @@ const DAY: u64 = 24 * HOUR;
 fn english() -> MutexGuard<'static, ()> {
 	static LOCK: Mutex<()> = Mutex::new(());
 	let guard = LOCK.lock().unwrap_or_else(|e| e.into_inner());
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	guard
 }
@@ -74,10 +75,12 @@ fn the_words_follow_the_active_language() {
 	assert_eq!(Relative::JustNow.text(), "Just now");
 	assert_eq!(at("1:54 AM").text(), "1:54 AM");
 	assert!(Relative::JustNow.is_recent() && !at("1:54 AM").is_recent());
+	i18n::isolate_thread();
 	i18n::set_active(Language::De);
 	assert_eq!(utc(NOON, NOON - DAY - HOUR).text(), "Gestern um 11:00");
 	assert_eq!(utc(NOON, NOON - 2 * DAY).text(), "03.11.26, 12:00");
 	assert_eq!(Relative::JustNow.text(), "Gerade eben");
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 }
 

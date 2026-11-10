@@ -17,6 +17,7 @@ const KEY_CHANGED: &str = "`Dantes-Laptop.local` presented key 59F1-AAAA instead
 
 #[test]
 fn the_key_mismatch_names_the_device_and_hides_the_digests() {
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	let w = words(&problem(
 		"PEER_KEY_CHANGED",
@@ -61,6 +62,7 @@ fn the_known_codes_have_words_in_english_german_and_russian() {
 	];
 	let mut seen = Vec::new();
 	for language in [Language::En, Language::De, Language::Ru] {
+		i18n::isolate_thread();
 		i18n::set_active(language);
 		let mut titles = Vec::new();
 		for (code, message, recovery) in cases {
@@ -85,11 +87,13 @@ fn the_known_codes_have_words_in_english_german_and_russian() {
 			assert_ne!(a, b);
 		}
 	}
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 }
 
 #[test]
 fn audio_stalls_and_broken_audio_have_their_own_wording_and_severity() {
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	let stall = words(&problem(
 		"MEDIA_WORKER_FAILED",
@@ -120,6 +124,7 @@ fn audio_stalls_and_broken_audio_have_their_own_wording_and_severity() {
 
 #[test]
 fn unknown_codes_show_a_cleaned_engine_message() {
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	let w = words(&problem(
 		"NEW_THING",
@@ -138,6 +143,7 @@ fn unknown_codes_show_a_cleaned_engine_message() {
 
 #[test]
 fn a_key_change_without_a_name_still_reads_well() {
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	let w = words(&problem("PEER_KEY_CHANGED", "key changed", ""));
 	assert_eq!(w.title, "A device's security key changed");

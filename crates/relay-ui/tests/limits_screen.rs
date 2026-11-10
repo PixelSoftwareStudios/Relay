@@ -186,6 +186,7 @@ fn every_outcome_is_worded_with_its_reason() {
 		outcome,
 		reason: reason.into(),
 	};
+	relay_ui::i18n::isolate_thread();
 	relay_ui::i18n::set_active(Language::En);
 	assert_eq!(
 		outcome_text(&result(SettingOutcome::AppliedLive, "")),

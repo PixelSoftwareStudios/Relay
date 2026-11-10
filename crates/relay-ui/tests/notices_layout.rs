@@ -63,6 +63,7 @@ async fn the_strip_fits_with_big_targets_at_every_size() {
 	for (w, h) in [(360.0, 800.0), (320.0, 640.0), (720.0, 800.0)] {
 		for language in [Language::En, Language::De, Language::Ru] {
 			let mut phone = rig(w, h, &state);
+			relay_ui::i18n::isolate_thread();
 			relay_ui::i18n::set_active(language);
 			let drawn = phone.settle();
 			let screen = phone.screen().expand(1.0);
@@ -88,5 +89,6 @@ async fn the_strip_fits_with_big_targets_at_every_size() {
 			}
 		}
 	}
+	relay_ui::i18n::isolate_thread();
 	relay_ui::i18n::set_active(Language::En);
 }

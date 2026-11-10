@@ -260,6 +260,7 @@ pub struct Phone {
 
 impl Phone {
 	pub fn new(width: f32, height: f32, language: Language) -> Self {
+		i18n::isolate_thread();
 		i18n::set_active(language);
 		let slot = Arc::new(SessionSlot::default());
 		let hub = Arc::new(Hub::default());

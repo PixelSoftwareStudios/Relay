@@ -9,9 +9,6 @@ use relay_ui::capabilities::SettingsCategory;
 use relay_ui::i18n::Language;
 use relay_ui::model::{AppState, Inbound};
 
-// Rendering reads the process-wide active language; two render cases must not interleave.
-static LANGUAGE: std::sync::Mutex<()> = std::sync::Mutex::new(());
-
 fn state_with(inbound: Inbound) -> AppState {
 	let mut state = phone::busy_state();
 	let settings = state.settings.as_mut().expect("seeded settings");
@@ -20,7 +17,6 @@ fn state_with(inbound: Inbound) -> AppState {
 }
 
 fn labels(inbound: Inbound, language: Language) -> Vec<String> {
-	let _language = LANGUAGE.lock().expect("language test lock poisoned");
 	let mut phone = Phone::new(360.0, 2400.0, language);
 	phone.show_state(&state_with(inbound));
 	phone.app.open_settings(Some(SettingsCategory::Calls));

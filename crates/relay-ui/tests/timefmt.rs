@@ -178,16 +178,20 @@ fn yesterday_wording_comes_from_the_catalog() {
 		(Language::Ru, "Вчера в 18:51", "Сегодня"),
 		(Language::ZhCn, "昨天 18:51", "今天"),
 	] {
+		i18n::isolate_thread();
 		i18n::set_active(language);
 		assert_eq!(timefmt::format(&zone, now, then), expect, "{language:?}");
 		assert_eq!(timefmt::day_label(&zone, now, now), today, "{language:?}");
 	}
 	// The comma form has no article to agree with the hour.
 	let one_am = ms(2026, 11, 5, 1, 0);
+	i18n::isolate_thread();
 	i18n::set_active(Language::Es);
 	assert_eq!(timefmt::format(&zone, now, one_am), "Ayer, 1:00");
+	i18n::isolate_thread();
 	i18n::set_active(Language::PtBr);
 	assert_eq!(timefmt::format(&zone, now, one_am), "Ontem, 01:00");
+	i18n::isolate_thread();
 	i18n::set_active(Language::En);
 	assert_eq!(timefmt::day_label(&zone, now, then), "Yesterday");
 	assert_eq!(
