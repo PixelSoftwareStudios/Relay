@@ -44,13 +44,27 @@ async fn a_disconnect_while_audio_plays_reopens_and_audio_continues_with_no_warn
 	idle(&mut node, Duration::from_millis(900)).await;
 	assert!(rms(&tail(&node, 400)) > 0.02, "the ring is audible first");
 
+	// The reopened stream is a new device with a new recording. The ring is a decaying bell that
+	// is audible for about its first 1.7 s of a four second period and pauses while no stream
+	// renders it, so the audio is looked for right after the reopen, however long that takes.
+	let before = node.sim.heard().len();
 	node.sim.disconnect_speaker();
-	idle(&mut node, Duration::from_millis(1_500)).await;
-
+	let deadline = Instant::now() + Duration::from_secs(10);
+	while node.sim.heard().len() >= before && Instant::now() < deadline {
+		idle(&mut node, Duration::from_millis(10)).await;
+	}
 	assert!(
-		peak(&tail(&node, 1_200)) > 0.02,
+		node.sim.heard().len() < before,
+		"the speaker is reopened (a new stream plays)"
+	);
+	while peak(&node.sim.heard()) <= 0.02 && Instant::now() < deadline {
+		idle(&mut node, Duration::from_millis(10)).await;
+	}
+	assert!(
+		peak(&node.sim.heard()) > 0.02,
 		"the ring is audible again on the reopened stream"
 	);
+	idle(&mut node, Duration::from_millis(300)).await;
 	assert_eq!(node.output_lost, 0, "a route change is not a warning");
 	assert_eq!(node.output_restored, 0);
 }
