@@ -15,7 +15,11 @@ home-nearby = Por perto
 people-none-nearby = Nenhum dispositivo encontrado nesta rede ainda.
 people-none-nearby-help = Os dois dispositivos precisam estar no mesmo Wi-Fi, com o Relay aberto. Se o sistema pedir, permita que o Relay acesse a rede local. Alguns roteadores impedem que os dispositivos se vejam (isolamento de clientes ou rede de convidados). Se nada resolver, use Conectar um dispositivo abaixo.
 people-none-new-nearby = Nenhum dispositivo novo encontrado nesta rede.
-people-none-new-nearby-help = Seus contatos que estão online aparecem na página Contatos. Os dispositivos em que você ainda não confia aparecem aqui.
+people-none-new-nearby-help = Os dispositivos em que você ainda não confia aparecem aqui.
+contacts-online = { $count ->
+        [one] { $count } contato online
+       *[other] { $count } contatos online
+    }
 people-add-title = Adicionar um dispositivo pelo endereço
 people-add-help = Cole o endereço que aparece em Conectar um dispositivo, no outro dispositivo.
 peer-call-blocked = Não é possível ligar para este dispositivo agora.

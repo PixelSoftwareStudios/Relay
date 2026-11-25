@@ -16,7 +16,11 @@ home-nearby = In der Nähe
 people-none-nearby = Im Netzwerk wurden noch keine Geräte gefunden.
 people-none-nearby-help = Beide Geräte müssen im selben WLAN sein und Relay muss geöffnet sein. Erlaube Relay den Zugriff auf das lokale Netzwerk, falls dein System danach fragt. Manche Router verhindern, dass Geräte einander sehen (Client-Isolation oder Gastnetz). Hilft das alles nicht, nutze unten „Gerät verbinden“.
 people-none-new-nearby = Keine neuen Geräte in diesem Netzwerk gefunden.
-people-none-new-nearby-help = Deine Kontakte, die online sind, stehen auf der Seite Kontakte. Geräte, denen du noch nicht vertraust, erscheinen hier.
+people-none-new-nearby-help = Geräte, denen du noch nicht vertraust, erscheinen hier.
+contacts-online = { $count ->
+        [one] { $count } Kontakt online
+       *[other] { $count } Kontakte online
+    }
 people-add-title = Gerät über Adresse hinzufügen
 people-add-help = Füge die Adresse ein, die das andere Gerät unter „Gerät verbinden“ anzeigt.
 peer-call-blocked = Dieses Gerät kann gerade nicht angerufen werden.

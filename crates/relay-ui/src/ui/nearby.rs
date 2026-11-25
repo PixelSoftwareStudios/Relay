@@ -17,29 +17,42 @@ use crate::theme;
 
 pub fn section(ui: &mut Ui, rows: &[&PeerRow], contacts_online: usize, cx: &mut Cx) {
 	kit::section_title(ui, tr!("home-nearby"));
-	if rows.is_empty() && contacts_online > 0 {
+	if rows.is_empty() {
 		// Online contacts are not "nearby" (they live on the Contacts page), but the empty
 		// state must not claim the network is empty while they are right there.
-		kit::empty_state(
-			ui,
-			tr!("people-none-new-nearby"),
-			tr!("people-none-new-nearby-help"),
-		);
-		return;
+		let (title, help) = if contacts_online > 0 {
+			(
+				tr!("people-none-new-nearby"),
+				tr!("people-none-new-nearby-help"),
+			)
+		} else {
+			(tr!("people-none-nearby"), tr!("people-none-nearby-help"))
+		};
+		kit::empty_state(ui, title, help);
+	} else {
+		kit::help(ui, tr!("people-found-help"));
+		for row in rows {
+			card(ui, row, cx);
+			kit::gap(ui);
+		}
 	}
-	if rows.is_empty() {
-		kit::empty_state(
-			ui,
-			tr!("people-none-nearby"),
-			tr!("people-none-nearby-help"),
-		);
-		return;
+	if contacts_online > 0 {
+		contacts_online_card(ui, contacts_online, cx);
 	}
-	kit::help(ui, tr!("people-found-help"));
-	for row in rows {
-		card(ui, row, cx);
-		kit::gap(ui);
-	}
+}
+
+/// "2 contacts online" with a way to the Contacts page, apart from the untrusted devices above.
+fn contacts_online_card(ui: &mut Ui, count: usize, cx: &mut Cx) {
+	kit::card(ui, |ui| {
+		kit::card_title(ui, &tr!("contacts-online", count = count));
+		ui.add_space(theme::SPACE_S);
+		if ui
+			.button(format!("{} \u{2192}", tr!("favorites-go-contacts")))
+			.clicked()
+		{
+			cx.local.goto = Some(crate::layout::Page::Contacts);
+		}
+	});
 }
 
 /// The key digest as groups of four, easy to read out and compare.

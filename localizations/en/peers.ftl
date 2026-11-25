@@ -18,7 +18,11 @@ home-nearby = Nearby
 people-none-nearby = No devices found on this network yet.
 people-none-nearby-help = Both devices must be on the same Wi-Fi with Relay open. Allow local network access for Relay if your system asks. Some routers block devices from seeing each other (client isolation or a guest network). If nothing helps, use Connect a device below.
 people-none-new-nearby = No new devices found on this network.
-people-none-new-nearby-help = Your contacts that are online are listed on the Contacts page. Devices you have not trusted yet appear here.
+people-none-new-nearby-help = Devices you have not trusted yet appear here.
+contacts-online = { $count ->
+        [one] { $count } contact online
+       *[other] { $count } contacts online
+    }
 people-add-title = Add a device by address
 people-add-help = Paste the address shown under Connect a device on the other device.
 peer-call-blocked = This device cannot be called right now.

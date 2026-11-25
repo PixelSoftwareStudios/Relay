@@ -15,7 +15,10 @@ home-nearby = 近くのデバイス
 people-none-nearby = このネットワークではまだデバイスが見つかっていません。
 people-none-nearby-help = 2 台のデバイスが同じ Wi-Fi に接続され、Relay が開いている必要があります。システムから求められたら、Relay にローカルネットワークへのアクセスを許可してください。ルーターによっては、デバイス同士が互いを検出できないよう制限されている場合があります（クライアント分離やゲストネットワーク）。それでも解決しない場合は、下の「デバイスを接続」を使ってください。
 people-none-new-nearby = このネットワークに新しいデバイスは見つかりませんでした。
-people-none-new-nearby-help = オンラインの連絡先は「連絡先」ページに表示されます。まだ信頼していないデバイスはここに表示されます。
+people-none-new-nearby-help = まだ信頼していないデバイスはここに表示されます。
+contacts-online = { $count ->
+       *[other] オンラインの連絡先 { $count }件
+    }
 people-add-title = アドレスでデバイスを追加
 people-add-help = 相手のデバイスの「デバイスを接続」に表示されるアドレスを貼り付けてください。
 peer-call-blocked = 現在このデバイスには発信できません。
