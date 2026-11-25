@@ -15,8 +15,18 @@ use super::kit::{self, Cx};
 use super::widgets::{avatar, button_row};
 use crate::theme;
 
-pub fn section(ui: &mut Ui, rows: &[&PeerRow], cx: &mut Cx) {
+pub fn section(ui: &mut Ui, rows: &[&PeerRow], contacts_online: usize, cx: &mut Cx) {
 	kit::section_title(ui, tr!("home-nearby"));
+	if rows.is_empty() && contacts_online > 0 {
+		// Online contacts are not "nearby" (they live on the Contacts page), but the empty
+		// state must not claim the network is empty while they are right there.
+		kit::empty_state(
+			ui,
+			tr!("people-none-new-nearby"),
+			tr!("people-none-new-nearby-help"),
+		);
+		return;
+	}
 	if rows.is_empty() {
 		kit::empty_state(
 			ui,

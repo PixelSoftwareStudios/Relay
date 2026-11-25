@@ -38,7 +38,11 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 	kit::gap(ui);
 	scan(ui, cx);
 	let found: Vec<&PeerRow> = rows.iter().filter(|r| !r.known && !r.blocked).collect();
-	nearby::section(ui, &found, cx);
+	let contacts_online = rows
+		.iter()
+		.filter(|r| r.known && !r.blocked && r.reachable)
+		.count();
+	nearby::section(ui, &found, contacts_online, cx);
 	kit::gap(ui);
 	card(ui, cx);
 	kit::gap(ui);
