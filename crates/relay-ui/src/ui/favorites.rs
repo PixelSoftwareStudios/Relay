@@ -1,10 +1,11 @@
 //! The Favorites section of the Calls page: up to six trusted contacts as a grid of tiles,
-//! three to a row, each a one-tap call. A tile holds the picture, the name and whether the
-//! person is online; a long press (or a right click) opens Open contact and Remove. Below the
+//! three to a row. A tile holds the picture, the name, whether the person is online and a call
+//! button (pressing the rest of the tile calls too); a long press (or a right click) opens Open contact and Remove. Below the
 //! grid two buttons lead to Contacts and to Connect. With nothing to show it says what to do.
 
 use egui::{self, Align2, Color32, FontId, Sense, Ui, Vec2};
 
+use crate::icons::{Icon, icon_button_accent};
 use crate::layout::Page;
 use crate::model::{Link, Trust};
 use crate::theme;
@@ -18,8 +19,10 @@ use crate::tr;
 const COLUMNS: usize = 3;
 /// At most this many favorites exist.
 pub const MAX: usize = 6;
-/// Height of a tile: picture, name and one status line.
-const TILE_HEIGHT: f32 = 104.0;
+/// Height of a tile: picture, name and one status line, then room for the call button.
+const TILE_HEIGHT: f32 = 152.0;
+/// Room kept at the foot of a tile for the call button (a touch-sized target).
+const CALL_ROOM: f32 = 48.0;
 /// Size of the picture in a tile.
 const PICTURE: f32 = 48.0;
 
@@ -179,7 +182,24 @@ fn tile(ui: &mut Ui, row: &PeerRow, size: Vec2, cx: &mut Cx) {
 		Some(reason) => response.on_hover_text(reason),
 		None => response.on_hover_text(tr!("favorite-call-hover", name = row.name.as_str())),
 	};
-	if reason.is_none() && response.clicked() {
+	let mut call = reason.is_none() && response.clicked();
+	if reason.is_none() {
+		let slot = egui::Rect::from_min_size(
+			egui::pos2(rect.min.x, rect.max.y - CALL_ROOM),
+			Vec2::new(rect.width(), CALL_ROOM - theme::SPACE_S),
+		);
+		let tip = tr!("favorite-call-hover", name = row.name.as_str());
+		call |= ui
+			.scope_builder(
+				egui::UiBuilder::new()
+					.max_rect(slot)
+					.layout(egui::Layout::top_down(egui::Align::Center)),
+				|ui| icon_button_accent(ui, Icon::Call, &tip),
+			)
+			.inner
+			.clicked();
+	}
+	if call {
 		let id = row.peer_id.clone();
 		cx.local.goto = Some(crate::layout::Page::Calls);
 		cx.actions.run(|c| async move { c.start_call(&id).await });
