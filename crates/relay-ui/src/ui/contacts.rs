@@ -29,9 +29,10 @@ pub fn show(ui: &mut Ui, rows: &[PeerRow], cx: &mut Cx) {
 		});
 		return;
 	}
-	// A device that needs a decision first, then online devices; the order within each
-	// group is the engine's.
-	contacts.sort_by_key(|r| (!r.key_changed, !r.reachable));
+	// A device that needs a decision first; the rest keep the engine's order. Ordering by
+	// "online" as well made cards swap places every time a device's presence changed, which
+	// showed as flicker and a jumping layout, worst on a phone where the list fills the screen.
+	contacts.sort_by_key(|r| !r.key_changed);
 	for row in contacts {
 		if row.key_changed {
 			super::key_changed::card(ui, row, cx);
